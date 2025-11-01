@@ -22,11 +22,6 @@
 
     nixosConfigurations.xoa = lib.nixosSystem {
       inherit system;
-      specialArgs = {
-        inherit self;
-        # XO 5.111.1 build commit
-        xoCommit = "afadc8f95adf741611d1f298dfe77cbf1f895231";
-      };
       modules = autoModules;
     };
   };
