@@ -9,29 +9,25 @@
     system = "x86_64-linux";
     lib    = nixpkgs.lib;
     pkgs   = import nixpkgs { inherit system; };
-  in {
-    # Expose modules for reuse
-    nixosModules = {
-      xen-orchestra = import ./modules/xen-orchestra.nix;
-      users         = import ./modules/users.nix;
-      updates       = import ./modules/updates.nix;
-    };
 
-    # Example host config; adjust to your host and add your hardware-configuration.nix
+    # Auto-import every .nix under ./modules (assumes only modules live there)
+    modulesDir   = ./modules;
+    moduleNames  = builtins.attrNames (builtins.readDir modulesDir);
+    moduleFiles  = lib.filter (n: lib.hasSuffix ".nix" n) moduleNames;
+    moduleFiles' = lib.sort builtins.lessThan moduleFiles;
+    autoModules  = map (n: modulesDir + ("/" + n)) moduleFiles';
+  in {
+    # Optional: expose submodules for reuse
+    nixosModules = lib.listToAttrs (map (p: { name = builtins.baseNameOf p; value = import p; }) autoModules);
+
     nixosConfigurations.xoa = lib.nixosSystem {
       inherit system;
       specialArgs = {
-        # XO 5.111.1 build commit (maps to xo-server 5.111.1 / xo-web 5.114.0)
-        # Ref: forum report linking version to commit afadc8f…
+        inherit self;
+        # XO 5.111.1 build commit
         xoCommit = "afadc8f95adf741611d1f298dfe77cbf1f895231";
       };
-      modules = [
-        ./modules/xen-orchestra.nix
-        ./modules/users.nix
-        ./modules/updates.nix
-        # Include your host's hardware-configuration.nix here
-        # ./hardware-configuration.nix
-      ];
+      modules = autoModules;
     };
   };
 }

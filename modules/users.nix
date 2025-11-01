@@ -8,11 +8,6 @@
     # Set an initial password; change it on first login: passwd xo
     initialPassword = "xo";
     extraGroups    = [ "wheel" "systemd-journal" ];
-  };
-
-  services.openssh = {
-    enable = true;
-    permitRootLogin = "no";
-    settings.PasswordAuthentication = true;
+    shell          = pkgs.bashInteractive;
   };
 }
