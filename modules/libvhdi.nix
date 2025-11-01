@@ -7,10 +7,10 @@ let
   # Official source distribution package (contains vendored libyal deps + configure)
   # See: https://github.com/libyal/libvhdi/releases (tags like libvhdi-alpha-20240509)
   src = pkgs.fetchurl {
-    url = "https://github.com/libyal/libvhdi/releases/download/libvhdi-alpha-${version}/libvhdi-alpha-${version}.tar.gz";
+    url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
     # Run once to get the real hash:
     #   nix-prefetch-url $url
-    sha256 = "sha256-REPLACE_WITH_REAL_HASH";
+    sha256 = "1iyfijjyqngb99jklc16flnz5wskfp1s18q3j6sghv5flxabxzly";
   };
 
   libvhdi = pkgs.stdenv.mkDerivation {
