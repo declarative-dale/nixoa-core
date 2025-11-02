@@ -21,9 +21,9 @@
     enable   = true;
     user     = "xo";
     group    = "xo";
-    home     = "/var/lib/xo";
-    appDir   = "/var/lib/xo/app";
-    cacheDir = "/var/lib/xo/yarn-cache";
+    home     = "/home/xo";
+    appDir   = "/home/xo/app";
+    cacheDir = "/home/xo/yarn-cache";
 
     # Pin to your desired commit
     srcRev  = "2dd451a7d933f27e550fac673029d8ab79aba70d";
@@ -35,9 +35,9 @@
     redisUrl = "redis://127.0.0.1:6379/0";
 
     ssl.enable = true;
-    ssl.dir  = "/var/lib/ssl/xo";
-    ssl.key  = "/var/lib/ssl/xo/key.pem";
-    ssl.cert = "/var/lib/ssl/xo/certificate.pem";
+    ssl.dir  = "/etc/ssl/xo";
+    ssl.key  = "/etc/ssl/xo/key.pem";
+    ssl.cert = "/etc/ssl/xo/certificate.pem";
   };
 
   # Bootloader (leave as provided by user)
