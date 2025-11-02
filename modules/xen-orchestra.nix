@@ -68,10 +68,10 @@ in
     # who/where
     user  = mkOption { type = types.str; default = "xo";   description = lib.mkDefault "Xen Orchestra runtime user"; };
     group = mkOption { type = types.str; default = "xo";   description = "Runtime group for XO."; };
-    home  = mkOption { type = types.path; default = "/var/lib/xo"; description = "Home for the xo user."; };
+    home  = mkOption { type = types.path; default = "/home/xo"; description = "Home for the xo user."; };
 
-    appDir   = mkOption { type = types.path; default = "/var/lib/xo/app";        description = "Writable app directory."; };
-    cacheDir = mkOption { type = types.path; default = "/var/lib/xo/yarn-cache"; description = "Yarn/npm cache directory."; };
+    appDir   = mkOption { type = types.path; default = "/home/xo/app";        description = "Writable app directory."; };
+    cacheDir = mkOption { type = types.path; default = "/home/xo/yarn-cache"; description = "Yarn/npm cache directory."; };
 
     # sources
     srcRev  = mkOption { type = types.str; example = "2dd451a7d933f27e550fac673029d8ab79aba70d"; description = "Git commit or tag to build."; };
@@ -86,9 +86,9 @@ in
 
     ssl = {
       enable = mkOption { type = types.bool; default = true; };
-      dir    = mkOption { type = types.path; default = "/var/lib/ssl/xo"; };
-      key    = mkOption { type = types.path; default = "/var/lib/ssl/xo/key.pem"; };
-      cert   = mkOption { type = types.path; default = "/var/lib/ssl/xo/certificate.pem"; };
+      dir    = mkOption { type = types.path; default = "/etc/ssl/xo"; };
+      key    = mkOption { type = types.path; default = "/etc/ssl/xo/key.pem"; };
+      cert   = mkOption { type = types.path; default = "/etc/ssl/xo/certificate.pem"; };
     };
   };
 
