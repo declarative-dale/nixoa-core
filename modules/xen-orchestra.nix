@@ -160,6 +160,7 @@ in
     systemd.services.xo-build = {
       description = "Build Xen Orchestra (sources pinned via xoa.xo.{srcRev,srcHash})";
       wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
       after    = [ "network-online.target" "xo-bootstrap.service" ];
       requires = [ "xo-bootstrap.service" ];
       environment = {
@@ -173,6 +174,11 @@ in
         User = cfg.user;
         Group = cfg.group;
         WorkingDirectory = cfg.appDir;
+        ExecStartPre = [
+            "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.user} -g ${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
+            "+${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
+            "+${pkgs.coreutils}/bin/chmod -R u+rwX ${cfg.appDir} ${cfg.cacheDir}"
+          ];
         ExecStart = buildScript;
         ReadWritePaths = [ cfg.appDir cfg.cacheDir ];
         PrivateTmp = true;
@@ -194,6 +200,7 @@ in
     systemd.services.xo-server = {
       description = "Xen Orchestra (xo-server)";
       wantedBy = [ "multi-user.target" ];
+      wants = [ "network-online.target" ];
       after    = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       requires = [ "redis-xo.service" "xo-build.service" ];
 
