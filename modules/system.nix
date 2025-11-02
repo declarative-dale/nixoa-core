@@ -1,6 +1,42 @@
 { config, pkgs, lib, ... }:
 
 {
+  imports = [
+    ./xen-orchestra.nix
+    # (any other modules you maintain)
+  ];
+
+  # Make sure the xo user exists (example)
+  users.users.xo = {
+    isNormalUser = true;
+    extraGroups  = [ "wheel" ];
+    openssh.authorizedKeys.keys = [
+      # your ssh pubkey(s)
+    ];
+  };
+  users.groups.xo = { };
+
+  # Your XO from sources, pinned to the rev you asked for
+  xoa.xo = {
+    enable  = true;
+    user    = "xo";
+    group   = "xo";
+    buildDir = "/var/lib/xo";
+    tls.commonName = "xoa.internal";
+
+    # Pin to your requested commit:
+    srcRev  = "2dd451a7d933f27e550fac673029d8ab79aba70d";
+
+    # Fill in the correct SRI for that rev (placeholder shown):
+    # Compute with:
+    #   nix run nixpkgs#nix-prefetch-github -- vatesfr xen-orchestra --rev 2dd451a7d933f27e550fac673029d8ab79aba70d
+    # Then convert to SRI if needed: nix hash to-sri --type sha256 <hex>
+    srcHash = "sha256-TpXyd7DohHG50HvxzfNmWVtiW7BhGSxWk+3lgFMMf/M=";
+
+    http.port  = 80;
+    https.port = 443;
+  };
+
   # Bootloader (leave as provided by user)
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -13,14 +49,14 @@
 
   # Enable flakes/Nix command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
+  networking.hostName = "xoa";
   # SSH daemon (system-wide)
   services.openssh = {
     enable = true;
     # Open SSH port in firewall explicitly (default also opens it automatically).
     openFirewall = true;
     settings = {
-      PasswordAuthentication = true;        # toggle to false if you want keys-only
+      PasswordAuthentication = false;        # toggle to false if you want keys-only
       KbdInteractiveAuthentication = false;
       PubkeyAuthentication = true;
     };
