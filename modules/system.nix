@@ -3,38 +3,41 @@
 {
   imports = [
     ./xen-orchestra.nix
+    ./libvhdi.nix
+    ./users.nix
     # (any other modules you maintain)
   ];
-
-  # Make sure the xo user exists (example)
-  users.users.xo = {
-    isNormalUser = true;
-    extraGroups  = [ "wheel" ];
-    openssh.authorizedKeys.keys = [
-      # your ssh pubkey(s)
-    ];
+  # Locale warnings in your logs: make them consistent
+  i18n.defaultLocale = "en_US.UTF-8";
+  i18n.extraLocaleSettings = {
+    LC_TIME = "en_US.UTF-8";
+    LC_NUMERIC = "en_US.UTF-8";
   };
-  users.groups.xo = { };
 
-  # Your XO from sources, pinned to the rev you asked for
+  ########################################
+  # Xen Orchestra from source (pinned)
+  ########################################
   xoa.xo = {
-    enable  = true;
-    user    = "xo";
-    group   = "xo";
-    buildDir = "/var/lib/xo";
-    tls.commonName = "xoa.internal";
+    enable   = true;
+    user     = "xo";
+    group    = "xo";
+    home     = "/var/lib/xo";
+    appDir   = "/var/lib/xo/app";
+    cacheDir = "/var/lib/xo/yarn-cache";
 
-    # Pin to your requested commit:
+    # Pin to your desired commit
     srcRev  = "2dd451a7d933f27e550fac673029d8ab79aba70d";
-
-    # Fill in the correct SRI for that rev (placeholder shown):
-    # Compute with:
-    #   nix run nixpkgs#nix-prefetch-github -- vatesfr xen-orchestra --rev 2dd451a7d933f27e550fac673029d8ab79aba70d
-    # Then convert to SRI if needed: nix hash to-sri --type sha256 <hex>
     srcHash = "sha256-TpXyd7DohHG50HvxzfNmWVtiW7BhGSxWk+3lgFMMf/M=";
 
-    http.port  = 80;
-    https.port = 443;
+    # HTTPS + redis
+    host     = "0.0.0.0";
+    port     = 443;
+    redisUrl = "redis://127.0.0.1:6379/0";
+
+    ssl.enable = true;
+    ssl.dir  = "/var/lib/ssl/xo";
+    ssl.key  = "/var/lib/ssl/xo/key.pem";
+    ssl.cert = "/var/lib/ssl/xo/certificate.pem";
   };
 
   # Bootloader (leave as provided by user)
