@@ -1,204 +1,277 @@
-{ lib, pkgs, config, ... }:
-
+{ config, lib, pkgs, ... }:
+#######################################
+## Xen Orchestra module options
+#######################################
+xoa.xo = {
+  enable = true;
+  user     = "xo";
+  srcRev   = "2dd451a7d933f27e550fac673029d8ab79aba70d";   # commit pin
+  # IMPORTANT: update after the first build fails with:
+  #   got: sha256-XXXXXXXXXXXXXXXXXXXXXXXXXXXX
+  # Paste that value here and rebuild.
+  srcHash  = "sha256-TpXyd7DohHG50HvxzfNmWVtiW7BhGSxWk+3lgFMMf/M=";        # SRI hash for that commit
+  tls.commonName = "xoa.local";
+};
 let
+  inherit (lib) mkIf mkOption mkEnableOption types;
+
   cfg = config.xoa.xo;
 
-  # Service runtime layout
-  xoUser    = "xo";
-  xoGroup   = "xo";     # ensure users.nix defines this group as the xo user's primary group
-  xoRootDir = "/var/lib/xo";
-  sslDir    = "/var/lib/ssl";
-  etcDir    = "/etc/xo-server";
-  webDist   = "${xoRootDir}/app/packages/xo-web/dist";
-
-  # Source fetch (uses module options for commit/hash)
+  # Source tree of Xen Orchestra (pin via options below).
   xoSrc = pkgs.fetchFromGitHub {
-    owner = "vatesfr";
-    repo  = "xen-orchestra";
-    rev   = cfg.rev;        # Git commit or tag (set in system.nix)
+    owner = cfg.repoOwner;
+    repo  = cfg.repoName;
+    rev   = cfg.srcRev;
+    hash  = cfg.srcHash;    # <- SRI, e.g. "sha256-…"
     fetchSubmodules = true;
-    hash  = cfg.srcHash;    # SRI sha256 of the extracted source
   };
 
-in
-{
-  #######################################
-  ## 1) Module options (typed)
-  #######################################
+  # A one-shot builder we run inside the xo-build service.
+  xoBuildScript = pkgs.writeShellScript "xo-build.sh" ''
+    set -euo pipefail
+    umask 022
+
+    app=/var/lib/xo/app
+
+    # Ensure skeleton exists and is owned properly.
+    install -d -m0750 -o ${cfg.user} -g ${cfg.user} "$app" \
+      /var/cache/xo /var/cache/xo/yarn /var/log/xo
+
+    # (Re)populate sources only when missing or rev changed.
+    if [ ! -f "$app/.xo-src-rev" ] || [ "$(cat "$app/.xo-src-rev" 2>/dev/null || true)" != "${cfg.srcRev}" ]; then
+      rm -rf "$app"/*
+      cp -aT ${xoSrc} "$app"
+      chown -R ${cfg.user}:${cfg.user} "$app"
+      echo "${cfg.srcRev}" > "$app/.xo-src-rev"
+    fi
+
+    cd "$app"
+    export PATH=${pkgs.nodejs_22}/bin:${pkgs.yarn}/bin:$PATH
+    export HOME=/var/lib/xo
+    export YARN_CACHE_FOLDER=/var/cache/xo/yarn
+    export NODE_ENV=production
+    export NODE_OPTIONS="--max-old-space-size=2048"
+
+    # Install & build the mono‑repo
+    yarn install --frozen-lockfile --non-interactive --no-progress
+    yarn build
+  '';
+
+  nodeBin = "${pkgs.nodejs_22}/bin/node";
+
+  # Default config written once if /etc/xo-server/config.toml is missing
+  xoDefaultConfig = pkgs.writeText "xo-config.toml" ''
+    # XO server minimal config with HTTPS + Redis + xo-web
+    [http]
+    hostname = "0.0.0.0"
+    port = 443
+    cert = "${cfg.tls.certDir}/certificate.pem"
+    key  = "${cfg.tls.certDir}/key.pem"
+
+    [http.mounts]
+    "/" = "/var/lib/xo/app/packages/xo-web/dist/"
+
+    [redis]
+    uri = "redis://127.0.0.1:6379"
+  '';
+in {
   options.xoa.xo = {
-    enable = lib.mkEnableOption "Build and run Xen Orchestra (xo-server) from source";
+    enable = mkEnableOption "Xen Orchestra (from sources)";
 
-    rev = lib.mkOption {
-      type = lib.types.str;
-      # You can override this in system.nix; default shown here for convenience.
-      default = "2dd451a7d933f27e550fac673029d8ab79aba70d";
-      description = ''
-        Git revision (commit or tag) of vatesfr/xen-orchestra to build.
-      '';
-      example = "2dd451a7d933f27e550fac673029d8ab79aba70d";
+    user = mkOption {
+      type = types.str;
+      default = "xo";
+      description = "System user running XO services.";
     };
 
-    srcHash = lib.mkOption {
-      type = lib.types.str;
-      # Trust-on-first-use: let Nix print the “got: sha256-…” once, then paste it here.
-      default = lib.fakeSha256;
-      description = ''
-        SRI sha256 of the extracted source at `rev`. Use lib.fakeSha256 initially,
-        build once, copy the “got: sha256-…” that Nix prints, and set it here.
-      '';
-      example = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    repoOwner = mkOption {
+      type = types.str; default = "vatesfr";
+      description = "GitHub owner for xen-orchestra sources.";
     };
+
+    repoName = mkOption {
+      type = types.str; default = "xen-orchestra";
+      description = "GitHub repo name for XO sources.";
+    };
+
+    srcRev = mkOption {
+      type = types.str;
+      default = "2dd451a7d933f27e550fac673029d8ab79aba70d"; # example pin
+      description = "Git revision (commit or tag) for the XO sources.";
+    };
+
+    srcHash = mkOption {
+      type = types.str;
+      example = "sha256-REPLACE_WITH_PREFETCHED_HASH";
+      description = "SRI sha256 of the above revision.";
+    };
+
+    tls.enable = mkOption { type = types.bool; default = true; };
+    tls.certDir = mkOption { type = types.str;  default = "/var/lib/ssl"; };
+    tls.commonName = mkOption { type = types.str; default = "xoa.local"; };
   };
 
-  #######################################
-  ## 2) Configuration (only when enabled)
-  #######################################
-  config = lib.mkIf cfg.enable {
-
-    # Tooling needed to build/run XO from sources (per XO docs: Node LTS, Yarn, Redis, libpng, LVM, CIFS/NFS, NTFS, OpenSSL).
-    environment.systemPackages = with pkgs; [
-      nodejs_22 yarn git python3 pkg-config gcc gnumake libpng openssl
-      nfs-utils cifs-utils lvm2 ntfs3g
-    ];
-
-    # Local Redis instance (no password; vxdb 0 on 127.0.0.1)
-    services.redis.servers."xo".enable = true;
-
-    # Persistent dirs & runtime paths
-    systemd.tmpfiles.rules = [
-      "d ${xoRootDir} 0750 ${xoUser} ${xoGroup} -"
-      "d ${xoRootDir}/app 0750 ${xoUser} ${xoGroup} -"
-      "d ${sslDir} 0750 root ${xoGroup} -"
-      "d ${etcDir} 0755 root root -"
-      "d /run/xo-server/mounts 0755 ${xoUser} ${xoGroup} -"
-    ];
-
-    # Bootstrap once: seed config from upstream sample; generate self-signed TLS if missing
-    systemd.services."xo-bootstrap" = {
-      description = "XO bootstrap (seed config + self‑signed HTTPS certs)";
-      after  = [ "network-online.target" "redis-xo.service" ];
-      wants  = [ "network-online.target" "redis-xo.service" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-        Group = "root";
-        Environment = [
-          "SSL_DIR=${sslDir}"
-          "XO_ETC=${etcDir}"
-          "XO_APP=${xoRootDir}/app"
-        ];
-        ExecStart = (pkgs.writeShellScript "xo-bootstrap.sh" ''
-          set -euo pipefail
-
-          # 1) Create HTTPS key/cert on first run if missing (kept OUT of Nix store).
-          if [ ! -s "$SSL_DIR/key.pem" ] || [ ! -s "$SSL_DIR/certificate.pem" ]; then
-            ${pkgs.openssl}/bin/openssl req -new -newkey rsa:2048 -days 3650 -nodes -x509 \
-              -subj "/CN=xoa.local" \
-              -keyout "$SSL_DIR/key.pem" \
-              -out    "$SSL_DIR/certificate.pem"
-            chown root:${xoGroup} "$SSL_DIR/key.pem" "$SSL_DIR/certificate.pem"
-            chmod 0640 "$SSL_DIR/key.pem"
-            chmod 0644 "$SSL_DIR/certificate.pem"
-          fi
-
-          # 2) Create /etc/xo-server/config.toml from upstream sample (root-editable)
-          if [ ! -s "$XO_ETC/config.toml" ]; then
-            mkdir -p "$XO_ETC"
-            cp -f ${xoSrc}/packages/xo-server/sample.config.toml "$XO_ETC/config.toml.default"
-
-            cat > "$XO_ETC/config.toml" <<TOML
-# Generated from upstream sample.config.toml on first activation.
-# Edit this file as root; restart xo-server to apply changes.
-# Config path reference: /etc/xo-server/config.toml
-
-user = 'xo'
-group = 'xo'
-useSudo = true
-
-[http]
-hostname = '0.0.0.0'
-port = 80
-redirectToHttps = true
-
-[https]
-hostname = '0.0.0.0'
-port = 443
-certificate = '${sslDir}/certificate.pem'
-key         = '${sslDir}/key.pem'
-
-[http.mounts]
-'/' = '${webDist}'
-TOML
-            chown root:root "$XO_ETC/config.toml"
-            chmod 0644 "$XO_ETC/config.toml"
-          fi
-        '');
-      };
-      wantedBy = [ "multi-user.target" ];
-    };
-
-    # Build Xen Orchestra from sources at the selected rev/hash
-    systemd.services."xo-build" = {
-      description = "Build Xen Orchestra (sources pinned via options)";
-      after  = [ "network-online.target" "xo-bootstrap.service" ];
-      wants  = [ "network-online.target" "xo-bootstrap.service" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = xoUser;
-        Group = xoGroup;
-        WorkingDirectory = "${xoRootDir}/app";
-        Environment = [ "HOME=${xoRootDir}" ];
-        ExecStart = (pkgs.writeShellScript "xo-build.sh" ''
-          set -euo pipefail
-          rm -rf "${xoRootDir}/app/"*
-          # copy sources from Nix store into a writable tree
-          cp -a ${xoSrc}/. "${xoRootDir}/app/"
-
-          # Upstream flow: yarn install && yarn build
-          ${pkgs.yarn}/bin/yarn install --frozen-lockfile
-          ${pkgs.yarn}/bin/yarn build
-        '');
-      };
-      wantedBy = [ "multi-user.target" ];
-    };
-
-    # xo-server runtime (rootless; binds 80/443 via caps; reads /etc/xo-server/config.toml)
-    systemd.services."xo-server" = {
-      description = "Xen Orchestra Server";
-      after    = [ "network-online.target" "redis-xo.service" "xo-build.service" "xo-bootstrap.service" ];
-      requires = [ "redis-xo.service" "xo-build.service" "xo-bootstrap.service" ];
-      wants    = [ "network-online.target" "redis-xo.service" "xo-build.service" "xo-bootstrap.service" ];
-      serviceConfig = {
-        User = xoUser;
-        Group = xoGroup;
-
-        WorkingDirectory = "${xoRootDir}/app/packages/xo-server";
-        ExecStartPre = "${pkgs.coreutils}/bin/mkdir -p /run/xo-server/mounts";
-        ExecStart = "${pkgs.nodejs_22}/bin/node dist/cli.mjs";
-
-        # allow binding low ports as non-root
-        AmbientCapabilities   = "CAP_NET_BIND_SERVICE";
-        CapabilityBoundingSet = "CAP_NET_BIND_SERVICE";
-
-        Restart = "always";
-        RestartSec = "2s";
-      };
-      wantedBy = [ "multi-user.target" ];
-    };
-
-    # Passwordless sudo for the service user — least privilege for mount helpers
-    security.sudo.enable = true;
-    security.sudo.wheelNeedsPassword = true;
-    security.sudo.extraRules = [{
-      users = [ xoUser ];
-      commands = [
-        { command = "/run/current-system/sw/bin/mount";        options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/umount";       options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/findmnt";      options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/sbin/mount.cifs";  options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/sbin/mount.nfs";   options = [ "NOPASSWD" ]; }
-        { command = "/run/current-system/sw/bin/losetup";      options = [ "NOPASSWD" ]; }
+  config = mkIf cfg.enable (lib.mkMerge [
+    {
+      # Build & remote-mount tools XO tends to need.
+      environment.systemPackages = with pkgs; [
+        nodejs_22 yarn git python3 pkg-config gcc gnumake libpng openssl
+        nfs-utils cifs-utils lvm2 ntfs3g
       ];
-    }];
-  };
+
+      # Allow the XO service user to mount/umount NFS/SMB (passwordless sudo for those binaries only).
+      security.sudo.enable = true;
+      security.sudo.extraRules = [{
+        users = [ cfg.user ];
+        commands = [
+          { command = "${pkgs.util-linux}/bin/mount";       options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.util-linux}/bin/umount";      options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.nfs-utils}/bin/mount.nfs";    options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.cifs-utils}/bin/mount.cifs";  options = [ "NOPASSWD" ]; }
+        ];
+      }];
+
+      # Simple Redis instance for XO (no password by request).
+      services.redis.servers.xo = {
+        enable = true;
+        save = [ ];
+        appendOnly = false;
+      };
+
+      # Ensure directories and permissions exist early.
+      systemd.tmpfiles.rules = [
+        "d /var/lib/xo          0750 ${cfg.user} ${cfg.user} -"
+        "d /var/lib/xo/app      0750 ${cfg.user} ${cfg.user} -"
+        "d /var/cache/xo        0750 ${cfg.user} ${cfg.user} -"
+        "d /var/cache/xo/yarn   0750 ${cfg.user} ${cfg.user} -"
+        "d /var/log/xo          0750 ${cfg.user} ${cfg.user} -"
+        "d ${cfg.tls.certDir}   0750 root       root       -"
+        "d /etc/xo-server       0750 root       root       -"
+      ];
+
+      # Self-signed certs created if missing (first boot). Safe to keep as-is.
+      systemd.services."xo-certgen" = {
+        description = "Generate self-signed certificate for XO (first boot)";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = pkgs.writeShellScript "xo-certgen.sh" ''
+            set -euo pipefail
+            cert="${cfg.tls.certDir}/certificate.pem"
+            key="${cfg.tls.certDir}/key.pem"
+            if [ ! -s "$cert" ] || [ ! -s "$key" ]; then
+              umask 077
+              ${pkgs.openssl}/bin/openssl req -new -newkey rsa:4096 -x509 -sha256 -days 825 \
+                -nodes -subj "/CN=${cfg.tls.commonName}" \
+                -keyout "$key" -out "$cert"
+              chown root:root "$key" "$cert"
+              chmod 0640 "$key" "$cert"
+            fi
+          '';
+        };
+      };
+
+      # Bootstrap (kept minimal; creates dirs).
+      systemd.services."xo-bootstrap" = {
+        description = "Prepare Xen Orchestra directories";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network-online.target" ];
+        wants = [ "network-online.target" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = pkgs.writeShellScript "xo-bootstrap.sh" ''
+            set -euo pipefail
+            install -d -m0750 -o ${cfg.user} -g ${cfg.user} /var/lib/xo/app /var/cache/xo/yarn /var/log/xo
+          '';
+        };
+      };
+
+      # Build from sources under /var/lib/xo/app
+      systemd.services."xo-build" = {
+        description = "Build Xen Orchestra (sources pinned via options)";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network-online.target" "xo-bootstrap.service" ];
+        wants = [ "network-online.target" "xo-bootstrap.service" ];
+        environment = {
+          HOME = "/var/lib/xo";
+          YARN_CACHE_FOLDER = "/var/cache/xo/yarn";
+          NODE_ENV = "production";
+        };
+        serviceConfig = {
+          Type = "simple";
+          User = cfg.user;
+          Group = cfg.user;
+
+          # Let systemd prepare /var/lib/xo, /var/cache/xo, /var/log/xo with correct ownership.
+          StateDirectory = [ "xo" "xo/app" ];
+          CacheDirectory = [ "xo" "xo/yarn" ];
+          LogsDirectory  = [ "xo" ];
+
+          WorkingDirectory = "/var/lib/xo/app";
+          PermissionsStartOnly = true;  # ExecStartPre runs as root
+
+          ExecStartPre = [
+            "${pkgs.coreutils}/bin/install -d -m0750 -o ${cfg.user} -g ${cfg.user} /var/lib/xo/app /var/cache/xo/yarn /var/log/xo"
+            "${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.user} /var/lib/xo /var/cache/xo /var/log/xo"
+          ];
+          ExecStart = "${xoBuildScript}";
+
+          Restart = "on-failure";
+          RestartSec = "10s";
+        };
+      };
+
+      # Run xo-server serving the built xo-web
+      systemd.services."xo-server" = {
+        description = "Xen Orchestra server";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "network-online.target" "xo-build.service" ];
+        wants = [ "network-online.target" "xo-build.service" ];
+
+        environment = {
+          HOME = "/var/lib/xo";
+          NODE_ENV = "production";
+        };
+
+        serviceConfig = {
+          Type = "simple";
+          User = cfg.user;
+          Group = cfg.user;
+
+          StateDirectory = [ "xo" "xo/app" ];
+          CacheDirectory = [ "xo" "xo/yarn" ];
+          LogsDirectory  = [ "xo" ];
+
+          WorkingDirectory = "/var/lib/xo/app";
+
+          # Drop in a sensible default config the first time only.
+          ExecStartPre = [
+            "${pkgs.coreutils}/bin/install -d -m0750 /etc/xo-server"
+            "${pkgs.coreutils}/bin/test -e /etc/xo-server/config.toml || ${pkgs.coreutils}/bin/install -m0640 -o root -g root ${xoDefaultConfig} /etc/xo-server/config.toml"
+          ];
+
+          # Explicit start; config path is absolute so mounts work regardless of CWD.
+          ExecStart = "${nodeBin} ./packages/xo-server/bin/xo-server --config /etc/xo-server/config.toml";
+
+          Restart = "on-failure";
+          RestartSec = "2s";
+
+          # Hardening (still allows write to the 3 dirs + TLS dir)
+          NoNewPrivileges = true;
+          PrivateTmp = true;
+          ProtectHome = "read-only";
+          ProtectSystem = "strict";
+          ReadWritePaths = [
+            "/var/lib/xo"
+            "/var/cache/xo"
+            "/var/log/xo"
+            "${cfg.tls.certDir}"
+            "/etc/xo-server"
+          ];
+        };
+      };
+    }
+  ]);
 }

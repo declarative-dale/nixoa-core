@@ -10,7 +10,7 @@ let
     url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
     # Run once to get the real hash:
     #   nix-prefetch-url $url
-    sha256 = "1iyfijjyqngb99jklc16flnz5wskfp1s18q3j6sghv5flxabxzly";
+    hash = "sha256-nv6+VKeubPi0kQOjoMN1U/PyLXUmMDplSutZ7KWMzsc=";
   };
 
   libvhdi = pkgs.stdenv.mkDerivation {

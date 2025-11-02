@@ -52,22 +52,4 @@
 
   # Lock defaults appropriate to this install and silence the warning. :contentReference[oaicite:4]{index=4}
   system.stateVersion = "25.05";
-  #######################################
-  ## Xen Orchestra module options
-  #######################################
-  xoa.xo = {
-    enable = true;
-
-    # Pick the commit you want:
-    rev = "2dd451a7d933f27e550fac673029d8ab79aba70d";
-
-    # IMPORTANT: update after the first build fails with:
-    #   got: sha256-XXXXXXXXXXXXXXXXXXXXXXXXXXXX
-    # Paste that value here and rebuild.
-    srcHash = lib.fakeSha256;
-  };
-
-  # NOTE: Keep your bootloader and xen-guest-agent configuration
-  # in their existing modules; this file intentionally does NOT
-  # modify those.
 }

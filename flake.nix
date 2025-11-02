@@ -1,5 +1,5 @@
 {
-  description = "Xen Orchestra (XO CE) on NixOS 25.05 — sources@5.111.1, HTTPS, rootless with sudo mounts";
+  description = "Xen Orchestra (XO CE) on NixOS 25.05 — FromSource, HTTPS, rootless with sudo mounts";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
