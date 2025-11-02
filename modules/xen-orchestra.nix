@@ -22,8 +22,10 @@ let
 
     install -d -m0750 -o ${cfg.user} -g ${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
 
-    # Copy sources from the Nix store into the writable app dir
-    ${rsync}/bin/rsync -a --delete --exclude 'node_modules/' "${src}/" "${cfg.appDir}/"
+    # Copy sources but DO NOT preserve read-only perms from the Nix store
+    ${rsync}/bin/rsync -a --no-perms --delete --exclude 'node_modules/' "${src}/" "${cfg.appDir}/"
+    # make sure owner can write everywhere
+    chmod -R u+rwX "${cfg.appDir}"
 
     cd "${cfg.appDir}"
 
@@ -70,8 +72,13 @@ in
     group = mkOption { type = types.str; default = "xo";   description = "Runtime group for XO."; };
     home  = mkOption { type = types.path; default = "/home/xo"; description = "Home for the xo user."; };
 
-    appDir   = mkOption { type = types.path; default = "/home/xo/app";        description = "Writable app directory."; };
-    cacheDir = mkOption { type = types.path; default = "/home/xo/yarn-cache"; description = "Yarn/npm cache directory."; };
+    appDir   = mkOption { type = types.path; default = "/var/lib/xo/app";        description = "Writable app directory."; };
+    cacheDir = mkOption { type = types.path; default = "/var/cache/xo/yarn-cache"; description = "Yarn/npm cache directory."; };
+    # State Directories
+    StateDirectory = mkOption { type = types.str; default = "xo";        description = "/var/lib/xo created/owned for the service"; };
+    CacheDirectory = mkOption { type = types.str; default = "xo";        description = "/var/cache/xo created/owned for the service"; };
+    StateDirectoryMode = mkOption { type = types.str; default = "0750";        description = "file permissions for the state directory"; };
+    CacheDirectoryMode = mkOption { type = types.str; default = "0750";        description = "file permissions for the cache directory"; };
 
     # sources
     srcRev  = mkOption { type = types.str; example = "2dd451a7d933f27e550fac673029d8ab79aba70d"; description = "Git commit or tag to build."; };

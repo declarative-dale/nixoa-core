@@ -22,8 +22,12 @@
     user     = "xo";
     group    = "xo";
     home     = "/home/xo";
-    appDir   = "/home/xo/app";
-    cacheDir = "/home/xo/yarn-cache";
+    appDir   = "/var/lib/xo/app";
+    cacheDir = "/var/cache/xo/yarn-cache";
+    StateDirectory = "xo";         # -> /var/lib/xo (created/owned for the service)
+    CacheDirectory = "xo";         # -> /var/cache/xo
+    StateDirectoryMode = "0750";
+    CacheDirectoryMode = "0750";
 
     # Pin to your desired commit
     srcRev  = "2dd451a7d933f27e550fac673029d8ab79aba70d";
