@@ -3,6 +3,10 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    xoSrc = {
+      url = "github:vatesfr/xen-orchestra?rev=2dd451a7d933f27e550fac673029d8ab79aba70d";
+      flake = false;
+    };
   };
 
   outputs = { self, nixpkgs }: let
@@ -23,6 +27,19 @@
     nixosConfigurations.xoa = lib.nixosSystem {
       inherit system;
       modules = autoModules;
+      # Host settings that *use* the module
+      ({ config, pkgs, ... }: {
+        xoa.xo = {
+          enable   = true;
+
+          # Use the flake-pinned source path
+          srcPath  = xoSrc;
+
+          # If srcPath is set, you do NOT set srcRev/srcHash here.
+          # appDir   = "/var/lib/xo/app";          # defaults ok
+          # cacheDir = "/var/cache/xo/yarn-cache"; # defaults ok
+        };
+      })
     };
   };
 }

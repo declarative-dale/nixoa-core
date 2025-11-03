@@ -1,221 +1,200 @@
 { config, lib, pkgs, ... }:
 let
-  inherit (lib) mkEnableOption mkIf mkOption types mkDefault;
+  inherit (lib) mkEnableOption mkIf mkOption types;
+
   cfg = config.xoa.xo;
 
-  node = pkgs.nodejs_20;         # Upstream recommends latest LTS; Node 20 works well. :contentReference[oaicite:1]{index=1}
-  yarn = pkgs.yarn;              # Use nixpkgs Yarn (no corepack writes into /nix/store)
-  rsync = pkgs.rsync;
-  openssl = pkgs.openssl;
+  # Toolchain & tools
+  node   = pkgs.nodejs_20;     # Latest LTS generally recommended by Vates
+  yarn   = pkgs.yarn;          # Yarn classic from nixpkgs
+  rsync  = pkgs.rsync;
 
-  src = pkgs.fetchFromGitHub {
-    owner = "vatesfr";
-    repo  = "xen-orchestra";
-    rev   = cfg.srcRev;          # e.g. "2dd451a7d933f27e550fac673029d8ab79aba70d"
-    hash  = cfg.srcHash;         # e.g. "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
-  };
+    # XO sources: prefer a flake-provided/local path (cfg.srcPath), otherwise fetch by rev/hash
+    xoSrc =
+      if cfg.srcPath != null then cfg.srcPath else
+        pkgs.fetchFromGitHub {
+          owner = "vatesfr";
+          repo  = "xen-orchestra";
+          rev   = cfg.srcRev;
+          hash  = cfg.srcHash;
+        };
 
-  # Build script: copy sources into a writable tree, then yarn install/build.
+  # Where XO's "home" lives (parent of appDir)
+  xoHome = builtins.dirOf cfg.appDir;
+
+  # Build script: copy sources into writable appDir, install deps & build
   buildScript = pkgs.writeShellScript "xo-build.sh" ''
-    set -euxo pipefail
-    umask 022
+    set -euo pipefail
 
-    install -d -m0750 -o ${cfg.user} -g ${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
+    # Ensure directories exist with sane perms for the xo user
+    install -d -m 0750 -o ${cfg.user} -g ${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
 
-    # Copy sources but DO NOT preserve read-only perms from the Nix store
-    ${rsync}/bin/rsync -a --no-perms --delete --exclude 'node_modules/' "${src}/" "${cfg.appDir}/"
-    # make sure owner can write everywhere
+    # Copy from read-only Nix store to a writable working tree.
+    # DO NOT preserve perms from the store (0444/0555) -> make them writable.
+    ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete \
+      --exclude 'node_modules/' \
+      "${xoSrc}/" "${cfg.appDir}/"
+
+    # Double-check write perms (belt & suspenders)
     chmod -R u+rwX "${cfg.appDir}"
+    chown -R ${cfg.user}:${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
+
+    export HOME="${xoHome}"
+    export XDG_CACHE_HOME="$(dirname "${cfg.cacheDir}")"
+    export YARN_CACHE_FOLDER="${cfg.cacheDir}"
+    export NPM_CONFIG_CACHE="${cfg.cacheDir}/npm"
+    export npm_config_nodedir="${node}/include/node"
+    export PYTHON="${pkgs.python3}/bin/python3"
+    export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ]}"
+    export CFLAGS="-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include ''${CFLAGS:-}"
+    export LDFLAGS="-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib ''${LDFLAGS:-}"
+    export PATH="${lib.makeBinPath [ yarn node pkgs.gnumake pkgs.gcc pkgs.pkg-config pkgs.git pkgs.libtool pkgs.autoconf pkgs.automake ]}:$PATH"
 
     cd "${cfg.appDir}"
 
-    export HOME="${cfg.home}"
-    export XDG_CACHE_HOME="${cfg.cacheDir}"
-    export YARN_CACHE_FOLDER="${cfg.cacheDir}"
-    export NPM_CONFIG_CACHE="${cfg.cacheDir}/npm"
-    export PATH="${lib.makeBinPath [ yarn node pkgs.git pkgs.gnumake pkgs.python3 pkgs.pkg-config pkgs.gcc pkgs.libpng pkgs.zlib ]}:$PATH"
-
-    # No 'corepack enable' here — Nix store is read-only.
-    ${yarn}/bin/yarn install --frozen-lockfile
+    # Install & build (no network prompts, deterministic)
+    ${yarn}/bin/yarn install --frozen-lockfile --non-interactive
     ${yarn}/bin/yarn build
   '';
 
-  # Start script: run xo-server with HTTPS + TOML.
+  # Start script: run the built XO server
   startScript = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
+    export HOME="${xoHome}"
     cd "${cfg.appDir}"
-    export NODE_ENV=production
-    exec ${node}/bin/node ./packages/xo-server/dist/cli.mjs --config "${cfg.configPath}"
-  '';
-
-  # Generate self-signed certs on first run, if missing
-  genCerts = pkgs.writeShellScript "xoa-gen-cert.sh" ''
-    set -euxo pipefail
-    umask 077
-    install -d -m0750 "${cfg.ssl.dir}"
-    if [ ! -s "${cfg.ssl.key}" ] || [ ! -s "${cfg.ssl.cert}" ]; then
-      ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -sha256 -days 825 \
-        -keyout "${cfg.ssl.key}" -out "${cfg.ssl.cert}" -nodes \
-        -subj "/CN=${cfg.hostname}"
-      chmod 0600 "${cfg.ssl.key}"
-      chmod 0644 "${cfg.ssl.cert}"
-      chown ${cfg.user}:${cfg.group} "${cfg.ssl.key}" "${cfg.ssl.cert}" || true
-    fi
+    exec ${node}/bin/node "${cfg.appDir}/packages/xo-server/dist/cli.mjs"
   '';
 in
 {
-  options.xoa.xo = {
-    enable = mkEnableOption "Build & run Xen Orchestra (XO) Community Edition from source";
+   srcPath = mkOption {
+     type = types.nullOr types.path;
+     default = null;
+     description = ''
+        If set, use this path as the Xen Orchestra sources (e.g. a flake input
+        pinned in flake.lock or a local checkout). When non-null, srcRev/srcHash are ignored.
+        '';
+      };
 
-    # who/where
-    user  = mkOption { type = types.str; default = "xo";   description = lib.mkDefault "Xen Orchestra runtime user"; };
-    group = mkOption { type = types.str; default = "xo";   description = "Runtime group for XO."; };
-    home  = mkOption { type = types.path; default = "/home/xo"; description = "Home for the xo user."; };
+    user = mkOption {
+      type = types.str;
+      default = "xo";
+      description = "System user running XO build/server.";
+    };
+    group = mkOption {
+      type = types.str;
+      default = "xo";
+      description = "Primary group for XO user.";
+    };
 
-    appDir   = mkOption { type = types.path; default = "/var/lib/xo/app";        description = "Writable app directory."; };
-    cacheDir = mkOption { type = types.path; default = "/var/cache/xo/yarn-cache"; description = "Yarn/npm cache directory."; };
-    # State Directories
-    StateDirectory = mkOption { type = types.str; default = "xo";        description = "/var/lib/xo created/owned for the service"; };
-    CacheDirectory = mkOption { type = types.str; default = "xo";        description = "/var/cache/xo created/owned for the service"; };
-    StateDirectoryMode = mkOption { type = types.str; default = "0750";        description = "file permissions for the state directory"; };
-    CacheDirectoryMode = mkOption { type = types.str; default = "0750";        description = "file permissions for the cache directory"; };
+    appDir = mkOption {
+      type = types.path;
+      default = "/var/lib/xo/app";
+      description = "Writable working tree where sources are copied and built.";
+    };
 
-    # sources
-    srcRev  = mkOption { type = types.str; example = "2dd451a7d933f27e550fac673029d8ab79aba70d"; description = "Git commit or tag to build."; };
-    srcHash = mkOption { type = types.str; description = "sha256-TpXyd7DohHG50HvxzfNmWVtiW7BhGSxWk+3lgFMMf/M="; };
-
-    # server config
-    configPath = mkOption { type = types.path; default = "/etc/xo-server/config.toml"; description = "XO server TOML path."; };
-    host       = mkOption { type = types.str;  default = "0.0.0.0"; description = "XO listen address."; };
-    port       = mkOption { type = types.port; default = 443;        description = "XO HTTPS port."; };
-    redisUrl   = mkOption { type = types.str;  default = "redis://127.0.0.1:6379/0"; description = "Redis connection URI."; };
-    hostname   = mkOption { type = types.str;  default = config.networking.hostName or "xoa"; description = "CN used for self-signed cert."; };
+    cacheDir = mkOption {
+      type = types.path;
+      default = "/var/cache/xo/yarn-cache";
+      description = "Yarn/NPM cache directory.";
+    };
 
     ssl = {
-      enable = mkOption { type = types.bool; default = true; };
-      dir    = mkOption { type = types.path; default = "/etc/ssl/xo"; };
-      key    = mkOption { type = types.path; default = "/etc/ssl/xo/key.pem"; };
-      cert   = mkOption { type = types.path; default = "/etc/ssl/xo/certificate.pem"; };
+      enable = mkEnableOption "Enable TLS assets directory management for xo-server" // { default = false; };
+      dir = mkOption {
+        type = types.path;
+        default = "/var/lib/xo/tls";
+        description = "Directory containing TLS cert/key for xo-server (if used via xo-server config).";
+      };
+    };
+
+    # Extra env for xo-server (merged into service)
+    extraServerEnv = mkOption {
+      type = types.attrsOf types.str;
+      default = {};
+      description = "Extra environment variables for xo-server.";
     };
   };
 
   config = mkIf cfg.enable {
     assertions = [
-      { assertion = cfg.srcRev != "" && cfg.srcHash != "";
-        message = "xoa.xo.srcRev and xoa.xo.srcHash must be set."; }
+      {
+        assertion = (cfg.srcPath != null) || (cfg.srcRev != "" && cfg.srcHash != "");
+        message = "Provide xoa.xo.srcPath OR both xoa.xo.srcRev and xoa.xo.srcHash.";
+      }
     ];
 
-    # Packages needed for build + remotes (NFS/SMB) and TLS
-    environment.systemPackages = with pkgs; [
-      node yarn git rsync micro openssl pkg-config python3 gcc gnumake libpng zlib
-      nfs-utils cifs-utils
-    ];
-
-    # Ensure user/group/home exist (idempotent if you already created them elsewhere)
-    users.groups.${cfg.group} = mkDefault { };
-    users.users.${cfg.user} = {
-      isNormalUser = mkDefault true;
-      description = lib.mkDefault "Xen Orchestra runtime user";
-      group        = cfg.group;
-      home         = cfg.home;
-      createHome   = true;
-    };
-
-    # Directories
-    systemd.tmpfiles.rules = [
-      "d ${cfg.home}    0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.appDir}  0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.cacheDir} 0750 ${cfg.user} ${cfg.group} - -"
-      "d ${cfg.ssl.dir} 0750 ${cfg.user} ${cfg.group} - -"
-    ];
-
-    # Minimal XO server TOML; editable as root, XO reloads on restart
-    environment.etc."xo-server/config.toml".text = ''
-      # Managed by Nix; edit as root and restart xo-server.
-
-      [http.listen]
-      hostname = "${cfg.host}"
-      port = ${toString cfg.port}
-
-      [http.https]
-      enabled = ${if cfg.ssl.enable then "true" else "false"}
-      certificate = "${cfg.ssl.cert}"
-      key = "${cfg.ssl.key}"
-
-      [redis]
-      uri = "${cfg.redisUrl}"
-    '';
-
-    # Generate self-signed certs once
-    systemd.services.xo-bootstrap = {
-      description = "XOA bootstrap (generate HTTPS self-signed certs if missing)";
-      wantedBy = [ "multi-user.target" ];
-      after    = [ "network.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        ExecStart = genCerts;
-      };
-    };
-
-    # Dedicated Redis instance for XO
-    services.redis.servers."xo" = {
-      enable = true;
-      # defaults to port 6379; XO uses DB 0 via cfg.redisUrl
-    };
-
-    # Build XO from sources (no corepack)
+    # Build: compile the monorepo with yarn/node-gyp toolchain available
     systemd.services.xo-build = {
       description = "Build Xen Orchestra (sources pinned via xoa.xo.{srcRev,srcHash})";
       wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after    = [ "network-online.target" "xo-bootstrap.service" ];
-      requires = [ "xo-bootstrap.service" ];
+      wants    = [ "network-online.target" ];
+      after    = [ "network-online.target" ];
+
+      # Put build tools on PATH for the unit
+      path = with pkgs; [
+        nodejs_20 yarn gnumake gcc python3 pkg-config git
+        fuse fuse3 libtool autoconf automake
+      ];
+
       environment = {
-        HOME = cfg.home;
-        XDG_CACHE_HOME   = cfg.cacheDir;
+        HOME = xoHome;
+        XDG_CACHE_HOME   = builtins.dirOf cfg.cacheDir;
         YARN_CACHE_FOLDER = cfg.cacheDir;
         NPM_CONFIG_CACHE  = "${cfg.cacheDir}/npm";
+        npm_config_nodedir = "${node}/include/node";
+        PYTHON = "${pkgs.python3}/bin/python3";
+        PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ];
+        CFLAGS  = "-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include";
+        LDFLAGS = "-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib";
+        NODE_ENV = "production";
       };
+
       serviceConfig = {
         Type = "oneshot";
-        User = cfg.user;
+        RemainAfterExit = true;
+        User  = cfg.user;
         Group = cfg.group;
+
+        # Create /var/lib/xo and /var/cache/xo managed by systemd
+        StateDirectory       = "xo";
+        StateDirectoryMode   = "0750";
+        CacheDirectory       = "xo";
+        CacheDirectoryMode   = "0750";
+
         WorkingDirectory = cfg.appDir;
+
         ExecStartPre = [
-            "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.user} -g ${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
-            "+${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
-            "+${pkgs.coreutils}/bin/chmod -R u+rwX ${cfg.appDir} ${cfg.cacheDir}"
-          ];
+          "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.user} -g ${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
+          "+${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
+          "+${pkgs.coreutils}/bin/chmod -R u+rwX ${cfg.appDir} ${cfg.cacheDir}"
+        ];
         ExecStart = buildScript;
-        ReadWritePaths = [ cfg.appDir cfg.cacheDir ];
+
+        # Open the writable paths even if hardening is enabled elsewhere
+        ReadWritePaths = [ cfg.appDir cfg.cacheDir ] ++ lib.optionals cfg.ssl.enable [ cfg.ssl.dir ];
+
         PrivateTmp = true;
       };
     };
 
-    # Allow mounts for NFS/SMB remotes from XO without prompting for password
-    security.sudo.extraRules = [{
-      users = [ cfg.user ];
-      commands = [
-        { command = "${pkgs.util-linux}/bin/mount";      options = [ "NOPASSWD" ]; }
-        { command = "${pkgs.util-linux}/bin/umount";     options = [ "NOPASSWD" ]; }
-        { command = "${pkgs.cifs-utils}/bin/mount.cifs"; options = [ "NOPASSWD" ]; }
-        { command = "${pkgs.nfs-utils}/bin/mount.nfs";   options = [ "NOPASSWD" ]; }
-      ];
-    }];
-
-    # Run XO server AFTER a successful build (and Redis)
+    # Run server after build
     systemd.services.xo-server = {
-      description = "Xen Orchestra (xo-server)";
+      description = "Xen Orchestra server";
       wantedBy = [ "multi-user.target" ];
-      wants = [ "network-online.target" ];
-      after    = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
-      requires = [ "redis-xo.service" "xo-build.service" ];
-
-      environment = { NODE_ENV = "production"; };
+      requires = [ "xo-build.service" ];
+      after    = [ "xo-build.service" "network-online.target" ];
 
       serviceConfig = {
+        Type = "simple";
         User = cfg.user;
         Group = cfg.group;
+
+        # Managed dirs; server writes state under /var/lib/xo and caches under /var/cache/xo
+        StateDirectory       = "xo";
+        StateDirectoryMode   = "0750";
+        CacheDirectory       = "xo";
+        CacheDirectoryMode   = "0750";
+
         WorkingDirectory = cfg.appDir;
         ExecStart = startScript;
         Restart = "on-failure";
@@ -225,8 +204,20 @@ in
         ConditionPathExists = "${cfg.appDir}/packages/xo-server/dist/cli.mjs";
 
         # Allow writing TLS and cache dirs at runtime
-        ReadWritePaths = [ cfg.appDir cfg.cacheDir cfg.ssl.dir ];
+        ReadWritePaths = [ cfg.appDir cfg.cacheDir ] ++ lib.optionals cfg.ssl.enable [ cfg.ssl.dir ];
+
+        PrivateTmp = true;
+      };
+
+      environment = cfg.extraServerEnv // {
+        HOME = xoHome;
+        NODE_ENV = "production";
       };
     };
+
+    # Optionally ensure TLS dir exists (if enabled)
+    systemd.tmpfiles.rules = lib.mkIf cfg.ssl.enable [
+      "d ${cfg.ssl.dir} 0750 ${cfg.user} ${cfg.group} - -"
+    ];
   };
 }

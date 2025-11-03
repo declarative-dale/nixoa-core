@@ -1,12 +1,6 @@
 { config, pkgs, lib, ... }:
 
 {
-  imports = [
-    ./xen-orchestra.nix
-    ./libvhdi.nix
-    ./users.nix
-    # (any other modules you maintain)
-  ];
   # Locale warnings in your logs: make them consistent
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
