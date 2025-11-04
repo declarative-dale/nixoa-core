@@ -1,4 +1,4 @@
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, libvhdiSrc ? null, ... }:
 
 let
   # Pick a known release; you can bump this later
@@ -6,12 +6,12 @@ let
 
   # Official source distribution package (contains vendored libyal deps + configure)
   # See: https://github.com/libyal/libvhdi/releases (tags like libvhdi-alpha-20240509)
-  src = pkgs.fetchurl {
+  src = (if libvhdiSrc != null then libvhdiSrc else pkgs.fetchurl {
     url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
     # Run once to get the real hash:
     #   nix-prefetch-url $url
     hash = "sha256-nv6+VKeubPi0kQOjoMN1U/PyLXUmMDplSutZ7KWMzsc=";
-  };
+  });
 
   libvhdi = pkgs.stdenv.mkDerivation {
     pname = "libvhdi";

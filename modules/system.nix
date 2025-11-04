@@ -1,6 +1,12 @@
 { config, pkgs, lib, ... }:
 
 {
+  imports = [
+    ./xen-orchestra.nix
+    ./libvhdi.nix
+    ./users.nix
+    # (any other modules you maintain)
+  ];
   # Locale warnings in your logs: make them consistent
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
@@ -13,20 +19,6 @@
   ########################################
   xoa.xo = {
     enable   = true;
-    user     = "xo";
-    group    = "xo";
-    home     = "/home/xo";
-    appDir   = "/var/lib/xo/app";
-    cacheDir = "/var/cache/xo/yarn-cache";
-    StateDirectory = "xo";         # -> /var/lib/xo (created/owned for the service)
-    CacheDirectory = "xo";         # -> /var/cache/xo
-    StateDirectoryMode = "0750";
-    CacheDirectoryMode = "0750";
-
-    # Pin to your desired commit
-    srcRev  = "2dd451a7d933f27e550fac673029d8ab79aba70d";
-    srcHash = "sha256-TpXyd7DohHG50HvxzfNmWVtiW7BhGSxWk+3lgFMMf/M=";
-
     # HTTPS + redis
     host     = "0.0.0.0";
     port     = 443;
