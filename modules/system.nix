@@ -19,17 +19,26 @@
   ########################################
   xoa.xo = {
     enable   = true;
-    # HTTPS + redis
-    host     = "0.0.0.0";
-    port     = 443;
-    redisUrl = "redis://127.0.0.1:6379/0";
-
     ssl.enable = true;
     ssl.dir  = "/etc/ssl/xo";
     ssl.key  = "/etc/ssl/xo/key.pem";
     ssl.cert = "/etc/ssl/xo/certificate.pem";
   };
-
+  # Sudo: NOPASSWD for 'xoa'
+  security.sudo = {
+    enable = true;
+    # Keep wheel members needing a password by default…
+    wheelNeedsPassword = true;
+    # …but grant passwordless sudo to 'xoa' only
+    extraRules = [
+      {
+        users = [ "xoa" ];
+        commands = [
+          { command = "ALL"; options = [ "NOPASSWD" ]; }
+          ];
+        }
+      ];
+    };
   # Bootloader (leave as provided by user)
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
@@ -43,15 +52,17 @@
   # Enable flakes/Nix command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
   networking.hostName = "xoa";
-  # SSH daemon (system-wide)
+  # OpenSSH: keys-only access
   services.openssh = {
     enable = true;
-    # Open SSH port in firewall explicitly (default also opens it automatically).
     openFirewall = true;
     settings = {
+      PermitRootLogin = "no";
       PasswordAuthentication = false;        # toggle to false if you want keys-only
       KbdInteractiveAuthentication = false;
       PubkeyAuthentication = true;
+      # Optional: restrict SSH logins to just 'xoa'
+      AllowUsers = [ "xoa" ];
     };
   };
 

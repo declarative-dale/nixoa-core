@@ -10,11 +10,29 @@ let
   yarn   = pkgs.yarn;          # Yarn classic from nixpkgs
   rsync  = pkgs.rsync;
   openssl = pkgs.openssl;
+  # One-shot cert generation script (runs as the xo user)
+  genCerts = pkgs.writeShellScript "xo-gen-certs.sh" ''
+    set -euo pipefail
+    umask 077
+    # Ensure target dir exists and is owned by xo
+    install -d -m 0750 -o ${cfg.user} -g ${cfg.group} "${cfg.ssl.dir}"
+    # Create only if missing
+    if [ ! -s "${cfg.ssl.key}" ] || [ ! -s "${cfg.ssl.cert}" ]; then
+      ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -sha256 -days 825 \
+        -nodes -subj "/CN=${cfg.host}" \
+        -keyout "${cfg.ssl.key}" \
+        -out "${cfg.ssl.cert}"
+      chown ${cfg.user}:${cfg.group} "${cfg.ssl.key}" "${cfg.ssl.cert}"
+      chmod 0600 "${cfg.ssl.key}"
+      chmod 0644 "${cfg.ssl.cert}"
+    fi
+  '';
 
   xoSource = if cfg.srcPath != null then cfg.srcPath else pkgs.fetchFromGitHub {
     owner = "vatesfr";
     repo  = "xen-orchestra";
     rev   = cfg.srcRev;
+    hash  = cfg.srcHash;
     };
 
   # Where XO's "home" lives (parent of appDir)
@@ -29,9 +47,7 @@ let
     install -d -m 0750 -o ${cfg.user} -g ${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
 
     # Copy sources but DO NOT preserve read-only perms from /nix/store
-    ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete \
-      --exclude 'node_modules/' \
-      "${xoSource}/" "${cfg.appDir}/"
+    ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete --exclude 'node_modules/' "${src}/" "${cfg.appDir}/"
     # Make sure owner can write everywhere
     chmod -R u+rwX "${cfg.appDir}"
 
@@ -118,23 +134,29 @@ in
       key = "${cfg.ssl.key}"
 
       [redis]
-      uri = "${cfg.redisUrl}"
+      socket = "/run/redis-xo/redis.sock"
       '';
 
   # Generate self-signed certs once
-  systemd.services.xo-bootstrap = {
-    description = "XOA bootstrap (generate HTTPS self-signed certs if missing)";
-    wantedBy = [ "multi-user.target" ];
-    after    = [ "network.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = genCerts;
-    };
-  };
+   systemd.services.xo-bootstrap = lib.mkIf cfg.ssl.enable {
+     description = "XOA bootstrap (generate HTTPS self-signed certs if missing)";
+     wantedBy = [ "multi-user.target" ];
+     # Ensure /etc/ssl/xo exists and is chowned by tmpfiles first
+     after = [ "local-fs.target" "systemd-tmpfiles-setup.service" ];
+     serviceConfig = {
+       Type = "oneshot";
+       User = cfg.user;
+       Group = cfg.group;
+       ReadWritePaths = [ cfg.ssl.dir ];
+       ExecStart = genCerts;
+     };
+   };
 
   # Dedicated Redis instance for XO
   services.redis.servers."xo" = {
     enable = true;
+    unixSocket = "/run/redis-xo/redis.sock";
+    settings.port = 0;
     # defaults to port 6379; XO uses DB 0 via cfg.redisUrl
   };
 
@@ -157,7 +179,13 @@ in
       description = "Build Xen Orchestra (sources pinned via xoa.xo.{srcRev,srcHash})";
       wantedBy = [ "multi-user.target" ];
       wants    = [ "network-online.target" ];
-      after    = [ "network-online.target" ];
+      after    = [ "network-online.target" "xo-bootstrap.service"  ];
+      requires = [ "xo-bootstrap.service" ];
+      # Deterministic build deps in PATH for node-gyp
+      path = with pkgs; [
+        nodejs_20 yarn gnumake gcc python3 pkg-config git
+        fuse fuse3 libtool autoconf automake
+        ];
       environment = {
         HOME = xoHome;
         XDG_CACHE_HOME   = builtins.dirOf cfg.cacheDir;
@@ -168,7 +196,6 @@ in
         PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ];
         CFLAGS  = "-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include";
         LDFLAGS = "-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib";
-        NODE_ENV = "production";
       };
 
       serviceConfig = {
@@ -192,7 +219,7 @@ in
         ExecStart = buildScript;
 
         # Open the writable paths even if hardening is enabled elsewhere
-        ReadWritePaths = [ cfg.appDir cfg.cacheDir ] ++ lib.optionals cfg.ssl.enable [ cfg.ssl.dir ];
+        ReadWritePaths = [ cfg.appDir cfg.cacheDir cfg.ssl.dir ];
 
         PrivateTmp = true;
       };
@@ -225,7 +252,7 @@ in
         ConditionPathExists = "${cfg.appDir}/packages/xo-server/dist/cli.mjs";
 
         # Allow writing TLS and cache dirs at runtime
-        ReadWritePaths = [ cfg.appDir cfg.cacheDir ] ++ lib.optionals cfg.ssl.enable [ cfg.ssl.dir ];
+        ReadWritePaths = [ cfg.appDir cfg.cacheDir cfg.ssl.dir ];
 
         PrivateTmp = true;
       };
@@ -237,8 +264,14 @@ in
     };
 
     # Optionally ensure TLS dir exists (if enabled)
-    systemd.tmpfiles.rules = lib.mkIf cfg.ssl.enable [
-      "d ${cfg.ssl.dir} 0750 ${cfg.user} ${cfg.group} - -"
-    ];
+      systemd.tmpfiles.rules =
+     [
+       "d ${cfg.home}    0750 ${cfg.user} ${cfg.group} - -"
+       "d ${cfg.appDir}  0750 ${cfg.user} ${cfg.group} - -"
+       "d ${cfg.cacheDir} 0750 ${cfg.user} ${cfg.group} - -"
+     ]
+     ++ lib.optionals cfg.ssl.enable [
+       "d ${cfg.ssl.dir} 0750 ${cfg.user} ${cfg.group} - -"
+     ];
   };
 }
