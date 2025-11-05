@@ -47,41 +47,54 @@ let
   buildScript = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
-
-    # Ensure directories exist with sane perms for the xo user
-    install -d -m 0750 -o ${cfg.user} -g ${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
-
-    # Copy sources but DO NOT preserve read-only perms from /nix/store
-    ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete --exclude 'node_modules/' "${src}/" "${cfg.appDir}/"
-    # Make sure owner can write everywhere
+    install -d -m0750 -o ${cfg.user} -g ${cfg.group} "${cfg.appDir}" "${cfg.cacheDir}"
+    ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete --exclude 'node_modules/' "${xoSource}/" "${cfg.appDir}/"
     chmod -R u+rwX "${cfg.appDir}"
-
     cd "${cfg.appDir}"
+    # Ensure a VCS context for packages/xo-server/.babelrc.cjs (it calls `git rev-parse --short HEAD`)
+    if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+      git init -q
+      git config user.email "xo@nixos"
+      git config user.name  "XO Build (NixOS)"
+      git add -A
+      git commit -q -m "NixOS build snapshot" --no-gpg-sign
+    fi
+
+    # --- Environment (also set at unit level, but keep here for clarity) ---
     export HOME="${cfg.home}"
     export XDG_CACHE_HOME="${cfg.cacheDir}"
     export YARN_CACHE_FOLDER="${cfg.cacheDir}"
     export NPM_CONFIG_CACHE="${cfg.cacheDir}/npm"
-    export npm_config_nodedir="${node}/include/node"
-    export PYTHON="${pkgs.python3}/bin/python3"
-    
-    # Comprehensive build environment for node-gyp and native modules
-    export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ]}"
-    export CPATH="${pkgs.fuse.dev}/include:${pkgs.fuse3.dev}/include"
-    export CFLAGS="-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include"
-    export CXXFLAGS="-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include"
-    export LDFLAGS="-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib"
-    export LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib"
-    export LD_LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib"
-    
-    # node-gyp configuration
-    export npm_config_build_from_source="true"
-    export npm_config_nodedir="${node}"
-    
-    export PATH="${lib.makeBinPath [ yarn node pkgs.gnumake pkgs.gcc pkgs.pkg-config pkgs.git pkgs.libtool pkgs.autoconf pkgs.automake pkgs.bash pkgs.coreutils ]}:$PATH"
+    export YARN_PRODUCTION="false"
+    export npm_config_production="false"
+    export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
+    export NODE_OPTIONS="--max-old-space-size=4096"
+    export TURBO_TELEMETRY_DISABLED="1"
+    export TURBO_CACHE_DIR="${cfg.cacheDir}/turbo"
+    export CI="true" FORCE_COLOR="0" TERM="dumb"
 
-    # Install & build (no network prompts, deterministic)
-    ${yarn}/bin/yarn install --frozen-lockfile --non-interactive
-    ${yarn}/bin/yarn build
+    # --- Tooling versions (helpful in logs) ---
+    ${yarn}/bin/yarn --version || true
+    ${node}/bin/node --version || true
+
+    # --- Install dependencies (with devDeps) ---
+    ${yarn}/bin/yarn install --check-files --non-interactive --network-timeout 600000
+
+    # --- Find workspace names dynamically (robust against upstream renames) ---
+    WS_WEB="$(${node}/bin/node -e 'console.log(require("./packages/xo-web/package.json").name)')"
+    WS_SRV="$(${node}/bin/node -e 'console.log(require("./packages/xo-server/package.json").name)')"
+
+    # --- Try fast path: Turbo build with filters (web first, then server) ---
+    LOG="${cfg.appDir}/.last-build.log"
+    if ${yarn}/bin/yarn -s run turbo run build --no-daemon --continue \
+         --filter "$WS_WEB" --filter "$WS_SRV" 2>&1 | tee "$LOG"; then
+      exit 0
+    fi
+
+    echo "Turbo failed, falling back to per-workspace builds…" | tee -a "$LOG"
+    # Build just what we need, in order, without Turbo:
+    ${yarn}/bin/yarn -s workspace "$WS_WEB" run build 2>&1 | tee -a "$LOG"
+    ${yarn}/bin/yarn -s workspace "$WS_SRV" run build 2>&1 | tee -a "$LOG"
   '';
 
   # Start script: run the built XO server
@@ -304,8 +317,8 @@ in
       requires = lib.optional cfg.ssl.enable "xo-bootstrap.service";
 
       path = with pkgs; [
-        nodejs_20 yarn gnumake gcc python3 pkg-config git
-        fuse fuse3 libtool autoconf automake binutils
+        nodejs_20 yarn gnumake gcc python3 pkg-config git patch
+        fuse fuse3 libtool autoconf automake binutils esbuild
       ];
 
       environment = {
@@ -313,7 +326,9 @@ in
         XDG_CACHE_HOME = builtins.dirOf cfg.cacheDir;
         YARN_CACHE_FOLDER = cfg.cacheDir;
         NPM_CONFIG_CACHE = "${cfg.cacheDir}/npm";
-        npm_config_nodedir = "${pkgs.nodejs_20}";
+        npm_config_nodedir = "${pkgs.nodejs_20}/include/node";
+        YARN_PRODUCTION = "false";
+        npm_config_production = "false";
         npm_config_build_from_source = "true";
         PYTHON = "${pkgs.python3}/bin/python3";
         PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ];
@@ -321,6 +336,13 @@ in
         CFLAGS = "-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include";
         CXXFLAGS = "-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include";
         LDFLAGS = "-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib";
+        ESBUILD_BINARY_PATH = "${pkgs.esbuild}/bin/esbuild";
+        NPM_CONFIG_UPDATE_NOTIFIER = "false";
+        NODE_OPTIONS = "--max-old-space-size=4096";
+        TURBO_TELEMETRY_DISABLED = "1";
+        TURBO_CACHE_DIR = "${cfg.cacheDir}/turbo";
+        CI = "true";
+        FORCE_COLOR = "0";
         LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib";
         LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib";
       };
@@ -336,7 +358,7 @@ in
         CacheDirectoryMode = "0750";
 
         WorkingDirectory = cfg.appDir;
-
+        LimitNOFILE = 1048576;
         ExecStartPre = [
           "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.user} -g ${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
           "+${pkgs.coreutils}/bin/chown -R ${cfg.user}:${cfg.group} ${cfg.appDir} ${cfg.cacheDir}"
@@ -357,8 +379,10 @@ in
     systemd.services.xo-server = {
       description = "Xen Orchestra server";
       wantedBy = [ "multi-user.target" ];
-      requires = [ "xo-build.service" "redis-xo.service" ];
-      after = [ "xo-build.service" "redis-xo.service" "network-online.target" ];
+      requires = [ "xo-build.service" ];
+     # If you order after network-online, you should also want it:
+      wants    = [ "network-online.target" ];
+      after    = [ "xo-build.service" "network-online.target" ];
 
       serviceConfig = {
         Type = "simple";
@@ -387,11 +411,14 @@ in
           cfg.tempDir
           cfg.mountsDir
         ] ++ lib.optional cfg.ssl.enable cfg.ssl.dir;
+        # Allow non-root 'xo' to bind to privileged port 443:
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
+        NoNewPrivileges = true;
 
         PrivateTmp = true;
         
         # Security hardening (while allowing mount operations)
-        NoNewPrivileges = false;  # Must be false for sudo to work
         ProtectSystem = "strict";
         ProtectHome = true;
         
