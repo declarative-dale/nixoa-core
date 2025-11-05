@@ -1,5 +1,5 @@
 {
-  description = "Xen Orchestra (XO CE) on NixOS 25.05 — FromSource, HTTPS, rootless with sudo mounts";
+  description = "Xen Orchestra (XO CE) on NixOS 25.05 – FromSource, HTTPS, rootless with sudo mounts";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
@@ -11,7 +11,8 @@
       # Release tarball pinned via flake.lock (no manual sha256 needed in modules)
       url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
       flake = false;
-    };  };
+    };
+  };
 
   outputs = { self, nixpkgs, xoSrc, libvhdiSrc }: let
     system = "x86_64-linux";

@@ -1,52 +1,69 @@
 { config, pkgs, lib, libvhdiSrc ? null, ... }:
 
 let
-  # Pick a known release; you can bump this later
   version = "20240509";
 
   # Official source distribution package (contains vendored libyal deps + configure)
-  # See: https://github.com/libyal/libvhdi/releases (tags like libvhdi-alpha-20240509)
-  src = (if libvhdiSrc != null then libvhdiSrc else pkgs.fetchurl {
+  src = if libvhdiSrc != null then libvhdiSrc else pkgs.fetchurl {
     url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
-    # Run once to get the real hash:
-    #   nix-prefetch-url $url
     hash = "sha256-nv6+VKeubPi0kQOjoMN1U/PyLXUmMDplSutZ7KWMzsc=";
-  });
+  };
 
   libvhdi = pkgs.stdenv.mkDerivation {
     pname = "libvhdi";
     inherit version src;
 
-    # For ./configure, pkg-config checks, etc.  (configure script is already produced in the source tarball)
-    nativeBuildInputs = [ pkgs.pkg-config ];
-
-    # Build deps: FUSE enables vhdimount; zlib is a common dependency in libyal stacks.
-    buildInputs = [
-      pkgs.fuse          # FUSE2 headers/libs so vhdimount is built
-      pkgs.zlib
+    nativeBuildInputs = with pkgs; [
+      pkg-config
+      autoreconfHook
     ];
 
-    # Make sure the FUSE-based vhdimount is compiled
-    configureFlags = [ "--with-libfuse=yes" ];
+    buildInputs = with pkgs; [
+      fuse          # FUSE2 for vhdimount
+      fuse3         # FUSE3 support
+      zlib          # Compression support
+    ];
 
-    # Standard Autotools phases are auto-detected by mkDerivation
-    # (configure -> make -> make install)
+    # Enable FUSE-based vhdimount tool
+    configureFlags = [
+      "--enable-shared"
+      "--with-libfuse=yes"
+      "--enable-multi-threading=yes"
+    ];
+
+    # Ensure tools are built and installed
+    enableParallelBuilding = true;
 
     meta = with lib; {
-      description = "Library and tools to access the VHD/VHDX image formats (vhdiinfo, vhdimount)";
-      homepage    = "https://github.com/libyal/libvhdi";
-      license     = licenses.lgpl3Plus;
-      platforms   = platforms.linux;
+      description = "Library and tools to access VHD/VHDX image formats";
+      longDescription = ''
+        libvhdi provides:
+        - vhdiinfo: Display information about VHD/VHDX files
+        - vhdimount: FUSE-based tool to mount VHD/VHDX as a filesystem
+        
+        Used by Xen Orchestra for backup restore and disk inspection operations.
+      '';
+      homepage = "https://github.com/libyal/libvhdi";
+      license = licenses.lgpl3Plus;
+      platforms = platforms.linux;
       maintainers = [ ];
     };
   };
 in
 {
-  #### NixOS module part ####
-  # Put the library + tools in PATH system-wide.
+  # Install libvhdi library and tools system-wide
   environment.systemPackages = [ libvhdi ];
 
-  # Optional: allow non-root users to use 'allow_other/allow_root' with FUSE.
-  # If you only run vhdimount as root or via sudo (e.g. from XO), you might not need this.
-  programs.fuse.userAllowOther = lib.mkDefault false;
+  # Enable FUSE user mounts with allow_other/allow_root options
+  # Required for the xo user to mount VHD files via vhdimount
+  programs.fuse.userAllowOther = lib.mkDefault true;
+
+  # Ensure FUSE kernel module is loaded
+  boot.kernelModules = [ "fuse" ];
+
+  # Additional system configuration for VHD operations
+  systemd.tmpfiles.rules = [
+    # Ensure /dev/fuse has appropriate permissions
+    "c /dev/fuse 0666 root root - 10:229"
+  ];
 }

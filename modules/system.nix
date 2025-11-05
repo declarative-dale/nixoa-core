@@ -5,9 +5,9 @@
     ./xen-orchestra.nix
     ./libvhdi.nix
     ./users.nix
-    # (any other modules you maintain)
   ];
-  # Locale warnings in your logs: make them consistent
+
+  # Locale settings
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
     LC_TIME = "en_US.UTF-8";
@@ -18,78 +18,108 @@
   # Xen Orchestra from source (pinned)
   ########################################
   xoa.xo = {
-    enable   = true;
+    enable = true;
+    host = "0.0.0.0";
+    port = 80;
+    httpsPort = 443;
+    
     ssl.enable = true;
-    ssl.dir  = "/etc/ssl/xo";
-    ssl.key  = "/etc/ssl/xo/key.pem";
+    ssl.dir = "/etc/ssl/xo";
+    ssl.key = "/etc/ssl/xo/key.pem";
     ssl.cert = "/etc/ssl/xo/certificate.pem";
+    
+    # Data directories
+    dataDir = "/var/lib/xo/data";
+    tempDir = "/var/lib/xo/tmp";
+    mountsDir = "/var/lib/xo/mounts";
   };
-  # Sudo: NOPASSWD for 'xoa'
+
+  # Sudo: NOPASSWD for 'xo' user for mounting operations
   security.sudo = {
     enable = true;
-    # Keep wheel members needing a password by default…
     wheelNeedsPassword = true;
-    # …but grant passwordless sudo to 'xoa' only
     extraRules = [
+      # XO service account needs specific mount/umount privileges
+      {
+        users = [ "xo" ];
+        commands = [
+          { command = "${pkgs.util-linux}/bin/mount"; options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.util-linux}/bin/umount"; options = [ "NOPASSWD" ]; }
+          { command = "/run/current-system/sw/bin/vhdimount"; options = [ "NOPASSWD" ]; }
+          { command = "/run/current-system/sw/bin/vhdiinfo"; options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.nfs-utils}/bin/mount.nfs"; options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.nfs-utils}/bin/mount.nfs4"; options = [ "NOPASSWD" ]; }
+          { command = "${pkgs.cifs-utils}/bin/mount.cifs"; options = [ "NOPASSWD" ]; }
+        ];
+      }
+      # Admin user with full sudo access (passwordless for convenience)
       {
         users = [ "xoa" ];
         commands = [
           { command = "ALL"; options = [ "NOPASSWD" ]; }
-          ];
-        }
-      ];
-    };
-  # Bootloader (leave as provided by user)
+        ];
+      }
+    ];
+  };
+
+  # Bootloader
   boot.loader.systemd-boot.enable = true;
   boot.loader.efi.canTouchEfiVariables = true;
 
-  # Xen guest agent (leave as provided by user)
+  # Xen guest agent
   systemd.packages = [ pkgs.xen-guest-agent ];
   systemd.services.xen-guest-agent.wantedBy = [ "multi-user.target" ];
 
-  #### System-wide settings moved here ####
-
   # Enable flakes/Nix command
   nix.settings.experimental-features = [ "nix-command" "flakes" ];
+  
   networking.hostName = "xoa";
+  
   # OpenSSH: keys-only access
   services.openssh = {
     enable = true;
     openFirewall = true;
     settings = {
       PermitRootLogin = "no";
-      PasswordAuthentication = false;        # toggle to false if you want keys-only
+      PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;
       PubkeyAuthentication = true;
-      # Optional: restrict SSH logins to just 'xoa'
       AllowUsers = [ "xoa" ];
     };
   };
 
-  # Networking / firewall (XO web ports)
+  # Networking / firewall (XO web ports + VNC/RDP for console access)
   networking.firewall.allowedTCPPorts = [ 80 443 3389 5900 8012 ];
 
-  # Filesystem helpers for NFS/SMB remotes (system-wide capability) :contentReference[oaicite:3]{index=3}
+  # Filesystem helpers for NFS/SMB remotes (system-wide capability)
   boot.supportedFilesystems = [ "nfs" "cifs" ];
-  # Run vhdimount as non-root user
+  
+  # Enable FUSE for user mounts (required for vhdimount)
   programs.fuse.userAllowOther = true;
 
-  # Garbage collection & auto-updates (moved from updates.nix)
+  # Ensure NFS/CIFS utilities are available
+  environment.systemPackages = with pkgs; [
+    nfs-utils
+    cifs-utils
+  ];
+
+  # Garbage collection
   nix.gc = {
     automatic = true;
-    dates     = "daily";
-    options   = "--delete-older-than 7d";
+    dates = "daily";
+    options = "--delete-older-than 7d";
   };
 
-  #system.autoUpgrade = {
-  #  enable       = false;
-  #  flake        = ".#xoa";
-  #  allowReboot  = false;
-  #  frequency    = "daily";
-  #  schedule     = "04:00";
-  #  flags        = [ "--update-input" "nixpkgs" "--commit-lock-file" ];
-  #};
+  # Auto-upgrade configuration (disabled by default)
+  # Uncomment to enable automatic system updates
+  # system.autoUpgrade = {
+  #   enable = true;
+  #   flake = ".#xoa";
+  #   allowReboot = false;
+  #   dates = "04:00";
+  #   flags = [ "--update-input" "nixpkgs" "--commit-lock-file" ];
+  # };
 
-  # Lock defaults appropriate to this install and silence the warning. :contentReference[oaicite:4]{index=4}
+  # Lock to NixOS 25.05
   system.stateVersion = "25.05";
 }
