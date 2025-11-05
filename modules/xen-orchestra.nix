@@ -43,7 +43,7 @@ let
   # Where XO's "home" lives (parent of appDir)
   xoHome = builtins.dirOf cfg.appDir;
 
-  # Build script: copy sources into writable appDir, install deps & build
+    # Build script: copy sources into writable appDir, install deps & build
   buildScript = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
@@ -63,10 +63,21 @@ let
     export NPM_CONFIG_CACHE="${cfg.cacheDir}/npm"
     export npm_config_nodedir="${node}/include/node"
     export PYTHON="${pkgs.python3}/bin/python3"
+    
+    # Comprehensive build environment for node-gyp and native modules
     export PKG_CONFIG_PATH="${lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ]}"
-    export CFLAGS="-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include ''${CFLAGS:-}"
-    export LDFLAGS="-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib ''${LDFLAGS:-}"
-    export PATH="${lib.makeBinPath [ yarn node pkgs.gnumake pkgs.gcc pkgs.pkg-config pkgs.git pkgs.libtool pkgs.autoconf pkgs.automake ]}:$PATH"
+    export CPATH="${pkgs.fuse.dev}/include:${pkgs.fuse3.dev}/include"
+    export CFLAGS="-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include"
+    export CXXFLAGS="-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include"
+    export LDFLAGS="-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib"
+    export LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib"
+    export LD_LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib"
+    
+    # node-gyp configuration
+    export npm_config_build_from_source="true"
+    export npm_config_nodedir="${node}"
+    
+    export PATH="${lib.makeBinPath [ yarn node pkgs.gnumake pkgs.gcc pkgs.pkg-config pkgs.git pkgs.libtool pkgs.autoconf pkgs.automake pkgs.bash pkgs.coreutils ]}:$PATH"
 
     # Install & build (no network prompts, deterministic)
     ${yarn}/bin/yarn install --frozen-lockfile --non-interactive
@@ -294,7 +305,7 @@ in
 
       path = with pkgs; [
         nodejs_20 yarn gnumake gcc python3 pkg-config git
-        fuse fuse3 libtool autoconf automake
+        fuse fuse3 libtool autoconf automake binutils
       ];
 
       environment = {
@@ -302,11 +313,16 @@ in
         XDG_CACHE_HOME = builtins.dirOf cfg.cacheDir;
         YARN_CACHE_FOLDER = cfg.cacheDir;
         NPM_CONFIG_CACHE = "${cfg.cacheDir}/npm";
-        npm_config_nodedir = "${pkgs.nodejs_20}/include/node";
+        npm_config_nodedir = "${pkgs.nodejs_20}";
+        npm_config_build_from_source = "true";
         PYTHON = "${pkgs.python3}/bin/python3";
         PKG_CONFIG_PATH = lib.makeSearchPath "lib/pkgconfig" [ pkgs.fuse.dev pkgs.fuse3.dev ];
+        CPATH = "${pkgs.fuse.dev}/include:${pkgs.fuse3.dev}/include";
         CFLAGS = "-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include";
+        CXXFLAGS = "-I${pkgs.fuse.dev}/include -I${pkgs.fuse3.dev}/include";
         LDFLAGS = "-L${pkgs.fuse.out}/lib -L${pkgs.fuse3.out}/lib";
+        LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib";
+        LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib";
       };
 
       serviceConfig = {

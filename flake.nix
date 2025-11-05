@@ -23,7 +23,7 @@
       inherit system;
       modules = [ 
         ./modules/system.nix 
-        /etc/nixos/hardware-configuration.nix 
+        ./modules/hardware-configuration.nix 
         ];
       # Provide flake-pinned sources to modules
       specialArgs = { inherit xoSrc libvhdiSrc; };
