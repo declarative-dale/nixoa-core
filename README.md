@@ -1,6 +1,6 @@
 # Xen Orchestra on NixOS - Full Installation Guide
 
-This flake provides a complete, production-ready Xen Orchestra Community Edition installation on NixOS with full functionality including:
+This flake provides a proof of concept implementation of Xen Orchestra Community Edition on NixOS with features such as:
 
 - ✅ Build from pinned source (GitHub)
 - ✅ HTTPS with self-signed certificates (auto-generated)
