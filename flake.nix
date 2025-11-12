@@ -4,7 +4,7 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     xoSrc = {
-      url = "github:vatesfr/xen-orchestra?rev=2dd451a7d933f27e550fac673029d8ab79aba70d";
+      url = "github:vatesfr/xen-orchestra?rev=fa0202f5b3993643f35f70ce2fd1b5c19b7fa44e";
       flake = false;
     };
     libvhdiSrc = {
