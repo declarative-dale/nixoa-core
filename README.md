@@ -9,15 +9,14 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 - ✅ NFS remote mounting with sudo
 - ✅ VHD/VHDX operations via libvhdi (vhdimount, vhdiinfo)
 - ✅ Dedicated Redis instance (Unix socket)
-- ✅ Secure SSH-only admin access
-- ✅ Automatic builds and updates
+- ✅ Secure SSH-only admin (xoa) access
 
 ## Directory Structure
 
 ```
 .
-├── flake.nix                    # Main flake definition
-├── flake.lock                   # Pinned dependencies
+├── flake.nix                    # 
+|
 └── modules/
     ├── system.nix               # System configuration
     ├── xen-orchestra.nix        # XO service module
@@ -31,7 +30,6 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 
 - NixOS 25.05 or newer
 - Flakes enabled in your Nix configuration
-- SSH access to your target system
 - Your SSH public key ready
 
 ### 2. Initial Setup
@@ -114,7 +112,7 @@ Two accounts are created:
 
 The `xo` user has passwordless sudo for these operations:
 
-```bash
+
 # NFS mounts
 sudo mount -t nfs server:/path /mnt/point
 sudo mount.nfs server:/path /mnt/point
@@ -122,15 +120,7 @@ sudo mount.nfs4 server:/path /mnt/point
 
 # CIFS/SMB mounts
 sudo mount -t cifs //server/share /mnt/point -o credentials=/path/to/creds
-sudo mount.cifs //server/share /mnt/point -o credentials=/path/to/creds
-
-# VHD operations
-sudo vhdimount /path/to/file.vhd /mnt/point
-sudo vhdiinfo /path/to/file.vhd
-
-# Generic mount/umount
-sudo mount <options>
-sudo umount /mnt/point
+sudo mount.cifs //server/share /mnt/point -o credentials
 ```
 
 ## Remote SR Configuration
@@ -160,27 +150,7 @@ In XO web interface:
    Password: ********
    ```
 
-The XO service will automatically use sudo to mount these shares.
-
-## VHD Operations
-
-The libvhdi tools are available system-wide:
-
-```bash
-# View VHD file information
-sudo vhdiinfo /path/to/disk.vhd
-
-# Mount VHD as a filesystem
-sudo vhdimount /path/to/disk.vhd /mnt/vhd
-
-# Access files
-ls /mnt/vhd/vhdi1
-
-# Unmount
-sudo umount /mnt/vhd
-```
-
-XO uses these tools internally for backup restore operations.
+The XO service will automatically use sudo to mount storage when needed.
 
 ## SSL Certificates
 
@@ -378,36 +348,12 @@ sudo cat /etc/ssh/sshd_config | grep -E "(PermitRoot|PasswordAuth|AllowUsers)"
    - Use Let's Encrypt or your own CA-signed certificates
    - Configure a reverse proxy for better TLS management
 
-2. **Firewall Configuration**
-   - Restrict port 80/443 to trusted networks
-   - Consider VPN access for XO interface
-   - The default config opens: 80, 443, 3389, 5900, 8012
-
-3. **SSH Hardening**
-   - Keep SSH key-only authentication (already configured)
-   - Consider changing SSH port from 22
-   - Use fail2ban or similar for brute-force protection
-
-4. **User Management**
+2. **User Management**
+   - add your SSH key for XOA under users.nix
    - Change XO admin password immediately
    - Remove default admin@admin.net account after creating your own
-   - Use strong passwords for remote share credentials
 
-5. **Backup Security**
-   - Use encrypted remote shares when possible
-   - Protect credentials files with appropriate permissions
-   - Regular security audits of backup access logs
-
-### Data Protection
-
-- XO metadata: `/var/lib/xo/data`
-- Temporary files: `/var/lib/xo/tmp`
-- Mount points: `/var/lib/xo/mounts`
-- Config: `/etc/xo-server/config.toml`
-
-Ensure these are included in your system backups.
-
-## Advanced Configuration
+## Advanced Configuratio 
 
 ### Custom XO Server Configuration
 
