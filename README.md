@@ -36,7 +36,7 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 
 ```bash
 # Clone or create this repository structure
-git clone <your-repo> /etc/nixos
+git clone https://codeberg.org/dalemorgan/declarative-xoa-ce /etc/nixos
 cd /etc/nixos
 
 # Add your SSH public key to modules/users.nix
