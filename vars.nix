@@ -26,7 +26,39 @@
     cifs.enable = true;
     mountsDir   = "/var/lib/xo/mounts";
   };
+  # Where your local git clone of this flake lives on the machine.
+  # The auto-updaters and GC timers will run *inside* this directory.
+  updates = {
+    repoDir = "~/declarative-xoa-ce";
 
+    # Standalone GC with “keep N successful system generations”
+    gc = {
+      enable = false;
+      schedule = "Sun 04:00";
+      keepGenerations = 7;
+    };
+
+    # Update nixpkgs input + rebuild
+    nixos = {
+      enable = false;
+      schedule = "Sun 04:00";
+    };
+
+    # Pull latest commits from the flake’s remote (Codeberg) but keep your vars.nix intact
+    flake = {
+      enable = false;
+      schedule = "Sun 04:00";
+      remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git";
+      branch = "main";
+      protectPaths = [ "vars.nix" ];
+    };
+
+    # Update XO upstream input (xoSrc) + rebuild
+    xoa = {
+      enable = false;
+      schedule = "Sun 04:00";
+    };
+  };
   # ===== Advanced (usually leave alone) =====
   xoUser  = "xo";                            # XO service user
   xoGroup = "xo";

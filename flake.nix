@@ -30,6 +30,7 @@
         ./modules/xoa.nix
         ./modules/storage.nix
         ./modules/libvhdi.nix
+        ./modules/updates.nix
         ./hardware-configuration.nix
 
         # Wire variables into the module options
@@ -70,6 +71,8 @@
 
           # lock the state version
           system.stateVersion = vars.stateVersion;
+          # pass vars to update flakr
+          updates = vars.updates;
 
           # nix flakes UX
           nix.settings.experimental-features = [ "nix-command" "flakes" ];
