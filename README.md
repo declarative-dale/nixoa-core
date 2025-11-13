@@ -16,13 +16,11 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 
 ```
 .
-├── flake.nix                    # Main flake definition
-├── flake.lock                   # Pinned dependencies
-└── modules/
-    ├── system.nix               # System configuration
-    ├── xen-orchestra.nix        # XO service module
-    ├── libvhdi.nix              # VHD tools module
-    └── users.nix                # User accounts
+├── flake.nix
+├── vars.nix
+├── hardware-configuration.nix
+├── modules/
+└── scripts/
 ```
 
 ## Quick Start
@@ -35,28 +33,28 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 - Your SSH public key ready
 
 ### 2. Initial Setup
-
+# Replace HOST with your desired hostname (default: xoa)
 ```bash
-# Clone or create this repository structure
-git clone <your-repo> /etc/nixos
-cd /etc/nixos
+sudo nixos-rebuild switch --flake 'git+https://codeberg.org/dalemorgan/declarative-xoa-ce#xoa'
+```
+```bash
+git clone https://codeberg.org/dalemorgan/declarative-xoa-ce
+cd declarative-xoa-ce
 
-# Add your SSH public key to modules/users.nix
-nano modules/users.nix
-# Find the openssh.authorizedKeys.keys section and add your key
+# Create vars.nix and copy hardware-configuration.nix from the system
+./scripts/xoa-set-vars.sh
+# If you didn’t run the script or want to copy manually:
+#   mkdir -p hosts/<HOST>
+#   sudo cp /etc/nixos/hardware-configuration.nix ./hardware-configuration.nix
+
 ```
 
 ### 3. Deploy
 
 ```bash
-# Build and switch to the new configuration
-sudo nixos-rebuild switch --flake .#xoa
-
-# The system will:
-# 1. Download and build Xen Orchestra from source
-# 2. Generate self-signed SSL certificates
-# 3. Configure Redis
-# 4. Start all services
+./scripts/xoa-install.sh
+# or explicitly:
+# sudo nixos-rebuild switch --flake .#<HOST> -L --show-trace
 ```
 
 ### 4. Access XO
@@ -267,37 +265,46 @@ sudo systemctl restart xo-build.service xo-server.service
 ### View Logs
 
 ```bash
-# XO server logs
-sudo journalctl -u xo-server.service -f
+# Follow XO build + runtime logs
+./scripts/xoa-logs.sh
 
-# Build logs
-sudo journalctl -u xo-build.service
-
-# All XO-related logs
-sudo journalctl -u 'xo-*' -f
+# Or use systemd directly:
+journalctl -u xo-build -e -f
+journalctl -u xo-server -e -f
+journalctl -u redis-xo -e -f
+systemctl status xo-server
 ```
 
 ## Updating Xen Orchestra
 
 ### Update to Latest Release
 
-Edit `flake.nix` and update the revision:
-
-```nix
-xoSrc = {
-  url = "github:vatesfr/xen-orchestra?rev=NEW_COMMIT_SHA";
-  flake = false;
-};
-```
-
-Then rebuild:
+Use the flake app (or alias) to check/update the xen-orchestra upstream:
 
 ```bash
-cd /etc/nixos
-nix flake update  # Update flake.lock
-sudo nixos-rebuild switch --flake .#xoa
+# from repo root
+nix run .#update-xo
+# or, if you prefer an alias:
+alias xoa-update="nix run .#update-xo"
+xoa-update
 ```
+### What it does:
 
+- Reads the current xoSrc rev from flake.lock,
+
+- Runs nix flake lock --update-input xoSrc --commit-lock-file,
+
+- Prints old → new rev,
+
+- Tries to show commit messages between those two revisions,
+
+- Leaves flake.lock committed so the update is recorded.
+
+### Build logs during rebuild
+
+- Use -L / --print-build-logs with nixos-rebuild or nix build to see derivation logs.
+
+- For service logs after switch: journalctl -u xo-build -u xo-server -e -f.
 ### Manual Update (Latest Master)
 
 ```bash
@@ -311,14 +318,14 @@ sudo nixos-rebuild switch --flake .#xoa
 ### Build Fails
 
 ```bash
-# Check build logs
-sudo journalctl -u xo-build.service
+# Follow XO build + runtime logs
+./scripts/xoa-logs.sh
 
-# Manual build for debugging
-sudo -u xo bash
-cd /var/lib/xo/app
-yarn install
-yarn build
+# Or use systemd directly:
+journalctl -u xo-build -e -f
+journalctl -u xo-server -e -f
+journalctl -u redis-xo -e -f
+systemctl status xo-server
 ```
 
 ### Server Won't Start
