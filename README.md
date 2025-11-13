@@ -33,7 +33,6 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 - Your SSH public key ready
 
 ### 2. Initial Setup
-# Replace HOST with your desired hostname (default: xoa)
 ```bash
 sudo nixos-rebuild switch --flake 'git+https://codeberg.org/dalemorgan/declarative-xoa-ce#xoa'
 ```
