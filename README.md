@@ -1,301 +1,127 @@
-# Xen Orchestra on NixOS - Full Installation Guide
+# Xen Orchestra on NixOS
 
-This flake provides a proof of concept implementation of Xen Orchestra Community Edition on NixOS with features such as:
+A complete, production-ready Xen Orchestra Community Edition deployment for NixOS with automated updates and secure defaults.
 
-- ✅ Build from pinned source (GitHub)
-- ✅ HTTPS with self-signed certificates (auto-generated)
-- ✅ Rootless operation with `xo` service account
-- ✅ SMB/CIFS remote mounting with sudo
-- ✅ NFS remote mounting with sudo
-- ✅ VHD/VHDX operations via libvhdi (vhdimount, vhdiinfo)
+## Features
+
+- ✅ Build from pinned GitHub source
+- ✅ HTTPS with auto-generated self-signed certificates
+- ✅ Rootless operation (dedicated `xo` service account)
+- ✅ NFS/CIFS remote mounting with VHD/VHDX support
 - ✅ Dedicated Redis instance (Unix socket)
-- ✅ Secure SSH-only admin access
-- ✅ Automatic builds and updates
+- ✅ SSH-only admin access
+- ✅ Automated updates with generation management
+- ✅ Comprehensive logging and monitoring
 
-## Directory Structure
-
-```
-.
-├── flake.nix
-├── vars.nix
-├── hardware-configuration.nix
-├── modules/
-└── scripts/
-```
+---
 
 ## Quick Start
 
-### 1. Prerequisites
+### 1. Clone Repository
 
-- NixOS 25.05 or newer
-- Flakes enabled in your Nix configuration
-- SSH access to your target system
-- Your SSH public key ready
+Choose a persistent location that survives system rebuilds:
 
-### 2. Initial Setup
 ```bash
-sudo nixos-rebuild switch --flake 'git+https://codeberg.org/dalemorgan/declarative-xoa-ce#xoa'
-```
-```bash
-git clone https://codeberg.org/dalemorgan/declarative-xoa-ce
+# Option A: System-wide (recommended)
+sudo mkdir -p /etc/nixos
+cd /etc/nixos
+sudo git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git
 cd declarative-xoa-ce
 
-# Create vars.nix and copy hardware-configuration.nix from the system
-./scripts/xoa-set-vars.sh
-# If you didn’t run the script or want to copy manually:
-#   mkdir -p hosts/<HOST>
-#   sudo cp /etc/nixos/hardware-configuration.nix ./hardware-configuration.nix
+# Option B: User home directory
+cd ~
+git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git
+cd declarative-xoa-ce
+```
 
+### 2. Configure System
+
+Edit `vars.nix` with your settings:
+
+```bash
+nano vars.nix
+```
+
+**Required changes:**
+- `hostname` - Your system's hostname
+- `username` - Admin user for SSH access
+- `sshKeys` - Your SSH public key(s)
+
+**Optional changes:**
+- `xoPort` / `xoHttpsPort` - Change default ports
+- `storage.*` - Enable/disable NFS and CIFS support
+- `updates.repoDir` - Must match your clone location
+
+**Copy hardware configuration:**
+
+```bash
+sudo cp /etc/nixos/hardware-configuration.nix ./
 ```
 
 ### 3. Deploy
 
 ```bash
-./scripts/xoa-install.sh
-# or explicitly:
-# sudo nixos-rebuild switch --flake .#<HOST> -L --show-trace
+# If repo is in /etc/nixos/declarative-xoa-ce
+sudo nixos-rebuild switch --flake .#xoa -L
+
+# If repo is elsewhere, use absolute path
+sudo nixos-rebuild switch --flake /path/to/declarative-xoa-ce#xoa -L
 ```
 
-### 4. Access XO
+### 4. Access Xen Orchestra
 
 ```
 HTTPS: https://your-server-ip/
 HTTP:  http://your-server-ip/
 
-Default credentials on first login:
-Username: admin@admin.net
-Password: admin
-
-⚠️ CHANGE THE DEFAULT PASSWORD IMMEDIATELY!
+Default credentials (change immediately):
+  Username: admin@admin.net
+  Password: admin
 ```
 
-### User Accounts
+---
 
-Two accounts are created:
+## Configuration
 
-1. **`xo`** - Service account (rootless)
-   - Runs xo-server, xo-build services
-   - Has sudo rights for: mount, umount, vhdimount, mount.nfs, mount.cifs
-   - No shell access
-
-2. **`xoa`** - Admin account (SSH-only)
-   - Full sudo access for system administration
-   - SSH key authentication only (no password)
-   - Member of wheel and systemd-journal groups
-
-## SSL Certificates
-
-### Self-Signed (Default)
-
-On first boot, self-signed certificates are auto-generated:
-- Valid for 825 days
-- CN matches the configured hostname
-- Located in `/etc/ssl/xo/`
-
-### Using Your Own Certificates
-
-Replace the auto-generated certificates:
-
-```bash
-# Copy your certificates
-sudo cp your-key.pem /etc/ssl/xo/key.pem
-sudo cp your-cert.pem /etc/ssl/xo/certificate.pem
-
-# Set permissions
-sudo chown xo:xo /etc/ssl/xo/*.pem
-sudo chmod 600 /etc/ssl/xo/key.pem
-sudo chmod 644 /etc/ssl/xo/certificate.pem
-
-# Restart XO
-sudo systemctl restart xo-server.service
-```
-
-### Let's Encrypt (Recommended for Production)
-
-For automatic certificate management, consider setting up a reverse proxy:
+### vars.nix Structure
 
 ```nix
-# In system.nix, add:
-services.nginx = {
-  enable = true;
-  recommendedProxySettings = true;
-  recommendedTlsSettings = true;
+{
+  # System basics
+  hostname = "xoa";           # NixOS hostname
+  username = "xoa";           # Admin SSH user (sudoer)
+  sshKeys = [ "ssh-ed25519 ..." ];  # Your public keys
   
-  virtualHosts."xo.example.com" = {
-    enableACME = true;
-    forceSSL = true;
-    locations."/" = {
-      proxyPass = "http://127.0.0.1:80";
-      proxyWebsockets = true;
-    };
-  };
-};
-
-security.acme = {
-  acceptTerms = true;
-  defaults.email = "admin@example.com";
-};
+  # Xen Orchestra ports
+  xoPort = 80;
+  xoHttpsPort = 443;
+  
+  # TLS settings
+  tls.enable = true;          # Auto-generate self-signed certs
+  
+  # Storage support
+  storage.nfs.enable = true;  # Enable NFS mounting
+  storage.cifs.enable = true; # Enable CIFS/SMB mounting
+  
+  # Updates - see "Automated Updates" section
+  updates.repoDir = "/etc/nixos/declarative-xoa-ce";
+}
 ```
 
-## Services Management
+### Manual Configuration
 
-### View Service Status
+**Xen Orchestra settings:**
 
-```bash
-# XO build service (runs once at boot)
-sudo systemctl status xo-build.service
-
-# XO server (main service)
-sudo systemctl status xo-server.service
-
-# Redis for XO
-sudo systemctl status redis-xo.service
-
-# SSL bootstrap (runs once)
-sudo systemctl status xo-bootstrap.service
-```
-
-### Restart Services
-
-```bash
-# Restart XO server only
-sudo systemctl restart xo-server.service
-
-# Rebuild XO from source and restart
-sudo systemctl restart xo-build.service xo-server.service
-```
-
-### View Logs
-
-```bash
-# Follow XO build + runtime logs
-./scripts/xoa-logs.sh
-
-# Or use systemd directly:
-journalctl -u xo-build -e -f
-journalctl -u xo-server -e -f
-journalctl -u redis-xo -e -f
-systemctl status xo-server
-```
-
-## Updating Xen Orchestra
-
-### Update to Latest Release
-
-Use the flake app (or alias) to check/update the xen-orchestra upstream:
-
-```bash
-# from repo root
-nix run .#update-xo
-# or, if you prefer an alias:
-alias xoa-update="nix run .#update-xo"
-xoa-update
-```
-### What it does:
-
-- Reads the current xoSrc rev from flake.lock,
-
-- Runs nix flake lock --update-input xoSrc --commit-lock-file,
-
-- Prints old → new rev,
-
-- Tries to show commit messages between those two revisions,
-
-- Leaves flake.lock committed so the update is recorded.
-
-### Build logs during rebuild
-
-- Use -L / --print-build-logs with nixos-rebuild or nix build to see derivation logs.
-
-- For service logs after switch: journalctl -u xo-build -u xo-server -e -f.
-### Manual Update (Latest Master)
-
-```bash
-cd /etc/nixos
-nix flake lock --update-input xoSrc
-sudo nixos-rebuild switch --flake .#xoa
-```
-
-## Troubleshooting
-
-### Build Fails
-
-```bash
-# Follow XO build + runtime logs
-./scripts/xoa-logs.sh
-
-# Or use systemd directly:
-journalctl -u xo-build -e -f
-journalctl -u xo-server -e -f
-journalctl -u redis-xo -e -f
-systemctl status xo-server
-```
-
-### Server Won't Start
-
-```bash
-# Check if build completed
-ls -la /var/lib/xo/app/packages/xo-server/dist/cli.mjs
-
-# Check Redis
-sudo systemctl status redis-xo.service
-
-# Check config
-cat /etc/xo-server/config.toml
-
-# Check permissions
-ls -la /var/lib/xo/
-```
-
-### Mount Operations Fail
-
-```bash
-# Test sudo privileges
-sudo -u xo sudo mount
-
-# Check if FUSE is available
-lsmod | grep fuse
-
-# Check vhdimount
-which vhdimount
-vhdimount --version
-
-# Test NFS mount manually
-sudo mount -t nfs server:/path /tmp/test
-
-# Test CIFS mount manually
-sudo mount -t cifs //server/share /tmp/test -o username=user
-```
-
-### Cannot SSH as xoa
-
-```bash
-# Check if key is added
-sudo cat /home/xoa/.ssh/authorized_keys
-
-# Check SSH service
-sudo systemctl status sshd
-
-# Check SSH config
-sudo cat /etc/ssh/sshd_config | grep -E "(PermitRoot|PasswordAuth|AllowUsers)"
-```
-
-## Security Considerations
-
-## Advanced Configuration
-
-### Custom XO Server Configuration
-
-Edit `/etc/xo-server/config.toml` directly:
+Edit `/etc/xo-server/config.toml` after initial deployment:
 
 ```toml
-# Add custom authentication providers
+# LDAP authentication
 [authentication.ldap]
 uri = "ldap://ldap.example.com"
 bind.dn = "cn=xo,ou=users,dc=example,dc=com"
 bind.password = "secret"
 
-# Configure email alerts
+# Email alerts
 [mail]
 from = "xo@example.com"
 transport = "smtp://smtp.example.com:587"
@@ -306,46 +132,398 @@ Then restart:
 sudo systemctl restart xo-server.service
 ```
 
-## Performance Tuning
+**Custom SSL certificates:**
 
-### For Large Deployments
+```bash
+# Replace auto-generated certificates
+sudo cp your-cert.pem /etc/ssl/xo/certificate.pem
+sudo cp your-key.pem /etc/ssl/xo/key.pem
+sudo chown xo:xo /etc/ssl/xo/*.pem
+sudo chmod 640 /etc/ssl/xo/*.pem
+sudo systemctl restart xo-server.service
+```
+
+---
+
+## Automated Updates
+
+Enable automatic updates in `vars.nix`:
 
 ```nix
-# Increase Node.js memory
-xoa.xo.extraServerEnv.NODE_OPTIONS = "--max-old-space-size=8192";
+updates = {
+  repoDir = "/etc/nixos/declarative-xoa-ce";  # Your clone location
+  
+  # Garbage collection - runs independently
+  gc = {
+    enable = true;              # Keep only recent generations
+    schedule = "Sun 04:00";     # When to run
+    keepGenerations = 7;        # How many to keep
+  };
+  
+  # Pull flake updates from Codeberg
+  flake = {
+    enable = true;              # Pull latest flake updates
+    schedule = "Sun 04:00";     # When to check
+    autoRebuild = false;        # Rebuild after pulling?
+    protectPaths = [ "vars.nix" "hardware-configuration.nix" ];
+  };
+  
+  # Update NixOS packages
+  nixos = {
+    enable = true;              # Update nixpkgs input
+    schedule = "Mon 04:00";     # When to update
+    keepGenerations = 7;        # GC after update
+  };
+  
+  # Update Xen Orchestra upstream
+  xoa = {
+    enable = true;              # Update XO source
+    schedule = "Tue 04:00";     # When to update
+    keepGenerations = 7;        # GC after update
+  };
+};
+```
+
+**How it works:**
+- Each timer runs independently on its schedule
+- Updates preserve your `vars.nix` and `hardware-configuration.nix`
+- Automatic GC keeps your system clean
+- All updates are logged to journald
+
+**Manual updates:**
+
+```bash
+# Update XO to latest release
+nix run .#update-xo
+
+# Update and rebuild immediately
+cd /etc/nixos/declarative-xoa-ce
+sudo xoa-update-xoSrc-rebuild
+
+# Update nixpkgs and rebuild
+sudo xoa-update-nixpkgs-rebuild
+
+# Just run garbage collection
+sudo xoa-gc-generations
+```
+
+---
+
+## Service Management
+
+### Check Status
+
+```bash
+# All XO services at once
+systemctl status xo-build xo-server redis-xo
+
+# Individual services
+sudo systemctl status xo-server.service
+sudo systemctl status xo-build.service
+sudo systemctl status redis-xo.service
+```
+
+### View Logs
+
+```bash
+# Follow all XO logs (recommended)
+sudo journalctl -u xo-build -u xo-server -u redis-xo -f
+
+# Individual service logs
+sudo journalctl -u xo-server -n 50 -f
+sudo journalctl -u xo-build -e
+
+# Check for errors
+sudo journalctl -u xo-server -p err -e
+```
+
+### Restart Services
+
+```bash
+# Restart XO server only
+sudo systemctl restart xo-server.service
+
+# Rebuild from source and restart
+sudo systemctl restart xo-build.service xo-server.service
+
+# Full system rebuild
+cd /etc/nixos/declarative-xoa-ce
+sudo nixos-rebuild switch --flake .#xoa -L
+```
+
+---
+
+## Troubleshooting
+
+### Build Fails
+
+**Symptom:** `xo-build.service` fails during startup
+
+```bash
+# Check build logs
+sudo journalctl -u xo-build -e
+
+# Common issues:
+# - Network timeout → increase TimeoutStartSec in module
+# - Disk space → run: sudo nix-collect-garbage -d
+# - Memory → add swap or increase RAM
+
+# Manually trigger rebuild
+sudo systemctl start xo-build.service
+```
+
+### Server Won't Start
+
+**Symptom:** `xo-server.service` fails or crashes
+
+```bash
+# Verify build completed
+ls -la /var/lib/xo/app/packages/xo-server/dist/
+
+# Check Redis is running
+sudo systemctl status redis-xo.service
+
+# Verify config syntax
+cat /etc/xo-server/config.toml
+
+# Check permissions
+ls -la /var/lib/xo/
+
+# Test Redis connection
+sudo -u xo redis-cli -s /run/redis-xo/redis.sock ping
+```
+
+### Can't Access Web Interface
+
+**Symptom:** Connection refused or timeout
+
+```bash
+# Check if server is listening
+sudo ss -tlnp | grep -E ':(80|443)'
+
+# Verify firewall rules
+sudo iptables -L -n | grep -E '(80|443)'
+
+# Test locally
+curl -k https://localhost/
+
+# Check SSL certificates
+sudo openssl x509 -in /etc/ssl/xo/certificate.pem -text -noout
+```
+
+### Mount Operations Fail
+
+**Symptom:** Remote storage mounts fail in XO
+
+```bash
+# Test sudo privileges
+sudo -u xo sudo mount
+
+# Check FUSE module
+lsmod | grep fuse
+
+# Test vhdimount
+which vhdimount
+vhdimount --version
+
+# Manual mount test (NFS)
+sudo mount -t nfs server.example.com:/export /mnt/test
+sudo umount /mnt/test
+
+# Manual mount test (CIFS)
+sudo mount -t cifs //server/share /mnt/test -o username=user,password=pass
+sudo umount /mnt/test
+```
+
+### SSH Access Issues
+
+**Symptom:** Can't SSH as admin user
+
+```bash
+# Verify SSH key
+sudo cat /home/xoa/.ssh/authorized_keys
+
+# Check SSH daemon
+sudo systemctl status sshd
+
+# Test SSH config
+sudo sshd -T | grep -E '(PermitRoot|PasswordAuth|AllowUsers)'
+
+# Check user exists
+id xoa
+
+# Review SSH logs
+sudo journalctl -u sshd -n 50
+```
+
+### Update Timers Not Running
+
+**Symptom:** Automatic updates aren't happening
+
+```bash
+# List all update timers
+systemctl list-timers | grep xoa
+
+# Check timer status
+sudo systemctl status xoa-xo-update.timer
+sudo systemctl status xoa-nixpkgs-update.timer
+
+# View timer logs
+sudo journalctl -u xoa-xo-update.service -e
+
+# Check update status
+sudo xoa-update-status
+
+# Manually trigger update
+sudo systemctl start xoa-xo-update.service
+```
+
+### Notifications Not Working
+
+**Symptom:** Not receiving update notifications
+
+**For ntfy.sh:**
+```bash
+# Test notification manually
+curl -H "Title: Test" -d "Testing ntfy from XOA" \
+  https://ntfy.sh/your-topic-name
+
+# Check if curl is available
+which curl
+
+# Verify configuration
+grep -A5 "ntfy" /etc/nixos/declarative-xoa-ce/vars.nix
+```
+
+**For email:**
+```bash
+# Test email sending
+echo "Test email" | mail -s "Test" admin@example.com
+
+# Check mail configuration
+systemctl status msmtp
+
+# View mail logs
+journalctl -u msmtp -e
+```
+
+**For webhooks:**
+```bash
+# Test webhook manually
+curl -X POST "https://your-webhook-url" \
+  -H "Content-Type: application/json" \
+  -d '{"subject":"Test","body":"Testing webhook","priority":"success"}'
+
+# Check service logs for webhook errors
+sudo journalctl -u xoa-xo-update.service | grep -i webhook
+```
+
+---
+
+## Security Notes
+
+### Default Security Posture
+
+- ✅ **No root login** - SSH disabled for root
+- ✅ **Key-based auth only** - Password authentication disabled
+- ✅ **Service isolation** - XO runs as unprivileged `xo` user
+- ✅ **Minimal sudo** - Only mount/umount operations allowed
+- ✅ **Private Redis** - Unix socket, not network exposed
+- ✅ **Self-signed TLS** - HTTPS enabled by default
+
+### Hardening Recommendations
+
+1. **Use Let's Encrypt** - Replace self-signed certificates:
+
+```nix
+# Add to flake.nix or separate module
+services.nginx = {
+  enable = true;
+  virtualHosts."xo.example.com" = {
+    enableACME = true;
+    forceSSL = true;
+    locations."/".proxyPass = "http://127.0.0.1:80";
+  };
+};
+security.acme.defaults.email = "admin@example.com";
+```
+
+2. **Firewall configuration**:
+
+```nix
+networking.firewall = {
+  enable = true;
+  allowedTCPPorts = [ 22 443 ];  # SSH and HTTPS only
+};
+```
+
+3. **Change default XO password immediately** after first login
+
+4. **Enable fail2ban** for SSH protection:
+
+```nix
+services.fail2ban.enable = true;
+```
+
+---
+
+## Performance Tuning
+
+For large deployments (50+ VMs):
+
+```nix
+# In vars.nix or as module options
+xoa.xo.extraServerEnv = {
+  NODE_OPTIONS = "--max-old-space-size=8192";  # 8GB heap
+};
 
 # Increase Redis memory
 services.redis.servers."xo".settings.maxmemory = "2gb";
-
-# Use faster temp directory (if you have SSD)
-xoa.xo.tempDir = "/var/tmp/xo";
 ```
+
+---
+
+## Directory Structure
+
+```
+declarative-xoa-ce/
+├── flake.nix                    # Main flake definition
+├── vars.nix                     # User configuration
+├── hardware-configuration.nix   # System hardware config
+├── modules/
+│   ├── xoa.nix                  # Core XO module
+│   ├── storage.nix              # NFS/CIFS support
+│   ├── libvhdi.nix              # VHD tools
+│   └── updates.nix              # Update automation
+└── scripts/
+    ├── xoa-install.sh           # Initial deployment
+    ├── xoa-logs.sh              # View logs
+    ├── xoa-set-vars.sh          # Interactive setup
+    └── xoa-update.sh            # Manual XO update
+```
+
+---
 
 ## Contributing
 
-To contribute improvements to this configuration:
-
+Contributions welcome! Please:
 1. Test changes thoroughly
-2. Document new options
-3. Update this README
-4. Submit pull requests with clear descriptions
+2. Update documentation
+3. Keep `vars.nix` user-friendly
+4. Maintain backward compatibility
+
+---
+
+## Resources
+
+- [Xen Orchestra Docs](https://xen-orchestra.com/docs/)
+- [XCP-ng Forums](https://xcp-ng.org/forum/)
+- [NixOS Manual](https://nixos.org/manual/nixos/stable/)
+- [Project Repository](https://codeberg.org/dalemorgan/declarative-xoa-ce)
+
+---
 
 ## License
 
-This configuration is provided as-is. Xen Orchestra itself is licensed under AGPL-3.0.
-
-## More Info
-
-- Xen Orchestra Documentation: https://xen-orchestra.com/docs/
-- XO Community Forum: https://xcp-ng.org/forum/
-- NixOS Manual: https://nixos.org/manual/nixos/stable/
-
-## Changelog
-
-### 2025-11 - Initial Release
-- Full from-source build
-- SSL support with auto-generated certificates
-- NFS/CIFS/VHD mounting capabilities
-- Redis integration
-- Security hardening
-- Comprehensive documentation
+Configuration: Public Domain / Unlicense  
+Xen Orchestra: AGPL-3.0

@@ -1,66 +1,137 @@
-# vars.nix
+# vars.nix - User Configuration
+# Edit this file to customize your Xen Orchestra deployment
 {
-  # ===== Editable variables =====
-  system   = "x86_64-linux";
-  hostname = "xoa";                         # nixosConfigurations.${hostname}
-  username = "xoa";                         # admin login user (sudoer)
-  sshKeys  = [
-    # paste one or more public keys here
-    # "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... your@email"
+  # ============================================================================
+  # REQUIRED SETTINGS
+  # ============================================================================
+  
+  # System architecture (usually don't change)
+  system = "x86_64-linux";
+  
+  # Hostname for this NixOS system
+  hostname = "xoa";
+  
+  # Admin username for SSH access (will have sudo rights)
+  username = "xoa";
+  
+  # SSH public keys for admin user (at least one required)
+  # Generate with: ssh-keygen -t ed25519
+  sshKeys = [
+    # "ssh-ed25519 AAAAC3... user@host"
   ];
-
-  # Xen Orchestra
-  xoHost      = "0.0.0.0";
-  xoPort      = 80;
+  
+  # ============================================================================
+  # XEN ORCHESTRA SETTINGS
+  # ============================================================================
+  
+  # Network binding (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
+  xoHost = "0.0.0.0";
+  
+  # HTTP and HTTPS ports
+  xoPort = 80;
   xoHttpsPort = 443;
+  
+  # TLS/SSL configuration
   tls = {
-    enable    = true;
-    dir       = "/etc/ssl/xo";
-    cert      = "/etc/ssl/xo/certificate.pem";
-    key       = "/etc/ssl/xo/key.pem";
+    enable = true;                          # Auto-generate self-signed certificates
+    dir = "/etc/ssl/xo";                    # Certificate storage directory
+    cert = "/etc/ssl/xo/certificate.pem";   # Certificate file path
+    key = "/etc/ssl/xo/key.pem";            # Private key file path
   };
-
-  # Storage / mounts
+  
+  # ============================================================================
+  # STORAGE & MOUNTING
+  # ============================================================================
+  
   storage = {
-    nfs.enable  = true;
-    cifs.enable = true;
-    mountsDir   = "/var/lib/xo/mounts";
+    nfs.enable = true;                      # Enable NFS remote storage
+    cifs.enable = true;                     # Enable CIFS/SMB remote storage
+    mountsDir = "/var/lib/xo/mounts";       # Where to mount remote storage
   };
-  # Where your local git clone of this flake lives on the machine.
-  # The auto-updaters and GC timers will run *inside* this directory.
+  
+  # ============================================================================
+  # AUTOMATED UPDATES
+  # ============================================================================
+  
   updates = {
+    # Location of this flake repository
+    # IMPORTANT: Must match where you cloned the repo
+    # Common choices:
+    #   - "/etc/nixos/declarative-xoa-ce" (system-wide, recommended)
+    #   - "~/declarative-xoa-ce" (user directory)
     repoDir = "~/declarative-xoa-ce";
-
-    # Standalone GC with “keep N successful system generations”
+    
+    # Files to protect from git operations (never overwrite these)
+    protectPaths = [ "vars.nix" "hardware-configuration.nix" ];
+    
+    # --- Monitoring & Notifications ---
+    monitoring = {
+      notifyOnSuccess = false;              # Send notifications for successful updates too
+      
+      # Email notifications (requires working mail setup)
+      email = {
+        enable = false;                     # Enable: true | Disable: false
+        to = "admin@example.com";           # Email address for alerts
+      };
+      
+      # ntfy.sh push notifications (mobile/desktop)
+      ntfy = {
+        enable = false;                     # Enable: true | Disable: false
+        server = "https://ntfy.sh";         # Use public server or self-hosted
+        topic = "xoa-updates-myserver";     # Unique topic name (make it random!)
+      };
+      
+      # Generic webhook (Discord, Slack, custom)
+      webhook = {
+        enable = false;                     # Enable: true | Disable: false
+        url = "";                           # Webhook URL
+      };
+    };
+    
+    # --- Garbage Collection ---
+    # Automatically clean up old system generations
     gc = {
-      enable = false;
-      schedule = "Sun 04:00";
-      keepGenerations = 7;
+      enable = false;                       # Enable: true | Disable: false
+      schedule = "Sun 04:00";               # When to run (systemd calendar format)
+      keepGenerations = 7;                  # How many generations to keep
     };
-
-    # Update nixpkgs input + rebuild
-    nixos = {
-      enable = false;
-      schedule = "Sun 04:00";
-    };
-
-    # Pull latest commits from the flake’s remote (Codeberg) but keep your vars.nix intact
+    
+    # --- Flake Self-Update ---
+    # Pull latest changes from the Codeberg repository
     flake = {
-      enable = false;
-      schedule = "Sun 04:00";
+      enable = false;                       # Enable: true | Disable: false
+      schedule = "Sun 04:00";               # When to check for updates
       remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git";
-      branch = "main";
-      protectPaths = [ "vars.nix" ];
+      branch = "main";                      # Branch to track
+      autoRebuild = false;                  # Rebuild system after update?
     };
-
-    # Update XO upstream input (xoSrc) + rebuild
+    
+    # --- NixOS Updates ---
+    # Update nixpkgs (system packages) and rebuild
+    nixos = {
+      enable = false;                       # Enable: true | Disable: false
+      schedule = "Mon 04:00";               # When to update
+      keepGenerations = 7;                  # GC after update (0 = skip)
+    };
+    
+    # --- Xen Orchestra Updates ---
+    # Update XO upstream source and rebuild
     xoa = {
-      enable = false;
-      schedule = "Sun 04:00";
+      enable = false;                       # Enable: true | Disable: false
+      schedule = "Tue 04:00";               # When to update
+      keepGenerations = 7;                  # GC after update (0 = skip)
     };
   };
-  # ===== Advanced (usually leave alone) =====
-  xoUser  = "xo";                            # XO service user
+  
+  # ============================================================================
+  # ADVANCED SETTINGS (usually don't change)
+  # ============================================================================
+  
+  # Service account for running XO (non-root, no login)
+  xoUser = "xo";
   xoGroup = "xo";
+  
+  # NixOS state version (matches your NixOS release)
+  # DO NOT CHANGE after initial installation
   stateVersion = "25.05";
 }
