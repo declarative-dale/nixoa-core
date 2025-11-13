@@ -69,30 +69,6 @@ Password: admin
 ⚠️ CHANGE THE DEFAULT PASSWORD IMMEDIATELY!
 ```
 
-## Configuration Overview
-
-### XO Service Configuration
-
-Located in `modules/system.nix`:
-
-```nix
-xoa.xo = {
-  enable = true;
-  host = "0.0.0.0";           # Bind address
-  port = 80;                  # HTTP port
-  httpsPort = 443;            # HTTPS port
-  
-  ssl.enable = true;          # Enable HTTPS
-  ssl.dir = "/etc/ssl/xo";
-  ssl.key = "/etc/ssl/xo/key.pem";
-  ssl.cert = "/etc/ssl/xo/certificate.pem";
-  
-  dataDir = "/var/lib/xo/data";      # Backup metadata
-  tempDir = "/var/lib/xo/tmp";       # Temporary files
-  mountsDir = "/var/lib/xo/mounts";  # Remote mounts & VHD mounts
-};
-```
-
 ### User Accounts
 
 Two accounts are created:
@@ -106,78 +82,6 @@ Two accounts are created:
    - Full sudo access for system administration
    - SSH key authentication only (no password)
    - Member of wheel and systemd-journal groups
-
-### Sudo Configuration for SR Mounting
-
-The `xo` user has passwordless sudo for these operations:
-
-```bash
-# NFS mounts
-sudo mount -t nfs server:/path /mnt/point
-sudo mount.nfs server:/path /mnt/point
-sudo mount.nfs4 server:/path /mnt/point
-
-# CIFS/SMB mounts
-sudo mount -t cifs //server/share /mnt/point -o credentials=/path/to/creds
-sudo mount.cifs //server/share /mnt/point -o credentials=/path/to/creds
-
-# VHD operations
-sudo vhdimount /path/to/file.vhd /mnt/point
-sudo vhdiinfo /path/to/file.vhd
-
-# Generic mount/umount
-sudo mount <options>
-sudo umount /mnt/point
-```
-
-## Remote SR Configuration
-
-### NFS Remotes
-
-In XO web interface:
-
-1. Go to **Settings** → **Remotes** → **New**
-2. Select **NFS**
-3. Configure:
-   ```
-   Host: nfs-server.example.com
-   Path: /exports/xo-backups
-   ```
-
-### SMB/CIFS Remotes
-
-1. Go to **Settings** → **Remotes** → **New**
-2. Select **SMB**
-3. Configure:
-   ```
-   Host: smb-server.example.com
-   Share: backups
-   Domain: WORKGROUP (or your domain)
-   Username: backup-user
-   Password: ********
-   ```
-
-The XO service will automatically use sudo to mount these shares.
-
-## VHD Operations
-
-The libvhdi tools are available system-wide:
-
-```bash
-# View VHD file information
-sudo vhdiinfo /path/to/disk.vhd
-
-# Mount VHD as a filesystem
-sudo vhdimount /path/to/disk.vhd /mnt/vhd
-
-# Access files
-ls /mnt/vhd/vhdi1
-
-# Unmount
-sudo umount /mnt/vhd
-```
-
-XO uses these tools internally for backup restore operations.
 
 ## SSL Certificates
 
@@ -378,41 +282,6 @@ sudo cat /etc/ssh/sshd_config | grep -E "(PermitRoot|PasswordAuth|AllowUsers)"
 
 ## Security Considerations
 
-### Production Hardening
-
-1. **Replace Self-Signed Certificates**
-   - Use Let's Encrypt or your own CA-signed certificates
-   - Configure a reverse proxy for better TLS management
-
-2. **Firewall Configuration**
-   - Restrict port 80/443 to trusted networks
-   - Consider VPN access for XO interface
-   - The default config opens: 80, 443, 3389, 5900, 8012
-
-3. **SSH Hardening**
-   - Keep SSH key-only authentication (already configured)
-   - Consider changing SSH port from 22
-   - Use fail2ban or similar for brute-force protection
-
-4. **User Management**
-   - Change XO admin password immediately
-   - Remove default admin@admin.net account after creating your own
-   - Use strong passwords for remote share credentials
-
-5. **Backup Security**
-   - Use encrypted remote shares when possible
-   - Protect credentials files with appropriate permissions
-   - Regular security audits of backup access logs
-
-### Data Protection
-
-- XO metadata: `/var/lib/xo/data`
-- Temporary files: `/var/lib/xo/tmp`
-- Mount points: `/var/lib/xo/mounts`
-- Config: `/etc/xo-server/config.toml`
-
-Ensure these are included in your system backups.
-
 ## Advanced Configuration
 
 ### Custom XO Server Configuration
@@ -436,34 +305,6 @@ Then restart:
 ```bash
 sudo systemctl restart xo-server.service
 ```
-
-### Adding Extra Environment Variables
-
-In `modules/system.nix`:
-
-```nix
-xoa.xo.extraServerEnv = {
-  DEBUG = "xo:*";  # Enable debug logging
-  NODE_OPTIONS = "--max-old-space-size=4096";  # Increase memory
-};
-```
-
-### Disable HTTPS
-
-In `modules/system.nix`:
-
-```nix
-xoa.xo.ssl.enable = false;
-```
-
-### Change Ports
-
-```nix
-xoa.xo.port = 8080;
-xoa.xo.httpsPort = 8443;
-```
-
-Don't forget to update firewall rules in `networking.firewall.allowedTCPPorts`.
 
 ## Performance Tuning
 
