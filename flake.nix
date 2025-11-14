@@ -19,7 +19,7 @@
     lib    = nixpkgs.lib;
     pkgs   = import nixpkgs { inherit system; };
   in {
-    nixosConfigurations.xoa = lib.nixosSystem {
+    nixosConfigurations.nixoa = lib.nixosSystem {
       inherit system;
       modules = [ 
         ./modules/system.nix 
