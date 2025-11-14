@@ -1,4 +1,4 @@
-# Xen Orchestra on NixOS - Full Installation Guide
+# NiXOA: Xen Orchestra on NixOS
 
 This flake provides a proof of concept implementation of Xen Orchestra Community Edition on NixOS with features such as:
 
@@ -36,7 +36,7 @@ This flake provides a proof of concept implementation of Xen Orchestra Community
 
 ```bash
 # Clone or create this repository structure
-git clone https://codeberg.org/dalemorgan/declarative-xoa-ce /etc/nixos
+git clone https://codeberg.org/dalemorgan/nixoa /etc/nixos
 cd /etc/nixos
 
 # Add your SSH public key to modules/users.nix
@@ -48,7 +48,7 @@ nano modules/users.nix
 
 ```bash
 # Build and switch to the new configuration
-sudo nixos-rebuild switch --flake .#xoa
+sudo nixos-rebuild switch --flake .#nixoa
 
 # The system will:
 # 1. Download and build Xen Orchestra from source
@@ -110,47 +110,8 @@ Two accounts are created:
 
 ### Sudo Configuration for SR Mounting
 
-The `xo` user has passwordless sudo for these operations:
+The `xo` user has passwordless sudo for XOA functions
 
-
-# NFS mounts
-sudo mount -t nfs server:/path /mnt/point
-sudo mount.nfs server:/path /mnt/point
-sudo mount.nfs4 server:/path /mnt/point
-
-# CIFS/SMB mounts
-sudo mount -t cifs //server/share /mnt/point -o credentials=/path/to/creds
-sudo mount.cifs //server/share /mnt/point -o credentials
-```
-
-## Remote SR Configuration
-
-### NFS Remotes
-
-In XO web interface:
-
-1. Go to **Settings** → **Remotes** → **New**
-2. Select **NFS**
-3. Configure:
-   ```
-   Host: nfs-server.example.com
-   Path: /exports/xo-backups
-   ```
-
-### SMB/CIFS Remotes
-
-1. Go to **Settings** → **Remotes** → **New**
-2. Select **SMB**
-3. Configure:
-   ```
-   Host: smb-server.example.com
-   Share: backups
-   Domain: WORKGROUP (or your domain)
-   Username: backup-user
-   Password: ********
-   ```
-
-The XO service will automatically use sudo to mount storage when needed.
 
 ## SSL Certificates
 
@@ -412,12 +373,6 @@ Don't forget to update firewall rules in `networking.firewall.allowedTCPPorts`.
 ```nix
 # Increase Node.js memory
 xoa.xo.extraServerEnv.NODE_OPTIONS = "--max-old-space-size=8192";
-
-# Increase Redis memory
-services.redis.servers."xo".settings.maxmemory = "2gb";
-
-# Use faster temp directory (if you have SSD)
-xoa.xo.tempDir = "/var/tmp/xo";
 ```
 
 ## Contributing
