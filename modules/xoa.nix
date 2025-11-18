@@ -7,7 +7,8 @@ let
   yarn   = pkgs.yarn;
   rsync  = pkgs.rsync;
   openssl = pkgs.openssl;
-  # NEW: default xo-server config, copied once if missing
+  
+  # Default xo-server config
   xoDefaultConfig = pkgs.writeText "xo-config-default.toml" ''
     [http]
     hostname = '${cfg.xo.host}'
@@ -25,47 +26,63 @@ let
     [redis]
     socket = "/run/redis-xo/redis.sock"
   '';
-  # cert generation (self-signed), guarded by cfg.xo.ssl.enable
-  genCerts = pkgs.writeShellScript "xo-gen-certs.sh" ''
+
+  # Centralized bootstrap: creates ALL directories and generates certs
+  bootstrapScript = pkgs.writeShellScript "xo-bootstrap.sh" ''
     set -euo pipefail
     umask 077
-    install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} "${cfg.xo.ssl.dir}"
-
-    if [ ! -s "${cfg.xo.ssl.key}" ] || [ ! -s "${cfg.xo.ssl.cert}" ]; then
-      ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
-        -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
-        -subj "/CN=${config.networking.hostName}" -addext "subjectAltName=DNS:${config.networking.hostName}"
-      chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
-      chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
-    fi
+    
+    # Create all required directories
+    install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
+      "${cfg.xo.home}" \
+      "${cfg.xo.appDir}" \
+      "${cfg.xo.cacheDir}" \
+      "${cfg.xo.dataDir}" \
+      "${cfg.xo.tempDir}" \
+      "${cfg.xo.home}/.config" \
+      "${cfg.xo.home}/.config/xo-server"
+    
+    ${lib.optionalString cfg.xo.ssl.enable ''
+      # Create SSL directory
+      install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} "${cfg.xo.ssl.dir}"
+      
+      # Generate self-signed certs if missing
+      if [ ! -s "${cfg.xo.ssl.key}" ] || [ ! -s "${cfg.xo.ssl.cert}" ]; then
+        ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
+          -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
+          -subj "/CN=${config.networking.hostName}" \
+          -addext "subjectAltName=DNS:${config.networking.hostName}"
+        chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
+        chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
+      fi
+    ''}
   '';
 
-  # rsync source → appDir and run Yarn build once at boot
+  # Build script: NO directory creation, assumes bootstrap ran first
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
-
-    install -d -m0750 -o ${cfg.xo.user} -g ${cfg.xo.group} "${cfg.xo.appDir}" "${cfg.xo.cacheDir}"
+    
+    # Directories already created by xo-bootstrap
     ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete \
       --exclude node_modules/ --exclude .git/ \
       "${xoSource}/" "${cfg.xo.appDir}/"
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
-
+    
     export YARN_CACHE_FOLDER="${cfg.xo.cacheDir}"
     export YARN_ENABLE_IMMUTABLE_INSTALLS=true
     export NODE_ENV=production
-
+    
     ${yarn}/bin/yarn --version
-    # try frozen first, then non-frozen if upstream changed lockfile format
+    # Try frozen first, then non-frozen if upstream changed lockfile format
     ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000 || \
       ${yarn}/bin/yarn install --network-timeout 300000
-
+    
     ${yarn}/bin/yarn build
-    chown -R ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.appDir}"
   '';
 
-  # robustly locate XO CLI entrypoint
+  # Robustly locate XO CLI entrypoint with error handling
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     cd "${cfg.xo.appDir}"
@@ -75,8 +92,14 @@ let
     elif [ -f packages/xo-server/dist/cli.js ]; then
       CLI="packages/xo-server/dist/cli.js"
     else
-      CLI=$(find packages/xo-server/dist -name "cli.mjs" -o -name "cli.js" | head -1)
+      CLI=$(find packages/xo-server/dist -name "cli.mjs" -o -name "cli.js" 2>/dev/null | head -1)
     fi
+    
+    if [ -z "$CLI" ]; then
+      echo "ERROR: XO CLI entrypoint not found in packages/xo-server/dist" >&2
+      exit 1
+    fi
+    
     exec ${node}/bin/node "$CLI" --config /etc/xo-server/config.toml
   '';
 
@@ -176,47 +199,57 @@ in
       };
     };
 
-    # system packages useful for XO build
+    # System packages useful for XO build
     environment.systemPackages = with pkgs; [
       node yarn git rsync pkg-config python3 gcc gnumake openssl jq
     ];
 
-    # Directories via systemd native dirs + tmpfiles
+    # Bootstrap service: creates ALL directories + generates certs
+    systemd.services.xo-bootstrap = {
+      description = "XO Bootstrap: Create directories and TLS certificates";
+      wantedBy = [ "multi-user.target" ];
+      before = [ "xo-build.service" "xo-server.service" ];
+      after = [ "local-fs.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        ExecStart = bootstrapScript;
+        User = "root";  # Needs root to create directories with specific ownership
+      };
+    };
+
+    # Build service: NO directory creation
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
-      after    = [ "network-online.target" ];
-      requires = [ "redis-xo.service" ];
+      after = [ "network-online.target" "xo-bootstrap.service" ];
+      requires = [ "redis-xo.service" "xo-bootstrap.service" ];
       serviceConfig = {
         Type = "oneshot";
         User = cfg.xo.user;
         Group = cfg.xo.group;
         Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv;
         ReadWritePaths = [
-          cfg.xo.appDir cfg.xo.cacheDir cfg.xo.dataDir cfg.xo.tempDir
-        ] ++ lib.optional cfg.xo.ssl.enable cfg.xo.ssl.dir;
+          cfg.xo.appDir 
+          cfg.xo.cacheDir 
+          cfg.xo.dataDir 
+          cfg.xo.tempDir
+        ];
         ExecStart = buildXO;
         TimeoutStartSec = "10min";
       };
     };
 
-    systemd.services.xo-bootstrap = mkIf cfg.xo.ssl.enable {
-      description = "XO TLS certificate generation";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = cfg.xo.user;
-        Group = cfg.xo.group;
-        ReadWritePaths = [ cfg.xo.ssl.dir ];
-        ExecStart = genCerts;
-      };
-    };
-
+    # Server service
     systemd.services.xo-server = {
       description = "Xen Orchestra (xo-server)";
-      after = [ "systemd-tmpfiles-setup.service" "network-online.target" "redis-xo.service" "xo-build.service" ]
-        ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
+      after = [ 
+        "systemd-tmpfiles-setup.service" 
+        "network-online.target" 
+        "redis-xo.service" 
+        "xo-build.service"
+        "xo-bootstrap.service"
+      ];
       wants = [ "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
@@ -233,30 +266,25 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        StateDirectory = [ "xo" ];
-        CacheDirectory = [ "xo" ];
-        RuntimeDirectory = [ "xo" ];
+        
+        # Use systemd-managed directories
+        RuntimeDirectory = "xo-server";  # Creates /run/xo-server
+        
         ReadOnlyPaths = [ "/etc/xo-server/config.toml" ];
-        ReadWritePaths = [ cfg.xo.dataDir cfg.xo.tempDir ];
+        ReadWritePaths = [ 
+          cfg.xo.dataDir 
+          cfg.xo.tempDir
+          "/run/xo-server"  # Explicit access to runtime directory
+        ];
         TimeoutStartSec = "5min";
       };
     };
 
-    # Ensure directories exist
+    # Minimal tmpfiles: ONLY /etc/xo-server config
+    # All other directories handled by xo-bootstrap
     systemd.tmpfiles.rules = [
       "d /etc/xo-server 0755 root root - -"
       "C /etc/xo-server/config.toml 0640 ${cfg.xo.user} ${cfg.xo.group} - ${xoDefaultConfig}"
-     ]
-     ++[
-      "d ${cfg.xo.home}                   0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.appDir}                 0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.cacheDir}               0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.dataDir}                0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.tempDir}                0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.home}/.config           0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.home}/.config/xo-server 0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-     ] ++ lib.optionals cfg.xo.ssl.enable [
-      "d ${cfg.xo.ssl.dir}                0750 ${cfg.xo.user} ${cfg.xo.group} - -"
     ];
   };
 }
