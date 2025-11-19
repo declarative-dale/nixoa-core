@@ -1,28 +1,22 @@
 {
-  description = "XO CE on NixOS — modular, variables-first, with update helper";
+  description = "XO CE on NixOS – modular, variables-first, with update helper";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
 
     # Upstream Xen Orchestra source (non-flake git repo)
     xoSrc = {
       url = "github:vatesfr/xen-orchestra";
       flake = false;
     };
-
-    # libvhdi release tarball (non-flake)
-    libvhdiSrc = {
-      url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
-      flake = false;
-    };
   };
 
-  outputs = { self, nixpkgs, xoSrc, libvhdiSrc, ... }:
+  outputs = { self, nixpkgs, xoSrc, ... }:
   let
-    vars   = import ./vars.nix;
+    vars = import ./vars.nix;
     system = vars.system;
-    pkgs   = import nixpkgs { inherit system; };
-    lib    = nixpkgs.lib;
+    pkgs = import nixpkgs { inherit system; };
+    lib = nixpkgs.lib;
   in {
     nixosConfigurations.${vars.hostname} = lib.nixosSystem {
       inherit system;
@@ -59,7 +53,10 @@
               };
 
               # Provide flake-pinned sources
-              srcPath = xoSrc;    # default to using the flake input
+              srcPath = xoSrc;
+              
+              # Optional: override build isolation
+              buildIsolation = true; # Restrict network to npm/yarn only
             };
 
             storage = {
@@ -69,9 +66,15 @@
             };
           };
 
+          # Enable libvhdi support
+          services.libvhdi = {
+            enable = true;
+          };
+
           # lock the state version
           system.stateVersion = vars.stateVersion;
-          # pass vars to update flakr
+          
+          # pass vars to updates module
           updates = vars.updates;
 
           # nix flakes UX
@@ -79,21 +82,35 @@
         })
       ];
 
-      specialArgs = { inherit xoSrc libvhdiSrc; };
+      specialArgs = { inherit xoSrc; };
     };
 
     # Runnable helper: nix run .#update-xo
     apps.${system}.update-xo = {
       type = "app";
-      program = (pkgs.writeShellApplication {
+      program = toString (pkgs.writeShellApplication {
         name = "update-xo";
         runtimeInputs = [ pkgs.jq pkgs.git pkgs.curl ];
         text = builtins.readFile ./scripts/xoa-update.sh;
-      }).outPath;
+      });
     };
 
+    # Development shell
     devShells.${system}.default = pkgs.mkShell {
-      packages = [ pkgs.jq pkgs.git pkgs.curl ];
+      packages = with pkgs; [ 
+        jq 
+        git 
+        curl 
+        nixos-rebuild
+      ];
+      
+      shellHook = ''
+        echo "XOA Development Environment"
+        echo "Available commands:"
+        echo "  nix run .#update-xo        - Update XO source"
+        echo "  sudo nixos-rebuild switch --flake .#${vars.hostname}"
+        echo ""
+      '';
     };
   };
 }
