@@ -58,7 +58,8 @@ let
     ''}
   '';
 
-  # Build script: NO directory creation, assumes bootstrap ran first
+  # Build script: Pragmatic hybrid approach
+  # XO is a complex monorepo - building at service time is acceptable
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
@@ -74,12 +75,16 @@ let
     export YARN_ENABLE_IMMUTABLE_INSTALLS=true
     export NODE_ENV=production
     
+    echo "Building Xen Orchestra (this requires network access for dependencies)"
     ${yarn}/bin/yarn --version
-    # Try frozen first, then non-frozen if upstream changed lockfile format
+    
+    # Try frozen lockfile first, fallback if upstream changed format
     ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000 || \
       ${yarn}/bin/yarn install --network-timeout 300000
     
     ${yarn}/bin/yarn build
+    
+    echo "Build complete. XO is ready to start."
   '';
 
   # Robustly locate XO CLI entrypoint with error handling
@@ -149,6 +154,16 @@ in
       srcRev  = mkOption { type = types.str; default = ""; };
       srcHash = mkOption { type = types.str; default = ""; };
 
+      buildIsolation = mkOption {
+        type = types.bool;
+        default = true;
+        description = ''
+          Restrict network access during build to npm/yarn registries only.
+          Provides security while allowing necessary dependency fetching.
+          Disable if XO dependencies use non-standard registries.
+        '';
+      };
+
       extraServerEnv = mkOption { type = types.attrsOf types.str; default = {}; };
     };
   };
@@ -214,15 +229,16 @@ in
         Type = "oneshot";
         RemainAfterExit = true;
         ExecStart = bootstrapScript;
-        User = "root";  # Needs root to create directories with specific ownership
+        User = "root";
       };
     };
 
-    # Build service: NO directory creation
+    # Build service: Pragmatic hybrid approach with optional network isolation
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" "xo-bootstrap.service" ];
+      wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" "xo-bootstrap.service" ];
       serviceConfig = {
         Type = "oneshot";
@@ -237,6 +253,17 @@ in
         ];
         ExecStart = buildXO;
         TimeoutStartSec = "10min";
+        
+        # Optional: Restrict network to npm/yarn registries only
+        ${if cfg.xo.buildIsolation then ''
+          IPAddressAllow = [
+            "registry.yarnpkg.com"
+            "registry.npmjs.org"
+            "github.com"
+            "codeload.github.com"
+          ];
+          RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
+        '' else ""}
       };
     };
 
@@ -266,15 +293,12 @@ in
         PrivateTmp = true;
         ProtectSystem = "strict";
         ProtectHome = true;
-        
-        # Use systemd-managed directories
-        RuntimeDirectory = "xo-server";  # Creates /run/xo-server
-        
+        RuntimeDirectory = "xo-server";
         ReadOnlyPaths = [ "/etc/xo-server/config.toml" ];
         ReadWritePaths = [ 
           cfg.xo.dataDir 
           cfg.xo.tempDir
-          "/run/xo-server"  # Explicit access to runtime directory
+          "/run/xo-server"
         ];
         TimeoutStartSec = "5min";
       };
