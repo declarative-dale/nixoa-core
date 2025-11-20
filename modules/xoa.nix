@@ -69,6 +69,14 @@ let
       "${xoSource}/" "${cfg.xo.appDir}/"
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
+      if [ ! -d ".git" ]; then
+        echo "Initializing a minimal git repository for build tooling..."
+        ${pkgs.git}/bin/git init -q
+        ${pkgs.git}/bin/git config user.email "xoa-builder@localhost"
+        ${pkgs.git}/bin/git config user.name "XOA Builder"
+        ${pkgs.git}/bin/git add -A || true
+        ${pkgs.git}/bin/git commit -q -m "imported snapshot" || true
+     fi
     # Environment configuration
     export HOME="${cfg.xo.home}"
     export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
@@ -326,11 +334,12 @@ in
       after = [ "network-online.target" "xo-bootstrap.service" ];
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" "xo-bootstrap.service" ];
+      path = with pkgs; [ git ];
       serviceConfig = {
         Type = "oneshot";
         User = cfg.xo.user;
         Group = cfg.xo.group;
-        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv;
+        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv ++ [ "HOME=${cfg.xo.home}" ];
         ReadWritePaths = [
           cfg.xo.appDir 
           cfg.xo.cacheDir 
@@ -363,15 +372,16 @@ in
       ];
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
-      path = with pkgs; [ util-linux xen ];
+      path = with pkgs; [ util-linux xen git openssl lvm2 ];
       serviceConfig = {
         User = cfg.xo.user;
         Group = cfg.xo.group;
         CacheDirectory = "xo-server";
         LogsDirectory  = "xo-server";
         WorkingDirectory = cfg.xo.appDir;
-        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv;
-        ExecStart = startXO;
+        Environment =
+          lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv
+          ++ [ "HOME=${cfg.xo.home}" ];        ExecStart = startXO;
         Restart = "on-failure";
         RestartSec = 3;
         AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
