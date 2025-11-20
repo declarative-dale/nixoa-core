@@ -59,31 +59,48 @@ let
   '';
 
   # Build script: Pragmatic hybrid approach
-  # XO is a complex monorepo - building at service time is acceptable
+  # Handles NODE_ENV correctly for XO's build process
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
-    
-    # Directories already created by xo-bootstrap
+
+    # Sync source into app dir
     ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete \
       --exclude node_modules/ --exclude .git/ \
       "${xoSource}/" "${cfg.xo.appDir}/"
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
-    
+
+    # Configure environment
     export YARN_CACHE_FOLDER="${cfg.xo.cacheDir}"
     export YARN_ENABLE_IMMUTABLE_INSTALLS=true
-    export NODE_ENV=production
     
+    # Set PATH to include build tools and node_modules/.bin
+    export PATH="${lib.makeBinPath [
+      node
+      yarn
+      pkgs.git
+      pkgs.python3
+      pkgs.gcc
+      pkgs.gnumake
+      pkgs.pkg-config
+    ]}:$PWD/node_modules/.bin:$PATH"
+
+    # Python symlink for node-gyp
+    export PYTHON="${pkgs.python3}/bin/python3"
+
     echo "Building Xen Orchestra (this requires network access for dependencies)"
     ${yarn}/bin/yarn --version
-    
-    # Try frozen lockfile first, fallback if upstream changed format
-    ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000 || \
-      ${yarn}/bin/yarn install --network-timeout 300000
-    
-    ${yarn}/bin/yarn build
-    
+
+    # Install dependencies with NODE_ENV=development to get devDependencies (turbo, etc.)
+    echo "Installing dependencies (including devDependencies for turbo)..."
+    NODE_ENV=development ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000 || \
+      NODE_ENV=development ${yarn}/bin/yarn install --network-timeout 300000
+
+    # Build with NODE_ENV=production for optimized output
+    echo "Building XO packages..."
+    NODE_ENV=production ${yarn}/bin/yarn build
+
     echo "Build complete. XO is ready to start."
   '';
 
@@ -91,6 +108,11 @@ let
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     cd "${cfg.xo.appDir}"
+    
+    # Set NODE_ENV for runtime
+    export NODE_ENV=production
+    export PATH="${node}/bin:$PATH"
+    
     CLI=""
     if [ -f packages/xo-server/dist/cli.mjs ]; then
       CLI="packages/xo-server/dist/cli.mjs"
@@ -125,13 +147,29 @@ in
     enable = mkEnableOption "Xen Orchestra CE stack";
 
     admin = {
-      user = mkOption { type = types.str; default = "xoa"; };
-      sshAuthorizedKeys = mkOption { type = types.listOf types.str; default = []; };
+      user = mkOption { 
+        type = types.str; 
+        default = "xoa";
+        description = "Admin user with sudo access for system management";
+      };
+      sshAuthorizedKeys = mkOption { 
+        type = types.listOf types.str; 
+        default = [];
+        description = "SSH public keys for admin user";
+      };
     };
 
     xo = {
-      user  = mkOption { type = types.str; default = "xo"; };
-      group = mkOption { type = types.str; default = "xo"; };
+      user  = mkOption { 
+        type = types.str; 
+        default = "xo";
+        description = "Service user that runs XO server (no sudo, limited privileges)";
+      };
+      group = mkOption { 
+        type = types.str; 
+        default = "xo";
+        description = "Service group for XO";
+      };
 
       home     = mkOption { type = types.path; default = "/var/lib/xo"; };
       appDir   = mkOption { type = types.path; default = "/var/lib/xo/app"; };
@@ -149,7 +187,6 @@ in
       ssl.key  = mkOption { type = types.path; default = "/etc/ssl/xo/key.pem"; };
       ssl.cert = mkOption { type = types.path; default = "/etc/ssl/xo/certificate.pem"; };
 
-      # Source options: prefer srcPath (flake input) but allow explicit rev/hash
       srcPath = mkOption { type = types.nullOr types.path; default = null; };
       srcRev  = mkOption { type = types.str; default = ""; };
       srcHash = mkOption { type = types.str; default = ""; };
@@ -160,7 +197,6 @@ in
         description = ''
           Restrict network access during build to npm/yarn registries only.
           Provides security while allowing necessary dependency fetching.
-          Disable if XO dependencies use non-standard registries.
         '';
       };
 
@@ -174,22 +210,25 @@ in
       message = "Provide xoa.xo.srcPath OR both xoa.xo.srcRev and xoa.xo.srcHash (or provide xoSrc flake input).";
     }];
 
-    # Admin user for SSH
+    # Admin user for SSH and system management
     users.users.${cfg.admin.user} = {
       isNormalUser = true;
-      extraGroups = [ "wheel" ];
+      description = "XOA Administrator";
+      extraGroups = [ "wheel" "networkmanager" "systemd-journal" ];  # Full sudo access
       openssh.authorizedKeys.keys = cfg.admin.sshAuthorizedKeys;
+    # Disable password entirely (SSH only)
+      hashedPassword = "*";
     };
-
-    # XO service user/group
+    # XO service user (no sudo, limited privileges)
     users.groups.${cfg.xo.group} = {};
     users.users.${cfg.xo.user} = {
       isSystemUser = true;
+      description = "Xen Orchestra service user";
       createHome = true;
       home  = cfg.xo.home;
       group = cfg.xo.group;
-      shell = pkgs.shadow + "/bin/nologin";
-      extraGroups = [ "fuse" ];
+      shell = "${pkgs.shadow}/bin/nologin";
+      extraGroups = [ "fuse" ];  # For FUSE mounts only
     };
 
     # Redis for XO via Unix socket
@@ -214,9 +253,9 @@ in
       };
     };
 
-    # System packages useful for XO build
+    # System packages useful for XO build and management
     environment.systemPackages = with pkgs; [
-      node yarn git rsync pkg-config python3 gcc gnumake openssl jq
+      nodejs_20 yarn git rsync pkg-config python3 gcc gnumake openssl jq
     ];
 
     # Bootstrap service: creates ALL directories + generates certs
@@ -252,18 +291,16 @@ in
           cfg.xo.tempDir
         ];
         ExecStart = buildXO;
-        TimeoutStartSec = "10min";
-        
-        # Optional: Restrict network to npm/yarn registries only
-        ${if cfg.xo.buildIsolation then ''
-          IPAddressAllow = [
-            "registry.yarnpkg.com"
-            "registry.npmjs.org"
-            "github.com"
-            "codeload.github.com"
-          ];
-          RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
-        '' else ""}
+        TimeoutStartSec = "15min";  # Increased for large builds
+      } // lib.optionalAttrs cfg.xo.buildIsolation {
+        # Restrict network to npm/yarn registries only
+        IPAddressAllow = [
+          "registry.yarnpkg.com"
+          "registry.npmjs.org"
+          "github.com"
+          "codeload.github.com"
+        ];
+        RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
       };
     };
 
@@ -277,7 +314,7 @@ in
         "xo-build.service"
         "xo-bootstrap.service"
       ];
-      wants = [ "redis-xo.service" "xo-build.service" ];
+      wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
       serviceConfig = {
         User = cfg.xo.user;
@@ -305,7 +342,6 @@ in
     };
 
     # Minimal tmpfiles: ONLY /etc/xo-server config
-    # All other directories handled by xo-bootstrap
     systemd.tmpfiles.rules = [
       "d /etc/xo-server 0755 root root - -"
       "C /etc/xo-server/config.toml 0640 ${cfg.xo.user} ${cfg.xo.group} - ${xoDefaultConfig}"

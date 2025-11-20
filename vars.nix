@@ -27,6 +27,9 @@
   # Network binding (0.0.0.0 = all interfaces, 127.0.0.1 = localhost only)
   xoHost = "0.0.0.0";
   
+  # Networking / firewall (XO web ports + VNC/RDP for console access)
+  networking.firewall.allowedTCPPorts = [ 80 443 3389 5900 8012 ];
+  
   # HTTP and HTTPS ports
   xoPort = 80;
   xoHttpsPort = 443;
@@ -57,9 +60,9 @@
     # Location of this flake repository
     # IMPORTANT: Must match where you cloned the repo
     # Common choices:
-    #   - "/etc/nixos/declarative-xoa-ce" (system-wide, recommended)
-    #   - "~/declarative-xoa-ce" (user directory)
-    repoDir = "~/declarative-xoa-ce";
+    #   - "/etc/nixos/nixoa" (system-wide, recommended)
+    #   - "~/nixoa" (user directory)
+    repoDir = "~/nixoa";
     
     # Files to protect from git operations (never overwrite these)
     protectPaths = [ "vars.nix" "hardware-configuration.nix" ];
@@ -108,7 +111,7 @@
     
     # --- NixOS Updates ---
     # Update nixpkgs (system packages) and rebuild
-    nixos = {
+    nixpkgs = {
       enable = false;                       # Enable: true | Disable: false
       schedule = "Mon 04:00";               # When to update
       keepGenerations = 7;                  # GC after update (0 = skip)

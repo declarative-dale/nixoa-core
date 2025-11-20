@@ -1,5 +1,5 @@
 {
-  description = "XO CE on NixOS – modular, variables-first, with update helper";
+  description = "XO CE on NixOS modular, variables-first, with update helper";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -25,12 +25,15 @@
         ./modules/storage.nix
         ./modules/libvhdi.nix
         ./modules/updates.nix
+        ./modules/boot.nix
         ./hardware-configuration.nix
 
         # Wire variables into the module options
         ({ config, ... }: {
           networking.hostName = vars.hostname;
 
+          # XOA module configuration
+          # Note: xoa.nix creates the admin user - don't duplicate here
           xoa = {
             enable = true;
 
@@ -55,8 +58,8 @@
               # Provide flake-pinned sources
               srcPath = xoSrc;
               
-              # Optional: override build isolation
-              buildIsolation = true; # Restrict network to npm/yarn only
+              # Network isolation during build
+              buildIsolation = true;
             };
 
             storage = {
@@ -71,13 +74,13 @@
             enable = true;
           };
 
-          # lock the state version
+          # Lock the state version
           system.stateVersion = vars.stateVersion;
           
-          # pass vars to updates module
+          # Pass vars to updates module
           updates = vars.updates;
 
-          # nix flakes UX
+          # Nix flakes UX
           nix.settings.experimental-features = [ "nix-command" "flakes" ];
         })
       ];
@@ -93,6 +96,9 @@
         runtimeInputs = [ pkgs.jq pkgs.git pkgs.curl ];
         text = builtins.readFile ./scripts/xoa-update.sh;
       });
+      meta = {
+        description = "Update the xoSrc input in flake.lock and show new commits.";
+      };
     };
 
     # Development shell
@@ -107,8 +113,8 @@
       shellHook = ''
         echo "XOA Development Environment"
         echo "Available commands:"
-        echo "  nix run .#update-xo        - Update XO source"
-        echo "  sudo nixos-rebuild switch --flake .#${vars.hostname}"
+        echo "  nix run .#update-xo                           - Update XO source"
+        echo "  sudo nixos-rebuild switch --flake .#${vars.hostname}  - Deploy changes"
         echo ""
       '';
     };

@@ -81,7 +81,7 @@ in
     # Restricted sudo rules using safe wrappers
     security.sudo = {
       enable = true;
-      wheelNeedsPassword = true;
+      wheelNeedsPassword = false;
       extraRules = [
         {
           users = [ xoUser ];
