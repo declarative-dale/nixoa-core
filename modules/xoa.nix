@@ -58,8 +58,7 @@ let
     ''}
   '';
 
-  # Build script: Pragmatic hybrid approach
-  # Handles NODE_ENV correctly for XO's build process
+  # Build script: Enhanced with logging, verification, and proper environment
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
@@ -71,10 +70,23 @@ let
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
 
-    # Configure environment
+    # Environment configuration
+    export HOME="${cfg.xo.home}"
+    export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
     export YARN_CACHE_FOLDER="${cfg.xo.cacheDir}"
+    export NPM_CONFIG_CACHE="${cfg.xo.cacheDir}"
+    export NODE_OPTIONS="--max-old-space-size=4096"
+    export CI="true"
     export YARN_ENABLE_IMMUTABLE_INSTALLS=true
-    
+
+    # CRITICAL: LD_LIBRARY_PATH for native module compilation
+    export LD_LIBRARY_PATH="${lib.makeLibraryPath [
+      pkgs.fuse
+      pkgs.zlib
+      pkgs.libpng
+      pkgs.openssl
+    ]}:''${LD_LIBRARY_PATH:-}"
+
     # Set PATH to include build tools and node_modules/.bin
     export PATH="${lib.makeBinPath [
       node
@@ -84,24 +96,49 @@ let
       pkgs.gcc
       pkgs.gnumake
       pkgs.pkg-config
+      pkgs.bash
+      pkgs.coreutils
+      pkgs.findutils
     ]}:$PWD/node_modules/.bin:$PATH"
 
-    # Python symlink for node-gyp
+    # Python for node-gyp
     export PYTHON="${pkgs.python3}/bin/python3"
 
-    echo "Building Xen Orchestra (this requires network access for dependencies)"
+    # Rotate build log (keep only last build)
+    LOG="${cfg.xo.appDir}/.last-build.log"
+    rm -f "$LOG"
+    exec > >(tee "$LOG") 2>&1
+
+    echo "=== XO Build started at $(date -Iseconds) ==="
+    echo "Build directory: ${cfg.xo.appDir}"
+    START_TIME=$(date +%s)
+
+    echo "Yarn version:"
     ${yarn}/bin/yarn --version
 
-    # Install dependencies with NODE_ENV=development to get devDependencies (turbo, etc.)
-    echo "Installing dependencies (including devDependencies for turbo)..."
+    # Install dependencies (NODE_ENV=development gets devDependencies like turbo)
+    echo "Installing dependencies (including devDependencies)..."
     NODE_ENV=development ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000 || \
       NODE_ENV=development ${yarn}/bin/yarn install --network-timeout 300000
 
-    # Build with NODE_ENV=production for optimized output
+    # Build packages (NODE_ENV=production for optimized build)
     echo "Building XO packages..."
     NODE_ENV=production ${yarn}/bin/yarn build
 
-    echo "Build complete. XO is ready to start."
+    # Verify build artifacts
+    echo "Verifying build artifacts..."
+    test -f packages/xo-web/dist/index.html || { 
+      echo "ERROR: xo-web/dist/index.html missing" >&2
+      exit 1
+    }
+    test -f packages/xo-server/dist/cli.mjs || test -f packages/xo-server/dist/cli.js || { 
+      echo "ERROR: xo-server CLI not found in dist/" >&2
+      exit 1
+    }
+
+    END_TIME=$(date +%s)
+    DURATION=$((END_TIME - START_TIME))
+    echo "=== Build completed successfully in ''${DURATION}s at $(date -Iseconds) ==="
   '';
 
   # Robustly locate XO CLI entrypoint with error handling
@@ -112,6 +149,14 @@ let
     # Set NODE_ENV for runtime
     export NODE_ENV=production
     export PATH="${node}/bin:$PATH"
+    
+    # CRITICAL: LD_LIBRARY_PATH for native modules (fuse-native, libvhdi, etc.)
+    export LD_LIBRARY_PATH="${lib.makeLibraryPath [
+      pkgs.fuse
+      pkgs.zlib
+      pkgs.libpng
+      pkgs.openssl
+    ]}:''${LD_LIBRARY_PATH:-}"
     
     CLI=""
     if [ -f packages/xo-server/dist/cli.mjs ]; then
@@ -219,6 +264,7 @@ in
     # Disable password entirely (SSH only)
       hashedPassword = "*";
     };
+
     # XO service user (no sudo, limited privileges)
     users.groups.${cfg.xo.group} = {};
     users.users.${cfg.xo.user} = {
@@ -255,7 +301,9 @@ in
 
     # System packages useful for XO build and management
     environment.systemPackages = with pkgs; [
-      nodejs_20 yarn git rsync pkg-config python3 gcc gnumake openssl jq
+      nodejs_20 yarn git rsync pkg-config micro python3 gcc gnumake openssl jq
+      # Native libraries needed by XO
+      fuse zlib libpng
     ];
 
     # Bootstrap service: creates ALL directories + generates certs
@@ -272,7 +320,7 @@ in
       };
     };
 
-    # Build service: Pragmatic hybrid approach with optional network isolation
+    # Build service: Pragmatic hybrid approach with logging and verification
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
@@ -291,7 +339,7 @@ in
           cfg.xo.tempDir
         ];
         ExecStart = buildXO;
-        TimeoutStartSec = "15min";  # Increased for large builds
+        TimeoutStartSec = "15min";
       } // lib.optionalAttrs cfg.xo.buildIsolation {
         # Restrict network to npm/yarn registries only
         IPAddressAllow = [
