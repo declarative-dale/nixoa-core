@@ -69,7 +69,6 @@ let
       "${xoSource}/" "${cfg.xo.appDir}/"
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
-
     # Environment configuration
     export HOME="${cfg.xo.home}"
     export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
@@ -216,12 +215,12 @@ in
         description = "Service group for XO";
       };
 
-      home     = mkOption { type = types.path; default = "/var/lib/xo"; };
-      appDir   = mkOption { type = types.path; default = "/var/lib/xo/app"; };
-      cacheDir = mkOption { type = types.path; default = "/var/cache/xo/yarn-cache"; };
-      dataDir  = mkOption { type = types.path; default = "/var/lib/xo/data"; };
-      tempDir  = mkOption { type = types.path; default = "/var/lib/xo/tmp"; };
-      webMountDir = mkOption { type = types.path; default = "/var/lib/xo/app/packages/xo-web/dist"; };
+      home     = mkOption { type = types.path; default = "/var/lib/xo-server"; };
+      appDir   = mkOption { type = types.path; default = "/var/lib/xo-server/app"; };
+      cacheDir = mkOption { type = types.path; default = "/var/cache/xo-server/yarn-cache"; };
+      dataDir  = mkOption { type = types.path; default = "/var/lib/xo-server/data"; };
+      tempDir  = mkOption { type = types.path; default = "/var/lib/xo-server/tmp"; };
+      webMountDir = mkOption { type = types.path; default = "/var/lib/xo-server/app/packages/xo-web/dist"; };
 
       host      = mkOption { type = types.str; default = "0.0.0.0"; };
       port      = mkOption { type = types.port; default = 80; };
@@ -364,9 +363,12 @@ in
       ];
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
+      path = with pkgs; [ util-linux xen ];
       serviceConfig = {
         User = cfg.xo.user;
         Group = cfg.xo.group;
+        CacheDirectory = "xo-server";
+        LogsDirectory  = "xo-server";
         WorkingDirectory = cfg.xo.appDir;
         Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv;
         ExecStart = startXO;
@@ -381,18 +383,20 @@ in
         RuntimeDirectory = "xo-server";
         ReadOnlyPaths = [ "/etc/xo-server/config.toml" ];
         ReadWritePaths = [ 
+          cfg.xo.home
           cfg.xo.dataDir 
           cfg.xo.tempDir
-          "/run/xo-server"
         ];
+        StateDirectory = "xo-server";
         TimeoutStartSec = "5min";
       };
     };
 
-    # Minimal tmpfiles: ONLY /etc/xo-server config
-    systemd.tmpfiles.rules = [
-      "d /etc/xo-server 0755 root root - -"
-      "C /etc/xo-server/config.toml 0640 ${cfg.xo.user} ${cfg.xo.group} - ${xoDefaultConfig}"
-    ];
+    environment.etc."xo-server/config.toml" = {
+     source = xoDefaultConfig;
+     mode   = "0640";
+     user   = cfg.xo.user;
+     group  = cfg.xo.group;
+   };
   };
 }
