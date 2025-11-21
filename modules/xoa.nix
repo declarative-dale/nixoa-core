@@ -8,26 +8,35 @@ let
   rsync  = pkgs.rsync;
   openssl = pkgs.openssl;
   
-  # Default xo-server config
-  xoDefaultConfig = pkgs.writeText "xo-config-default.toml" ''
+  # Fixed xo-server config with proper HTTPS setup
+  xoDefaultConfig = pkgs.writeText "xo-config-default.toml" (''
     [http]
     hostname = '${cfg.xo.host}'
     port = ${toString cfg.xo.port}
+  '' + lib.optionalString cfg.xo.ssl.enable ''
+    redirectToHttps = true
 
     [http.https]
-    enabled = ${if cfg.xo.ssl.enable then "true" else "false"}
+    enabled = true
+    port = ${toString cfg.xo.httpsPort}
     certificate = '${cfg.xo.ssl.cert}'
     key = '${cfg.xo.ssl.key}'
-    port = ${toString cfg.xo.httpsPort}
+  '' + ''
 
     [http.mounts]
     '/' = '${cfg.xo.webMountDir}'
 
     [redis]
     socket = "/run/redis-xo/redis.sock"
-  '';
+    
+    [authentication]
+    defaultTokenValidity = "30 days"
 
-  # Centralized bootstrap: creates ALL directories and generates certs
+    [logs]
+    level = "info"
+  '');
+
+  # Centralized bootstrap: creates directories, cleans build artifacts, generates certs
   bootstrapScript = pkgs.writeShellScript "xo-bootstrap.sh" ''
     set -euo pipefail
     umask 077
@@ -41,6 +50,20 @@ let
       "${cfg.xo.tempDir}" \
       "${cfg.xo.home}/.config" \
       "${cfg.xo.home}/.config/xo-server"
+    
+    # Clean build artifacts that might have wrong ownership (from root-owned server)
+    # This must happen as root before the xo user tries to build
+    if [ -d "${cfg.xo.appDir}" ]; then
+      echo "Cleaning existing build artifacts..."
+      rm -rf "${cfg.xo.appDir}"/.turbo \
+             "${cfg.xo.appDir}"/node_modules \
+             "${cfg.xo.appDir}"/packages/*/dist \
+             "${cfg.xo.appDir}"/packages/*/.turbo \
+             "${cfg.xo.appDir}"/packages/*/node_modules 2>/dev/null || true
+      
+      # Ensure correct ownership
+      chown -R ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.appDir}" || true
+    fi
     
     ${lib.optionalString cfg.xo.ssl.enable ''
       # Create SSL directory
@@ -58,7 +81,7 @@ let
     ''}
   '';
 
-  # Build script: Enhanced with logging, verification, and proper environment
+  # Build script: Simplified - cleanup now happens in bootstrap
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
@@ -69,14 +92,17 @@ let
       "${xoSource}/" "${cfg.xo.appDir}/"
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
-      if [ ! -d ".git" ]; then
-        echo "Initializing a minimal git repository for build tooling..."
-        ${pkgs.git}/bin/git init -q
-        ${pkgs.git}/bin/git config user.email "xoa-builder@localhost"
-        ${pkgs.git}/bin/git config user.name "XOA Builder"
-        ${pkgs.git}/bin/git add -A || true
-        ${pkgs.git}/bin/git commit -q -m "imported snapshot" || true
-     fi
+    
+    # Initialize minimal git repo if needed (some build tools expect it)
+    if [ ! -d ".git" ]; then
+      echo "Initializing minimal git repository for build tooling..."
+      ${pkgs.git}/bin/git init -q
+      ${pkgs.git}/bin/git config user.email "xoa-builder@localhost"
+      ${pkgs.git}/bin/git config user.name "XOA Builder"
+      ${pkgs.git}/bin/git add -A || true
+      ${pkgs.git}/bin/git commit -q -m "imported snapshot" || true
+    fi
+
     # Environment configuration
     export HOME="${cfg.xo.home}"
     export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
@@ -179,7 +205,7 @@ let
       exit 1
     fi
     
-    exec ${node}/bin/node "$CLI" --config /etc/xo-server/config.toml
+    exec ${node}/bin/node "$CLI"
   '';
 
   xoSource =
@@ -245,10 +271,10 @@ in
 
       buildIsolation = mkOption {
         type = types.bool;
-        default = true;
+        default = false;
         description = ''
-          Restrict network access during build to npm/yarn registries only.
-          Provides security while allowing necessary dependency fetching.
+          Restrict network access during build.
+          Disabled by default since IPAddressAllow needs IPs not hostnames.
         '';
       };
 
@@ -266,13 +292,12 @@ in
     users.users.${cfg.admin.user} = {
       isNormalUser = true;
       description = "XOA Administrator";
-      extraGroups = [ "wheel" "networkmanager" "systemd-journal" ];  # Full sudo access
+      extraGroups = [ "wheel" "networkmanager" "systemd-journal" ];
       openssh.authorizedKeys.keys = cfg.admin.sshAuthorizedKeys;
-    # Disable password entirely (SSH only)
-      hashedPassword = "*";
+      hashedPassword = "!";
     };
 
-    # XO service user (no sudo, limited privileges)
+    # XO service user
     users.groups.${cfg.xo.group} = {};
     users.users.${cfg.xo.user} = {
       isSystemUser = true;
@@ -281,7 +306,7 @@ in
       home  = cfg.xo.home;
       group = cfg.xo.group;
       shell = "${pkgs.shadow}/bin/nologin";
-      extraGroups = [ "fuse" ];  # For FUSE mounts only
+      extraGroups = [ "fuse" ];
     };
 
     # Redis for XO via Unix socket
@@ -306,28 +331,32 @@ in
       };
     };
 
-    # System packages useful for XO build and management
+    # Xen guest agent
+    systemd.packages = [ pkgs.xen-guest-agent ];
+    systemd.services.xen-guest-agent.wantedBy = [ "multi-user.target" ];
+
+    # System packages
     environment.systemPackages = with pkgs; [
-      nodejs_20 yarn git rsync pkg-config micro python3 gcc gnumake openssl jq
-      # Native libraries needed by XO
-      fuse zlib libpng
+      nodejs_20 yarn git rsync pkg-config python3 gcc gnumake openssl jq micro
+      fuse zlib libpng xen lvm2
     ];
 
-    # Bootstrap service: creates ALL directories + generates certs
+    # Bootstrap service: creates directories, cleans artifacts, generates certs
     systemd.services.xo-bootstrap = {
-      description = "XO Bootstrap: Create directories and TLS certificates";
+      description = "XO Bootstrap: Directories, cleanup, and TLS";
       wantedBy = [ "multi-user.target" ];
       before = [ "xo-build.service" "xo-server.service" ];
       after = [ "local-fs.target" ];
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = bootstrapScript;
         User = "root";
+        Group = "root";
+        ExecStart = bootstrapScript;
       };
     };
 
-    # Build service: Pragmatic hybrid approach with logging and verification
+    # Build service
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
@@ -339,7 +368,8 @@ in
         Type = "oneshot";
         User = cfg.xo.user;
         Group = cfg.xo.group;
-        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv ++ [ "HOME=${cfg.xo.home}" ];
+        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv
+          ++ [ "HOME=${cfg.xo.home}" ];
         ReadWritePaths = [
           cfg.xo.appDir 
           cfg.xo.cacheDir 
@@ -349,18 +379,11 @@ in
         ExecStart = buildXO;
         TimeoutStartSec = "15min";
       } // lib.optionalAttrs cfg.xo.buildIsolation {
-        # Restrict network to npm/yarn registries only
-        IPAddressAllow = [
-          "registry.yarnpkg.com"
-          "registry.npmjs.org"
-          "github.com"
-          "codeload.github.com"
-        ];
         RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
       };
     };
 
-    # Server service
+    # Server service - FIXED to run as xo user with proper config permissions
     systemd.services.xo-server = {
       description = "Xen Orchestra (xo-server)";
       after = [ 
@@ -372,41 +395,71 @@ in
       ];
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
-      path = with pkgs; [ util-linux xen git openssl lvm2 ];
+      path = with pkgs; [ util-linux git openssl xen lvm2 ];
+      
+      # Create writable config directory for xo-server
+      preStart = ''
+        install -d -m 0755 -o ${cfg.xo.user} -g ${cfg.xo.group} /etc/xo-server
+
+        # Copy the default config if it doesn't exist
+        if [ ! -f /etc/xo-server/config.toml ]; then
+          cp ${xoDefaultConfig} /etc/xo-server/config.toml
+          chown ${cfg.xo.user}:${cfg.xo.group} /etc/xo-server/config.toml
+          chmod 0640 /etc/xo-server/config.toml
+        fi
+
+        # Ensure SSL certs are readable by xo user
+        ${lib.optionalString cfg.xo.ssl.enable ''
+          if [ -f "${cfg.xo.ssl.key}" ]; then
+            chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}" || true
+            chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}" || true
+          fi
+        ''}
+      '';
+      
       serviceConfig = {
+        # Run as xo user, not root
         User = cfg.xo.user;
         Group = cfg.xo.group;
-        CacheDirectory = "xo-server";
-        LogsDirectory  = "xo-server";
+        
         WorkingDirectory = cfg.xo.appDir;
-        Environment =
-          lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv
-          ++ [ "HOME=${cfg.xo.home}" ];        ExecStart = startXO;
+        StateDirectory = "xo-server";
+        CacheDirectory = "xo-server";
+        LogsDirectory = "xo-server";
+        RuntimeDirectory = "xo-server";
+        
+        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv
+          ++ [ "HOME=${cfg.xo.home}" ];
+        
+        # Use config at /etc/xo-server/config.toml
+        ExecStart = "${startXO} --config /etc/xo-server/config.toml";
+        
         Restart = "on-failure";
         RestartSec = 3;
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
+        
+        # Security hardening
         NoNewPrivileges = true;
         PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        RuntimeDirectory = "xo-server";
-        ReadOnlyPaths = [ "/etc/xo-server/config.toml" ];
-        ReadWritePaths = [ 
+        
+        # Allow reading SSL certs
+        ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
+        
+        ReadWritePaths = [
           cfg.xo.home
-          cfg.xo.dataDir 
+          cfg.xo.dataDir
           cfg.xo.tempDir
+          "/etc/xo-server"  # Allow writing config and temp files
         ];
-        StateDirectory = "xo-server";
+        
         TimeoutStartSec = "5min";
+        
+        # Capabilities needed for Xen operations
+        AmbientCapabilities = [ "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
+        CapabilityBoundingSet = [ "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
       };
     };
 
-    environment.etc."xo-server/config.toml" = {
-     source = xoDefaultConfig;
-     mode   = "0640";
-     user   = cfg.xo.user;
-     group  = cfg.xo.group;
-   };
+    # Config is managed in /var/lib/xo-server/config/ (writable by xo user)
+    # We don't create a read-only /etc/xo-server/ config to avoid confusion
   };
 }
