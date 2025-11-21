@@ -40,7 +40,7 @@ let
   bootstrapScript = pkgs.writeShellScript "xo-bootstrap.sh" ''
     set -euo pipefail
     umask 077
-    
+
     # Create all required directories
     install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
       "${cfg.xo.home}" \
@@ -49,8 +49,16 @@ let
       "${cfg.xo.dataDir}" \
       "${cfg.xo.tempDir}" \
       "${cfg.xo.home}/.config" \
-      "${cfg.xo.home}/.config/xo-server"
-    
+      "${cfg.xo.home}/.config/xo-server" \
+      "/etc/xo-server"
+
+    # Ensure ownership of all xo-server directories (fixes any permission issues)
+    chown -R ${cfg.xo.user}:${cfg.xo.group} \
+      "${cfg.xo.home}" \
+      "${cfg.xo.dataDir}" \
+      "${cfg.xo.tempDir}" \
+      "/etc/xo-server" || true
+
     # Clean build artifacts that might have wrong ownership (from root-owned server)
     # This must happen as root before the xo user tries to build
     if [ -d "${cfg.xo.appDir}" ]; then
@@ -60,7 +68,7 @@ let
              "${cfg.xo.appDir}"/packages/*/dist \
              "${cfg.xo.appDir}"/packages/*/.turbo \
              "${cfg.xo.appDir}"/packages/*/node_modules 2>/dev/null || true
-      
+
       # Ensure correct ownership
       chown -R ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.appDir}" || true
     fi
@@ -397,24 +405,12 @@ in
       wantedBy = [ "multi-user.target" ];
       path = with pkgs; [ util-linux git openssl xen lvm2 ];
       
-      # Create writable config directory for xo-server
+      # Copy default config if needed (directory already created by bootstrap)
       preStart = ''
-        install -d -m 0755 -o ${cfg.xo.user} -g ${cfg.xo.group} /etc/xo-server
-
-        # Copy the default config if it doesn't exist
         if [ ! -f /etc/xo-server/config.toml ]; then
           cp ${xoDefaultConfig} /etc/xo-server/config.toml
-          chown ${cfg.xo.user}:${cfg.xo.group} /etc/xo-server/config.toml
           chmod 0640 /etc/xo-server/config.toml
         fi
-
-        # Ensure SSL certs are readable by xo user
-        ${lib.optionalString cfg.xo.ssl.enable ''
-          if [ -f "${cfg.xo.ssl.key}" ]; then
-            chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}" || true
-            chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}" || true
-          fi
-        ''}
       '';
       
       serviceConfig = {
