@@ -454,10 +454,10 @@ in
         RestartSec = 10;
         TimeoutStartSec = "5min";
         
-        # Security hardening
+        # Security hardening (relaxed for FUSE support)
         NoNewPrivileges = true;
         PrivateTmp = true;
-        ProtectSystem = "strict";
+        ProtectSystem = "full";  # Changed from "strict" to allow library access
         ProtectHome = true;
         
         # Capabilities for bind to low ports
