@@ -163,7 +163,7 @@ let
     export NODE_ENV="production"
 
     # Add FUSE library to LD_LIBRARY_PATH for fuse-native module
-    export LD_LIBRARY_PATH="${pkgs.fuse}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="${pkgs.fuse}/lib:${pkgs.fuse3}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     cd "${cfg.xo.appDir}"
 
@@ -419,6 +419,7 @@ in
         XDG_CONFIG_HOME = "${cfg.xo.home}/.config";
         XDG_CACHE_HOME = cfg.xo.cacheDir;
         NODE_ENV = "production";
+        LD_LIBRARY_PATH = "${pkgs.fuse}/lib:${pkgs.fuse3}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
       };
       
       preStart = ''
@@ -463,9 +464,13 @@ in
         AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
         CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
         
-        # Allow reading SSL certs
-        ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
-        
+        # Allow reading SSL certs and required libraries
+        ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ] ++ [
+          "${pkgs.fuse}/lib"
+          "${pkgs.fuse3}/lib"
+          "${pkgs.stdenv.cc.cc.lib}/lib"
+        ];
+
         ReadWritePaths = [
           cfg.xo.home
           cfg.xo.appDir
