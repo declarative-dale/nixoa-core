@@ -36,12 +36,27 @@ let
     level = "info"
   '');
 
-  # Centralized bootstrap: creates directories, cleans build artifacts, generates certs
-  bootstrapScript = pkgs.writeShellScript "xo-bootstrap.sh" ''
+  # Simple certificate generation script (only for SSL)
+  genCerts = pkgs.writeShellScript "xo-gen-certs.sh" ''
     set -euo pipefail
     umask 077
+    install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} "${cfg.xo.ssl.dir}"
+    if [ ! -s "${cfg.xo.ssl.key}" ] || [ ! -s "${cfg.xo.ssl.cert}" ]; then
+      ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
+        -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
+        -subj "/CN=${config.networking.hostName}" \
+        -addext "subjectAltName=DNS:${config.networking.hostName}"
+      chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
+      chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
+    fi
+  '';
 
-    # Create all required directories
+  # Build script with directory creation
+  buildXO = pkgs.writeShellScript "xo-build.sh" ''
+    set -euxo pipefail
+    umask 022
+
+    # Create all required directories first (moved from bootstrap)
     install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
       "${cfg.xo.home}" \
       "${cfg.xo.appDir}" \
@@ -49,50 +64,12 @@ let
       "${cfg.xo.dataDir}" \
       "${cfg.xo.tempDir}" \
       "${cfg.xo.home}/.config" \
-      "${cfg.xo.home}/.config/xo-server" \
-      "/etc/xo-server"
-
-    # Ensure ownership of all xo-server directories (fixes any permission issues)
-    chown -R ${cfg.xo.user}:${cfg.xo.group} \
-      "${cfg.xo.home}" \
-      "${cfg.xo.dataDir}" \
-      "${cfg.xo.tempDir}" \
-      "/etc/xo-server" || true
-
-    # Clean build artifacts that might have wrong ownership (from root-owned server)
-    # This must happen as root before the xo user tries to build
-    if [ -d "${cfg.xo.appDir}" ]; then
-      echo "Cleaning existing build artifacts..."
-      rm -rf "${cfg.xo.appDir}"/.turbo \
-             "${cfg.xo.appDir}"/node_modules \
-             "${cfg.xo.appDir}"/packages/*/dist \
-             "${cfg.xo.appDir}"/packages/*/.turbo \
-             "${cfg.xo.appDir}"/packages/*/node_modules 2>/dev/null || true
-
-      # Ensure correct ownership
-      chown -R ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.appDir}" || true
-    fi
+      "${cfg.xo.home}/.config/xo-server"
     
-    ${lib.optionalString cfg.xo.ssl.enable ''
-      # Create SSL directory
-      install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} "${cfg.xo.ssl.dir}"
-      
-      # Generate self-signed certs if missing
-      if [ ! -s "${cfg.xo.ssl.key}" ] || [ ! -s "${cfg.xo.ssl.cert}" ]; then
-        ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
-          -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
-          -subj "/CN=${config.networking.hostName}" \
-          -addext "subjectAltName=DNS:${config.networking.hostName}"
-        chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
-        chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
-      fi
-    ''}
-  '';
-
-  # Build script: Simplified - cleanup now happens in bootstrap
-  buildXO = pkgs.writeShellScript "xo-build.sh" ''
-    set -euxo pipefail
-    umask 022
+    # Create /etc/xo-server as root (needs to be done before we drop to user)
+    if [ ! -d "/etc/xo-server" ]; then
+      install -d -m 0755 "/etc/xo-server"
+    fi
 
     # Sync source into app dir
     ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete \
@@ -349,28 +326,27 @@ in
       fuse zlib libpng xen lvm2
     ];
 
-    # Bootstrap service: creates directories, cleans artifacts, generates certs
-    systemd.services.xo-bootstrap = {
-      description = "XO Bootstrap: Directories, cleanup, and TLS";
+    # FIXED: Bootstrap service only for TLS cert generation (conditional)
+    systemd.services.xo-bootstrap = mkIf cfg.xo.ssl.enable {
+      description = "XO TLS certificate generation";
       wantedBy = [ "multi-user.target" ];
-      before = [ "xo-build.service" "xo-server.service" ];
       after = [ "local-fs.target" ];
       serviceConfig = {
         Type = "oneshot";
-        RemainAfterExit = true;
-        User = "root";
+        User = "root";  # Needs root to create /etc/ssl/xo
         Group = "root";
-        ExecStart = bootstrapScript;
+        ReadWritePaths = [ cfg.xo.ssl.dir ];
+        ExecStart = genCerts;
       };
     };
 
-    # Build service
+    # Build service (now handles directory creation)
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" "xo-bootstrap.service" ];
+      after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       wants = [ "network-online.target" ];
-      requires = [ "redis-xo.service" "xo-bootstrap.service" ];
+      requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       path = with pkgs; [ git ];
       serviceConfig = {
         Type = "oneshot";
@@ -391,7 +367,7 @@ in
       };
     };
 
-    # Server service - FIXED to run as xo user with proper config permissions
+    # Server service
     systemd.services.xo-server = {
       description = "Xen Orchestra (xo-server)";
       after = [ 
@@ -399,13 +375,12 @@ in
         "network-online.target" 
         "redis-xo.service" 
         "xo-build.service"
-        "xo-bootstrap.service"
-      ];
+      ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
       path = with pkgs; [ util-linux git openssl xen lvm2 ];
       
-      # Copy default config if needed (directory already created by bootstrap)
+      # Copy default config if needed (directory already created by build)
       preStart = ''
         if [ ! -f /etc/xo-server/config.toml ]; then
           cp ${xoDefaultConfig} /etc/xo-server/config.toml
@@ -454,8 +429,5 @@ in
         CapabilityBoundingSet = [ "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
       };
     };
-
-    # Config is managed in /var/lib/xo-server/config/ (writable by xo user)
-    # We don't create a read-only /etc/xo-server/ config to avoid confusion
   };
 }
