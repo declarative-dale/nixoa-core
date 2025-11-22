@@ -3,6 +3,11 @@ let
   inherit (lib) mkIf mkOption mkEnableOption types concatStringsSep;
   cfg = config.updates;
 
+  # Expand tilde in repo directory path for systemd services
+  expandedRepoDir = if lib.hasPrefix "~/" cfg.repoDir
+    then "/home/${config.users.users.xoa.name or "xoa"}/${lib.removePrefix "~/" cfg.repoDir}"
+    else cfg.repoDir;
+
   # Common script utilities - reusable functions
   commonUtils = ''
     log_info() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] INFO: $*"; }
@@ -10,11 +15,11 @@ let
     log_success() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] SUCCESS: $*"; }
     
     ensure_repo_dir() {
-      if [[ ! -d "${cfg.repoDir}" ]]; then
-        log_error "Repository directory not found: ${cfg.repoDir}"
+      if [[ ! -d "${expandedRepoDir}" ]]; then
+        log_error "Repository directory not found: ${expandedRepoDir}"
         exit 1
       fi
-      cd "${cfg.repoDir}"
+      cd "${expandedRepoDir}"
     }
     
     protect_local_files() {
@@ -98,119 +103,128 @@ let
     text = ''
       ${commonUtils}
       
-      KEEP="${toString cfg.gc.keepGenerations}"
-      PROFILE="/nix/var/nix/profiles/system"
-      
-      log_info "Running GC, keeping last $KEEP successful generations"
+      log_info "Starting garbage collection (keeping ${toString cfg.gc.keepGenerations} generations)"
       write_status "gc" "running" "Starting garbage collection"
       
-      # Get all generations
-      if ! generations=$(nix-env -p "$PROFILE" --list-generations 2>/dev/null); then
-        log_error "Failed to list generations"
-        write_status "gc" "failed" "Could not list generations"
-        send_notification "GC Failed" "Failed to list system generations" "error"
-        exit 1
-      fi
+      # Get current generation
+      current_gen=$(readlink /nix/var/nix/profiles/system | sed 's/.*-\([0-9]*\)-link$/\1/')
+      log_info "Current system generation: $current_gen"
       
-      # Extract generation numbers
-      gen_numbers=$(echo "$generations" | awk '{print $1}' | sort -n)
-      total=$(echo "$gen_numbers" | wc -l)
+      # List all system generations
+      all_gens=$(ls -1 /nix/var/nix/profiles/system-*-link 2>/dev/null | sed 's/.*-\([0-9]*\)-link$/\1/' | sort -nr)
       
-      deleted_count=0
-      if [[ $total -le $KEEP ]]; then
-        log_info "Only $total generation(s) exist, keeping all"
-      else
-        # Keep last N, delete the rest
-        to_keep=$(echo "$gen_numbers" | tail -n "$KEEP")
-        to_delete=$(comm -23 <(echo "$gen_numbers") <(echo "$to_keep"))
-        
-        if [[ -n "$to_delete" ]]; then
-          deleted_count=$(echo "$to_delete" | wc -w)
-          log_info "Deleting $deleted_count generation(s): $(echo $to_delete | tr '\n' ' ')"
-          # shellcheck disable=SC2086
-          nix-env -p "$PROFILE" --delete-generations $to_delete
+      # Keep only the specified number of generations
+      keep_count=0
+      for gen in $all_gens; do
+        if [[ $keep_count -lt ${toString cfg.gc.keepGenerations} ]]; then
+          log_info "Keeping generation $gen"
+          keep_count=$((keep_count + 1))
+        else
+          if [[ $gen != "$current_gen" ]]; then
+            log_info "Removing generation $gen"
+            nix-env -p /nix/var/nix/profiles/system --delete-generations $gen 2>/dev/null || true
+          fi
         fi
-      fi
+      done
       
-      log_info "Collecting garbage..."
-      gc_output=$(nix-collect-garbage -d 2>&1 || true)
-      freed=$(echo "$gc_output" | grep -oP '\d+\.\d+ MiB' | head -1 || echo "unknown")
-      
-      log_info "Optimizing store..."
-      nix-store --optimise
-      
-      log_success "GC completed: deleted $deleted_count generations, freed $freed"
-      write_status "gc" "success" "Deleted $deleted_count generations, freed $freed"
-      
-      if [[ $deleted_count -gt 0 ]] || ${if cfg.monitoring.notifyOnSuccess then "true" else "false"}; then
-        send_notification "GC Completed" "Deleted $deleted_count generations, freed $freed" "success"
+      # Run garbage collection
+      log_info "Running nix-collect-garbage..."
+      if nix-collect-garbage -d; then
+        log_success "Garbage collection completed"
+        write_status "gc" "success" "Completed successfully"
+        
+        # Report disk space saved
+        df -h /nix/store | tail -1
+      else
+        log_error "Garbage collection failed"
+        write_status "gc" "failed" "GC failed"
+        exit 1
       fi
     '';
   };
 
-  # Flake self-update (pull from remote)
+  # Script to check all statuses
+  statusScript = pkgs.writeShellApplication {
+    name = "xoa-update-status";
+    runtimeInputs = with pkgs; [ coreutils jq ];
+    text = ''
+      STATUS_DIR="/var/lib/xoa-updates"
+      
+      if [[ ! -d "$STATUS_DIR" ]]; then
+        echo "No status information available"
+        exit 0
+      fi
+      
+      echo "=== XOA Update System Status ==="
+      echo ""
+      
+      for status_file in "$STATUS_DIR"/*.status; do
+        if [[ -f "$status_file" ]]; then
+          service=$(jq -r '.service' "$status_file")
+          status=$(jq -r '.status' "$status_file")
+          message=$(jq -r '.message' "$status_file")
+          timestamp=$(jq -r '.timestamp' "$status_file")
+          
+          printf "%-20s %-10s %-40s %s\n" "$service" "$status" "$message" "$timestamp"
+        fi
+      done
+    '';
+  };
+
+  # Flake self-update script (pull from git)
   flakeUpdateScript = pkgs.writeShellApplication {
     name = "xoa-flake-update";
-    runtimeInputs = with pkgs; [ git coreutils ];
+    runtimeInputs = with pkgs; [ git ];
     text = ''
       ${commonUtils}
       
       ensure_repo_dir
       protect_local_files
       
-      REMOTE_URL="${cfg.flake.remoteUrl}"
+      REMOTE="${cfg.flake.remoteUrl}"
       BRANCH="${cfg.flake.branch}"
       
-      log_info "Updating flake from remote: $REMOTE_URL (branch: $BRANCH)"
-      write_status "flake-update" "running" "Checking for flake updates"
+      log_info "Updating flake from $REMOTE ($BRANCH)"
+      write_status "flake-update" "running" "Pulling from $REMOTE"
       
-      # Ensure remote is configured correctly
-      if current_url=$(git remote get-url origin 2>/dev/null); then
-        if [[ "$current_url" != "$REMOTE_URL" ]]; then
-          log_info "Updating remote URL"
-          git remote set-url origin "$REMOTE_URL"
-        fi
+      # Configure remote if not exists
+      if ! git remote | grep -q "^upstream$"; then
+        log_info "Adding upstream remote: $REMOTE"
+        git remote add upstream "$REMOTE"
       else
-        log_info "Adding remote origin"
-        git remote add origin "$REMOTE_URL"
+        git remote set-url upstream "$REMOTE"
       fi
       
       # Fetch latest
-      if ! git fetch --prune origin; then
-        log_error "Failed to fetch from remote"
-        write_status "flake-update" "failed" "Git fetch failed"
-        send_notification "Flake Update Failed" "Failed to fetch from $REMOTE_URL" "error"
+      if ! git fetch upstream "$BRANCH"; then
+        log_error "Failed to fetch from upstream"
+        write_status "flake-update" "failed" "Fetch failed"
+        send_notification "Flake Update Failed" "Could not fetch from $REMOTE" "error"
         exit 1
       fi
       
-      # Check if on correct branch
-      current_branch=$(git rev-parse --abbrev-ref HEAD)
-      if [[ "$current_branch" != "$BRANCH" ]]; then
-        log_info "Switching to branch: $BRANCH"
-        git checkout -B "$BRANCH" "origin/$BRANCH"
-      fi
-      
-      # Check for updates
+      # Check if we're behind
       LOCAL=$(git rev-parse HEAD)
-      REMOTE=$(git rev-parse "origin/$BRANCH")
+      REMOTE_REF=$(git rev-parse "upstream/$BRANCH")
       
-      if [[ "$LOCAL" == "$REMOTE" ]]; then
-        log_info "Flake already up to date"
+      if [[ "$LOCAL" == "$REMOTE_REF" ]]; then
+        log_info "Already up to date"
         write_status "flake-update" "success" "Already up to date"
         exit 0
       fi
       
       # Count commits behind
-      behind=$(git rev-list --count "HEAD..origin/$BRANCH")
+      behind=$(git rev-list --count "HEAD..upstream/$BRANCH")
       log_info "Pulling $behind new commit(s)"
       
       # Get commit messages
-      commit_msgs=$(git log --oneline "HEAD..origin/$BRANCH" | head -5)
+      commit_msgs=$(git log --oneline "HEAD..upstream/$BRANCH" | head -5)
       
-      if git merge --ff-only "origin/$BRANCH"; then
+      if git merge --ff-only "upstream/$BRANCH"; then
         log_success "Flake updated successfully ($behind commits)"
         write_status "flake-update" "success" "Updated $behind commits"
-        send_notification "Flake Updated" "Pulled $behind new commit(s):\n$commit_msgs" "success"
+        send_notification "Flake Updated" "Pulled $behind new commit(s):
+$commit_msgs" "success"
       else
         log_error "Failed to merge (conflicts?)"
         write_status "flake-update" "failed" "Merge conflict"
@@ -283,6 +297,8 @@ let
           fi
         elif [[ "${inputName}" == "nixpkgs" ]]; then
           commit_summary="Updated nixpkgs from $OLD_REV to $NEW_REV"
+        elif [[ "${inputName}" == "libvhdiSrc" ]]; then
+          commit_summary="Updated libvhdi from $OLD_REV to $NEW_REV"
         fi
       fi
       
@@ -290,7 +306,8 @@ let
       write_status "${inputName}-update" "success" "Updated to $NEW_REV"
       
       if [[ -n "$commit_summary" ]] || ${if cfg.monitoring.notifyOnSuccess then "true" else "false"}; then
-        send_notification "${inputName} Updated" "Updated to $NEW_REV\n$commit_summary" "success"
+        send_notification "${inputName} Updated" "Updated to $NEW_REV
+$commit_summary" "success"
       fi
     '';
   };
@@ -342,56 +359,14 @@ let
     '';
   };
 
-  # Status monitoring script
-  statusScript = pkgs.writeShellApplication {
-    name = "xoa-update-status";
-    runtimeInputs = with pkgs; [ coreutils jq ];
-    text = ''
-      STATUS_DIR="/var/lib/xoa-updates"
-      
-      if [[ ! -d "$STATUS_DIR" ]]; then
-        echo "No update status available yet"
-        exit 0
-      fi
-      
-      echo "=== XOA Update Status ==="
-      echo
-      
-      for status_file in "$STATUS_DIR"/*.status; do
-        if [[ -f "$status_file" ]]; then
-          service=$(jq -r '.service' "$status_file")
-          status=$(jq -r '.status' "$status_file")
-          message=$(jq -r '.message' "$status_file")
-          timestamp=$(jq -r '.timestamp' "$status_file")
-          
-          # Color output based on status
-          case "$status" in
-            success) color="\033[0;32m" ;;  # green
-            failed)  color="\033[0;31m" ;;  # red
-            running) color="\033[0;33m" ;;  # yellow
-            *)       color="\033[0m" ;;     # default
-          esac
-          
-          echo -e "''${color}[$status]''${color}\033[0m $service"
-          echo "  Time: $timestamp"
-          echo "  Info: $message"
-          echo
-        fi
-      done
-      
-      # Show next scheduled runs
-      echo "=== Next Scheduled Updates ==="
-      systemctl list-timers 'xoa-*' --no-pager
-    '';
-  };
-
 in
 {
   options.updates = {
     repoDir = mkOption {
-      type = types.path;
-      default = "/etc/nixos/declarative-xoa-ce";
-      description = "Absolute path to the flake repository";
+      type = types.str;
+      default = "/etc/nixos/xoa-flake";
+      example = "~/nixoa";
+      description = "Path to the flake repository directory";
     };
 
     protectPaths = mkOption {
@@ -505,9 +480,23 @@ in
         description = "Generations to keep after update";
       };
     };
+
+    libvhdi = {
+      enable = mkEnableOption "Automatic libvhdi source updates";
+      schedule = mkOption {
+        type = types.str;
+        default = "Wed 04:00";
+        description = "When to update libvhdi";
+      };
+      keepGenerations = mkOption {
+        type = types.int;
+        default = 7;
+        description = "Generations to keep after update";
+      };
+    };
   };
 
-  config = mkIf (cfg.gc.enable || cfg.flake.enable || cfg.nixpkgs.enable || cfg.xoa.enable) {
+  config = mkIf (cfg.gc.enable || cfg.flake.enable || cfg.nixpkgs.enable || cfg.xoa.enable || cfg.libvhdi.enable) {
     # Enable nix-command and flakes
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
     
@@ -524,6 +513,7 @@ in
       statusScript
       (updateInputScript "xoSrc")
       (updateInputScript "nixpkgs")
+      (updateInputScript "libvhdiSrc")
     ];
 
     # Status monitoring directory
@@ -558,12 +548,12 @@ in
       wants = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
-        WorkingDirectory = cfg.repoDir;
+        WorkingDirectory = expandedRepoDir;
         ExecStart = "${flakeUpdateScript}/bin/xoa-flake-update";
         User = "root";
       } // (if cfg.flake.autoRebuild then {
         ExecStartPost = "${pkgs.writeShellScript "rebuild-after-flake-update" ''
-          cd ${cfg.repoDir}
+          cd ${expandedRepoDir}
           nixos-rebuild switch --flake .#${config.networking.hostName} -L
         ''}";
       } else {});
@@ -586,7 +576,7 @@ in
       wants = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
-        WorkingDirectory = cfg.repoDir;
+        WorkingDirectory = expandedRepoDir;
         ExecStart = "${updateAndRebuildScript "nixpkgs" cfg.nixpkgs.keepGenerations}/bin/xoa-update-nixpkgs-rebuild";
         User = "root";
         TimeoutStartSec = "30min";
@@ -610,7 +600,7 @@ in
       wants = [ "network-online.target" ];
       serviceConfig = {
         Type = "oneshot";
-        WorkingDirectory = cfg.repoDir;
+        WorkingDirectory = expandedRepoDir;
         ExecStart = "${updateAndRebuildScript "xoSrc" cfg.xoa.keepGenerations}/bin/xoa-update-xoSrc-rebuild";
         User = "root";
         TimeoutStartSec = "30min";
@@ -622,6 +612,30 @@ in
       wantedBy = [ "timers.target" ];
       timerConfig = {
         OnCalendar = cfg.xoa.schedule;
+        Persistent = true;
+        RandomizedDelaySec = "15min";
+      };
+    };
+
+    # --- libvhdi Update ---
+    systemd.services."xoa-libvhdi-update" = mkIf cfg.libvhdi.enable {
+      description = "XOA libvhdi Update and Rebuild";
+      after = [ "network-online.target" ];
+      wants = [ "network-online.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        WorkingDirectory = expandedRepoDir;
+        ExecStart = "${updateAndRebuildScript "libvhdiSrc" cfg.libvhdi.keepGenerations}/bin/xoa-update-libvhdiSrc-rebuild";
+        User = "root";
+        TimeoutStartSec = "30min";
+      };
+    };
+
+    systemd.timers."xoa-libvhdi-update" = mkIf cfg.libvhdi.enable {
+      description = "XOA libvhdi Update Timer";
+      wantedBy = [ "timers.target" ];
+      timerConfig = {
+        OnCalendar = cfg.libvhdi.schedule;
         Persistent = true;
         RandomizedDelaySec = "15min";
       };

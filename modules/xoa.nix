@@ -115,10 +115,12 @@ let
     export CI="true"
     export YARN_ENABLE_IMMUTABLE_INSTALLS=false
     export PYTHON="${pkgs.python3}/bin/python3"
-    export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
+
+    # Don't force esbuild binary - let yarn install the correct version
+    # export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
 
     # CRITICAL: LD_LIBRARY_PATH for native module compilation
-    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     
     # Log output
     LOG="${cfg.xo.appDir}/.last-build.log"
@@ -296,17 +298,6 @@ in
         description = "Additional environment variables for xo-server";
       };
     };
-    
-    storage = {
-      nfs.enable = mkEnableOption "NFS remote storage support";
-      cifs.enable = mkEnableOption "CIFS/SMB remote storage support";
-      
-      mountsDir = mkOption {
-        type = types.path;
-        default = "/var/lib/xo/mounts";
-        description = "Base directory for remote storage mounts";
-      };
-    };
   };
 
   config = mkIf cfg.enable {
@@ -333,7 +324,7 @@ in
 
     # System packages needed by XO
     environment.systemPackages = with pkgs; [
-      nodejs_20 yarn git rsync pkg-config python3 gcc micro gnumake openssl
+      nodejs_20 yarn git rsync pkg-config python3 gcc gnumake micro openssl
       fuse zlib libpng xen lvm2 esbuild
     ];
 
@@ -367,7 +358,6 @@ in
       environment = {
         HOME = cfg.xo.home;
         PYTHON = "${pkgs.python3}/bin/python3";
-        ESBUILD_BINARY_PATH = "${pkgs.esbuild}/bin/esbuild";
       };
       
       serviceConfig = {
@@ -479,7 +469,7 @@ in
           cfg.xo.dataDir
           cfg.xo.tempDir
           "/etc/xo-server"
-          cfg.storage.mountsDir
+          config.xoa.storage.mountsDir
         ];
         
         LimitNOFILE = 1048576;
@@ -493,7 +483,7 @@ in
       "d ${cfg.xo.cacheDir}                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.dataDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.tempDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.storage.mountsDir}                0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${config.xoa.storage.mountsDir}         0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.home}/.config                  0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.home}/.config/xo-server        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d /etc/xo-server                          0755 root root - -"

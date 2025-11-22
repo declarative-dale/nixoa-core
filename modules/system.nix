@@ -216,7 +216,7 @@
     lsof
     iotop
     sysstat
-    dstat
+    dool  # dstat replacement
     
     # Network tools
     nfs-utils

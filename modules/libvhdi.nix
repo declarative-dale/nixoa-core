@@ -106,35 +106,5 @@ in
       # Note: Mode 0666 allows all users to access FUSE
       "c /dev/fuse 0666 root root - 10:229"
     ];
-    
-    # Create a wrapper script for safe VHD mounting
-    environment.etc."xo/vhd-mount-helper.sh" = {
-      mode = "0755";
-      text = ''
-        #!/usr/bin/env bash
-        # Safe VHD mount helper for XO
-        set -euo pipefail
-        
-        if [ $# -lt 2 ]; then
-          echo "Usage: $0 <vhd-file> <mount-point>" >&2
-          exit 1
-        fi
-        
-        VHD_FILE="$1"
-        MOUNT_POINT="$2"
-        
-        # Validate VHD file exists
-        if [ ! -f "$VHD_FILE" ]; then
-          echo "Error: VHD file not found: $VHD_FILE" >&2
-          exit 1
-        fi
-        
-        # Create mount point if needed
-        mkdir -p "$MOUNT_POINT"
-        
-        # Mount with FUSE
-        exec ${cfg.package}/bin/vhdimount -o allow_other "$VHD_FILE" "$MOUNT_POINT"
-      '';
-    };
   };
 }
