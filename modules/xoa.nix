@@ -156,14 +156,17 @@ let
     echo "=== Build Complete ==="
   '';
 
+  # Wrapper for Node with FUSE libraries
+  nodeWithFuse = pkgs.writeShellScriptBin "node-with-fuse" ''
+    export LD_LIBRARY_PATH="${pkgs.fuse}/lib:${pkgs.fuse3}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    exec ${node}/bin/node "$@"
+  '';
+
   # Start script for xo-server
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-
-    # Add FUSE library to LD_LIBRARY_PATH for fuse-native module
-    export LD_LIBRARY_PATH="${pkgs.fuse}/lib:${pkgs.fuse3}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
     cd "${cfg.xo.appDir}"
 
@@ -178,7 +181,7 @@ let
     fi
 
     echo "Starting XO-server from $CLI..."
-    exec ${node}/bin/node "$CLI" "$@"
+    exec ${nodeWithFuse}/bin/node-with-fuse "$CLI" "$@"
   '';
 
 in
