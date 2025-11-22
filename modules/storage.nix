@@ -1,15 +1,23 @@
-{ config, lib, pkgs, ... }:
+{ config, lib, pkgs, vars, ... }:
 let
   inherit (lib) mkOption mkEnableOption types mkIf;
   cfg = config.xoa.storage;
-  xoUser = config.xoa.xo.user or "xo";
-  xoGroup = config.xoa.xo.group or "xo";
+  xoUser = config.xoa.xo.user or vars.xoUser;
+  xoGroup = config.xoa.xo.group or vars.xoGroup;
   
   # Safe mount wrapper that restricts what the xo user can mount
   mountWrapper = pkgs.writeShellScript "xo-mount-helper" ''
     set -euo pipefail
     
     # Usage: xo-mount-helper <type> <source> <target> [options...]
+    if [ $# -lt 3 ]; then
+      echo "Usage: $0 <type> <source> <target> [options...]" >&2
+      echo "  type: nfs, nfs4, or cifs" >&2
+      echo "  source: remote share path" >&2
+      echo "  target: local mount point" >&2
+      exit 1
+    fi
+    
     FSTYPE="$1"
     SOURCE="$2"
     TARGET="$3"
@@ -27,9 +35,26 @@ let
         ;;
     esac
     
+    # Create mount point if it doesn't exist
+    if [ ! -d "$TARGET" ]; then
+      mkdir -p "$TARGET"
+      chown ${xoUser}:${xoGroup} "$TARGET"
+    fi
+    
     # Only allow NFS/CIFS filesystem types
     case "$FSTYPE" in
-      nfs|nfs4|cifs)
+      nfs|nfs4)
+        if [ ! -x "${pkgs.nfs-utils}/bin/mount.nfs" ]; then
+          echo "Error: NFS utilities not installed" >&2
+          exit 1
+        fi
+        exec ${pkgs.util-linux}/bin/mount -t "$FSTYPE" "$SOURCE" "$TARGET" "$@"
+        ;;
+      cifs)
+        if [ ! -x "${pkgs.cifs-utils}/bin/mount.cifs" ]; then
+          echo "Error: CIFS utilities not installed" >&2
+          exit 1
+        fi
         exec ${pkgs.util-linux}/bin/mount -t "$FSTYPE" "$SOURCE" "$TARGET" "$@"
         ;;
       *)
@@ -43,12 +68,23 @@ let
   umountWrapper = pkgs.writeShellScript "xo-umount-helper" ''
     set -euo pipefail
     
+    if [ $# -lt 1 ]; then
+      echo "Usage: $0 <target>" >&2
+      exit 1
+    fi
+    
     TARGET="$1"
     
     # Validate mount point is under allowed directory
     case "$TARGET" in
       ${cfg.mountsDir}/*)
-        exec ${pkgs.util-linux}/bin/umount "$TARGET"
+        # Check if actually mounted
+        if mountpoint -q "$TARGET"; then
+          exec ${pkgs.util-linux}/bin/umount "$TARGET"
+        else
+          echo "Warning: $TARGET is not mounted" >&2
+          exit 0
+        fi
         ;;
       *)
         echo "Error: Can only unmount under ${cfg.mountsDir}" >&2
@@ -57,60 +93,170 @@ let
         ;;
     esac
   '';
+  
+  # VHD mount wrapper for libvhdi integration
+  vhdMountWrapper = pkgs.writeShellScript "xo-vhd-mount-helper" ''
+    set -euo pipefail
+    
+    if [ $# -lt 2 ]; then
+      echo "Usage: $0 <vhd-file> <mount-point>" >&2
+      exit 1
+    fi
+    
+    VHD_FILE="$1"
+    MOUNT_POINT="$2"
+    
+    # Validate mount point is under allowed directory
+    case "$MOUNT_POINT" in
+      ${cfg.mountsDir}/*)
+        # OK - under allowed directory
+        ;;
+      *)
+        echo "Error: Mount point must be under ${cfg.mountsDir}" >&2
+        echo "Attempted: $MOUNT_POINT" >&2
+        exit 1
+        ;;
+    esac
+    
+    # Validate VHD file exists
+    if [ ! -f "$VHD_FILE" ]; then
+      echo "Error: VHD file not found: $VHD_FILE" >&2
+      exit 1
+    fi
+    
+    # Create mount point if needed
+    if [ ! -d "$MOUNT_POINT" ]; then
+      mkdir -p "$MOUNT_POINT"
+      chown ${xoUser}:${xoGroup} "$MOUNT_POINT"
+    fi
+    
+    # Mount with vhdimount
+    exec /run/current-system/sw/bin/vhdimount -o allow_other "$VHD_FILE" "$MOUNT_POINT"
+  '';
+  
 in
 {
   options.xoa.storage = {
-    nfs.enable  = mkEnableOption "NFS client support";
-    cifs.enable = mkEnableOption "CIFS/SMB client support";
-    mountsDir   = mkOption { 
+    nfs.enable  = mkEnableOption "NFS client support for XO remote storage";
+    cifs.enable = mkEnableOption "CIFS/SMB client support for XO remote storage";
+    vhd.enable  = mkEnableOption "VHD mounting support via libvhdi" // { default = true; };
+    
+    mountsDir = mkOption { 
       type = types.path; 
       default = "/var/lib/xo/mounts";
       description = "Base directory for XO remote storage mounts";
     };
+    
+    # Advanced options
+    sudoNoPassword = mkOption {
+      type = types.bool;
+      default = true;
+      description = "Allow XO user to mount/unmount without password";
+    };
   };
 
-  config = mkIf (cfg.nfs.enable || cfg.cifs.enable) {
+  config = mkIf (cfg.nfs.enable || cfg.cifs.enable || cfg.vhd.enable) {
     # Install required filesystem tools
-    environment.systemPackages = lib.optionals cfg.nfs.enable  [ pkgs.nfs-utils ]
-                              ++ lib.optionals cfg.cifs.enable [ pkgs.cifs-utils ];
+    environment.systemPackages = 
+      lib.optionals cfg.nfs.enable  [ pkgs.nfs-utils ] ++
+      lib.optionals cfg.cifs.enable [ pkgs.cifs-utils ] ++
+      lib.optionals cfg.vhd.enable  [ config.services.libvhdi.package ];
+
+    # Enable libvhdi if VHD support is requested
+    services.libvhdi.enable = cfg.vhd.enable;
 
     # FUSE support for user mounts
     programs.fuse.userAllowOther = true;
-    boot.kernelModules = [ "fuse" ];
+    boot.kernelModules = [ "fuse" ] 
+      ++ lib.optionals cfg.nfs.enable [ "nfs" "nfsv4" ]
+      ++ lib.optionals cfg.cifs.enable [ "cifs" ];
+
+    # Ensure filesystem support at boot
+    boot.supportedFilesystems = 
+      lib.optionals cfg.nfs.enable [ "nfs" "nfs4" ] ++
+      lib.optionals cfg.cifs.enable [ "cifs" ];
 
     # Restricted sudo rules using safe wrappers
     security.sudo = {
       enable = true;
-      wheelNeedsPassword = false;
       extraRules = [
         {
           users = [ xoUser ];
-          commands = [
-            { 
-              command = "${mountWrapper}";
-              options = [ "NOPASSWD" "SETENV" ];
-            }
-            { 
-              command = "${umountWrapper}";
-              options = [ "NOPASSWD" ];
-            }
-          ];
+          commands = 
+            # Mount/unmount wrappers for NFS/CIFS
+            lib.optionals (cfg.nfs.enable || cfg.cifs.enable) [
+              { 
+                command = "${mountWrapper}";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
+              }
+              { 
+                command = "${umountWrapper}";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+            ] ++
+            # VHD mount tools
+            lib.optionals cfg.vhd.enable [
+              {
+                command = "${vhdMountWrapper}";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+              {
+                command = "/run/current-system/sw/bin/vhdimount";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+              {
+                command = "/run/current-system/sw/bin/vhdiinfo";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+            ] ++
+            # Raw mount commands (with restrictions via wrappers)
+            [
+              {
+                command = "${pkgs.util-linux}/bin/mount";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+              {
+                command = "${pkgs.util-linux}/bin/umount";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+            ];
         }
       ];
     };
 
-    # Create mount directory
-    # Note: /dev/fuse is created automatically by the kernel when the fuse
-    # module loads, so we don't need to create it via tmpfiles
+    # Create mount directory and helper scripts directory
     systemd.tmpfiles.rules = [
       "d ${cfg.mountsDir} 0750 ${xoUser} ${xoGroup} - -"
+      "d /etc/xo 0755 root root - -"
     ];
     
-    # Ensure xo user is in fuse group (already done in xoa.nix, but good to be explicit)
+    # Install helper scripts
+    environment.etc = {
+      "xo/mount-helper.sh" = {
+        source = mountWrapper;
+        mode = "0755";
+      };
+      "xo/umount-helper.sh" = {
+        source = umountWrapper;
+        mode = "0755";
+      };
+    } // lib.optionalAttrs cfg.vhd.enable {
+      "xo/vhd-mount-helper.sh" = {
+        source = vhdMountWrapper;
+        mode = "0755";
+      };
+    };
+    
+    # Ensure xo user is in fuse group
     assertions = [
       {
-        assertion = builtins.elem "fuse" config.users.users.${xoUser}.extraGroups;
+        assertion = config.users.users.${xoUser}.extraGroups or [] != [] -> 
+                   builtins.elem "fuse" config.users.users.${xoUser}.extraGroups;
         message = "XO user must be in 'fuse' group for remote storage mounting";
+      }
+      {
+        assertion = cfg.nfs.enable || cfg.cifs.enable || cfg.vhd.enable;
+        message = "At least one storage type must be enabled (NFS, CIFS, or VHD)";
       }
     ];
   };

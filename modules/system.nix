@@ -1,0 +1,414 @@
+{ config, pkgs, lib, vars, ... }:
+
+{
+  # ============================================================================
+  # SYSTEM IDENTIFICATION
+  # ============================================================================
+  
+  networking.hostName = vars.hostname;
+
+  # ============================================================================
+  # LOCALE & INTERNATIONALIZATION
+  # ============================================================================
+  
+  time.timeZone = lib.mkDefault "UTC";
+  
+  i18n.defaultLocale = "en_US.UTF-8";
+  i18n.extraLocaleSettings = {
+    LC_TIME = "en_US.UTF-8";
+    LC_NUMERIC = "en_US.UTF-8";
+    LC_MONETARY = "en_US.UTF-8";
+    LC_PAPER = "en_US.UTF-8";
+    LC_NAME = "en_US.UTF-8";
+    LC_ADDRESS = "en_US.UTF-8";
+    LC_TELEPHONE = "en_US.UTF-8";
+    LC_MEASUREMENT = "en_US.UTF-8";
+    LC_IDENTIFICATION = "en_US.UTF-8";
+  };
+
+  # ============================================================================
+  # BOOTLOADER
+  # ============================================================================
+  
+  boot.loader.systemd-boot.enable = true;
+  boot.loader.efi.canTouchEfiVariables = true;
+  
+  # Alternative for VMs using BIOS/legacy boot:
+  # boot.loader.grub = {
+  #   enable = true;
+  #   device = "/dev/sda";  # or /dev/vda, /dev/xvda for Xen
+  # };
+
+  # ============================================================================
+  # KERNEL & FILESYSTEM SUPPORT
+  # ============================================================================
+  
+  # Support for network filesystems (required for XO backups/remotes)
+  boot.supportedFilesystems = [ "nfs" "nfs4" "cifs" ];
+  
+  # Kernel modules
+  boot.kernelModules = [ "fuse" ];
+  
+  # Kernel parameters (optional, useful for VMs)
+  # boot.kernelParams = [ "console=ttyS0,115200" "console=tty0" ];
+
+  # ============================================================================
+  # XEN GUEST SUPPORT
+  # ============================================================================
+  
+  # Xen guest agent for better VM integration
+  systemd.packages = [ pkgs.xen-guest-agent ];
+  systemd.services.xen-guest-agent.wantedBy = [ "multi-user.target" ];
+
+  # ============================================================================
+  # USER ACCOUNTS
+  # ============================================================================
+  
+  # Primary group for XO service
+  users.groups.${vars.xoGroup} = {};
+  users.groups.fuse = {};
+
+  # XO service account (runs xo-server and related services)
+  users.users.${vars.xoUser} = {
+    isSystemUser = true;
+    description = "Xen Orchestra service account";
+    createHome = true;
+    group = vars.xoGroup;
+    home = "/var/lib/xo";
+    shell = "${pkgs.shadow}/bin/nologin";
+    extraGroups = [ "fuse" ];
+  };
+
+  # XOA admin account: SSH-key login only, sudo-capable
+  users.users.${vars.username} = {
+    isNormalUser = true;
+    description = "Xen Orchestra Administrator";
+    createHome = true;
+    home = "/home/${vars.username}";
+    shell = pkgs.bashInteractive;
+    extraGroups = [ "wheel" "systemd-journal" ];
+    
+    # Locked password - SSH key authentication only
+    hashedPassword = "!";
+    
+    openssh.authorizedKeys.keys = vars.sshKeys;
+  };
+
+  # ============================================================================
+  # SECURITY & SUDO
+  # ============================================================================
+  
+  security.sudo = {
+    enable = true;
+    wheelNeedsPassword = false;
+    
+    extraRules = [
+      # Admin user with full sudo access
+      {
+        users = [ vars.username ];
+        commands = [
+          { command = "ALL"; options = [ "NOPASSWD" ]; }
+        ];
+      }
+      
+      # XO service account needs specific privileges for VHD operations
+      {
+        users = [ vars.xoUser ];
+        commands = [
+          { 
+            command = "/run/current-system/sw/bin/vhdimount"; 
+            options = [ "NOPASSWD" ]; 
+          }
+          { 
+            command = "/run/current-system/sw/bin/vhdiinfo"; 
+            options = [ "NOPASSWD" ]; 
+          }
+        ];
+      }
+    ];
+  };
+
+  # ============================================================================
+  # NETWORKING
+  # ============================================================================
+  
+  # Enable networking
+  networking.networkmanager.enable = lib.mkDefault false;
+  systemd.network.enable = lib.mkDefault true;
+  networking.useNetworkd = lib.mkDefault true;
+  networking.useDHCP = lib.mkDefault true;
+
+  # Firewall configuration
+  networking.firewall = {
+    enable = true;
+    allowedTCPPorts = vars.networking.firewall.allowedTCPPorts;
+    
+    # Optional: Allow ping
+    allowPing = true;
+    
+    # Log dropped packets (useful for debugging)
+    logRefusedConnections = lib.mkDefault false;
+  };
+
+  # ============================================================================
+  # SSH SERVICE
+  # ============================================================================
+  
+  services.openssh = {
+    enable = true;
+    openFirewall = true;
+    
+    settings = {
+      PermitRootLogin = "no";
+      PasswordAuthentication = false;
+      KbdInteractiveAuthentication = false;
+      PubkeyAuthentication = true;
+      AllowUsers = [ vars.username ];
+      
+      # Security hardening
+      X11Forwarding = false;
+      PermitEmptyPasswords = false;
+      Protocol = 2;
+      ClientAliveInterval = 300;
+      ClientAliveCountMax = 2;
+    };
+    
+    # Host keys (let sshd generate them on first boot)
+    hostKeys = [
+      {
+        path = "/etc/ssh/ssh_host_ed25519_key";
+        type = "ed25519";
+      }
+      {
+        path = "/etc/ssh/ssh_host_rsa_key";
+        type = "rsa";
+        bits = 4096;
+      }
+    ];
+  };
+
+  # ============================================================================
+  # FUSE SUPPORT
+  # ============================================================================
+  
+  programs.fuse.userAllowOther = true;
+
+  # ============================================================================
+  # SYSTEM PACKAGES
+  # ============================================================================
+  
+  environment.systemPackages = with pkgs; [
+    # Core utilities
+    vim
+    nano
+    micro
+    wget
+    curl
+    htop
+    btop
+    tree
+    ncdu
+    tmux
+    
+    # System administration
+    git
+    rsync
+    lsof
+    iotop
+    sysstat
+    dstat
+    
+    # Network tools
+    nfs-utils
+    cifs-utils
+    nettools
+    nmap
+    tcpdump
+    dig
+    traceroute
+    
+    # XO dependencies
+    nodejs_20
+    yarn
+    python3
+    gcc
+    gnumake
+    pkg-config
+    openssl
+    
+    # Monitoring
+    prometheus-node-exporter
+  ];
+
+  # ============================================================================
+  # NIX CONFIGURATION
+  # ============================================================================
+  
+  nix = {
+    # Enable flakes and new command interface
+    settings = {
+      experimental-features = [ "nix-command" "flakes" ];
+      
+      # Build optimization
+      auto-optimise-store = true;
+      
+      # Trusted users (can use binary caches)
+      trusted-users = [ "root" vars.username ];
+      
+      # Prevent disk space issues
+      min-free = lib.mkDefault (1024 * 1024 * 1024); # 1GB
+      max-free = lib.mkDefault (5 * 1024 * 1024 * 1024); # 5GB
+    };
+    
+    # Garbage collection
+    gc = {
+      automatic = true;
+      dates = "weekly";
+      options = "--delete-older-than 14d";
+    };
+    
+    # Optimize store on a schedule
+    optimise = {
+      automatic = true;
+      dates = [ "weekly" ];
+    };
+  };
+
+  # ============================================================================
+  # XEN ORCHESTRA SERVICE CONFIGURATION
+  # ============================================================================
+  
+  # Main XOA module configuration
+  xoa = {
+    enable = true;
+
+    admin = {
+      user = vars.username;
+      sshAuthorizedKeys = vars.sshKeys;
+    };
+
+    xo = {
+      user = vars.xoUser;
+      group = vars.xoGroup;
+      host = vars.xoHost;
+      port = vars.xoPort;
+      httpsPort = vars.xoHttpsPort;
+      
+      ssl = {
+        enable = vars.tls.enable;
+        dir = vars.tls.dir;
+        cert = vars.tls.cert;
+        key = vars.tls.key;
+      };
+      
+      # Network isolation during build
+      buildIsolation = true;
+    };
+
+    storage = {
+      nfs.enable = vars.storage.nfs.enable;
+      cifs.enable = vars.storage.cifs.enable;
+      mountsDir = vars.storage.mountsDir;
+    };
+  };
+
+  # Enable libvhdi support for VHD operations
+  services.libvhdi = {
+    enable = true;
+  };
+
+  # Pass update configuration to updates module
+  updates = vars.updates;
+
+  # ============================================================================
+  # SYSTEM MONITORING (OPTIONAL)
+  # ============================================================================
+  
+  # Prometheus node exporter for monitoring
+  services.prometheus.exporters.node = {
+    enable = lib.mkDefault false;
+    port = 9100;
+    openFirewall = false;  # Only open if you have monitoring infrastructure
+    
+    enabledCollectors = [
+      "conntrack"
+      "diskstats"
+      "entropy"
+      "filefd"
+      "filesystem"
+      "loadavg"
+      "meminfo"
+      "netdev"
+      "netstat"
+      "stat"
+      "time"
+      "uname"
+      "vmstat"
+    ];
+  };
+
+  # ============================================================================
+  # LOGGING & JOURNALD
+  # ============================================================================
+  
+  services.journald = {
+    extraConfig = ''
+      # Persistent storage
+      Storage=persistent
+      
+      # Disk usage limits
+      SystemMaxUse=1G
+      SystemMaxFileSize=100M
+      
+      # Retention
+      MaxRetentionSec=30d
+      
+      # Forward to console for debugging
+      ForwardToConsole=no
+      
+      # Compression
+      Compress=yes
+    '';
+  };
+
+  # ============================================================================
+  # PERFORMANCE TUNING
+  # ============================================================================
+  
+  # Swappiness (lower = less swap usage)
+  boot.kernel.sysctl = {
+    "vm.swappiness" = lib.mkDefault 10;
+    
+    # Network tuning for XO
+    "net.core.somaxconn" = 1024;
+    "net.ipv4.tcp_max_syn_backlog" = 2048;
+    
+    # File handle limits
+    "fs.file-max" = 1000000;
+    "fs.inotify.max_user_instances" = 8192;
+    "fs.inotify.max_user_watches" = 524288;
+  };
+
+  # System limits
+  security.pam.loginLimits = [
+    {
+      domain = vars.xoUser;
+      type = "soft";
+      item = "nofile";
+      value = "65536";
+    }
+    {
+      domain = vars.xoUser;
+      type = "hard";
+      item = "nofile";
+      value = "1048576";
+    }
+  ];
+
+  # ============================================================================
+  # STATE VERSION
+  # ============================================================================
+  
+  # DO NOT CHANGE after initial installation
+  system.stateVersion = vars.stateVersion;
+}

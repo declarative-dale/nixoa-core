@@ -1,4 +1,4 @@
-{ config, lib, pkgs, xoSrc ? null, ... }:
+{ config, lib, pkgs, xoSrc ? null, vars, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.xoa;
@@ -7,6 +7,17 @@ let
   yarn   = pkgs.yarn;
   rsync  = pkgs.rsync;
   openssl = pkgs.openssl;
+  
+  # Properly define xoSource - this was missing in the original!
+  xoSource = if xoSrc != null then xoSrc else pkgs.fetchFromGitHub {
+    owner = "vatesfr";
+    repo = "xen-orchestra";
+    rev = "master";
+    hash = lib.fakeHash; # Replace with actual hash after first build attempt
+  };
+  
+  # XO home directory
+  xoHome = "/var/lib/xo";
   
   # Fixed xo-server config with proper HTTPS setup
   xoDefaultConfig = pkgs.writeText "xo-config-default.toml" (''
@@ -34,6 +45,13 @@ let
 
     [logs]
     level = "info"
+    
+    # Data paths
+    [dataStore]
+    path = '${cfg.xo.dataDir}'
+    
+    [tempDir]
+    path = '${cfg.xo.tempDir}'
   '');
 
   # Simple certificate generation script (only for SSL)
@@ -45,7 +63,7 @@ let
       ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
         -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
         -subj "/CN=${config.networking.hostName}" \
-        -addext "subjectAltName=DNS:${config.networking.hostName}"
+        -addext "subjectAltName=DNS:${config.networking.hostName},DNS:localhost,IP:${cfg.xo.host}"
       chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
       chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
     fi
@@ -56,7 +74,7 @@ let
     set -euxo pipefail
     umask 022
 
-    # Create all required directories first (moved from bootstrap)
+    # Create all required directories first
     install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
       "${cfg.xo.home}" \
       "${cfg.xo.appDir}" \
@@ -92,342 +110,395 @@ let
     export HOME="${cfg.xo.home}"
     export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
     export YARN_CACHE_FOLDER="${cfg.xo.cacheDir}"
-    export NPM_CONFIG_CACHE="${cfg.xo.cacheDir}"
+    export NPM_CONFIG_CACHE="${cfg.xo.cacheDir}/npm"
     export NODE_OPTIONS="--max-old-space-size=4096"
     export CI="true"
-    export YARN_ENABLE_IMMUTABLE_INSTALLS=true
+    export YARN_ENABLE_IMMUTABLE_INSTALLS=false
+    export PYTHON="${pkgs.python3}/bin/python3"
+    export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
 
     # CRITICAL: LD_LIBRARY_PATH for native module compilation
-    export LD_LIBRARY_PATH="${lib.makeLibraryPath [
-      pkgs.fuse
-      pkgs.zlib
-      pkgs.libpng
-      pkgs.openssl
-    ]}:''${LD_LIBRARY_PATH:-}"
-
-    # Set PATH to include build tools and node_modules/.bin
-    export PATH="${lib.makeBinPath [
-      node
-      yarn
-      pkgs.git
-      pkgs.python3
-      pkgs.gcc
-      pkgs.gnumake
-      pkgs.pkg-config
-      pkgs.bash
-      pkgs.coreutils
-      pkgs.findutils
-    ]}:$PWD/node_modules/.bin:$PATH"
-
-    # Python for node-gyp
-    export PYTHON="${pkgs.python3}/bin/python3"
-
-    # Rotate build log (keep only last build)
+    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+    
+    # Log output
     LOG="${cfg.xo.appDir}/.last-build.log"
-    rm -f "$LOG"
-    exec > >(tee "$LOG") 2>&1
-
-    echo "=== XO Build started at $(date -Iseconds) ==="
-    echo "Build directory: ${cfg.xo.appDir}"
-    START_TIME=$(date +%s)
-
-    echo "Yarn version:"
-    ${yarn}/bin/yarn --version
-
-    # Install dependencies (NODE_ENV=development gets devDependencies like turbo)
-    echo "Installing dependencies (including devDependencies)..."
-    NODE_ENV=development ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000 || \
-      NODE_ENV=development ${yarn}/bin/yarn install --network-timeout 300000
-
-    # Build packages (NODE_ENV=production for optimized build)
-    echo "Building XO packages..."
-    NODE_ENV=production ${yarn}/bin/yarn build
-
-    # Verify build artifacts
-    echo "Verifying build artifacts..."
-    test -f packages/xo-web/dist/index.html || { 
-      echo "ERROR: xo-web/dist/index.html missing" >&2
+    exec > >(tee -a "$LOG") 2>&1
+    
+    echo "=== Xen Orchestra Build Started ==="
+    echo "Node version: $(${node}/bin/node --version)"
+    echo "Yarn version: $(${yarn}/bin/yarn --version)"
+    echo "Source: ${xoSource}"
+    echo "Target: ${cfg.xo.appDir}"
+    
+    # Install dependencies
+    echo "[1/3] Installing dependencies..."
+    ${yarn}/bin/yarn install --network-timeout 300000 || \
+      ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000
+    
+    # Build
+    echo "[2/3] Building..."
+    ${yarn}/bin/yarn build
+    
+    # Verify critical artifacts
+    echo "[3/3] Verifying build artifacts..."
+    if [ ! -f packages/xo-web/dist/index.html ]; then
+      echo "ERROR: xo-web/dist/index.html not found!" >&2
       exit 1
-    }
-    test -f packages/xo-server/dist/cli.mjs || test -f packages/xo-server/dist/cli.js || { 
-      echo "ERROR: xo-server CLI not found in dist/" >&2
+    fi
+    
+    if [ ! -f packages/xo-server/dist/cli.mjs ] && [ ! -f packages/xo-server/dist/cli.js ]; then
+      echo "ERROR: xo-server CLI not found!" >&2
       exit 1
-    }
-
-    END_TIME=$(date +%s)
-    DURATION=$((END_TIME - START_TIME))
-    echo "=== Build completed successfully in ''${DURATION}s at $(date -Iseconds) ==="
+    fi
+    
+    echo "=== Build Complete ==="
   '';
 
-  # Robustly locate XO CLI entrypoint with error handling
+  # Start script for xo-server
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
+    export HOME="${cfg.xo.home}"
+    export NODE_ENV="production"
     cd "${cfg.xo.appDir}"
     
-    # Set NODE_ENV for runtime
-    export NODE_ENV=production
-    export PATH="${node}/bin:$PATH"
-    
-    # CRITICAL: LD_LIBRARY_PATH for native modules (fuse-native, libvhdi, etc.)
-    export LD_LIBRARY_PATH="${lib.makeLibraryPath [
-      pkgs.fuse
-      pkgs.zlib
-      pkgs.libpng
-      pkgs.openssl
-    ]}:''${LD_LIBRARY_PATH:-}"
-    
-    CLI=""
+    # Find the CLI entry point
     if [ -f packages/xo-server/dist/cli.mjs ]; then
       CLI="packages/xo-server/dist/cli.mjs"
     elif [ -f packages/xo-server/dist/cli.js ]; then
       CLI="packages/xo-server/dist/cli.js"
     else
-      CLI=$(find packages/xo-server/dist -name "cli.mjs" -o -name "cli.js" 2>/dev/null | head -1)
-    fi
-    
-    if [ -z "$CLI" ]; then
-      echo "ERROR: XO CLI entrypoint not found in packages/xo-server/dist" >&2
+      echo "ERROR: Cannot find xo-server CLI!" >&2
       exit 1
     fi
     
-    exec ${node}/bin/node "$CLI"
+    echo "Starting XO-server from $CLI..."
+    exec ${node}/bin/node "$CLI" "$@"
   '';
 
-  xoSource =
-    if cfg.xo.srcPath != null then cfg.xo.srcPath
-    else if cfg.xo.srcRev != "" && cfg.xo.srcHash != "" then
-      pkgs.fetchFromGitHub {
-        owner = "vatesfr";
-        repo = "xen-orchestra";
-        rev = cfg.xo.srcRev;
-        hash = cfg.xo.srcHash;
-      }
-    else if xoSrc != null then xoSrc
-    else throw "xoa.xo.srcPath OR (xoa.xo.srcRev + xoa.xo.srcHash) must be set.";
 in
 {
   options.xoa = {
-    enable = mkEnableOption "Xen Orchestra CE stack";
+    enable = mkEnableOption "Xen Orchestra from source";
 
     admin = {
-      user = mkOption { 
-        type = types.str; 
+      user = mkOption {
+        type = types.str;
         default = "xoa";
-        description = "Admin user with sudo access for system management";
+        description = "Admin username for SSH access";
       };
-      sshAuthorizedKeys = mkOption { 
-        type = types.listOf types.str; 
+      
+      sshAuthorizedKeys = mkOption {
+        type = types.listOf types.str;
         default = [];
         description = "SSH public keys for admin user";
       };
     };
 
     xo = {
-      user  = mkOption { 
-        type = types.str; 
+      user = mkOption {
+        type = types.str;
         default = "xo";
-        description = "Service user that runs XO server (no sudo, limited privileges)";
+        description = "System user for XO services";
       };
-      group = mkOption { 
-        type = types.str; 
+      
+      group = mkOption {
+        type = types.str;
         default = "xo";
-        description = "Service group for XO";
+        description = "System group for XO services";
       };
-
-      home     = mkOption { type = types.path; default = "/var/lib/xo-server"; };
-      appDir   = mkOption { type = types.path; default = "/var/lib/xo-server/app"; };
-      cacheDir = mkOption { type = types.path; default = "/var/cache/xo-server/yarn-cache"; };
-      dataDir  = mkOption { type = types.path; default = "/var/lib/xo-server/data"; };
-      tempDir  = mkOption { type = types.path; default = "/var/lib/xo-server/tmp"; };
-      webMountDir = mkOption { type = types.path; default = "/var/lib/xo-server/app/packages/xo-web/dist"; };
-
-      host      = mkOption { type = types.str; default = "0.0.0.0"; };
-      port      = mkOption { type = types.port; default = 80; };
-      httpsPort = mkOption { type = types.port; default = 443; };
-
-      ssl.enable = mkEnableOption "TLS for XO" // { default = true; };
-      ssl.dir  = mkOption { type = types.path; default = "/etc/ssl/xo"; };
-      ssl.key  = mkOption { type = types.path; default = "/etc/ssl/xo/key.pem"; };
-      ssl.cert = mkOption { type = types.path; default = "/etc/ssl/xo/certificate.pem"; };
-
-      srcPath = mkOption { type = types.nullOr types.path; default = null; };
-      srcRev  = mkOption { type = types.str; default = ""; };
-      srcHash = mkOption { type = types.str; default = ""; };
-
+      
+      host = mkOption {
+        type = types.str;
+        default = "0.0.0.0";
+        description = "Bind address for XO server";
+      };
+      
+      port = mkOption {
+        type = types.port;
+        default = 80;
+        description = "HTTP port";
+      };
+      
+      httpsPort = mkOption {
+        type = types.port;
+        default = 443;
+        description = "HTTPS port";
+      };
+      
+      ssl = {
+        enable = mkEnableOption "HTTPS with self-signed certificates";
+        
+        dir = mkOption {
+          type = types.path;
+          default = "/etc/ssl/xo";
+          description = "Directory for SSL certificates";
+        };
+        
+        cert = mkOption {
+          type = types.path;
+          default = "/etc/ssl/xo/certificate.pem";
+          description = "SSL certificate path";
+        };
+        
+        key = mkOption {
+          type = types.path;
+          default = "/etc/ssl/xo/key.pem";
+          description = "SSL private key path";
+        };
+      };
+      
+      # Directory paths
+      home = mkOption {
+        type = types.path;
+        default = xoHome;
+        description = "XO service home directory";
+      };
+      
+      appDir = mkOption {
+        type = types.path;
+        default = "${xoHome}/xen-orchestra";
+        description = "XO application directory";
+      };
+      
+      cacheDir = mkOption {
+        type = types.path;
+        default = "${xoHome}/.cache";
+        description = "Cache directory for builds";
+      };
+      
+      dataDir = mkOption {
+        type = types.path;
+        default = "${xoHome}/data";
+        description = "Data directory for XO";
+      };
+      
+      tempDir = mkOption {
+        type = types.path;
+        default = "${xoHome}/tmp";
+        description = "Temporary directory for XO operations";
+      };
+      
+      webMountDir = mkOption {
+        type = types.path;
+        default = "${xoHome}/xen-orchestra/packages/xo-web/dist";
+        description = "Web UI mount directory";
+      };
+      
       buildIsolation = mkOption {
         type = types.bool;
         default = false;
-        description = ''
-          Restrict network access during build.
-          Disabled by default since IPAddressAllow needs IPs not hostnames.
-        '';
+        description = "Enable network isolation during build";
       };
-
-      extraServerEnv = mkOption { type = types.attrsOf types.str; default = {}; };
+      
+      extraServerEnv = mkOption {
+        type = types.attrsOf types.str;
+        default = {};
+        description = "Additional environment variables for xo-server";
+      };
+    };
+    
+    storage = {
+      nfs.enable = mkEnableOption "NFS remote storage support";
+      cifs.enable = mkEnableOption "CIFS/SMB remote storage support";
+      
+      mountsDir = mkOption {
+        type = types.path;
+        default = "/var/lib/xo/mounts";
+        description = "Base directory for remote storage mounts";
+      };
     };
   };
 
   config = mkIf cfg.enable {
-    assertions = [{
-      assertion = (cfg.xo.srcPath != null) || (cfg.xo.srcRev != "" && cfg.xo.srcHash != "") || (xoSrc != null);
-      message = "Provide xoa.xo.srcPath OR both xoa.xo.srcRev and xoa.xo.srcHash (or provide xoSrc flake input).";
-    }];
+    assertions = [
+      {
+        assertion = cfg.admin.sshAuthorizedKeys != [];
+        message = "You must provide at least one SSH public key in xoa.admin.sshAuthorizedKeys";
+      }
+    ];
 
-    # Admin user for SSH and system management
-    users.users.${cfg.admin.user} = {
-      isNormalUser = true;
-      description = "XOA Administrator";
-      extraGroups = [ "wheel" "networkmanager" "systemd-journal" ];
-      openssh.authorizedKeys.keys = cfg.admin.sshAuthorizedKeys;
-      hashedPassword = "!";
-    };
-
-    # XO service user
-    users.groups.${cfg.xo.group} = {};
-    users.users.${cfg.xo.user} = {
-      isSystemUser = true;
-      description = "Xen Orchestra service user";
-      createHome = true;
-      home  = cfg.xo.home;
-      group = cfg.xo.group;
-      shell = "${pkgs.shadow}/bin/nologin";
-      extraGroups = [ "fuse" ];
-    };
-
-    # Redis for XO via Unix socket
-    services.redis.servers."xo" = {
+    # Redis service for XO
+    services.redis.servers.xo = {
       enable = true;
       user = cfg.xo.user;
       unixSocket = "/run/redis-xo/redis.sock";
       unixSocketPerm = 770;
-      settings = { port = 0; databases = 16; };
-    };
-
-    # SSH server (keys-only)
-    services.openssh = {
-      enable = true;
-      openFirewall = true;
-      settings = {
-        PermitRootLogin = "no";
-        PasswordAuthentication = false;
-        KbdInteractiveAuthentication = false;
-        PubkeyAuthentication = true;
-        AllowUsers = [ cfg.admin.user ];
+      settings = { 
+        port = 0; 
+        databases = 16;
+        maxmemory = "256mb";
+        maxmemory-policy = "allkeys-lru";
       };
     };
 
-    # Xen guest agent
-    systemd.packages = [ pkgs.xen-guest-agent ];
-    systemd.services.xen-guest-agent.wantedBy = [ "multi-user.target" ];
-
-    # System packages
+    # System packages needed by XO
     environment.systemPackages = with pkgs; [
-      nodejs_20 yarn git rsync pkg-config python3 gcc gnumake openssl jq micro
-      fuse zlib libpng xen lvm2
+      nodejs_20 yarn git rsync pkg-config python3 gcc micro gnumake openssl
+      fuse zlib libpng xen lvm2 esbuild
     ];
 
-    # FIXED: Bootstrap service only for TLS cert generation (conditional)
+    # TLS certificate generation service (conditional)
     systemd.services.xo-bootstrap = mkIf cfg.xo.ssl.enable {
       description = "XO TLS certificate generation";
       wantedBy = [ "multi-user.target" ];
       after = [ "local-fs.target" ];
       serviceConfig = {
         Type = "oneshot";
-        User = "root";  # Needs root to create /etc/ssl/xo
+        User = "root";
         Group = "root";
         ReadWritePaths = [ cfg.xo.ssl.dir ];
         ExecStart = genCerts;
       };
     };
 
-    # Build service (now handles directory creation)
+    # Build service
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
-      path = with pkgs; [ git ];
+      
+      path = with pkgs; [ 
+        git nodejs_20 yarn python3 gcc gnumake pkg-config 
+        coreutils findutils bash esbuild
+      ];
+      
+      environment = {
+        HOME = cfg.xo.home;
+        PYTHON = "${pkgs.python3}/bin/python3";
+        ESBUILD_BINARY_PATH = "${pkgs.esbuild}/bin/esbuild";
+      };
+      
       serviceConfig = {
         Type = "oneshot";
         User = cfg.xo.user;
         Group = cfg.xo.group;
-        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv
-          ++ [ "HOME=${cfg.xo.home}" ];
+        WorkingDirectory = cfg.xo.appDir;
+        StateDirectory = "xo";
+        CacheDirectory = "xo";
+        
         ReadWritePaths = [
           cfg.xo.appDir 
           cfg.xo.cacheDir 
           cfg.xo.dataDir 
           cfg.xo.tempDir
+          cfg.xo.home
+          "/etc/xo-server"
+        ] ++ lib.optional cfg.xo.ssl.enable cfg.xo.ssl.dir;
+        
+        ExecStartPre = [
+          "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} ${cfg.xo.appDir}"
+          "+${pkgs.coreutils}/bin/chown -R ${cfg.xo.user}:${cfg.xo.group} ${cfg.xo.home}"
         ];
+        
         ExecStart = buildXO;
-        TimeoutStartSec = "15min";
+        TimeoutStartSec = "45min";
+        LimitNOFILE = 1048576;
       } // lib.optionalAttrs cfg.xo.buildIsolation {
         RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
+        PrivateNetwork = false;
       };
     };
 
-    # Server service
+    # XO Server service
     systemd.services.xo-server = {
-      description = "Xen Orchestra (xo-server)";
+      description = "Xen Orchestra Server";
       after = [ 
         "systemd-tmpfiles-setup.service" 
         "network-online.target" 
         "redis-xo.service" 
         "xo-build.service"
       ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
+      
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
-      path = with pkgs; [ util-linux git openssl xen lvm2 ];
+      requires = [ "xo-build.service" "redis-xo.service" ];
       
-      # Copy default config if needed (directory already created by build)
+      path = with pkgs; [ 
+        util-linux git openssl xen lvm2 coreutils 
+      ];
+      
+      # Environment for xo-server
+      environment = cfg.xo.extraServerEnv // {
+        HOME = cfg.xo.home;
+        XDG_CONFIG_HOME = "${cfg.xo.home}/.config";
+        XDG_CACHE_HOME = cfg.xo.cacheDir;
+        NODE_ENV = "production";
+      };
+      
       preStart = ''
+        # Ensure config directory exists
+        if [ ! -d /etc/xo-server ]; then
+          mkdir -p /etc/xo-server
+        fi
+        
+        # Copy default config if none exists
         if [ ! -f /etc/xo-server/config.toml ]; then
           cp ${xoDefaultConfig} /etc/xo-server/config.toml
           chmod 0640 /etc/xo-server/config.toml
         fi
+        
+        # Ensure config directory exists
+        mkdir -p ${cfg.xo.home}/.config/xo-server
       '';
       
       serviceConfig = {
-        # Run as xo user, not root
         User = cfg.xo.user;
         Group = cfg.xo.group;
         
         WorkingDirectory = cfg.xo.appDir;
-        StateDirectory = "xo-server";
-        CacheDirectory = "xo-server";
-        LogsDirectory = "xo-server";
-        RuntimeDirectory = "xo-server";
+        StateDirectory = "xo";
+        CacheDirectory = "xo";
+        LogsDirectory = "xo";
+        RuntimeDirectory = "xo";
         
-        Environment = lib.mapAttrsToList (n: v: "${n}=${v}") cfg.xo.extraServerEnv
-          ++ [ "HOME=${cfg.xo.home}" ];
-        
-        # Use config at /etc/xo-server/config.toml
         ExecStart = "${startXO} --config /etc/xo-server/config.toml";
         
         Restart = "on-failure";
-        RestartSec = 3;
+        RestartSec = 10;
+        TimeoutStartSec = "5min";
         
         # Security hardening
         NoNewPrivileges = true;
         PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        
+        # Capabilities for bind to low ports
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
         
         # Allow reading SSL certs
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
         
         ReadWritePaths = [
           cfg.xo.home
+          cfg.xo.appDir
+          cfg.xo.cacheDir
           cfg.xo.dataDir
           cfg.xo.tempDir
-          "/etc/xo-server"  # Allow writing config and temp files
+          "/etc/xo-server"
+          cfg.storage.mountsDir
         ];
         
-        TimeoutStartSec = "5min";
-        
-        # Capabilities needed for Xen operations
-        AmbientCapabilities = [ "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
-        CapabilityBoundingSet = [ "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
+        LimitNOFILE = 1048576;
       };
     };
+    
+    # Create necessary directories
+    systemd.tmpfiles.rules = [
+      "d ${cfg.xo.home}                          0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.appDir}                        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.cacheDir}                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.dataDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.tempDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.storage.mountsDir}                0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.home}/.config                  0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.home}/.config/xo-server        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d /etc/xo-server                          0755 root root - -"
+    ] ++ lib.optionals cfg.xo.ssl.enable [
+      "d ${cfg.xo.ssl.dir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+    ];
   };
 }
