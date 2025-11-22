@@ -345,7 +345,6 @@ in
     # Build service
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
-      wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
@@ -362,26 +361,27 @@ in
       
       serviceConfig = {
         Type = "oneshot";
+        RemainAfterExit = true;
         User = cfg.xo.user;
         Group = cfg.xo.group;
         WorkingDirectory = cfg.xo.appDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
-        
+
         ReadWritePaths = [
-          cfg.xo.appDir 
-          cfg.xo.cacheDir 
-          cfg.xo.dataDir 
+          cfg.xo.appDir
+          cfg.xo.cacheDir
+          cfg.xo.dataDir
           cfg.xo.tempDir
           cfg.xo.home
           "/etc/xo-server"
         ] ++ lib.optional cfg.xo.ssl.enable cfg.xo.ssl.dir;
-        
+
         ExecStartPre = [
           "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} ${cfg.xo.appDir}"
           "+${pkgs.coreutils}/bin/chown -R ${cfg.xo.user}:${cfg.xo.group} ${cfg.xo.home}"
         ];
-        
+
         ExecStart = buildXO;
         TimeoutStartSec = "45min";
         LimitNOFILE = 1048576;
