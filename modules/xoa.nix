@@ -161,8 +161,12 @@ let
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
+
+    # Add FUSE library to LD_LIBRARY_PATH for fuse-native module
+    export LD_LIBRARY_PATH="${pkgs.fuse}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
     cd "${cfg.xo.appDir}"
-    
+
     # Find the CLI entry point
     if [ -f packages/xo-server/dist/cli.mjs ]; then
       CLI="packages/xo-server/dist/cli.mjs"
@@ -172,7 +176,7 @@ let
       echo "ERROR: Cannot find xo-server CLI!" >&2
       exit 1
     fi
-    
+
     echo "Starting XO-server from $CLI..."
     exec ${node}/bin/node "$CLI" "$@"
   '';
