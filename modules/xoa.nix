@@ -463,13 +463,9 @@ in
         # Capabilities for bind to low ports
         AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
         CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
-        
-        # Allow reading SSL certs and required libraries
-        ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ] ++ [
-          "${pkgs.fuse}/lib"
-          "${pkgs.fuse3}/lib"
-          "${pkgs.stdenv.cc.cc.lib}/lib"
-        ];
+
+        # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
+        ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
 
         ReadWritePaths = [
           cfg.xo.home
