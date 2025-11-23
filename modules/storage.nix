@@ -156,6 +156,17 @@ in
   };
 
   config = mkIf (cfg.nfs.enable || cfg.cifs.enable || cfg.vhd.enable) {
+    # Setuid wrapper for mount.cifs (required for capability handling)
+    security.wrappers = lib.mkIf cfg.cifs.enable {
+      "mount.cifs" = {
+        program = "mount.cifs";
+        source = "${lib.getBin pkgs.cifs-utils}/bin/mount.cifs";
+        owner = "root";
+        group = "root";
+        setuid = true;
+      };
+    };
+
     # Configure sudo to preserve environment variables for CIFS authentication
     security.sudo.extraConfig = ''
       # Allow mount.cifs to receive USER and PASSWD environment variables

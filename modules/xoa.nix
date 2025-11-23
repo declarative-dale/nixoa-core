@@ -541,6 +541,7 @@ in
         CapabilityBoundingSet = [
           "CAP_NET_BIND_SERVICE"
           "CAP_SETGID"
+        
           "CAP_SETUID"
           "CAP_SYS_ADMIN"
           "CAP_DAC_OVERRIDE"
