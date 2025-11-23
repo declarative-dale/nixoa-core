@@ -466,6 +466,7 @@ in
       path = with pkgs; [
         util-linux git openssl xen lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
+        sudo  # Required for mounting NFS/CIFS remotes
       ];
       
       # Environment for xo-server
@@ -475,6 +476,9 @@ in
         XDG_CACHE_HOME = cfg.xo.cacheDir;
         NODE_ENV = "production";
         LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
+
+        # Tell XO to use sudo for mount/umount operations
+        XO_MOUNT_OPTIONS_SUDO = "1";
       };
       
       serviceConfig = {
