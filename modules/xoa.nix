@@ -22,15 +22,14 @@ let
   # Fixed xo-server config with proper HTTPS setup
   xoDefaultConfig = pkgs.writeText "xo-config-default.toml" (''
     [http]
-    hostname = '${cfg.xo.host}'
+
+    [[http.listen]]
     port = ${toString cfg.xo.port}
   '' + lib.optionalString cfg.xo.ssl.enable ''
-    redirectToHttps = true
 
-    [http.https]
-    enabled = true
+    [[http.listen]]
     port = ${toString cfg.xo.httpsPort}
-    certificate = '${cfg.xo.ssl.cert}'
+    cert = '${cfg.xo.ssl.cert}'
     key = '${cfg.xo.ssl.key}'
   '' + ''
 
@@ -39,17 +38,17 @@ let
 
     [redis]
     socket = "/run/redis-xo/redis.sock"
-    
+
     [authentication]
     defaultTokenValidity = "30 days"
 
     [logs]
     level = "info"
-    
+
     # Data paths
     [dataStore]
     path = '${cfg.xo.dataDir}'
-    
+
     [tempDir]
     path = '${cfg.xo.tempDir}'
   '');
