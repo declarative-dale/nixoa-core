@@ -457,8 +457,9 @@ in
       wantedBy = [ "multi-user.target" ];
       requires = [ "xo-build.service" "redis-xo.service" ];
       
-      path = with pkgs; [ 
+      path = with pkgs; [
         util-linux git openssl xen lvm2 coreutils
+        nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
       ];
       
       # Environment for xo-server
@@ -489,12 +490,12 @@ in
       serviceConfig = {
         User = cfg.xo.user;
         Group = cfg.xo.group;
-        
+
         WorkingDirectory = cfg.xo.appDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
         LogsDirectory = "xo";
-        RuntimeDirectory = "xo";
+        RuntimeDirectory = "xo xo-server";
         
         ExecStart = "${startXO} --config /etc/xo-server/config.toml";
         
