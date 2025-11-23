@@ -101,7 +101,7 @@
   security.sudo = {
     enable = true;
     wheelNeedsPassword = false;
-    
+
     extraRules = [
       # Admin user with full sudo access
       {
@@ -110,21 +110,9 @@
           { command = "ALL"; options = [ "NOPASSWD" ]; }
         ];
       }
-      
-      # XO service account needs specific privileges for VHD operations
-      {
-        users = [ vars.xoUser ];
-        commands = [
-          { 
-            command = "/run/current-system/sw/bin/vhdimount"; 
-            options = [ "NOPASSWD" ]; 
-          }
-          { 
-            command = "/run/current-system/sw/bin/vhdiinfo"; 
-            options = [ "NOPASSWD" ]; 
-          }
-        ];
-      }
+
+      # Note: XO service account sudo rules are configured in storage.nix
+      # to avoid duplication and ensure all mount/vhd operations are covered
     ];
   };
 
