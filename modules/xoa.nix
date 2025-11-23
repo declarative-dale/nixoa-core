@@ -529,9 +529,9 @@ in
         # ProtectSystem = "full";
         # ProtectHome = true;
         
-        # Capabilities for bind to low ports
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
+        # Capabilities for bind to low ports and sudo usage
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETGID" "CAP_SETUID" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETGID" "CAP_SETUID" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
