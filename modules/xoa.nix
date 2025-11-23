@@ -63,7 +63,14 @@ let
   genCerts = pkgs.writeShellScript "xo-gen-certs.sh" ''
     set -euo pipefail
     umask 077
-    install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} "${cfg.xo.ssl.dir}"
+
+    # Directory should already exist from tmpfiles, but ensure it does
+    if [ ! -d "${cfg.xo.ssl.dir}" ]; then
+      mkdir -p "${cfg.xo.ssl.dir}"
+      chmod 0755 "${cfg.xo.ssl.dir}"
+    fi
+
+    # Generate certificates if they don't exist
     if [ ! -s "${cfg.xo.ssl.key}" ] || [ ! -s "${cfg.xo.ssl.cert}" ]; then
       ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
         -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
@@ -384,12 +391,11 @@ in
     systemd.services.xo-bootstrap = mkIf cfg.xo.ssl.enable {
       description = "XO TLS certificate generation";
       wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" ];
+      after = [ "local-fs.target" "systemd-tmpfiles-setup.service" ];
       serviceConfig = {
         Type = "oneshot";
         User = "root";
         Group = "root";
-        ReadWritePaths = [ cfg.xo.ssl.dir ];
         ExecStart = genCerts;
       };
     };
@@ -471,22 +477,6 @@ in
         LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
       };
       
-      preStart = ''
-        # Ensure config directory exists
-        if [ ! -d /etc/xo-server ]; then
-          mkdir -p /etc/xo-server
-        fi
-        
-        # Copy default config if none exists
-        if [ ! -f /etc/xo-server/config.toml ]; then
-          cp ${xoDefaultConfig} /etc/xo-server/config.toml
-          chmod 0640 /etc/xo-server/config.toml
-        fi
-        
-        # Ensure config directory exists
-        mkdir -p ${cfg.xo.home}/.config/xo-server
-      '';
-      
       serviceConfig = {
         User = cfg.xo.user;
         Group = cfg.xo.group;
@@ -496,7 +486,18 @@ in
         CacheDirectory = "xo";
         LogsDirectory = "xo";
         RuntimeDirectory = "xo xo-server";
-        
+
+        # Copy default config if none exists (runs as root due to '+' prefix)
+        ExecStartPre = [
+          "+${pkgs.writeShellScript "setup-xo-config" ''
+            if [ ! -f /etc/xo-server/config.toml ]; then
+              cp ${xoDefaultConfig} /etc/xo-server/config.toml
+              chown ${cfg.xo.user}:${cfg.xo.group} /etc/xo-server/config.toml
+              chmod 0640 /etc/xo-server/config.toml
+            fi
+          ''}"
+        ];
+
         ExecStart = "${startXO} --config /etc/xo-server/config.toml";
         
         Restart = "on-failure";
@@ -542,7 +543,7 @@ in
       "d ${cfg.xo.home}/.config/xo-server        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d /etc/xo-server                          0755 root root - -"
     ] ++ lib.optionals cfg.xo.ssl.enable [
-      "d ${cfg.xo.ssl.dir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.xo.ssl.dir}                       0755 root root - -"
     ];
   };
 }
