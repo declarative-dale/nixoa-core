@@ -316,6 +316,17 @@
     enable = true;
   };
 
+  # Override xo-server capability restrictions to allow mount.cifs to work
+  # The CapabilityBoundingSet restriction prevents even setuid-root programs
+  # from gaining capabilities, which breaks mount.cifs
+  systemd.services.xo-server.serviceConfig = {
+    # Remove capability bounding set restriction - allow full capability set
+    CapabilityBoundingSet = lib.mkForce null;
+
+    # Ensure NoNewPrivileges is disabled so setuid wrappers work
+    NoNewPrivileges = lib.mkForce false;
+  };
+
   # Pass update configuration to updates module
   updates = vars.updates;
 
