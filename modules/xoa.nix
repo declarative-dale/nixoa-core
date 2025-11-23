@@ -140,7 +140,14 @@ let
     # Build
     echo "[2/3] Building..."
     ${yarn}/bin/yarn build
-    
+
+    # Patch native modules to include FUSE library paths
+    echo "[2.5/3] Patching native modules..."
+    find node_modules -name "*.node" -type f 2>/dev/null | while read -r nodefile; do
+      echo "Patching $nodefile..."
+      ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib" "$nodefile" 2>/dev/null || true
+    done
+
     # Verify critical artifacts
     echo "[3/3] Verifying build artifacts..."
     if [ ! -f packages/xo-web/dist/index.html ]; then
@@ -158,7 +165,7 @@ let
 
   # Wrapper for Node with FUSE libraries
   nodeWithFuse = pkgs.writeShellScriptBin "node-with-fuse" ''
-    export LD_LIBRARY_PATH="${pkgs.fuse}/lib:${pkgs.fuse3}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    export LD_LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     exec ${node}/bin/node "$@"
   '';
 
@@ -356,9 +363,9 @@ in
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       
-      path = with pkgs; [ 
-        git nodejs_20 yarn python3 gcc gnumake pkg-config 
-        coreutils findutils bash esbuild
+      path = with pkgs; [
+        git nodejs_20 yarn python3 gcc gnumake pkg-config
+        coreutils findutils bash esbuild patchelf
       ];
       
       environment = {
@@ -413,7 +420,7 @@ in
       requires = [ "xo-build.service" "redis-xo.service" ];
       
       path = with pkgs; [ 
-        util-linux git openssl xen lvm2 coreutils 
+        util-linux git openssl xen lvm2 coreutils
       ];
       
       # Environment for xo-server
@@ -422,7 +429,7 @@ in
         XDG_CONFIG_HOME = "${cfg.xo.home}/.config";
         XDG_CACHE_HOME = cfg.xo.cacheDir;
         NODE_ENV = "production";
-        LD_LIBRARY_PATH = "${pkgs.fuse}/lib:${pkgs.fuse3}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
+        LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
       };
       
       preStart = ''
@@ -457,11 +464,11 @@ in
         RestartSec = 10;
         TimeoutStartSec = "5min";
         
-        # Security hardening (relaxed for FUSE support)
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectSystem = "full";  # Changed from "strict" to allow library access
-        ProtectHome = true;
+        # Security hardening (temporarily disabled for debugging)
+        # NoNewPrivileges = true;
+        # PrivateTmp = true;
+        # ProtectSystem = "full";
+        # ProtectHome = true;
         
         # Capabilities for bind to low ports
         AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
