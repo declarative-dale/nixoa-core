@@ -241,7 +241,7 @@ in
               }
               {
                 command = "/run/current-system/sw/bin/mount.cifs";
-                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
               }
               {
                 command = "/run/wrappers/bin/findmnt";
