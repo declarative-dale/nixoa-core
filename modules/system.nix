@@ -317,11 +317,16 @@
   };
 
   # Override xo-server capability restrictions to allow mount.cifs to work
-  # The CapabilityBoundingSet restriction prevents even setuid-root programs
-  # from gaining capabilities, which breaks mount.cifs
+  # The CapabilityBoundingSet in xoa.nix prevents even setuid-root programs
+  # from gaining capabilities beyond the restricted set, which breaks mount.cifs.
+  # We remove the bounding set restriction while keeping ambient capabilities.
   systemd.services.xo-server.serviceConfig = {
-    # Remove capability bounding set restriction - allow full capability set
-    CapabilityBoundingSet = lib.mkForce null;
+    # Keep ambient capabilities for the service itself
+    AmbientCapabilities = lib.mkForce [ "CAP_NET_BIND_SERVICE" ];
+
+    # Remove capability bounding set - allows child processes (sudo, mount.cifs)
+    # to gain whatever capabilities they need via setuid wrappers
+    CapabilityBoundingSet = lib.mkForce [ ];
 
     # Ensure NoNewPrivileges is disabled so setuid wrappers work
     NoNewPrivileges = lib.mkForce false;
