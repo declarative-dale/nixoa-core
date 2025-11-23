@@ -178,7 +178,7 @@ let
     if [ -f @xen-orchestra/fs/src/index.js ]; then
       # The issue: mount.cifs -V returns exit code 1 due to setuid warning
       # Replace the strict check with one that ignores exit code 1
-      sed -i 's/execa\.sync('\''mount\.cifs'\'', \['\''-V'\''\])/execa.sync('\''mount.cifs'\'', ['\''-V'\''], { reject: false })/' @xen-orchestra/fs/src/index.js || true
+      sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" @xen-orchestra/fs/src/index.js || true
     fi
 
     # Verify critical artifacts
