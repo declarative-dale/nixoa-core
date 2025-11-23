@@ -52,10 +52,8 @@
   # Enable RPC services for NFS client (required for NFSv3)
   services.rpcbind.enable = true;
 
-  # Enable NFS client services (statd is needed for NFSv3 locking)
+  # Enable NFS client services
   services.nfs.server.enable = false;  # We're a client, not a server
-  services.nfs.statd.enable = true;
-  systemd.services.nfs-client.enable = true;
   
   # Kernel parameters (optional, useful for VMs)
   # boot.kernelParams = [ "console=ttyS0,115200" "console=tty0" ];
