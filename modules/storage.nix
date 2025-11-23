@@ -209,14 +209,30 @@ in
                 options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
               }
             ] ++
-            # Raw mount commands (with restrictions via wrappers)
+            # Raw mount commands (allow both wrapper and system paths)
             [
               {
-                command = "${pkgs.util-linux}/bin/mount";
+                command = "/run/wrappers/bin/mount";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
+              }
+              {
+                command = "/run/wrappers/bin/umount";
                 options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
               }
               {
-                command = "${pkgs.util-linux}/bin/umount";
+                command = "/run/current-system/sw/bin/mount";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
+              }
+              {
+                command = "/run/current-system/sw/bin/umount";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+              {
+                command = "/run/current-system/sw/bin/mount.nfs";
+                options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
+              }
+              {
+                command = "/run/current-system/sw/bin/mount.cifs";
                 options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
               }
             ];
@@ -229,6 +245,27 @@ in
       "d ${cfg.mountsDir} 0750 ${xoUser} ${xoGroup} - -"
       "d /etc/xo 0755 root root - -"
     ];
+
+    # One-time service to initialize sudo for xo user (clears the lecture)
+    systemd.services.xo-sudo-init = {
+      description = "Initialize sudo for XO user";
+      wantedBy = [ "multi-user.target" ];
+      after = [ "local-fs.target" ];
+      serviceConfig = {
+        Type = "oneshot";
+        User = "root";
+        RemainAfterExit = true;
+        ExecStart = "${pkgs.writeShellScript "xo-sudo-init" ''
+          # Create sudo timestamp directory for xo user if it doesn't exist
+          if [ ! -f /var/db/sudo/lectured/${xoUser} ]; then
+            mkdir -p /var/db/sudo/lectured
+            touch /var/db/sudo/lectured/${xoUser}
+            chown root:root /var/db/sudo/lectured/${xoUser}
+            chmod 0600 /var/db/sudo/lectured/${xoUser}
+          fi
+        ''}";
+      };
+    };
     
     # Install helper scripts
     environment.etc = {

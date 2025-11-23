@@ -45,9 +45,17 @@
   
   # Support for network filesystems (required for XO backups/remotes)
   boot.supportedFilesystems = [ "nfs" "nfs4" "cifs" ];
-  
+
   # Kernel modules
-  boot.kernelModules = [ "fuse" ];
+  boot.kernelModules = [ "fuse" "nfs" "nfsv3" "nfsv4" ];
+
+  # Enable RPC services for NFS client (required for NFSv3)
+  services.rpcbind.enable = true;
+
+  # Enable NFS client services (statd is needed for NFSv3 locking)
+  services.nfs.server.enable = false;  # We're a client, not a server
+  services.nfs.statd.enable = true;
+  systemd.services.nfs-client.enable = true;
   
   # Kernel parameters (optional, useful for VMs)
   # boot.kernelParams = [ "console=ttyS0,115200" "console=tty0" ];
@@ -300,6 +308,7 @@
     storage = {
       nfs.enable = vars.storage.nfs.enable;
       cifs.enable = vars.storage.cifs.enable;
+      vhd.enable = true;  # VHD support enabled by default
       mountsDir = vars.storage.mountsDir;
     };
   };
