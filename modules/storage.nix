@@ -156,8 +156,16 @@ in
   };
 
   config = mkIf (cfg.nfs.enable || cfg.cifs.enable || cfg.vhd.enable) {
+    # Configure sudo to preserve environment variables for CIFS authentication
+    security.sudo.extraConfig = ''
+      # Allow mount.cifs to receive USER and PASSWD environment variables
+      # This is required for CIFS mounts which pass credentials via env vars
+      Defaults:${xoUser} env_keep += "USER PASSWD"
+      Defaults:${xoUser} !env_reset
+    '';
+
     # Install required filesystem tools
-    environment.systemPackages = 
+    environment.systemPackages =
       lib.optionals cfg.nfs.enable  [ pkgs.nfs-utils ] ++
       lib.optionals cfg.cifs.enable [ pkgs.cifs-utils ] ++
       lib.optionals cfg.vhd.enable  [ config.services.libvhdi.package ];
