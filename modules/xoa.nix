@@ -112,7 +112,16 @@ let
       "${xoSource}/" "${cfg.xo.appDir}/"
     chmod -R u+rwX "${cfg.xo.appDir}"
     cd "${cfg.xo.appDir}"
-    
+
+    # Fix SMB handler registration - mount.cifs -V exits with code 1 on NixOS
+    echo "Patching SMB handler registration..."
+    if [ -f @xen-orchestra/fs/src/index.js ]; then
+      # The issue: mount.cifs -V returns exit code 1 due to setuid warning
+      # Replace the strict check with one that ignores exit code 1
+      sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" @xen-orchestra/fs/src/index.js
+      echo "SMB handler patch applied"
+    fi
+
     # Initialize minimal git repo if needed (some build tools expect it)
     if [ ! -d ".git" ]; then
       echo "Initializing minimal git repository for build tooling..."
@@ -167,22 +176,14 @@ let
   '' + ''
 
     # Patch native modules to include FUSE library paths
-    echo "[3/5] Patching native modules..."
+    echo "[3/4] Patching native modules..."
     find node_modules -name "*.node" -type f 2>/dev/null | while read -r nodefile; do
       echo "Patching $nodefile..."
       ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib" "$nodefile" 2>/dev/null || true
     done
 
-    # Fix SMB handler registration - mount.cifs -V exits with code 1 on NixOS
-    echo "[4/5] Fixing SMB handler registration..."
-    if [ -f @xen-orchestra/fs/src/index.js ]; then
-      # The issue: mount.cifs -V returns exit code 1 due to setuid warning
-      # Replace the strict check with one that ignores exit code 1
-      sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" @xen-orchestra/fs/src/index.js || true
-    fi
-
     # Verify critical artifacts
-    echo "[5/5] Verifying build artifacts..."
+    echo "[4/4] Verifying build artifacts..."
     if [ ! -f packages/xo-web/dist/index.html ]; then
       echo "ERROR: xo-web/dist/index.html not found!" >&2
       exit 1
@@ -481,7 +482,6 @@ in
       path = with pkgs; [
         util-linux git openssl xen lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
-        sudo  # Required for mounting NFS/CIFS remotes
       ];
       
       # Environment for xo-server
@@ -492,7 +492,7 @@ in
         NODE_ENV = "production";
         LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
       };
-      
+
       serviceConfig = {
         User = cfg.xo.user;
         Group = cfg.xo.group;
@@ -502,6 +502,9 @@ in
         CacheDirectory = "xo";
         LogsDirectory = "xo";
         RuntimeDirectory = "xo xo-server";
+
+        # Prepend setuid wrapper directory to PATH for sudo
+        Environment = [ "PATH=/run/wrappers/bin:$PATH" ];
 
         # Copy default config if none exists (runs as root due to '+' prefix)
         ExecStartPre = [
