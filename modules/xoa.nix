@@ -529,9 +529,23 @@ in
         # ProtectSystem = "full";
         # ProtectHome = true;
         
-        # Capabilities for bind to low ports and sudo usage
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETGID" "CAP_SETUID" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETGID" "CAP_SETUID" ];
+        # Capabilities for bind to low ports, sudo usage, and mounting
+        AmbientCapabilities = [
+          "CAP_NET_BIND_SERVICE"
+          "CAP_SETGID"
+          "CAP_SETUID"
+          "CAP_SYS_ADMIN"      # Required for mount/umount operations
+          "CAP_DAC_OVERRIDE"   # Bypass file permission checks for mount
+          "CAP_SETPCAP"        # Allow mount.cifs to adjust capabilities
+        ];
+        CapabilityBoundingSet = [
+          "CAP_NET_BIND_SERVICE"
+          "CAP_SETGID"
+          "CAP_SETUID"
+          "CAP_SYS_ADMIN"
+          "CAP_DAC_OVERRIDE"
+          "CAP_SETPCAP"
+        ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
