@@ -42,6 +42,9 @@
     cert = "/etc/ssl/xo/certificate.pem";   # Certificate file path
     key = "/etc/ssl/xo/key.pem";            # Private key file path
   };
+
+  # Enable Xen Orchestra v6 preview (accessible at /v6)
+  enableV6Preview = false;
   
   # ============================================================================
   # NETWORKING & FIREWALL

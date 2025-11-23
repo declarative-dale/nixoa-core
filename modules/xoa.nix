@@ -38,6 +38,9 @@ let
 
     [http.mounts]
     '/' = '${cfg.xo.webMountDir}'
+  '' + lib.optionalString cfg.xo.enableV6Preview ''
+    '/v6' = '${cfg.xo.webMountDirv6}'
+  '' + ''
 
     [redis]
     socket = "/run/redis-xo/redis.sock"
@@ -142,25 +145,40 @@ let
     # Build
     echo "[2/3] Building..."
     ${yarn}/bin/yarn build
+  '' + lib.optionalString cfg.xo.enableV6Preview ''
+
+    # Build v6 preview
+    echo "[2.5/3] Building v6 preview..."
+    cd @xen-orchestra/web
+    ${yarn}/bin/yarn build
+    cd ..
+  '' + ''
 
     # Patch native modules to include FUSE library paths
-    echo "[2.5/3] Patching native modules..."
+    echo "[3/4] Patching native modules..."
     find node_modules -name "*.node" -type f 2>/dev/null | while read -r nodefile; do
       echo "Patching $nodefile..."
       ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib" "$nodefile" 2>/dev/null || true
     done
 
     # Verify critical artifacts
-    echo "[3/3] Verifying build artifacts..."
+    echo "[4/4] Verifying build artifacts..."
     if [ ! -f packages/xo-web/dist/index.html ]; then
       echo "ERROR: xo-web/dist/index.html not found!" >&2
       exit 1
     fi
-    
+
     if [ ! -f packages/xo-server/dist/cli.mjs ] && [ ! -f packages/xo-server/dist/cli.js ]; then
       echo "ERROR: xo-server CLI not found!" >&2
       exit 1
     fi
+  '' + lib.optionalString cfg.xo.enableV6Preview ''
+
+    if [ ! -f @xen-orchestra/web/dist/index.html ]; then
+      echo "ERROR: @xen-orchestra/web/dist/index.html not found!" >&2
+      exit 1
+    fi
+  '' + ''
     
     echo "=== Build Complete ==="
   '';
@@ -307,7 +325,19 @@ in
         default = "${xoHome}/xen-orchestra/packages/xo-web/dist";
         description = "Web UI mount directory";
       };
-      
+
+      webMountDirv6 = mkOption {
+        type = types.path;
+        default = "${xoHome}/xen-orchestra/@xen-orchestra/web/dist";
+        description = "Web UI mount directory for v6 preview";
+      };
+
+      enableV6Preview = mkOption {
+        type = types.bool;
+        default = false;
+        description = "Enable Xen Orchestra v6 preview at /v6";
+      };
+
       buildIsolation = mkOption {
         type = types.bool;
         default = false;
