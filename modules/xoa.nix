@@ -57,6 +57,11 @@ let
 
     [tempDir]
     path = '${cfg.xo.tempDir}'
+
+    # Remote storage options - use sudo for NFS/CIFS mounts
+    [remoteOptions]
+    useSudo = true
+    mountsDir = '${config.xoa.storage.mountsDir}'
   '');
 
   # Simple certificate generation script (only for SSL)
@@ -162,14 +167,22 @@ let
   '' + ''
 
     # Patch native modules to include FUSE library paths
-    echo "[3/4] Patching native modules..."
+    echo "[3/5] Patching native modules..."
     find node_modules -name "*.node" -type f 2>/dev/null | while read -r nodefile; do
       echo "Patching $nodefile..."
       ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib" "$nodefile" 2>/dev/null || true
     done
 
+    # Fix SMB handler registration - mount.cifs -V exits with code 1 on NixOS
+    echo "[4/5] Fixing SMB handler registration..."
+    if [ -f @xen-orchestra/fs/src/index.js ]; then
+      # The issue: mount.cifs -V returns exit code 1 due to setuid warning
+      # Replace the strict check with one that ignores exit code 1
+      sed -i 's/execa\.sync('\''mount\.cifs'\'', \['\''-V'\''\])/execa.sync('\''mount.cifs'\'', ['\''-V'\''], { reject: false })/' @xen-orchestra/fs/src/index.js || true
+    fi
+
     # Verify critical artifacts
-    echo "[4/4] Verifying build artifacts..."
+    echo "[5/5] Verifying build artifacts..."
     if [ ! -f packages/xo-web/dist/index.html ]; then
       echo "ERROR: xo-web/dist/index.html not found!" >&2
       exit 1
@@ -478,9 +491,6 @@ in
         XDG_CACHE_HOME = cfg.xo.cacheDir;
         NODE_ENV = "production";
         LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
-
-        # Tell XO to use sudo for mount/umount operations
-        XO_MOUNT_OPTIONS_SUDO = "1";
       };
       
       serviceConfig = {
