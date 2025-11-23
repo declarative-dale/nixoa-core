@@ -406,10 +406,12 @@ in
       after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
-      
+
       path = with pkgs; [
         git nodejs_20 yarn python3 gcc gnumake pkg-config
         coreutils findutils bash esbuild patchelf
+        # Mount utilities must be available at build time for handler registration
+        nfs-utils cifs-utils util-linux
       ];
       
       environment = {
