@@ -37,6 +37,7 @@
   # TLS/SSL configuration
   tls = {
     enable = true;                          # Auto-generate self-signed certificates
+    redirectToHttps = true;                 # Redirect HTTP to HTTPS
     dir = "/etc/ssl/xo";                    # Certificate storage directory
     cert = "/etc/ssl/xo/certificate.pem";   # Certificate file path
     key = "/etc/ssl/xo/key.pem";            # Private key file path

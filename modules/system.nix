@@ -296,6 +296,7 @@
       
       ssl = {
         enable = vars.tls.enable;
+        redirectToHttps = vars.tls.redirectToHttps;
         dir = vars.tls.dir;
         cert = vars.tls.cert;
         key = vars.tls.key;

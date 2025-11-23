@@ -22,6 +22,9 @@ let
   # Fixed xo-server config with proper HTTPS setup
   xoDefaultConfig = pkgs.writeText "xo-config-default.toml" (''
     [http]
+  '' + lib.optionalString (cfg.xo.ssl.enable && cfg.xo.ssl.redirectToHttps) ''
+    redirectToHttps = true
+  '' + ''
 
     [[http.listen]]
     port = ${toString cfg.xo.port}
@@ -242,19 +245,25 @@ in
       
       ssl = {
         enable = mkEnableOption "HTTPS with self-signed certificates";
-        
+
+        redirectToHttps = mkOption {
+          type = types.bool;
+          default = true;
+          description = "Redirect HTTP traffic to HTTPS";
+        };
+
         dir = mkOption {
           type = types.path;
           default = "/etc/ssl/xo";
           description = "Directory for SSL certificates";
         };
-        
+
         cert = mkOption {
           type = types.path;
           default = "/etc/ssl/xo/certificate.pem";
           description = "SSL certificate path";
         };
-        
+
         key = mkOption {
           type = types.path;
           default = "/etc/ssl/xo/key.pem";
