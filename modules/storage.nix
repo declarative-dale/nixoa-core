@@ -303,16 +303,6 @@ in
       "d /etc/xo/bin 0755 root root - -"
     ];
 
-    # Modify xo-server service to use our mount wrapper
-    systemd.services.xo-server = {
-      path = lib.mkBefore [
-        (pkgs.runCommand "xo-mount-override" {} ''
-          mkdir -p $out/bin
-          ln -s ${mountCommandWrapper} $out/bin/mount
-        '')
-      ];
-    };
-
     # One-time service to initialize sudo for xo user (clears the lecture)
     systemd.services.xo-sudo-init = {
       description = "Initialize sudo for XO user";

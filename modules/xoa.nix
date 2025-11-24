@@ -482,7 +482,17 @@ in
       path = with pkgs; [
         util-linux git openssl xen lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
-      ];
+      ] ++ lib.optional config.xoa.storage.cifs.enable
+        # Add a package that provides our mount wrapper
+        (pkgs.writeShellScriptBin "mount" ''
+          set -eu
+          # Check if USER and PASSWD are set (for CIFS mounts)
+          if [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
+            exec /run/wrappers/bin/sudo USER="$USER" PASSWD="$PASSWD" ${pkgs.util-linux}/bin/mount "$@"
+          else
+            exec /run/wrappers/bin/sudo ${pkgs.util-linux}/bin/mount "$@"
+          fi
+        '');
       
       # Environment for xo-server
       environment = cfg.xo.extraServerEnv // {
