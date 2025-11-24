@@ -503,9 +503,8 @@ in
       wantedBy = [ "multi-user.target" ];
       requires = [ "xo-build.service" "redis-xo.service" ];
       
-      # Sudo wrapper must be first in path to intercept sudo calls
-      path = lib.optional cfg.storage.cifs.enable sudoWrapper
-      ++ (with pkgs; [
+      # Sudo wrapper must be first in path to intercept sudo calls and handle env vars
+      path = [ sudoWrapper ] ++ (with pkgs; [
         util-linux git openssl xen lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
       ]);
