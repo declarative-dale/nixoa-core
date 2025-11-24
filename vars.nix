@@ -66,11 +66,19 @@
   # ============================================================================
   # STORAGE & MOUNTING
   # ============================================================================
-  
+
   storage = {
     nfs.enable = true;                      # Enable NFS remote storage
     cifs.enable = true;                     # Enable CIFS/SMB remote storage
     mountsDir = "/var/lib/xo/mounts";       # Where to mount remote storage
+  };
+
+  # ============================================================================
+  # TERMINAL ENHANCEMENTS (disabled by default)
+  # ============================================================================
+
+  extras = {
+    enable = false;                         # Enhanced terminal experience (zsh, oh-my-posh, fzf, etc.)
   };
   
   # ============================================================================

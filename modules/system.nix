@@ -335,6 +335,9 @@
   # Pass update configuration to updates module
   updates = vars.updates;
 
+  # Pass extras configuration to extras module
+  xoa.extras = vars.extras;
+
   # ============================================================================
   # SYSTEM MONITORING (OPTIONAL)
   # ============================================================================
