@@ -66,31 +66,22 @@ let
     esac
   '';
 
-  # Sudo wrapper that properly preserves environment variables for CIFS mounts
-  # When XO uses execa with env vars, they get set in the child process
-  # This wrapper ensures they're available to the actual sudo command
-  sudoWrapper = pkgs.writeShellScript "xo-sudo-wrapper" ''
+  # Mount wrapper that handles environment variables for CIFS authentication
+  # This wrapper is called instead of 'mount' and properly passes credentials through sudo
+  mountCommandWrapper = pkgs.writeShellScript "xo-mount-wrapper" ''
     set -euo pipefail
 
-    # This wrapper is placed in the xo user's PATH before the real sudo
-    # When XO calls sudo via execa with env vars, this ensures they're passed through
+    # This wrapper replaces 'mount' in XO's PATH
+    # When XO sets USER/PASSWD env vars via execa, this wrapper ensures they reach mount.cifs
 
-    # Build sudo command with explicit environment variable passing
-    SUDO_CMD=("${pkgs.sudo}/bin/sudo")
-
-    # If USER and PASSWD are set (for CIFS mounts), pass them explicitly
-    if [ -n "''${USER:-}" ]; then
-      SUDO_CMD+=("USER=$USER")
+    # Check if USER and PASSWD are set (for CIFS mounts)
+    if [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
+      # Call sudo with explicit environment variable passing
+      exec /run/wrappers/bin/sudo USER="$USER" PASSWD="$PASSWD" /run/current-system/sw/bin/mount "$@"
+    else
+      # For non-CIFS mounts, just call mount normally
+      exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount "$@"
     fi
-    if [ -n "''${PASSWD:-}" ]; then
-      SUDO_CMD+=("PASSWD=$PASSWD")
-    fi
-
-    # Add the actual command
-    SUDO_CMD+=("$@")
-
-    # Execute with -E to preserve other environment variables
-    exec "''${SUDO_CMD[@]}"
   '';
   
   # Safe umount wrapper
@@ -202,9 +193,11 @@ in
       # This is required for CIFS mounts which pass credentials via env vars
       Defaults:${xoUser} env_keep += "USER PASSWD LANG"
       Defaults:${xoUser} !env_reset
+      Defaults:${xoUser} !secure_path
 
       # Also allow these variables to be set via sudo command line
       Defaults:${xoUser} env_check -= "USER PASSWD"
+      Defaults:${xoUser} env_delete -= "USER PASSWD"
     '';
 
     # Install required filesystem tools
@@ -310,12 +303,14 @@ in
       "d /etc/xo/bin 0755 root root - -"
     ];
 
-    # Modify xo-server service to use our sudo wrapper
+    # Modify xo-server service to use our mount wrapper
     systemd.services.xo-server = {
-      serviceConfig = {
-        # Prepend /etc/xo/bin to PATH so our sudo wrapper is used
-        Environment = lib.mkBefore [ "PATH=/etc/xo/bin:/run/wrappers/bin:$PATH" ];
-      };
+      path = lib.mkBefore [
+        (pkgs.runCommand "xo-mount-override" {} ''
+          mkdir -p $out/bin
+          ln -s ${mountCommandWrapper} $out/bin/mount
+        '')
+      ];
     };
 
     # One-time service to initialize sudo for xo user (clears the lecture)
@@ -349,8 +344,8 @@ in
         source = umountWrapper;
         mode = "0755";
       };
-      "xo/bin/sudo" = {
-        source = sudoWrapper;
+      "xo/bin/mount" = {
+        source = mountCommandWrapper;
         mode = "0755";
       };
     } // lib.optionalAttrs cfg.vhd.enable {
