@@ -479,16 +479,29 @@ in
       wantedBy = [ "multi-user.target" ];
       requires = [ "xo-build.service" "redis-xo.service" ];
       
-      # Mount wrapper must be first in path to override util-linux's mount
+      # Sudo wrapper must be first in path to intercept sudo calls
       path = lib.optional config.xoa.storage.cifs.enable
-        (pkgs.writeShellScriptBin "mount" ''
-          set -eu
-          # Check if USER and PASSWD are set (for CIFS mounts)
-          if [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
-            exec /run/wrappers/bin/sudo USER="$USER" PASSWD="$PASSWD" ${pkgs.util-linux}/bin/mount "$@"
-          else
-            exec /run/wrappers/bin/sudo ${pkgs.util-linux}/bin/mount "$@"
+        (pkgs.writeShellScriptBin "sudo" ''
+          # Wrapper that passes USER and PASSWD env vars explicitly to real sudo
+          # When XO calls sudo with env vars via execa, this ensures they reach mount.cifs
+
+          SUDO_ARGS=()
+
+          # If USER is set, pass it explicitly
+          if [ -n "''${USER:-}" ]; then
+            SUDO_ARGS+=("USER=$USER")
           fi
+
+          # If PASSWD is set, pass it explicitly
+          if [ -n "''${PASSWD:-}" ]; then
+            SUDO_ARGS+=("PASSWD=$PASSWD")
+          fi
+
+          # Add all original arguments
+          SUDO_ARGS+=("$@")
+
+          # Call real sudo from wrappers
+          exec /run/wrappers/bin/sudo "''${SUDO_ARGS[@]}"
         '')
       ++ (with pkgs; [
         util-linux git openssl xen lvm2 coreutils
@@ -514,8 +527,8 @@ in
         LogsDirectory = "xo";
         RuntimeDirectory = "xo xo-server";
 
-        # Prepend setuid wrapper directory to PATH for sudo
-        Environment = [ "PATH=/run/wrappers/bin:$PATH" ];
+        # PATH is automatically built from the 'path' directive above
+        # Don't override it here to ensure our sudo wrapper is found first
 
         # Copy default config if none exists (runs as root due to '+' prefix)
         ExecStartPre = [
