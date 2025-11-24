@@ -20,27 +20,33 @@ let
   xoHome = "/var/lib/xo";
 
   # Sudo wrapper for CIFS mounts - intercepts sudo calls to pass USER/PASSWD env vars
-  sudoWrapper = pkgs.writeShellScriptBin "sudo" ''
-    # Wrapper that passes USER and PASSWD env vars explicitly to real sudo
-    # When XO calls sudo with env vars via execa, this ensures they reach mount.cifs
+  # Use runCommand with a unique package name to avoid conflicts
+  sudoWrapper = pkgs.runCommand "xo-sudo-wrapper" {} ''
+    mkdir -p $out/bin
+    cat > $out/bin/sudo << 'EOF'
+#!/${pkgs.bash}/bin/bash
+# Wrapper that passes USER and PASSWD env vars explicitly to real sudo
+# When XO calls sudo with env vars via execa, this ensures they reach mount.cifs
 
-    SUDO_ARGS=()
+SUDO_ARGS=()
 
-    # If USER is set, pass it explicitly
-    if [ -n "''${USER:-}" ]; then
-      SUDO_ARGS+=("USER=$USER")
-    fi
+# If USER is set, pass it explicitly
+if [ -n "''${USER:-}" ]; then
+  SUDO_ARGS+=("USER=$USER")
+fi
 
-    # If PASSWD is set, pass it explicitly
-    if [ -n "''${PASSWD:-}" ]; then
-      SUDO_ARGS+=("PASSWD=$PASSWD")
-    fi
+# If PASSWD is set, pass it explicitly
+if [ -n "''${PASSWD:-}" ]; then
+  SUDO_ARGS+=("PASSWD=$PASSWD")
+fi
 
-    # Add all original arguments
-    SUDO_ARGS+=("$@")
+# Add all original arguments
+SUDO_ARGS+=("$@")
 
-    # Call real sudo from wrappers
-    exec /run/wrappers/bin/sudo "''${SUDO_ARGS[@]}"
+# Call real sudo from wrappers
+exec /run/wrappers/bin/sudo "''${SUDO_ARGS[@]}"
+EOF
+    chmod +x $out/bin/sudo
   '';
   
   # Fixed xo-server config with proper HTTPS setup
