@@ -479,11 +479,8 @@ in
       wantedBy = [ "multi-user.target" ];
       requires = [ "xo-build.service" "redis-xo.service" ];
       
-      path = with pkgs; [
-        util-linux git openssl xen lvm2 coreutils
-        nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
-      ] ++ lib.optional config.xoa.storage.cifs.enable
-        # Add a package that provides our mount wrapper
+      # Mount wrapper must be first in path to override util-linux's mount
+      path = lib.optional config.xoa.storage.cifs.enable
         (pkgs.writeShellScriptBin "mount" ''
           set -eu
           # Check if USER and PASSWD are set (for CIFS mounts)
@@ -492,7 +489,11 @@ in
           else
             exec /run/wrappers/bin/sudo ${pkgs.util-linux}/bin/mount "$@"
           fi
-        '');
+        '')
+      ++ (with pkgs; [
+        util-linux git openssl xen lvm2 coreutils
+        nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
+      ]);
       
       # Environment for xo-server
       environment = cfg.xo.extraServerEnv // {
