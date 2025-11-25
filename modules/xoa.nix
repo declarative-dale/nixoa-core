@@ -64,8 +64,8 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
   if [ "$fstype" = "cifs" ] && [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
     echo "[SUDO WRAPPER] CIFS mount detected, injecting credentials" >> /tmp/sudo-wrapper-debug.log
     # Trim any whitespace from USER and PASSWD to avoid issues
-    local user_trimmed="$(echo -n "''${USER}" | tr -d ' ')"
-    local passwd_trimmed="$(echo -n "''${PASSWD}" | tr -d ' ')"
+    user_trimmed="$(echo -n "''${USER}" | tr -d ' ')"
+    passwd_trimmed="$(echo -n "''${PASSWD}" | tr -d ' ')"
     if [ -n "$opts" ]; then
       opts="username=$user_trimmed,password=$passwd_trimmed,$opts"
     else
