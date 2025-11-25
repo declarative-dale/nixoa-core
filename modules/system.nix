@@ -148,39 +148,8 @@
   # ============================================================================
   # SSH SERVICE
   # ============================================================================
-  
-  services.openssh = {
-    enable = true;
-    openFirewall = true;
-    
-    settings = {
-      PermitRootLogin = "no";
-      PasswordAuthentication = false;
-      KbdInteractiveAuthentication = false;
-      PubkeyAuthentication = true;
-      AllowUsers = [ vars.username ];
-      
-      # Security hardening
-      X11Forwarding = false;
-      PermitEmptyPasswords = false;
-      Protocol = 2;
-      ClientAliveInterval = 300;
-      ClientAliveCountMax = 2;
-    };
-    
-    # Host keys (let sshd generate them on first boot)
-    hostKeys = [
-      {
-        path = "/etc/ssh/ssh_host_ed25519_key";
-        type = "ed25519";
-      }
-      {
-        path = "/etc/ssh/ssh_host_rsa_key";
-        type = "rsa";
-        bits = 4096;
-      }
-    ];
-  };
+
+  # SSH configuration moved to consolidated services block below
 
   # Note: FUSE support is configured in storage.nix
 
@@ -270,12 +239,91 @@
   # ============================================================================
 
   # All services are defined here in one place to avoid conflicts
-  # This includes both built-in NFS/RPC services and custom services from nixoa.toml
+  # This includes built-in services, SSH, monitoring, logging, and custom services from nixoa.toml
   services = lib.mkMerge [
     # Built-in services for NFS support
     {
       rpcbind.enable = true;  # Required for NFSv3
       nfs.server.enable = false;  # We're a client, not a server
+
+      # SSH configuration
+      openssh = {
+        enable = true;
+        openFirewall = true;
+
+        settings = {
+          PermitRootLogin = "no";
+          PasswordAuthentication = false;
+          KbdInteractiveAuthentication = false;
+          PubkeyAuthentication = true;
+          AllowUsers = [ vars.username ];
+
+          # Security hardening
+          X11Forwarding = false;
+          PermitEmptyPasswords = false;
+          Protocol = 2;
+          ClientAliveInterval = 300;
+          ClientAliveCountMax = 2;
+        };
+
+        # Host keys (let sshd generate them on first boot)
+        hostKeys = [
+          {
+            path = "/etc/ssh/ssh_host_ed25519_key";
+            type = "ed25519";
+          }
+          {
+            path = "/etc/ssh/ssh_host_rsa_key";
+            type = "rsa";
+            bits = 4096;
+          }
+        ];
+      };
+
+      # libvhdi support for VHD operations
+      libvhdi.enable = true;
+
+      # Prometheus node exporter for monitoring (optional)
+      prometheus.exporters.node = {
+        enable = lib.mkDefault false;
+        port = 9100;
+        openFirewall = false;
+
+        enabledCollectors = [
+          "conntrack"
+          "diskstats"
+          "entropy"
+          "filefd"
+          "filesystem"
+          "loadavg"
+          "meminfo"
+          "netdev"
+          "netstat"
+          "stat"
+          "time"
+          "uname"
+          "vmstat"
+        ];
+      };
+
+      # Journald logging configuration
+      journald.extraConfig = ''
+        # Persistent storage
+        Storage=persistent
+
+        # Disk usage limits
+        SystemMaxUse=1G
+        SystemMaxFileSize=100M
+
+        # Retention
+        MaxRetentionSec=30d
+
+        # Forward to console for debugging
+        ForwardToConsole=no
+
+        # Compression
+        Compress=yes
+      '';
     }
     # Custom services from nixoa.toml [services] section
     # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
@@ -326,10 +374,7 @@
     };
   };
 
-  # Enable libvhdi support for VHD operations
-  services.libvhdi = {
-    enable = true;
-  };
+  # Enable libvhdi support for VHD operations (moved to consolidated services block)
 
   # xo-server capabilities - needs to run sudo for mounting operations
   systemd.services.xo-server.serviceConfig = {
@@ -357,53 +402,14 @@
   # ============================================================================
   # SYSTEM MONITORING (OPTIONAL)
   # ============================================================================
-  
-  # Prometheus node exporter for monitoring
-  services.prometheus.exporters.node = {
-    enable = lib.mkDefault false;
-    port = 9100;
-    openFirewall = false;  # Only open if you have monitoring infrastructure
-    
-    enabledCollectors = [
-      "conntrack"
-      "diskstats"
-      "entropy"
-      "filefd"
-      "filesystem"
-      "loadavg"
-      "meminfo"
-      "netdev"
-      "netstat"
-      "stat"
-      "time"
-      "uname"
-      "vmstat"
-    ];
-  };
+
+  # Prometheus configuration moved to consolidated services block below
 
   # ============================================================================
   # LOGGING & JOURNALD
   # ============================================================================
-  
-  services.journald = {
-    extraConfig = ''
-      # Persistent storage
-      Storage=persistent
-      
-      # Disk usage limits
-      SystemMaxUse=1G
-      SystemMaxFileSize=100M
-      
-      # Retention
-      MaxRetentionSec=30d
-      
-      # Forward to console for debugging
-      ForwardToConsole=no
-      
-      # Compression
-      Compress=yes
-    '';
-  };
+
+  # Journald configuration moved to consolidated services block below
 
   # ============================================================================
   # PERFORMANCE TUNING
