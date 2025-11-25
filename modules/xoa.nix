@@ -596,6 +596,7 @@ in
         PrivateTmp = true;
         ProtectSystem = "full";  # Makes /usr, /boot, /efi read-only (strict is too restrictive)
         ProtectHome = true;
+        PrivateDevices = false;  # Need device access for LVM and xenstore
 
         # Only need CAP_NET_BIND_SERVICE - sudo wrapper handles mounting
         # Note: system.nix overrides these with mkForce, but we set sensible defaults
@@ -613,6 +614,10 @@ in
           cfg.xo.tempDir
           "/etc/xo-server"
           config.xoa.storage.mountsDir
+          "/run/lock"           # LVM lock files
+          "/run/redis-xo"       # Redis socket
+          "/dev"                # Device access for LVM/storage operations
+          "/sys"                # Sysfs access for xenstore
         ];
         
         LimitNOFILE = 1048576;
