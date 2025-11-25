@@ -63,11 +63,15 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
   # If this is a CIFS mount and we have credentials, inject them as mount options
   if [ "$fstype" = "cifs" ] && [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
     echo "[SUDO WRAPPER] CIFS mount detected, injecting credentials" >> /tmp/sudo-wrapper-debug.log
+    # Trim any whitespace from USER and PASSWD to avoid issues
+    local user_trimmed="$(echo -n "''${USER}" | tr -d ' ')"
+    local passwd_trimmed="$(echo -n "''${PASSWD}" | tr -d ' ')"
     if [ -n "$opts" ]; then
-      opts="username=''${USER},password=''${PASSWD},$opts"
+      opts="username=$user_trimmed,password=$passwd_trimmed,$opts"
     else
-      opts="username=''${USER},password=''${PASSWD}"
+      opts="username=$user_trimmed,password=$passwd_trimmed"
     fi
+    echo "[SUDO WRAPPER] Injected opts: $opts" >> /tmp/sudo-wrapper-debug.log
   fi
 
   # Reassemble and call real sudo + mount
