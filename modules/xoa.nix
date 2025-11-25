@@ -501,8 +501,10 @@ in
 
       # Only run if build artifacts don't exist - prevents rebuilding on every boot
       unitConfig = {
-        ConditionPathExists = "!${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs";
-        ConditionPathExists = "!${cfg.xo.appDir}/packages/xo-server/dist/cli.js";
+        ConditionPathExists = [
+          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
+          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
+        ];
       };
 
       path = with pkgs; [
