@@ -187,18 +187,8 @@ in
       };
     };
 
-    # Configure sudo to preserve environment variables for CIFS authentication
-    security.sudo.extraConfig = ''
-      # Allow mount.cifs to receive USER and PASSWD environment variables
-      # This is required for CIFS mounts which pass credentials via env vars
-      Defaults:${xoUser} env_keep += "USER PASSWD LANG"
-      Defaults:${xoUser} !env_reset
-      Defaults:${xoUser} !secure_path
-
-      # Also allow these variables to be set via sudo command line
-      Defaults:${xoUser} env_check -= "USER PASSWD"
-      Defaults:${xoUser} env_delete -= "USER PASSWD"
-    '';
+    # No special sudo env configuration needed - our wrapper handles CIFS credentials
+    # by injecting them as mount options before calling sudo
 
     # Install required filesystem tools
     environment.systemPackages =
@@ -224,83 +214,23 @@ in
     security.sudo = {
       enable = true;
       extraRules = [
-        # TEMPORARY: Wide-open sudo for debugging CIFS mount issues
         {
           users = [ xoUser ];
           commands = [
-            { command = "ALL"; options = [ "NOPASSWD" "SETENV" ]; }
+            # Core mount/umount commands
+            { command = "/run/current-system/sw/bin/mount"; options = [ "NOPASSWD" ]; }
+            { command = "/run/current-system/sw/bin/umount"; options = [ "NOPASSWD" ]; }
+            { command = "/run/current-system/sw/bin/findmnt"; options = [ "NOPASSWD" ]; }
+            { command = "/run/wrappers/bin/mount"; options = [ "NOPASSWD" ]; }
+            { command = "/run/wrappers/bin/umount"; options = [ "NOPASSWD" ]; }
+            { command = "/run/wrappers/bin/findmnt"; options = [ "NOPASSWD" ]; }
+          ] ++
+          # VHD mount tools
+          lib.optionals cfg.vhd.enable [
+            { command = "/run/current-system/sw/bin/vhdimount"; options = [ "NOPASSWD" ]; }
+            { command = "/run/current-system/sw/bin/vhdiinfo"; options = [ "NOPASSWD" ]; }
           ];
         }
-        # Original restricted rules (commented for now)
-        # {
-        #   users = [ xoUser ];
-        #   commands =
-        #     # Mount/unmount wrappers for NFS/CIFS
-        #     lib.optionals (cfg.nfs.enable || cfg.cifs.enable) [
-        #       {
-        #         command = "${mountWrapper}";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
-        #       }
-        #       {
-        #         command = "${umountWrapper}";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #     ] ++
-        #     # VHD mount tools
-        #     lib.optionals cfg.vhd.enable [
-        #       {
-        #         command = "${vhdMountWrapper}";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/vhdimount";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/vhdiinfo";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #     ] ++
-        #     # Raw mount commands (allow both wrapper and system paths)
-        #     [
-        #       {
-        #         command = "/run/wrappers/bin/mount";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
-        #       }
-        #       {
-        #         command = "/run/wrappers/bin/umount";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/mount";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/umount";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/mount.nfs";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/mount.cifs";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
-        #       }
-        #       {
-        #         command = "/run/wrappers/bin/mount.cifs";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" "SETENV" ] else [ "SETENV" ];
-        #       }
-        #       {
-        #         command = "/run/wrappers/bin/findmnt";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #       {
-        #         command = "/run/current-system/sw/bin/findmnt";
-        #         options = if cfg.sudoNoPassword then [ "NOPASSWD" ] else [];
-        #       }
-        #     ];
-        # }
       ];
     };
 

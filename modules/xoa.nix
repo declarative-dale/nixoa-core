@@ -19,47 +19,70 @@ let
   # XO home directory
   xoHome = "/var/lib/xo";
 
-  # Sudo wrapper for CIFS mounts - intercepts sudo calls to pass USER/PASSWD env vars
-  # Use runCommand with a unique package name to avoid conflicts
+  # Sudo wrapper for CIFS mounts - injects credentials as mount options
+  # This is the "Nix way" - transform the command instead of fighting sudo's env handling
   sudoWrapper = pkgs.runCommand "xo-sudo-wrapper" {} ''
     mkdir -p $out/bin
     cat > $out/bin/sudo << 'EOF'
 #!/${pkgs.bash}/bin/bash
-# Wrapper that passes USER and PASSWD env vars explicitly to real sudo
-# When XO calls sudo with env vars via execa, this ensures they reach mount.cifs
+set -euo pipefail
 
-# Debug logging
+# Debug logging (optional - can be removed later)
 echo "[SUDO WRAPPER] Called with args: $@" >> /tmp/sudo-wrapper-debug.log
-echo "[SUDO WRAPPER] USER=$USER" >> /tmp/sudo-wrapper-debug.log
-echo "[SUDO WRAPPER] PASSWD=$PASSWD" >> /tmp/sudo-wrapper-debug.log
+echo "[SUDO WRAPPER] USER=''${USER:-}" >> /tmp/sudo-wrapper-debug.log
+echo "[SUDO WRAPPER] PASSWD=''${PASSWD:-(empty)}" >> /tmp/sudo-wrapper-debug.log
 
-ENV_VARS=()
+# Special case: sudo mount ... -t cifs ...
+# Everything else passes through to real sudo unchanged
+if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
+  shift
 
-# If USER is set, pass it via env
-if [ -n "''${USER:-}" ]; then
-  ENV_VARS+=("USER=$USER")
-  echo "[SUDO WRAPPER] Adding USER to env" >> /tmp/sudo-wrapper-debug.log
-fi
+  fstype=""
+  opts=""
+  args=()
 
-# If PASSWD is set, pass it via env
-if [ -n "''${PASSWD:-}" ]; then
-  ENV_VARS+=("PASSWD=$PASSWD")
-  echo "[SUDO WRAPPER] Adding PASSWD to env" >> /tmp/sudo-wrapper-debug.log
-fi
-
-# Build the command
-if [ ''${#ENV_VARS[@]} -gt 0 ]; then
-  # Export the variables to our environment first, then use sudo -E
-  for var in "''${ENV_VARS[@]}"; do
-    export "$var"
+  # Parse mount arguments to extract -t and -o
+  while [ "$#" -gt 0 ]; do
+    case "$1" in
+      -t)
+        fstype="$2"
+        args+=("-t" "$2")
+        shift 2
+        ;;
+      -o)
+        opts="$2"
+        shift 2
+        ;;
+      *)
+        args+=("$1")
+        shift
+        ;;
+    esac
   done
-  echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo -E $@" >> /tmp/sudo-wrapper-debug.log
-  exec /run/wrappers/bin/sudo -E "$@"
-else
-  # No env vars, call sudo directly
-  echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo $@" >> /tmp/sudo-wrapper-debug.log
-  exec /run/wrappers/bin/sudo "$@"
+
+  # If this is a CIFS mount and we have credentials, inject them as mount options
+  if [ "$fstype" = "cifs" ] && [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
+    echo "[SUDO WRAPPER] CIFS mount detected, injecting credentials" >> /tmp/sudo-wrapper-debug.log
+    if [ -n "$opts" ]; then
+      opts="username=''${USER},password=''${PASSWD},$opts"
+    else
+      opts="username=''${USER},password=''${PASSWD}"
+    fi
+  fi
+
+  # Reassemble and call real sudo + mount
+  if [ -n "$opts" ]; then
+    echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o \"$opts\" ''${args[@]}" >> /tmp/sudo-wrapper-debug.log
+    exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o "$opts" "''${args[@]}"
+  else
+    echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo /run/current-system/sw/bin/mount ''${args[@]}" >> /tmp/sudo-wrapper-debug.log
+    exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount "''${args[@]}"
+  fi
 fi
+
+# Non-mount commands (findmnt, etc.) pass straight through
+echo "[SUDO WRAPPER] Pass-through command: /run/wrappers/bin/sudo $@" >> /tmp/sudo-wrapper-debug.log
+exec /run/wrappers/bin/sudo "$@"
 EOF
     chmod +x $out/bin/sudo
   '';
