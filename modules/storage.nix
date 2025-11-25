@@ -35,8 +35,6 @@ in
         owner = "root";
         group = "root";
         setuid = true;
-        # Allow mount.cifs to manage capabilities freely
-        capabilities = "cap_dac_override,cap_sys_admin=ep";
       };
     };
 
