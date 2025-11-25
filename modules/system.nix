@@ -320,18 +320,11 @@
       "CAP_NET_BIND_SERVICE"  # Bind to ports 80/443
       "CAP_SETUID"            # Required for sudo to switch users
       "CAP_SETGID"            # Required for sudo to switch groups
-      "CAP_SETPCAP"           # Allow mount.cifs to adjust capabilities
-      "CAP_SYS_ADMIN"         # Required for mount/umount operations
-      "CAP_DAC_OVERRIDE"      # Bypass file permission checks
     ];
-    CapabilityBoundingSet = lib.mkForce [
-      "CAP_NET_BIND_SERVICE"
-      "CAP_SETUID"
-      "CAP_SETGID"
-      "CAP_SETPCAP"
-      "CAP_SYS_ADMIN"
-      "CAP_DAC_OVERRIDE"
-    ];
+    # Don't restrict CapabilityBoundingSet - mount.cifs needs unrestricted caps
+    # The service itself only gets the AmbientCapabilities, but child processes
+    # (like sudo->mount->mount.cifs) can gain more via setuid
+    CapabilityBoundingSet = lib.mkForce [ ];
 
     # Ensure NoNewPrivileges is disabled so sudo/setuid wrappers work
     NoNewPrivileges = lib.mkForce false;

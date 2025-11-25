@@ -35,6 +35,8 @@ in
         owner = "root";
         group = "root";
         setuid = true;
+        # Allow mount.cifs to manage capabilities freely
+        capabilities = "cap_dac_override,cap_sys_admin=ep";
       };
     };
 
@@ -43,6 +45,8 @@ in
     security.sudo.extraConfig = ''
       Defaults !use_pty
       Defaults !log_subcmds
+      # Preserve capabilities for mount operations
+      Defaults:${xoUser} !use_pty,!syslog
     '';
 
     # No special sudo env configuration needed - our wrapper handles CIFS credentials
