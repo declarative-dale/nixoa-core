@@ -1,115 +1,91 @@
-# Configuration Approaches: .env vs JSON
+# Configuration Approach: TOML
 
-This flake now supports **two configuration approaches**. Choose the one that fits your workflow best.
+This flake uses **TOML configuration** for all personal settings. TOML provides the best balance of human readability and Nix-native support.
 
-## Quick Comparison
+## Why TOML?
 
-| Feature | JSON (Recommended) | .env |
-|---------|-------------------|------|
-| **Nix-native** | ✅ Uses `builtins.fromJSON` | ⚠️ Custom parser |
-| **Complexity** | ✅ Simple, no lib.nix needed | ⚠️ Requires lib.nix |
-| **Type Safety** | ✅ Structured data | ⚠️ String-only |
-| **Lists** | ✅ Native arrays | ⚠️ Comma-separated strings |
-| **Nested Config** | ✅ Natural hierarchy | ⚠️ Flat namespace with _ |
-| **Editing** | ⚠️ JSON syntax (strict) | ✅ Simple KEY=value |
-| **Tooling** | ✅ Validators, formatters | ⚠️ Basic text editors |
-| **Comments** | ⚠️ No standard comments | ✅ Native # comments |
+| Feature | TOML (Current) | JSON (Previous) | .env |
+|---------|---------------|-----------------|------|
+| **Nix-native** | ✅ Uses `builtins.fromTOML` | ✅ Uses `builtins.fromJSON` | ⚠️ Custom parser |
+| **Complexity** | ✅ Simple, no lib.nix needed | ✅ Simple, no lib.nix needed | ⚠️ Requires lib.nix |
+| **Type Safety** | ✅ Structured data | ✅ Structured data | ⚠️ String-only |
+| **Lists** | ✅ Native arrays | ✅ Native arrays | ⚠️ Comma-separated strings |
+| **Nested Config** | ✅ Natural hierarchy | ✅ Natural hierarchy | ⚠️ Flat namespace with _ |
+| **Readability** | ✅ Very readable | ⚠️ Somewhat verbose | ✅ Simple KEY=value |
+| **Comments** | ✅ Native # comments | ⚠️ No standard comments | ✅ Native # comments |
+| **Trailing Commas** | ✅ Allowed | ❌ Not allowed | N/A |
 
-## Recommendation: Use JSON
-
-**JSON is more nix-native and simpler:**
-- Uses built-in `builtins.fromJSON` (no custom parsing)
-- Proper data types (numbers, booleans, arrays, objects)
-- Better structure for complex nested configuration
-- JSON validators and formatters available
-
----
-
-## Option 1: JSON Configuration (Recommended)
+## Current Approach: TOML Configuration
 
 ### Setup
 
-1. **Use the JSON-based vars.nix:**
+1. **Create your config:**
    ```bash
-   cd ~/nixoa
-   mv vars.nix vars-env.nix.backup  # backup the .env version
-   mv vars-json.nix vars.nix        # use JSON version
+   cp sample-nixoa.toml nixoa.toml
+   nano nixoa.toml
    ```
 
-2. **Create your config:**
-   ```bash
-   cp config.sample.json config.json
-   nano config.json
+2. **Edit your settings in TOML format:**
+   ```toml
+   hostname = "xoa"
+   username = "admin"
+   timezone = "America/New_York"
+
+   sshKeys = [
+     "ssh-ed25519 AAAAC3... user@host"
+   ]
+
+   [xo]
+   port = 80
+   httpsPort = 443
    ```
 
-3. **Edit your settings in JSON format:**
-   ```json
-   {
-     "hostname": "xoa",
-     "username": "admin",
-     "timezone": "America/New_York",
-     "sshKeys": [
-       "ssh-ed25519 AAAAC3... user@host"
-     ],
-     "xo": {
-       "port": 80,
-       "httpsPort": 443
-     }
-   }
-   ```
-
-### Pros
-- ✅ **Nix-native**: Uses `builtins.fromJSON`
+### Advantages
+- ✅ **Nix-native**: Uses `builtins.fromTOML` (built-in since Nix 2.3)
 - ✅ **Simpler code**: No custom parser needed (no lib.nix)
 - ✅ **Type-safe**: Proper booleans, numbers, arrays
-- ✅ **Structured**: Natural hierarchical configuration
-- ✅ **Tooling**: JSON validators, formatters (`jq`, `prettier`)
-- ✅ **Errors**: JSON syntax errors caught immediately
-
-### Cons
-- ⚠️ **Strict syntax**: Must be valid JSON (commas, quotes required)
-- ⚠️ **No comments**: JSON doesn't support comments (use `_comment` keys)
-- ⚠️ **Less familiar**: Some users prefer simple KEY=value format
+- ✅ **Structured**: Natural hierarchical configuration with sections
+- ✅ **Human-readable**: More readable than JSON
+- ✅ **Native comments**: Use `#` for comments
+- ✅ **Flexible**: Trailing commas allowed in arrays
+- ✅ **Widely used**: Standard format in Rust, Python, and Go ecosystems
 
 ### Example
 
-**config.json:**
-```json
-{
-  "hostname": "my-xoa-server",
-  "timezone": "Europe/London",
-  "sshKeys": [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... alice@laptop",
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBcd... bob@desktop"
-  ],
-  "xo": {
-    "port": 8080,
-    "enableV6Preview": true
-  },
-  "networking": {
-    "firewall": {
-      "allowedTCPPorts": [80, 443, 8080, 8443]
-    }
-  },
-  "updates": {
-    "gc": {
-      "enable": true,
-      "schedule": "Sun 02:00"
-    }
-  }
-}
+**nixoa.toml:**
+```toml
+# System configuration
+hostname = "my-xoa-server"
+timezone = "Europe/London"
+
+# SSH keys for admin access
+sshKeys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... alice@laptop",
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBcd... bob@desktop"
+]
+
+[xo]
+port = 8080
+enableV6Preview = true
+
+[networking.firewall]
+allowedTCPPorts = [80, 443, 8080, 8443]
+
+[updates.gc]
+enable = true
+schedule = "Sun 02:00"
 ```
 
 ### Validation
 
-Validate your JSON before rebuilding:
+Validate your TOML before rebuilding:
 ```bash
-jq . config.json  # Pretty-print and validate
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'
 ```
 
 ---
 
-## Option 2: .env Configuration
+## Historical Note: .env Configuration (Deprecated)
 
 ### Setup
 
@@ -168,70 +144,48 @@ UPDATES_GC_SCHEDULE="Sun 02:00"
 
 ---
 
-## Migration
+## Migration from JSON
 
-### From .env to JSON
+If you have an existing `config.json` file, migration to TOML is straightforward:
 
 ```bash
-# 1. Create config.json from sample
-cp config.sample.json config.json
+# The structure is nearly identical, main changes:
+# JSON                          →  TOML
+# ================================  ================================
+# {                                 hostname = "xoa"
+#   "hostname": "xoa",
+#   "sshKeys": [                    sshKeys = [
+#     "ssh-ed25519..."                "ssh-ed25519..."
+#   ],                              ]
+#   "xo": {
+#     "port": 80                    [xo]
+#   }                               port = 80
+# }
 
-# 2. Manually transfer your settings from .env to config.json
-#    Convert:
-#      HOSTNAME=xoa              →  "hostname": "xoa"
-#      XO_PORT=8080              →  "xo": { "port": 8080 }
-#      FIREWALL_TCP_PORTS=80,443 →  "networking": { "firewall": { "allowedTCPPorts": [80, 443] } }
+# Create nixoa.toml from your existing config.json
+# (manually convert or use an online JSON→TOML converter)
 
-# 3. Switch to JSON vars
-mv vars.nix vars-env.nix.backup
-mv vars-json.nix vars.nix
-
-# 4. Rebuild
+# The vars.nix file has already been updated to use builtins.fromTOML
+# Just create nixoa.toml and rebuild:
 sudo nixos-rebuild switch --flake .#$(hostname)
 ```
 
-### From JSON to .env
-
-```bash
-# 1. Create .env from sample
-cp sample.env .env
-
-# 2. Transfer settings from config.json to .env
-#    Convert:
-#      "hostname": "xoa"                →  HOSTNAME=xoa
-#      "xo": { "port": 8080 }           →  XO_PORT=8080
-#      "allowedTCPPorts": [80, 443]     →  FIREWALL_TCP_PORTS=80,443
-
-# 3. Switch to .env vars (if you renamed it)
-mv vars.nix vars-json.nix.backup
-mv vars-env.nix.backup vars.nix
-
-# 4. Rebuild
-sudo nixos-rebuild switch --flake .#$(hostname)
-```
+**Key Conversion Rules:**
+- Top-level key-value pairs: `"key": "value"` → `key = "value"`
+- Objects become sections: `"xo": { "port": 80 }` → `[xo]` then `port = 80`
+- Arrays stay the same: `[80, 443]` → `[80, 443]`
+- Nested objects: `"networking": { "firewall": {...} }` → `[networking.firewall]`
+- Comments: `"_comment": "..."` → `# ...`
 
 ---
 
-## Recommendation
+## Why TOML Over JSON?
 
-**For most users: Use JSON**
-
-JSON is more aligned with the Nix ecosystem and provides better structure for complex configuration. The stricter syntax helps catch errors early.
-
-**Use .env only if:**
-- You strongly prefer KEY=value format
-- You need extensive comments throughout your config
-- You're migrating from a Docker-based setup with existing .env files
-
----
-
-## Both Are Supported
-
-Both approaches are fully functional and supported. The flake will work with either:
-- **`vars.nix`** (current) - Uses .env via lib.nix
-- **`vars-json.nix`** - Uses config.json via builtins.fromJSON
-
-Simply rename the one you want to `vars.nix` and the flake will use it.
+TOML provides all the benefits of JSON while being more human-friendly:
+- **Native comments**: No workarounds needed
+- **More readable**: Less visual noise (no quotes on keys, no trailing comma issues)
+- **Equally powerful**: Same type system (booleans, numbers, strings, arrays, objects)
+- **Nix-native**: `builtins.fromTOML` is built-in, just like `builtins.fromJSON`
 
 ---
 

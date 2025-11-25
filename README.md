@@ -36,10 +36,11 @@ cd declarative-xoa-ce
 
 ### 2. Configure System
 
-Edit `vars.nix` with your settings:
+Create your configuration file from the sample:
 
 ```bash
-nano vars.nix
+cp sample-nixoa.toml nixoa.toml
+nano nixoa.toml
 ```
 
 **Required changes:**
@@ -48,7 +49,7 @@ nano vars.nix
 - `sshKeys` - Your SSH public key(s)
 
 **Optional changes:**
-- `xoPort` / `xoHttpsPort` - Change default ports
+- `xo.port` / `xo.httpsPort` - Change default ports
 - `storage.*` - Enable/disable NFS and CIFS support
 - `updates.repoDir` - Must match your clone location
 
@@ -83,30 +84,38 @@ Default credentials (change immediately):
 
 ## Configuration
 
-### vars.nix Structure
+### nixoa.toml Structure
 
-```nix
-{
-  # System basics
-  hostname = "xoa";           # NixOS hostname
-  username = "xoa";           # Admin SSH user (sudoer)
-  sshKeys = [ "ssh-ed25519 ..." ];  # Your public keys
-  
-  # Xen Orchestra ports
-  xoPort = 80;
-  xoHttpsPort = 443;
-  
-  # TLS settings
-  tls.enable = true;          # Auto-generate self-signed certs
-  
-  # Storage support
-  storage.nfs.enable = true;  # Enable NFS mounting
-  storage.cifs.enable = true; # Enable CIFS/SMB mounting
-  
-  # Updates - see "Automated Updates" section
-  updates.repoDir = "/etc/nixos/declarative-xoa-ce";
-}
+This flake uses TOML for configuration, which is more human-readable and supports native comments:
+
+```toml
+# System basics
+hostname = "xoa"
+username = "xoa"
+sshKeys = ["ssh-ed25519 ..."]  # Your public keys
+
+# Xen Orchestra ports
+[xo]
+port = 80
+httpsPort = 443
+
+# TLS settings
+[tls]
+enable = true  # Auto-generate self-signed certs
+
+# Storage support
+[storage.nfs]
+enable = true  # Enable NFS mounting
+
+[storage.cifs]
+enable = true  # Enable CIFS/SMB mounting
+
+# Updates - see "Automated Updates" section
+[updates]
+repoDir = "/etc/nixos/declarative-xoa-ce"
 ```
+
+**See CONFIGURATION.md for complete documentation** on all available options.
 
 ### Manual Configuration
 

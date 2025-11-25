@@ -1,17 +1,17 @@
 # Configuration Guide
 
-This flake uses a **JSON configuration file** for all personal settings. This keeps your personal information separate from the flake code and allows the flake to be updated without conflicts.
+This flake uses a **TOML configuration file** for all personal settings. This keeps your personal information separate from the flake code and allows the flake to be updated without conflicts.
 
 ## Quick Start
 
 1. **Copy the sample configuration:**
    ```bash
-   cp config.sample.json config.json
+   cp sample-nixoa.toml nixoa.toml
    ```
 
-2. **Edit `config.json` with your settings:**
+2. **Edit `nixoa.toml` with your settings:**
    ```bash
-   nano config.json  # or use your preferred editor
+   nano nixoa.toml  # or use your preferred editor
    ```
 
 3. **Configure at minimum:**
@@ -29,69 +29,68 @@ This flake uses a **JSON configuration file** for all personal settings. This ke
 
 ### File Structure
 
-- **`config.json`** - Your personal configuration (git-ignored, NEVER committed)
-- **`config.sample.json`** - Template with all available options and defaults
-- **`vars.nix`** - Reads config.json using `builtins.fromJSON` and provides values to the flake
+- **`nixoa.toml`** - Your personal configuration (git-ignored, NEVER committed)
+- **`sample-nixoa.toml`** - Template with all available options and defaults
+- **`vars.nix`** - Reads nixoa.toml using `builtins.fromTOML` and provides values to the flake
 
 ### Configuration Flow
 
 ```
-config.json (your personal config)
+nixoa.toml (your personal config)
   ↓
-vars.nix (reads via builtins.fromJSON)
+vars.nix (reads via builtins.fromTOML)
   ↓
 flake.nix → modules/*.nix (uses vars)
 ```
 
 ## Key Benefits
 
-✅ **Nix-native**: Uses built-in `builtins.fromJSON` (no custom parser)
+✅ **Nix-native**: Uses built-in `builtins.fromTOML` (no custom parser)
 ✅ **Type-safe**: Real booleans, numbers, arrays, objects
-✅ **Hierarchical**: Natural nested structure
-✅ **Git-safe**: `config.json` is automatically ignored by git
+✅ **Hierarchical**: Natural nested structure with dotted keys
+✅ **Git-safe**: `nixoa.toml` is automatically ignored by git
 ✅ **Flexible**: All .nix files can be updated freely without conflicts
-✅ **Simple**: Clean JSON format with validation tools available
+✅ **Human-readable**: Clean TOML format with native comment support
 
 ## Configuration Options
 
-### Example config.json
+### Example nixoa.toml
 
-```json
-{
-  "hostname": "xoa",
-  "username": "admin",
-  "timezone": "UTC",
-  "sshKeys": [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... user@laptop"
-  ],
-  "xo": {
-    "host": "0.0.0.0",
-    "port": 80,
-    "httpsPort": 443,
-    "enableV6Preview": false
-  },
-  "tls": {
-    "enable": true,
-    "redirectToHttps": true
-  },
-  "networking": {
-    "firewall": {
-      "allowedTCPPorts": [80, 443, 3389, 5900, 8012]
-    }
-  },
-  "storage": {
-    "nfs": { "enable": true },
-    "cifs": { "enable": true },
-    "mountsDir": "/var/lib/xo/mounts"
-  },
-  "updates": {
-    "gc": {
-      "enable": true,
-      "schedule": "Sun 04:00",
-      "keepGenerations": 7
-    }
-  }
-}
+```toml
+hostname = "xoa"
+username = "admin"
+timezone = "UTC"
+
+sshKeys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... user@laptop"
+]
+
+[xo]
+host = "0.0.0.0"
+port = 80
+httpsPort = 443
+enableV6Preview = false
+
+[tls]
+enable = true
+redirectToHttps = true
+
+[networking.firewall]
+allowedTCPPorts = [80, 443, 3389, 5900, 8012]
+
+[storage]
+mountsDir = "/var/lib/xo/mounts"
+
+[storage.nfs]
+enable = true
+
+[storage.cifs]
+enable = true
+
+[updates.gc]
+enable = true
+schedule = "Sun 04:00"
+keepGenerations = 7
 ```
 
 ### Required Settings
@@ -107,79 +106,64 @@ flake.nix → modules/*.nix (uses vars)
 
 Add multiple SSH keys as an array:
 
-```json
-{
-  "sshKeys": [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... alice@laptop",
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBcd... bob@desktop",
-    "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... charlie@phone"
-  ]
-}
+```toml
+sshKeys = [
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... alice@laptop",
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBcd... bob@desktop",
+  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... charlie@phone"
+]
 ```
 
-You can add comments by using keys starting with `_comment` or `_example` (they'll be filtered out):
+TOML supports native comments with `#`:
 
-```json
-{
-  "sshKeys": [
-    "_comment: Add your SSH public keys here",
-    "ssh-ed25519 AAAAC3... your-key-here"
-  ]
-}
+```toml
+# Add your SSH public keys here
+sshKeys = [
+  "ssh-ed25519 AAAAC3... your-key-here"
+]
 ```
 
 ### Web Interface Settings
 
-```json
-{
-  "xo": {
-    "host": "0.0.0.0",        // 0.0.0.0 = all interfaces, 127.0.0.1 = localhost only
-    "port": 80,               // HTTP port
-    "httpsPort": 443,         // HTTPS port
-    "enableV6Preview": false  // Enable XO v6 preview at /v6
-  },
-  "tls": {
-    "enable": true,              // Auto-generate self-signed certificates
-    "redirectToHttps": true,     // Redirect HTTP to HTTPS
-    "dir": "/etc/ssl/xo",        // Certificate directory
-    "cert": "/etc/ssl/xo/certificate.pem",
-    "key": "/etc/ssl/xo/key.pem"
-  }
-}
+```toml
+[xo]
+host = "0.0.0.0"        # 0.0.0.0 = all interfaces, 127.0.0.1 = localhost only
+port = 80               # HTTP port
+httpsPort = 443         # HTTPS port
+enableV6Preview = false # Enable XO v6 preview at /v6
+
+[tls]
+enable = true              # Auto-generate self-signed certificates
+redirectToHttps = true     # Redirect HTTP to HTTPS
+dir = "/etc/ssl/xo"        # Certificate directory
+cert = "/etc/ssl/xo/certificate.pem"
+key = "/etc/ssl/xo/key.pem"
 ```
 
 ### Firewall
 
-```json
-{
-  "networking": {
-    "firewall": {
-      "allowedTCPPorts": [
-        80,    // HTTP
-        443,   // HTTPS
-        3389,  // RDP console
-        5900,  // VNC console
-        8012   // XO service port
-      ]
-    }
-  }
-}
+```toml
+[networking.firewall]
+allowedTCPPorts = [
+  80,    # HTTP
+  443,   # HTTPS
+  3389,  # RDP console
+  5900,  # VNC console
+  8012   # XO service port
+]
 ```
 
 ### Storage
 
-```json
-{
-  "storage": {
-    "nfs": {
-      "enable": true    // Enable NFS remote storage
-    },
-    "cifs": {
-      "enable": true    // Enable CIFS/SMB remote storage
-    },
-    "mountsDir": "/var/lib/xo/mounts"
-  }
-}
+```toml
+[storage]
+mountsDir = "/var/lib/xo/mounts"
+
+[storage.nfs]
+enable = true    # Enable NFS remote storage
+
+[storage.cifs]
+enable = true    # Enable CIFS/SMB remote storage
 ```
 
 ### Automated Updates
@@ -187,179 +171,196 @@ You can add comments by using keys starting with `_comment` or `_example` (they'
 Configure automatic updates for different components:
 
 **Garbage Collection:**
-```json
-{
-  "updates": {
-    "gc": {
-      "enable": true,
-      "schedule": "Sun 04:00",
-      "keepGenerations": 7
-    }
-  }
-}
+```toml
+[updates.gc]
+enable = true
+schedule = "Sun 04:00"
+keepGenerations = 7
 ```
 
 **Flake Self-Update:**
-```json
-{
-  "updates": {
-    "flake": {
-      "enable": true,
-      "schedule": "Sun 04:00",
-      "remoteUrl": "https://codeberg.org/dalemorgan/declarative-xoa-ce.git",
-      "branch": "main",
-      "autoRebuild": false
-    }
-  }
-}
+```toml
+[updates.flake]
+enable = true
+schedule = "Sun 04:00"
+remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git"
+branch = "main"
+autoRebuild = false
 ```
 
 **Component Updates:**
-```json
-{
-  "updates": {
-    "nixpkgs": {
-      "enable": true,
-      "schedule": "Mon 04:00",
-      "keepGenerations": 7
-    },
-    "xoa": {
-      "enable": true,
-      "schedule": "Tue 04:00",
-      "keepGenerations": 7
-    },
-    "libvhdi": {
-      "enable": true,
-      "schedule": "Wed 04:00",
-      "keepGenerations": 7
-    }
-  }
-}
+```toml
+[updates.nixpkgs]
+enable = true
+schedule = "Mon 04:00"
+keepGenerations = 7
+
+[updates.xoa]
+enable = true
+schedule = "Tue 04:00"
+keepGenerations = 7
+
+[updates.libvhdi]
+enable = true
+schedule = "Wed 04:00"
+keepGenerations = 7
 ```
 
 ### Notifications
 
 **Email:**
-```json
-{
-  "updates": {
-    "monitoring": {
-      "notifyOnSuccess": false,
-      "email": {
-        "enable": true,
-        "to": "admin@example.com"
-      }
-    }
-  }
-}
+```toml
+[updates.monitoring]
+notifyOnSuccess = false
+
+[updates.monitoring.email]
+enable = true
+to = "admin@example.com"
 ```
 
 **ntfy.sh Push Notifications:**
-```json
-{
-  "updates": {
-    "monitoring": {
-      "ntfy": {
-        "enable": true,
-        "server": "https://ntfy.sh",
-        "topic": "my-unique-topic-name"
-      }
-    }
-  }
-}
+```toml
+[updates.monitoring.ntfy]
+enable = true
+server = "https://ntfy.sh"
+topic = "my-unique-topic-name"
 ```
 
 **Webhook:**
-```json
-{
-  "updates": {
-    "monitoring": {
-      "webhook": {
-        "enable": true,
-        "url": "https://hooks.example.com/webhook"
-      }
-    }
-  }
-}
+```toml
+[updates.monitoring.webhook]
+enable = true
+url = "https://hooks.example.com/webhook"
 ```
 
 ### Terminal Enhancements
 
-```json
-{
-  "extras": {
-    "enable": false  // Enable enhanced terminal (zsh, oh-my-posh, fzf, etc.)
-  }
-}
+```toml
+[extras]
+enable = false  # Enable enhanced terminal (zsh, oh-my-posh, fzf, etc.)
 ```
 
 ### Service Account
 
-```json
-{
-  "service": {
-    "xoUser": "xo",    // Rarely needs changing
-    "xoGroup": "xo"
-  }
-}
+```toml
+[service]
+xoUser = "xo"    # Rarely needs changing
+xoGroup = "xo"
 ```
+
+### Custom Packages
+
+Add extra packages to your system or user account:
+
+**System Packages (available to all users):**
+```toml
+[packages.system]
+extra = ["neovim", "ripgrep", "fd", "jq", "docker-compose"]
+```
+
+**User Packages (only for admin user):**
+```toml
+[packages.user]
+extra = ["lazygit", "fzf", "bat", "zoxide"]
+```
+
+Package names should match nixpkgs attribute names. Search available packages at [search.nixos.org](https://search.nixos.org/packages).
+
+### Custom Services
+
+Enable and configure NixOS services:
+
+**Simple Enable (uses defaults):**
+```toml
+[services]
+enable = ["docker", "tailscale", "fail2ban"]
+```
+
+**Configure with Options:**
+```toml
+# Simple enable list for services with defaults
+[services]
+enable = ["tailscale"]
+
+# Detailed configuration for specific services
+[services.docker]
+enable = true
+enableOnBoot = true
+
+[services.docker.autoPrune]
+enable = true
+dates = "weekly"
+
+[services.postgresql]
+enable = true
+package = "postgresql_15"
+enableTCPIP = true
+port = 5432
+
+[services.fail2ban]
+enable = true
+maxretry = 5
+bantime = "10m"
+```
+
+**Common Services:**
+- `docker` - Container runtime
+- `tailscale` - Zero-config VPN
+- `fail2ban` - Intrusion prevention
+- `postgresql` - SQL database
+- `mysql` - SQL database
+- `redis` - Key-value store
+- `prometheus` - Monitoring system
+- `grafana` - Metrics dashboard
+
+See [search.nixos.org/options](https://search.nixos.org/options) for all available services and their options.
 
 ### State Version
 
-```json
-{
-  "stateVersion": "25.05"  // DO NOT CHANGE after initial installation
-}
+```toml
+stateVersion = "25.05"  # DO NOT CHANGE after initial installation
 ```
 
-## JSON Tips
+## TOML Tips
 
 ### Validation
 
-Validate your JSON before rebuilding:
+Validate your TOML before rebuilding:
 
 ```bash
-# Check if JSON is valid
-jq . config.json
+# Nix can validate TOML directly
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'
 
-# Pretty-print
-jq . config.json > config.tmp && mv config.tmp config.json
-
-# Check specific value
-jq '.hostname' config.json
+# Or use a TOML validator if available
+toml-cli check nixoa.toml  # if you have toml-cli installed
 ```
 
 ### Comments
 
-JSON doesn't support standard comments, but you can use keys starting with `_`:
+TOML has native comment support with `#`:
 
-```json
-{
-  "_comment": "This is a comment",
-  "hostname": "xoa",
-  "_note_about_ports": "Ports below 1024 require root",
-  "xo": {
-    "port": 80
-  }
-}
+```toml
+# This is a comment
+hostname = "xoa"
+
+# Ports below 1024 require root
+[xo]
+port = 80
 ```
-
-Keys starting with `_comment` or `_example` in the `sshKeys` array are automatically filtered out.
 
 ### Default Values
 
-If you omit a setting from `config.json`, the default value from `config.sample.json` is used. You only need to specify settings you want to change.
+If you omit a setting from `nixoa.toml`, the default value from `sample-nixoa.toml` is used. You only need to specify settings you want to change.
 
-**Minimal config.json:**
-```json
-{
-  "hostname": "my-xoa",
-  "username": "admin",
-  "timezone": "America/New_York",
-  "sshKeys": [
-    "ssh-ed25519 AAAAC3... user@host"
-  ]
-}
+**Minimal nixoa.toml:**
+```toml
+hostname = "my-xoa"
+username = "admin"
+timezone = "America/New_York"
+
+sshKeys = [
+  "ssh-ed25519 AAAAC3... user@host"
+]
 ```
 
 All other settings will use defaults!
@@ -373,7 +374,7 @@ With this configuration system, you can safely update the flake without losing y
 cd ~/nixoa
 git pull origin main
 
-# Your config.json is never touched by git
+# Your nixoa.toml is never touched by git
 # No merge conflicts!
 
 # Rebuild with your existing configuration
@@ -384,25 +385,23 @@ sudo nixos-rebuild switch --flake .#$(hostname)
 
 ### Configuration not taking effect
 
-Make sure your `config.json`:
+Make sure your `nixoa.toml`:
 - Is in the flake root directory (same directory as `flake.nix`)
-- Is valid JSON (use `jq . config.json` to validate)
+- Is valid TOML (use `nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'` to validate)
 - Uses proper types (booleans are `true`/`false`, not `"true"`/`"false"`)
-- Has no trailing commas (JSON doesn't allow them)
 
-### JSON syntax errors
+### TOML syntax errors
 
-Common JSON issues:
-- ❌ Trailing comma: `{"a": 1,}`
-- ✅ No trailing comma: `{"a": 1}`
-- ❌ Single quotes: `{'a': 'b'}`
-- ✅ Double quotes: `{"a": "b"}`
-- ❌ Comments: `{"a": 1 // comment}`
-- ✅ Comment keys: `{"_comment": "...", "a": 1}`
+Common TOML issues:
+- ❌ Missing quotes on strings: `hostname = xoa`
+- ✅ Quoted strings: `hostname = "xoa"`
+- ❌ Wrong array syntax: `ports = 80, 443`
+- ✅ Correct array syntax: `ports = [80, 443]`
+- ✅ Comments use #: `port = 80  # HTTP port`
 
-Use `jq` to validate:
+Validate with Nix:
 ```bash
-jq . config.json || echo "Invalid JSON!"
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)' || echo "Invalid TOML!"
 ```
 
 ### SSH keys not working
@@ -415,7 +414,7 @@ Ensure:
 
 ### Checking current configuration
 
-Verify vars.nix is reading your config.json correctly:
+Verify vars.nix is reading your nixoa.toml correctly:
 
 ```bash
 # Check hostname
@@ -432,17 +431,17 @@ nix flake show
 
 ⚠️ **Important Security Considerations:**
 
-- `config.json` contains sensitive information (SSH keys, API tokens, etc.)
-- Never commit `config.json` to git (it's in `.gitignore`)
-- Keep backups of `config.json` in a secure location
-- Set appropriate file permissions: `chmod 600 config.json`
+- `nixoa.toml` contains sensitive information (SSH keys, API tokens, etc.)
+- Never commit `nixoa.toml` to git (it's in `.gitignore`)
+- Keep backups of `nixoa.toml` in a secure location
+- Set appropriate file permissions: `chmod 600 nixoa.toml`
 - Use SSH keys, not passwords
-- Review `config.sample.json` to understand all options
+- Review `sample-nixoa.toml` to understand all options
 
 ## Support
 
 For issues or questions:
-- Check `config.sample.json` for all available options
+- Check `sample-nixoa.toml` for all available options
 - Review `vars.nix` to see how defaults are handled
-- Validate JSON with `jq . config.json`
+- Validate TOML with `nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'`
 - See main README.md for general flake documentation

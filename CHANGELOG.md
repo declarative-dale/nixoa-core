@@ -1,3 +1,50 @@
+# Changelog
+
+## v0.3 — TOML Migration & Custom Packages/Services
+
+Date: 2025-11-26
+This update migrates the configuration system from JSON to TOML for improved human readability, adds support for custom packages and services, and fixes a xo-server automatic startup issue.
+
+### ✨ Added
+
+**Custom Packages**
+- `packages.system.extra` - Add custom system-wide packages
+- `packages.user.extra` - Add custom packages for admin user only
+- Packages specified by nixpkgs attribute name (e.g., "docker-compose", "neovim")
+
+**Custom Services**
+- `services.enable` - Simple list to enable common NixOS services with defaults
+- `[services.servicename]` - Configure services with custom options (e.g., docker, tailscale, postgresql)
+- Supports any NixOS service with full configuration flexibility
+- Dynamic service configuration from TOML
+
+**Configuration Naming**
+- Renamed: `config.toml` → `nixoa.toml`
+- Renamed: `config.sample.toml` → `sample-nixoa.toml`
+- More descriptive and project-specific naming
+
+### 🔄 Changed
+
+**XenOrchestra Startup**
+- Fixed an issue where xo-server would not start if VM was rebooted
+
+**Configuration Format Migration (JSON → TOML)**
+- Migrated from `config.json` to `nixoa.toml` for better readability
+- Updated `vars.nix` to use `builtins.fromTOML` instead of `builtins.fromJSON`
+- Converted `config.sample.json` to `sample-nixoa.toml` with improved comments
+- Updated `.gitignore` to reference `nixoa.toml`
+- Updated all documentation to reflect TOML format
+
+### 📚 Migration Notes
+
+For existing users with `config.json`:
+1. The structure is nearly identical - main difference is syntax
+2. See CONFIGURATION-COMPARISON.md for conversion guide
+3. Key changes: Remove quotes from keys, use `#` for comments, objects become `[sections]`
+4. Rename your config file to `nixoa.toml`
+
+---
+
 # v0.2 — Beta Release
 
 Date: 2025-11-25
@@ -7,7 +54,7 @@ This release introduces the new JSON-based configuration system, major refinemen
 
 ## ✨ Added
 
-### JSON-Driven Configuration
+### JSON-Driven Configuration (Now superseded by TOML in v0.3)
 
 Introduced config.json as the single source of truth.
 

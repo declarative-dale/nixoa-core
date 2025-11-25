@@ -1,5 +1,5 @@
 # Personal configuration - DO NOT commit!
-config.json
+nixoa.toml
 .claude/
 
 # Hardware configuration (machine-specific)

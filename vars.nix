@@ -1,17 +1,17 @@
-# vars.nix - JSON-based configuration
+# vars.nix - TOML-based configuration
 # ============================================================================
-# Copy config.sample.json to config.json and customize your settings
-# Uses builtins.fromJSON - simple and nix-native!
+# Copy sample-nixoa.toml to nixoa.toml and customize your settings
+# Uses builtins.fromTOML - simple and nix-native!
 # ============================================================================
 
 let
-  # Check if config.json exists, otherwise use defaults
-  configPath = ./config.json;
+  # Check if nixoa.toml exists, otherwise use defaults
+  configPath = ./nixoa.toml;
   configExists = builtins.pathExists configPath;
 
   # Load config if it exists
   userConfig = if configExists
-    then builtins.fromJSON (builtins.readFile configPath)
+    then builtins.fromTOML (builtins.readFile configPath)
     else {};
 
   # Helper to get value with fallback to default
@@ -162,6 +162,27 @@ in
 
   xoUser = get ["service" "xoUser"] "xo";
   xoGroup = get ["service" "xoGroup"] "xo";
+
+  # ============================================================================
+  # CUSTOM PACKAGES & SERVICES
+  # ============================================================================
+
+  packages = {
+    system.extra = get ["packages" "system" "extra"] [];
+    user.extra = get ["packages" "user" "extra"] [];
+  };
+
+  # Services configuration - both simple enable list and detailed config
+  customServices = {
+    # List of services to enable with defaults
+    enableList = get ["services" "enable"] [];
+
+    # Full services configuration from TOML (includes any [services.servicename] sections)
+    # This allows users to configure services with custom options
+    config = if builtins.hasAttr "services" userConfig
+             then builtins.removeAttrs userConfig.services ["enable"]
+             else {};
+  };
 
   # ============================================================================
   # NIXOS STATE VERSION

@@ -94,11 +94,14 @@
     home = "/home/${vars.username}";
     shell = pkgs.bashInteractive;
     extraGroups = [ "wheel" "systemd-journal" ];
-    
+
     # Locked password - SSH key authentication only
     hashedPassword = "!";
-    
+
     openssh.authorizedKeys.keys = vars.sshKeys;
+
+    # Custom user packages from configuration
+    packages = map (name: pkgs.${name}) vars.packages.user.extra;
   };
 
   # ============================================================================
@@ -200,7 +203,7 @@
     tree
     ncdu
     tmux
-    
+
     # System administration
     git
     rsync
@@ -208,7 +211,7 @@
     iotop
     sysstat
     dool  # dstat replacement
-    
+
     # Network tools
     nfs-utils
     cifs-utils
@@ -217,7 +220,7 @@
     tcpdump
     dig
     traceroute
-    
+
     # XO dependencies
     nodejs_20
     yarn
@@ -226,10 +229,10 @@
     gnumake
     pkg-config
     openssl
-    
+
     # Monitoring
     prometheus-node-exporter
-  ];
+  ] ++ (map (name: pkgs.${name}) vars.packages.system.extra);
 
   # ============================================================================
   # NIX CONFIGURATION
@@ -264,6 +267,19 @@
       dates = [ "weekly" ];
     };
   };
+
+  # ============================================================================
+  # CUSTOM SERVICES CONFIGURATION
+  # ============================================================================
+
+  # Enable services from the simple enable list (uses defaults)
+  # This dynamically enables any service specified in services.enable = [...]
+  services = builtins.listToAttrs (
+    map (serviceName: {
+      name = serviceName;
+      value.enable = lib.mkDefault true;
+    }) vars.customServices.enableList
+  ) // vars.customServices.config;
 
   # ============================================================================
   # XEN ORCHESTRA SERVICE CONFIGURATION
