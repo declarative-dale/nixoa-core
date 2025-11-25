@@ -69,11 +69,15 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
     XO_UID=$(id -u xo 2>/dev/null || echo "993")
     XO_GID=$(id -g xo 2>/dev/null || echo "990")
 
+    # Trim leading/trailing whitespace from credentials (XOA may pass them with spaces)
+    CLEAN_USER=$(echo "''${USER}" | xargs)
+    CLEAN_PASSWD=$(echo "''${PASSWD}" | xargs)
+
     # Append credentials and ownership to existing options (no spaces!)
     if [ -n "$opts" ]; then
-      opts="$opts,username=''${USER},password=''${PASSWD},uid=$XO_UID,gid=$XO_GID"
+      opts="$opts,username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
     else
-      opts="username=''${USER},password=''${PASSWD},uid=$XO_UID,gid=$XO_GID"
+      opts="username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
     fi
 
     echo "[SUDO WRAPPER] New opts: [$opts]" >> /tmp/sudo-wrapper-debug.log
