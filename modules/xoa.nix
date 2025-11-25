@@ -33,27 +33,30 @@ echo "[SUDO WRAPPER] Called with args: $@" >> /tmp/sudo-wrapper-debug.log
 echo "[SUDO WRAPPER] USER=$USER" >> /tmp/sudo-wrapper-debug.log
 echo "[SUDO WRAPPER] PASSWD=$PASSWD" >> /tmp/sudo-wrapper-debug.log
 
-SUDO_ARGS=()
+ENV_VARS=()
 
-# If USER is set, pass it explicitly
+# If USER is set, pass it via env
 if [ -n "''${USER:-}" ]; then
-  SUDO_ARGS+=("USER=$USER")
-  echo "[SUDO WRAPPER] Adding USER to sudo args" >> /tmp/sudo-wrapper-debug.log
+  ENV_VARS+=("USER=$USER")
+  echo "[SUDO WRAPPER] Adding USER to env" >> /tmp/sudo-wrapper-debug.log
 fi
 
-# If PASSWD is set, pass it explicitly
+# If PASSWD is set, pass it via env
 if [ -n "''${PASSWD:-}" ]; then
-  SUDO_ARGS+=("PASSWD=$PASSWD")
-  echo "[SUDO WRAPPER] Adding PASSWD to sudo args" >> /tmp/sudo-wrapper-debug.log
+  ENV_VARS+=("PASSWD=$PASSWD")
+  echo "[SUDO WRAPPER] Adding PASSWD to env" >> /tmp/sudo-wrapper-debug.log
 fi
 
-# Add all original arguments
-SUDO_ARGS+=("$@")
-
-echo "[SUDO WRAPPER] Final sudo command: /run/wrappers/bin/sudo ''${SUDO_ARGS[@]}" >> /tmp/sudo-wrapper-debug.log
-
-# Call real sudo from wrappers
-exec /run/wrappers/bin/sudo "''${SUDO_ARGS[@]}"
+# Build the command
+if [ ''${#ENV_VARS[@]} -gt 0 ]; then
+  # Use env command to set variables
+  echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo env ''${ENV_VARS[@]} $@" >> /tmp/sudo-wrapper-debug.log
+  exec /run/wrappers/bin/sudo env "''${ENV_VARS[@]}" "$@"
+else
+  # No env vars, call sudo directly
+  echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo $@" >> /tmp/sudo-wrapper-debug.log
+  exec /run/wrappers/bin/sudo "$@"
+fi
 EOF
     chmod +x $out/bin/sudo
   '';
