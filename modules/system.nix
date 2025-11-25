@@ -42,19 +42,16 @@
   # ============================================================================
   # KERNEL & FILESYSTEM SUPPORT
   # ============================================================================
-  
-  # Support for network filesystems (required for XO backups/remotes)
-  boot.supportedFilesystems = [ "nfs" "nfs4" "cifs" ];
 
-  # Kernel modules
-  boot.kernelModules = [ "fuse" "nfs" "nfsv3" "nfsv4" ];
+  # Note: Filesystem support (NFS, CIFS) is configured in storage.nix
+  # to avoid duplication and ensure consistency
 
   # Enable RPC services for NFS client (required for NFSv3)
   services.rpcbind.enable = true;
 
   # Enable NFS client services
   services.nfs.server.enable = false;  # We're a client, not a server
-  
+
   # Kernel parameters (optional, useful for VMs)
   # boot.kernelParams = [ "console=ttyS0,115200" "console=tty0" ];
 
@@ -181,11 +178,7 @@
     ];
   };
 
-  # ============================================================================
-  # FUSE SUPPORT
-  # ============================================================================
-  
-  programs.fuse.userAllowOther = true;
+  # Note: FUSE support is configured in storage.nix
 
   # ============================================================================
   # SYSTEM PACKAGES
@@ -316,19 +309,14 @@
     enable = true;
   };
 
-  # Override xo-server capability restrictions to allow mount.cifs to work
-  # The CapabilityBoundingSet in xoa.nix prevents even setuid-root programs
-  # from gaining capabilities beyond the restricted set, which breaks mount.cifs.
-  # We remove the bounding set restriction while keeping ambient capabilities.
+  # Simplify xo-server capabilities - sudo wrapper handles mounting
+  # The service only needs to bind to low ports (80/443)
   systemd.services.xo-server.serviceConfig = {
-    # Keep ambient capabilities for the service itself
+    # Only need CAP_NET_BIND_SERVICE for HTTP/HTTPS ports
     AmbientCapabilities = lib.mkForce [ "CAP_NET_BIND_SERVICE" ];
+    CapabilityBoundingSet = lib.mkForce [ "CAP_NET_BIND_SERVICE" ];
 
-    # Remove capability bounding set - allows child processes (sudo, mount.cifs)
-    # to gain whatever capabilities they need via setuid wrappers
-    CapabilityBoundingSet = lib.mkForce [ ];
-
-    # Ensure NoNewPrivileges is disabled so setuid wrappers work
+    # Ensure NoNewPrivileges is disabled so sudo/setuid wrappers work
     NoNewPrivileges = lib.mkForce false;
   };
 

@@ -27,11 +27,6 @@ let
 #!/${pkgs.bash}/bin/bash
 set -euo pipefail
 
-# Debug logging (optional - can be removed later)
-echo "[SUDO WRAPPER] Called with args: $@" >> /tmp/sudo-wrapper-debug.log
-echo "[SUDO WRAPPER] USER=''${USER:-}" >> /tmp/sudo-wrapper-debug.log
-echo "[SUDO WRAPPER] PASSWD=''${PASSWD:-(empty)}" >> /tmp/sudo-wrapper-debug.log
-
 # Special case: sudo mount ... -t cifs ...
 # Everything else passes through to real sudo unchanged
 if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
@@ -62,9 +57,6 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
 
   # If this is a CIFS mount and we have credentials, inject them as mount options
   if [ "$fstype" = "cifs" ] && [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
-    echo "[SUDO WRAPPER] CIFS mount detected, injecting credentials" >> /tmp/sudo-wrapper-debug.log
-    echo "[SUDO WRAPPER] Original opts: [$opts]" >> /tmp/sudo-wrapper-debug.log
-
     # Get the xo user's uid/gid for proper ownership
     XO_UID=$(id -u xo 2>/dev/null || echo "993")
     XO_GID=$(id -g xo 2>/dev/null || echo "990")
@@ -79,22 +71,17 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
     else
       opts="username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
     fi
-
-    echo "[SUDO WRAPPER] New opts: [$opts]" >> /tmp/sudo-wrapper-debug.log
   fi
 
   # Reassemble and call real sudo + mount
   if [ -n "$opts" ]; then
-    echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o \"$opts\" ''${args[@]}" >> /tmp/sudo-wrapper-debug.log
     exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o "$opts" "''${args[@]}"
   else
-    echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo /run/current-system/sw/bin/mount ''${args[@]}" >> /tmp/sudo-wrapper-debug.log
     exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount "''${args[@]}"
   fi
 fi
 
 # Non-mount commands (findmnt, etc.) pass straight through
-echo "[SUDO WRAPPER] Pass-through command: /run/wrappers/bin/sudo $@" >> /tmp/sudo-wrapper-debug.log
 exec /run/wrappers/bin/sudo "$@"
 EOF
     chmod +x $out/bin/sudo
@@ -604,31 +591,16 @@ in
         Restart = "on-failure";
         RestartSec = 10;
         TimeoutStartSec = "5min";
-        
-        # Security hardening (temporarily disabled for debugging)
-        # NoNewPrivileges = true;
-        # PrivateTmp = true;
-        # ProtectSystem = "full";
-        # ProtectHome = true;
-        
-        # Capabilities for bind to low ports, sudo usage, and mounting
-        AmbientCapabilities = [
-          "CAP_NET_BIND_SERVICE"
-          "CAP_SETGID"
-          "CAP_SETUID"
-          "CAP_SYS_ADMIN"      # Required for mount/umount operations
-          "CAP_DAC_OVERRIDE"   # Bypass file permission checks for mount
-          "CAP_SETPCAP"        # Allow mount.cifs to adjust capabilities
-        ];
-        CapabilityBoundingSet = [
-          "CAP_NET_BIND_SERVICE"
-          "CAP_SETGID"
-        
-          "CAP_SETUID"
-          "CAP_SYS_ADMIN"
-          "CAP_DAC_OVERRIDE"
-          "CAP_SETPCAP"
-        ];
+
+        # Security hardening
+        PrivateTmp = true;
+        ProtectSystem = "strict";
+        ProtectHome = true;
+
+        # Only need CAP_NET_BIND_SERVICE - sudo wrapper handles mounting
+        # Note: system.nix overrides these with mkForce, but we set sensible defaults
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
