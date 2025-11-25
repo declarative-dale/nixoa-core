@@ -28,20 +28,29 @@ let
 # Wrapper that passes USER and PASSWD env vars explicitly to real sudo
 # When XO calls sudo with env vars via execa, this ensures they reach mount.cifs
 
+# Debug logging
+echo "[SUDO WRAPPER] Called with args: $@" >> /tmp/sudo-wrapper-debug.log
+echo "[SUDO WRAPPER] USER=$USER" >> /tmp/sudo-wrapper-debug.log
+echo "[SUDO WRAPPER] PASSWD=$PASSWD" >> /tmp/sudo-wrapper-debug.log
+
 SUDO_ARGS=()
 
 # If USER is set, pass it explicitly
 if [ -n "''${USER:-}" ]; then
   SUDO_ARGS+=("USER=$USER")
+  echo "[SUDO WRAPPER] Adding USER to sudo args" >> /tmp/sudo-wrapper-debug.log
 fi
 
 # If PASSWD is set, pass it explicitly
 if [ -n "''${PASSWD:-}" ]; then
   SUDO_ARGS+=("PASSWD=$PASSWD")
+  echo "[SUDO WRAPPER] Adding PASSWD to sudo args" >> /tmp/sudo-wrapper-debug.log
 fi
 
 # Add all original arguments
 SUDO_ARGS+=("$@")
+
+echo "[SUDO WRAPPER] Final sudo command: /run/wrappers/bin/sudo ''${SUDO_ARGS[@]}" >> /tmp/sudo-wrapper-debug.log
 
 # Call real sudo from wrappers
 exec /run/wrappers/bin/sudo "''${SUDO_ARGS[@]}"
