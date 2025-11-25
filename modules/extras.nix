@@ -26,8 +26,10 @@ in
 
       # Shell aliases available to all users
       shellAliases = {
-        ll = "ls -lh";
-        la = "ls -lah";
+        ls = "eza --icons --group-directories-first";
+        ll = "eza -l --icons --group-directories-first --git";
+        la = "eza -la --icons --group-directories-first --git";
+        lt = "eza --tree --level=2 --icons";
         cat = "bat";
         ".." = "cd ..";
         "..." = "cd ../..";
@@ -210,13 +212,7 @@ EOF
       nix-direnv.enable = true;
     };
 
-    # Configure eza (modern ls)
-    programs.eza = {
-      enable = true;
-      enableAliases = true;  # Creates ls, ll, la aliases
-      git = true;
-      icons = true;
-    };
+    # Note: eza aliases are configured in zsh.shellAliases above
 
     # Enable git with better defaults
     programs.git = {

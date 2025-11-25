@@ -594,7 +594,7 @@ in
 
         # Security hardening
         PrivateTmp = true;
-        ProtectSystem = "strict";
+        ProtectSystem = "full";  # Makes /usr, /boot, /efi read-only (strict is too restrictive)
         ProtectHome = true;
 
         # Only need CAP_NET_BIND_SERVICE - sudo wrapper handles mounting
