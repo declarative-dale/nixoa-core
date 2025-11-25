@@ -46,11 +46,8 @@
   # Note: Filesystem support (NFS, CIFS) is configured in storage.nix
   # to avoid duplication and ensure consistency
 
-  # Enable RPC services for NFS client (required for NFSv3)
-  services.rpcbind.enable = true;
-
-  # Enable NFS client support (but not server)
-  services.nfs.server.enable = false;  # We're a client, not a server
+  # Note: All services configuration is consolidated below after the Nix configuration section
+  # to avoid conflicts with custom services from nixoa.toml
 
   # Ensure NFS client utilities and services are available
   boot.initrd.supportedFilesystems = [ "nfs" ];
@@ -269,14 +266,20 @@
   };
 
   # ============================================================================
-  # CUSTOM SERVICES CONFIGURATION
+  # SERVICES CONFIGURATION
   # ============================================================================
 
-  # Custom services from nixoa.toml [services] section
-  # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
-  # Or configure with options: [services.docker] enable = true, enableOnBoot = true
-  # Note: This merges with existing service definitions in this file
+  # All services are defined here in one place to avoid conflicts
+  # This includes both built-in NFS/RPC services and custom services from nixoa.toml
   services = lib.mkMerge [
+    # Built-in services for NFS support
+    {
+      rpcbind.enable = true;  # Required for NFSv3
+      nfs.server.enable = false;  # We're a client, not a server
+    }
+    # Custom services from nixoa.toml [services] section
+    # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
+    # Or configure with options: [services.docker] enable = true, enableOnBoot = true
     vars.customServices
   ];
 
