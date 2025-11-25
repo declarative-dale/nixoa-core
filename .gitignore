@@ -1,5 +1,5 @@
 # Personal configuration - DO NOT commit!
-.env
+config.json
 
 # Hardware configuration (machine-specific)
 hardware-configuration.nix

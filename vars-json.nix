@@ -1,7 +1,7 @@
-# vars.nix - JSON-based configuration
+# vars-json.nix - JSON-based configuration (more nix-native)
 # ============================================================================
 # Copy config.sample.json to config.json and customize your settings
-# Uses builtins.fromJSON - simple and nix-native!
+# This approach uses builtins.fromJSON - no custom parsing needed!
 # ============================================================================
 
 let

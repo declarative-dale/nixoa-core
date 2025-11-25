@@ -1,0 +1,110 @@
+{
+  "_comment": "XOA NixOS Configuration - Copy this file to config.json and customize",
+  "_comment2": "This file is git-ignored and contains all your personal settings",
+
+  "system": "x86_64-linux",
+  "hostname": "xoa",
+  "username": "xoa",
+  "timezone": "UTC",
+
+  "sshKeys": [
+    "_comment: Add your SSH public keys here (one per line)",
+    "_example: ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@host"
+  ],
+
+  "xo": {
+    "host": "0.0.0.0",
+    "port": 80,
+    "httpsPort": 443,
+    "enableV6Preview": false
+  },
+
+  "tls": {
+    "enable": true,
+    "redirectToHttps": true,
+    "dir": "/etc/ssl/xo",
+    "cert": "/etc/ssl/xo/certificate.pem",
+    "key": "/etc/ssl/xo/key.pem"
+  },
+
+  "networking": {
+    "firewall": {
+      "allowedTCPPorts": [80, 443, 3389, 5900, 8012]
+    }
+  },
+
+  "storage": {
+    "nfs": {
+      "enable": true
+    },
+    "cifs": {
+      "enable": true
+    },
+    "mountsDir": "/var/lib/xo/mounts"
+  },
+
+  "extras": {
+    "enable": false
+  },
+
+  "updates": {
+    "repoDir": "~/nixoa",
+    "protectPaths": ["hardware-configuration.nix"],
+
+    "monitoring": {
+      "notifyOnSuccess": false,
+      "email": {
+        "enable": false,
+        "to": "admin@example.com"
+      },
+      "ntfy": {
+        "enable": false,
+        "server": "https://ntfy.sh",
+        "topic": "xoa-updates"
+      },
+      "webhook": {
+        "enable": false,
+        "url": ""
+      }
+    },
+
+    "gc": {
+      "enable": false,
+      "schedule": "Sun 04:00",
+      "keepGenerations": 7
+    },
+
+    "flake": {
+      "enable": false,
+      "schedule": "Sun 04:00",
+      "remoteUrl": "https://codeberg.org/dalemorgan/declarative-xoa-ce.git",
+      "branch": "main",
+      "autoRebuild": false
+    },
+
+    "nixpkgs": {
+      "enable": false,
+      "schedule": "Mon 04:00",
+      "keepGenerations": 7
+    },
+
+    "xoa": {
+      "enable": false,
+      "schedule": "Tue 04:00",
+      "keepGenerations": 7
+    },
+
+    "libvhdi": {
+      "enable": false,
+      "schedule": "Wed 04:00",
+      "keepGenerations": 7
+    }
+  },
+
+  "service": {
+    "xoUser": "xo",
+    "xoGroup": "xo"
+  },
+
+  "stateVersion": "25.05"
+}
