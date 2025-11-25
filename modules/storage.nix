@@ -38,6 +38,13 @@ in
       };
     };
 
+    # Disable sudo audit plugin to avoid permission issues with systemd hardening
+    # (journald already captures all sudo activity)
+    security.sudo.extraConfig = ''
+      Defaults !use_pty
+      Defaults !log_subcmds
+    '';
+
     # No special sudo env configuration needed - our wrapper handles CIFS credentials
     # by injecting them as mount options before calling sudo
 

@@ -618,6 +618,7 @@ in
           "/run/redis-xo"       # Redis socket
           "/dev"                # Device access for LVM/storage operations
           "/sys"                # Sysfs access for xenstore
+          "/var/log"            # Sudo audit logs
         ];
         
         LimitNOFILE = 1048576;
