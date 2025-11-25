@@ -16,7 +16,7 @@ This update migrates the configuration system from JSON to TOML for improved hum
 - `services.enable` - Simple list to enable common NixOS services with defaults
 - `[services.servicename]` - Configure services with custom options (e.g., docker, tailscale, postgresql)
 - Supports any NixOS service with full configuration flexibility
-- Dynamic service configuration from TOML
+- Services configuration inserted directly into modules/system.nix
 
 **Configuration Naming**
 - Renamed: `config.toml` → `nixoa.toml`

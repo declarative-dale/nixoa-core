@@ -268,7 +268,7 @@ Package names should match nixpkgs attribute names. Search available packages at
 
 ### Custom Services
 
-Enable and configure NixOS services:
+Enable and configure NixOS services directly from nixoa.toml:
 
 **Simple Enable (uses defaults):**
 ```toml
@@ -276,13 +276,13 @@ Enable and configure NixOS services:
 enable = ["docker", "tailscale", "fail2ban"]
 ```
 
-**Configure with Options:**
+**Configure with Custom Options:**
 ```toml
-# Simple enable list for services with defaults
+# Simple enable list
 [services]
 enable = ["tailscale"]
 
-# Detailed configuration for specific services
+# Detailed configuration for docker
 [services.docker]
 enable = true
 enableOnBoot = true
@@ -291,12 +291,13 @@ enableOnBoot = true
 enable = true
 dates = "weekly"
 
+# PostgreSQL with custom settings
 [services.postgresql]
 enable = true
-package = "postgresql_15"
 enableTCPIP = true
 port = 5432
 
+# Fail2ban configuration
 [services.fail2ban]
 enable = true
 maxretry = 5
@@ -313,7 +314,9 @@ bantime = "10m"
 - `prometheus` - Monitoring system
 - `grafana` - Metrics dashboard
 
-See [search.nixos.org/options](https://search.nixos.org/options) for all available services and their options.
+**Note:** Services in the `enable` list use default configurations. For custom settings, define the service explicitly with a `[services.servicename]` section.
+
+See [search.nixos.org/options](https://search.nixos.org/options) for all available services and their configuration options.
 
 ### State Version
 

@@ -150,17 +150,20 @@ extra = []
 # CUSTOM SERVICES
 # ==============================================================================
 
-# Enable common NixOS services by name
-# Common services: "docker", "tailscale", "fail2ban", "postgresql", "mysql", "redis"
+# Enable common NixOS services by name (uses default configurations)
 [services]
 enable = []
-# Example: enable = ["docker", "tailscale"]
+# Example: enable = ["docker", "tailscale", "fail2ban"]
 
-# Example of configuring a service with options (uncomment to use):
+# Configure services with custom options (uncomment and customize as needed):
+
 # [services.docker]
 # enable = true
 # enableOnBoot = true
-# autoPrune.enable = true
+
+# [services.docker.autoPrune]
+# enable = true
+# dates = "weekly"
 
 # [services.tailscale]
 # enable = true
@@ -173,12 +176,11 @@ enable = []
 
 # [services.postgresql]
 # enable = true
-# package = "postgresql_15"
 # enableTCPIP = true
 # port = 5432
 
-# Note: Services enabled via 'services.enable' will use default configurations.
-# To customize a service, define it explicitly with a [services.servicename] section.
+# Note: Services in the 'enable' list use default configs.
+# For custom configuration, define the service explicitly with [services.servicename]
 
 # ==============================================================================
 # NIXOS STATE VERSION

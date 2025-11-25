@@ -269,9 +269,21 @@
   };
 
   # ============================================================================
+  # CUSTOM SERVICES CONFIGURATION
+  # ============================================================================
+
+  # Custom services from nixoa.toml [services] section
+  # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
+  # Or configure with options: [services.docker] enable = true, enableOnBoot = true
+  # Note: This merges with existing service definitions in this file
+  services = lib.mkMerge [
+    vars.customServices
+  ];
+
+  # ============================================================================
   # XEN ORCHESTRA SERVICE CONFIGURATION
   # ============================================================================
-  
+
   # Main XOA module configuration
   xoa = {
     enable = true;

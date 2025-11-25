@@ -164,7 +164,7 @@ in
   xoGroup = get ["service" "xoGroup"] "xo";
 
   # ============================================================================
-  # CUSTOM PACKAGES & SERVICES
+  # CUSTOM PACKAGES
   # ============================================================================
 
   packages = {
@@ -172,17 +172,32 @@ in
     user.extra = get ["packages" "user" "extra"] [];
   };
 
-  # Services configuration - both simple enable list and detailed config
-  customServices = {
-    # List of services to enable with defaults
-    enableList = get ["services" "enable"] [];
+  # ============================================================================
+  # CUSTOM SERVICES
+  # ============================================================================
 
-    # Full services configuration from TOML (includes any [services.servicename] sections)
-    # This allows users to configure services with custom options
-    config = if builtins.hasAttr "services" userConfig
-             then builtins.removeAttrs userConfig.services ["enable"]
-             else {};
-  };
+  # Read all service configurations from TOML
+  # This includes both simple enables and detailed configurations
+  customServices =
+    let
+      # Get the services section from config, excluding the 'enable' list
+      servicesConfig = if builtins.hasAttr "services" userConfig
+                       then builtins.removeAttrs userConfig.services ["enable"]
+                       else {};
+
+      # Get the simple enable list
+      enableList = get ["services" "enable"] [];
+
+      # Convert enable list to attribute set with enable = true
+      enabledServices = builtins.listToAttrs (
+        map (serviceName: {
+          name = serviceName;
+          value = { enable = true; };
+        }) enableList
+      );
+    in
+      # Merge enabled services with detailed configs (detailed configs take precedence)
+      enabledServices // servicesConfig;
 
   # ============================================================================
   # NIXOS STATE VERSION
