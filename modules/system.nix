@@ -309,12 +309,19 @@
     enable = true;
   };
 
-  # Simplify xo-server capabilities - sudo wrapper handles mounting
-  # The service only needs to bind to low ports (80/443)
+  # xo-server capabilities - needs to run sudo for mounting operations
   systemd.services.xo-server.serviceConfig = {
-    # Only need CAP_NET_BIND_SERVICE for HTTP/HTTPS ports
-    AmbientCapabilities = lib.mkForce [ "CAP_NET_BIND_SERVICE" ];
-    CapabilityBoundingSet = lib.mkForce [ "CAP_NET_BIND_SERVICE" ];
+    # Capabilities needed for normal operation
+    AmbientCapabilities = lib.mkForce [
+      "CAP_NET_BIND_SERVICE"  # Bind to ports 80/443
+      "CAP_SETUID"            # Required for sudo to switch users
+      "CAP_SETGID"            # Required for sudo to switch groups
+    ];
+    CapabilityBoundingSet = lib.mkForce [
+      "CAP_NET_BIND_SERVICE"
+      "CAP_SETUID"
+      "CAP_SETGID"
+    ];
 
     # Ensure NoNewPrivileges is disabled so sudo/setuid wrappers work
     NoNewPrivileges = lib.mkForce false;

@@ -598,10 +598,10 @@ in
         ProtectHome = true;
         PrivateDevices = false;  # Need device access for LVM and xenstore
 
-        # Only need CAP_NET_BIND_SERVICE - sudo wrapper handles mounting
+        # Capabilities for HTTP/HTTPS ports and sudo operations
         # Note: system.nix overrides these with mkForce, but we set sensible defaults
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" ];
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
