@@ -269,19 +269,6 @@
   };
 
   # ============================================================================
-  # CUSTOM SERVICES CONFIGURATION
-  # ============================================================================
-
-  # Enable services from the simple enable list (uses defaults)
-  # This dynamically enables any service specified in services.enable = [...]
-  services = builtins.listToAttrs (
-    map (serviceName: {
-      name = serviceName;
-      value.enable = lib.mkDefault true;
-    }) vars.customServices.enableList
-  ) // vars.customServices.config;
-
-  # ============================================================================
   # XEN ORCHESTRA SERVICE CONFIGURATION
   # ============================================================================
   
