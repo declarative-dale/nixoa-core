@@ -65,11 +65,15 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
     echo "[SUDO WRAPPER] CIFS mount detected, injecting credentials" >> /tmp/sudo-wrapper-debug.log
     echo "[SUDO WRAPPER] Original opts: [$opts]" >> /tmp/sudo-wrapper-debug.log
 
-    # Append credentials to existing options (no spaces!)
+    # Get the xo user's uid/gid for proper ownership
+    XO_UID=$(id -u xo 2>/dev/null || echo "993")
+    XO_GID=$(id -g xo 2>/dev/null || echo "990")
+
+    # Append credentials and ownership to existing options (no spaces!)
     if [ -n "$opts" ]; then
-      opts="$opts,username=''${USER},password=''${PASSWD}"
+      opts="$opts,username=''${USER},password=''${PASSWD},uid=$XO_UID,gid=$XO_GID"
     else
-      opts="username=''${USER},password=''${PASSWD}"
+      opts="username=''${USER},password=''${PASSWD},uid=$XO_UID,gid=$XO_GID"
     fi
 
     echo "[SUDO WRAPPER] New opts: [$opts]" >> /tmp/sudo-wrapper-debug.log
