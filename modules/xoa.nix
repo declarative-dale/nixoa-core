@@ -49,9 +49,12 @@ fi
 
 # Build the command
 if [ ''${#ENV_VARS[@]} -gt 0 ]; then
-  # Use env command to set variables
-  echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo env ''${ENV_VARS[@]} $@" >> /tmp/sudo-wrapper-debug.log
-  exec /run/wrappers/bin/sudo env "''${ENV_VARS[@]}" "$@"
+  # Export the variables to our environment first, then use sudo -E
+  for var in "''${ENV_VARS[@]}"; do
+    export "$var"
+  done
+  echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo -E $@" >> /tmp/sudo-wrapper-debug.log
+  exec /run/wrappers/bin/sudo -E "$@"
 else
   # No env vars, call sudo directly
   echo "[SUDO WRAPPER] Final command: /run/wrappers/bin/sudo $@" >> /tmp/sudo-wrapper-debug.log
