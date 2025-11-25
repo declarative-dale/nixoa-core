@@ -600,8 +600,8 @@ in
 
         # Capabilities for HTTP/HTTPS ports and sudo operations
         # Note: system.nix overrides these with mkForce, but we set sensible defaults
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" ];
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
