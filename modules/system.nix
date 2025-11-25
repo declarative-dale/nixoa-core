@@ -322,6 +322,7 @@
       "CAP_SETGID"            # Required for sudo to switch groups
       "CAP_SETPCAP"           # Allow mount.cifs to adjust capabilities
       "CAP_SYS_ADMIN"         # Required for mount/umount operations
+      "CAP_DAC_OVERRIDE"      # Bypass file permission checks
     ];
     CapabilityBoundingSet = lib.mkForce [
       "CAP_NET_BIND_SERVICE"
@@ -329,6 +330,7 @@
       "CAP_SETGID"
       "CAP_SETPCAP"
       "CAP_SYS_ADMIN"
+      "CAP_DAC_OVERRIDE"
     ];
 
     # Ensure NoNewPrivileges is disabled so sudo/setuid wrappers work

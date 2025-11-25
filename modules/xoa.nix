@@ -27,6 +27,10 @@ let
 #!/${pkgs.bash}/bin/bash
 set -euo pipefail
 
+# Temporary debug logging
+echo "[WRAPPER DEBUG] Called with: $@" >> /tmp/wrapper-debug.log
+echo "[WRAPPER DEBUG] Arg count: $#" >> /tmp/wrapper-debug.log
+
 # Special case: sudo mount ... -t cifs ...
 # Everything else passes through to real sudo unchanged
 if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
@@ -75,22 +79,30 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
 
   # Handle NFS mounts - ensure proper options
   if [ "$fstype" = "nfs" ] || [ "$fstype" = "nfs4" ]; then
+    echo "[WRAPPER DEBUG] NFS mount detected, opts before: [$opts]" >> /tmp/wrapper-debug.log
     # Add default NFS options if none provided or empty string
     # Auto-negotiates version (tries v4, falls back to v3)
     if [ -z "$opts" ]; then
       opts="rw,soft,timeo=600,retrans=2"
+      echo "[WRAPPER DEBUG] Added default NFS opts: [$opts]" >> /tmp/wrapper-debug.log
     fi
   fi
 
+  echo "[WRAPPER DEBUG] Final opts: [$opts], fstype: [$fstype]" >> /tmp/wrapper-debug.log
+  echo "[WRAPPER DEBUG] Final args: ''${args[@]}" >> /tmp/wrapper-debug.log
+
   # Reassemble and call real sudo + mount
   if [ -n "$opts" ]; then
+    echo "[WRAPPER DEBUG] Calling: /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o \"$opts\" ''${args[@]}" >> /tmp/wrapper-debug.log
     exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o "$opts" "''${args[@]}"
   else
+    echo "[WRAPPER DEBUG] Calling: /run/wrappers/bin/sudo /run/current-system/sw/bin/mount ''${args[@]}" >> /tmp/wrapper-debug.log
     exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount "''${args[@]}"
   fi
 fi
 
 # Non-mount commands (findmnt, etc.) pass straight through
+echo "[WRAPPER DEBUG] Pass-through: /run/wrappers/bin/sudo $@" >> /tmp/wrapper-debug.log
 exec /run/wrappers/bin/sudo "$@"
 EOF
     chmod +x $out/bin/sudo
@@ -609,8 +621,8 @@ in
 
         # Capabilities for HTTP/HTTPS ports and sudo operations
         # Note: system.nix overrides these with mkForce, but we set sensible defaults
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" ];
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
