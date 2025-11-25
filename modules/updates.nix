@@ -371,8 +371,8 @@ in
 
     protectPaths = mkOption {
       type = types.listOf types.str;
-      default = [ "vars.nix" "hardware-configuration.nix" ];
-      description = "Files to protect from git operations (skip-worktree)";
+      default = [ "hardware-configuration.nix" ];
+      description = "Files to protect from git operations (skip-worktree). Personal info is now in .env which is git-ignored.";
     };
 
     monitoring = {

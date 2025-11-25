@@ -1,0 +1,29 @@
+# Personal configuration - DO NOT commit!
+.env
+
+# Hardware configuration (machine-specific)
+hardware-configuration.nix
+
+# Build results
+result
+result-*
+
+# Nix build artifacts
+.direnv/
+.envrc
+
+# Editor/IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Logs
+*.log
