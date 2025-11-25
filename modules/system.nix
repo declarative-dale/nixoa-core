@@ -49,8 +49,12 @@
   # Enable RPC services for NFS client (required for NFSv3)
   services.rpcbind.enable = true;
 
-  # Enable NFS client services
+  # Enable NFS client support (but not server)
   services.nfs.server.enable = false;  # We're a client, not a server
+
+  # Ensure NFS client utilities and services are available
+  boot.initrd.supportedFilesystems = [ "nfs" ];
+  boot.initrd.kernelModules = [ "nfs" ];
 
   # Kernel parameters (optional, useful for VMs)
   # boot.kernelParams = [ "console=ttyS0,115200" "console=tty0" ];
@@ -317,12 +321,14 @@
       "CAP_SETUID"            # Required for sudo to switch users
       "CAP_SETGID"            # Required for sudo to switch groups
       "CAP_SETPCAP"           # Allow mount.cifs to adjust capabilities
+      "CAP_SYS_ADMIN"         # Required for mount/umount operations
     ];
     CapabilityBoundingSet = lib.mkForce [
       "CAP_NET_BIND_SERVICE"
       "CAP_SETUID"
       "CAP_SETGID"
       "CAP_SETPCAP"
+      "CAP_SYS_ADMIN"
     ];
 
     # Ensure NoNewPrivileges is disabled so sudo/setuid wrappers work

@@ -55,7 +55,7 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
     esac
   done
 
-  # If this is a CIFS mount and we have credentials, inject them as mount options
+  # Handle CIFS mounts - inject credentials and ownership
   if [ "$fstype" = "cifs" ] && [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
     # Get the xo user's uid/gid for proper ownership
     XO_UID=$(id -u xo 2>/dev/null || echo "993")
@@ -70,6 +70,15 @@ if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
       opts="$opts,username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
     else
       opts="username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
+    fi
+  fi
+
+  # Handle NFS mounts - ensure proper options
+  if [ "$fstype" = "nfs" ] || [ "$fstype" = "nfs4" ]; then
+    # Add default NFS options if none provided or empty string
+    # Auto-negotiates version (tries v4, falls back to v3)
+    if [ -z "$opts" ]; then
+      opts="rw,soft,timeo=600,retrans=2"
     fi
   fi
 
@@ -600,8 +609,8 @@ in
 
         # Capabilities for HTTP/HTTPS ports and sudo operations
         # Note: system.nix overrides these with mkForce, but we set sensible defaults
-        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" ];
-        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" ];
+        AmbientCapabilities = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" ];
+        CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
         ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];

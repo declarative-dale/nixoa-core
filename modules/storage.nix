@@ -59,7 +59,7 @@ in
 
     # FUSE support for user mounts
     programs.fuse.userAllowOther = true;
-    boot.kernelModules = [ "fuse" ] 
+    boot.kernelModules = [ "fuse" ]
       ++ lib.optionals cfg.nfs.enable [ "nfs" "nfsv4" ]
       ++ lib.optionals cfg.cifs.enable [ "cifs" ];
 
