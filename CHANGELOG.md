@@ -145,5 +145,3 @@ The following areas are not fully tested and may fail unexpectedly:
 - Terminal extras module
 - Various integration points across modules
 - Only the remote mounting subsystem have received substantial validation.
-
-If you encounter issues, please file them — they guide future development.
