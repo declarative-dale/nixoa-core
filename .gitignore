@@ -15,6 +15,7 @@ result-*
 
 # Editor/IDE
 .vscode/
+*.code-workspace
 .idea/
 *.swp
 *.swo
