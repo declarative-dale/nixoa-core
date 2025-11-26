@@ -459,7 +459,7 @@ in
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-autocert.service";
+      after = [ "network-online.target" ] ++ lib.optional (cfg.autocert.enable && cfg.xo.ssl.enable) "xo-autocert.service";
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ];
 
@@ -523,7 +523,7 @@ in
         "network-online.target"
         "redis-xo.service"
         "xo-build.service"
-      ] ++ lib.optional cfg.xo.ssl.enable "xo-autocert.service";
+      ] ++ lib.optional (cfg.autocert.enable && cfg.xo.ssl.enable) "xo-autocert.service";
 
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
