@@ -494,9 +494,18 @@ in
     # Build service
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
+      wantedBy = [ "multi-user.target" ];
       after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
+
+      # Only run if build artifacts don't exist - prevents rebuilding on every boot
+      unitConfig = {
+        ConditionPathExists = [
+          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
+          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
+        ];
+      };
 
       path = with pkgs; [
         git nodejs_20 yarn python3 gcc gnumake pkg-config
@@ -504,12 +513,12 @@ in
         # Mount utilities must be available at build time for handler registration
         nfs-utils cifs-utils util-linux
       ];
-      
+
       environment = {
         HOME = cfg.xo.home;
         PYTHON = "${pkgs.python3}/bin/python3";
       };
-      
+
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;

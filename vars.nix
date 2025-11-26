@@ -1,17 +1,17 @@
-# vars.nix - JSON-based configuration
+# vars.nix - TOML-based configuration
 # ============================================================================
-# Copy config.sample.json to config.json and customize your settings
-# Uses builtins.fromJSON - simple and nix-native!
+# Copy sample-nixoa.toml to nixoa.toml and customize your settings
+# Uses builtins.fromTOML - simple and nix-native!
 # ============================================================================
 
 let
-  # Check if config.json exists, otherwise use defaults
-  configPath = ./config.json;
+  # Check if nixoa.toml exists, otherwise use defaults
+  configPath = ./nixoa.toml;
   configExists = builtins.pathExists configPath;
 
   # Load config if it exists
   userConfig = if configExists
-    then builtins.fromJSON (builtins.readFile configPath)
+    then builtins.fromTOML (builtins.readFile configPath)
     else {};
 
   # Helper to get value with fallback to default
@@ -162,6 +162,59 @@ in
 
   xoUser = get ["service" "xoUser"] "xo";
   xoGroup = get ["service" "xoGroup"] "xo";
+
+  # ============================================================================
+  # CUSTOM PACKAGES
+  # ============================================================================
+
+  packages = {
+    system.extra = get ["packages" "system" "extra"] [];
+    user.extra = get ["packages" "user" "extra"] [];
+  };
+
+  # ============================================================================
+  # CUSTOM SERVICES
+  # ============================================================================
+
+  # Read all service configurations from TOML
+  # This includes both simple enables and detailed configurations
+  customServices =
+    let
+      # Get the services section from config, excluding the 'enable' list and any non-service attributes
+      # Only include attributes that look like NixOS service names (lowercase alphanumeric with dashes/underscores)
+      rawServicesConfig = if builtins.hasAttr "services" userConfig
+                          then builtins.removeAttrs userConfig.services ["enable"]
+                          else {};
+
+      # Filter to only include valid service names (not stateVersion, etc.)
+      # Valid service names are lowercase strings that don't contain uppercase letters
+      servicesConfig = builtins.listToAttrs (
+        builtins.filter
+          (item: item != null)
+          (map
+            (name:
+              # Only include if name doesn't contain uppercase and isn't a reserved word
+              if (builtins.match "^[a-z][a-z0-9_-]*$" name) != null
+              then { inherit name; value = rawServicesConfig.${name}; }
+              else null
+            )
+            (builtins.attrNames rawServicesConfig)
+          )
+      );
+
+      # Get the simple enable list
+      enableList = get ["services" "enable"] [];
+
+      # Convert enable list to attribute set with enable = true
+      enabledServices = builtins.listToAttrs (
+        map (serviceName: {
+          name = serviceName;
+          value = { enable = true; };
+        }) enableList
+      );
+    in
+      # Merge enabled services with detailed configs (detailed configs take precedence)
+      enabledServices // servicesConfig;
 
   # ============================================================================
   # NIXOS STATE VERSION

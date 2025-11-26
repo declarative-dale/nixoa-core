@@ -1,6 +1,5 @@
 # Personal configuration - DO NOT commit!
-config.json
-package-lock.json
+nixoa.toml
 .claude/
 
 # Hardware configuration (machine-specific)
@@ -16,6 +15,7 @@ result-*
 
 # Editor/IDE
 .vscode/
+*.code-workspace
 .idea/
 *.swp
 *.swo
