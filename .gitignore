@@ -1,5 +1,6 @@
 # Personal configuration - DO NOT commit!
 config.json
+package-lock.json
 .claude/
 
 # Hardware configuration (machine-specific)
@@ -18,6 +19,7 @@ result-*
 .idea/
 *.swp
 *.swo
+*.code-workspace
 *~
 .DS_Store
 
