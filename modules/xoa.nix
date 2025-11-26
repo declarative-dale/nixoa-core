@@ -6,7 +6,6 @@ let
   node   = pkgs.nodejs_20;
   yarn   = pkgs.yarn;
   rsync  = pkgs.rsync;
-  openssl = pkgs.openssl;
   
   # Properly define xoSource - this was missing in the original!
   xoSource = if xoSrc != null then xoSrc else pkgs.fetchFromGitHub {
@@ -140,28 +139,6 @@ EOF
     useSudo = true
     mountsDir = '${config.xoa.storage.mountsDir}'
   '');
-
-  # Simple certificate generation script (only for SSL)
-  genCerts = pkgs.writeShellScript "xo-gen-certs.sh" ''
-    set -euo pipefail
-    umask 077
-
-    # Directory should already exist from tmpfiles, but ensure it does
-    if [ ! -d "${cfg.xo.ssl.dir}" ]; then
-      mkdir -p "${cfg.xo.ssl.dir}"
-      chmod 0755 "${cfg.xo.ssl.dir}"
-    fi
-
-    # Generate certificates if they don't exist
-    if [ ! -s "${cfg.xo.ssl.key}" ] || [ ! -s "${cfg.xo.ssl.cert}" ]; then
-      ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
-        -keyout "${cfg.xo.ssl.key}" -out "${cfg.xo.ssl.cert}" \
-        -subj "/CN=${config.networking.hostName}" \
-        -addext "subjectAltName=DNS:${config.networking.hostName},DNS:localhost,IP:${cfg.xo.host}"
-      chown ${cfg.xo.user}:${cfg.xo.group} "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
-      chmod 0640 "${cfg.xo.ssl.key}" "${cfg.xo.ssl.cert}"
-    fi
-  '';
 
   # Build script with directory creation
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
@@ -478,26 +455,13 @@ in
       fuse zlib libpng xen lvm2 esbuild
     ];
 
-    # TLS certificate generation service (conditional)
-    systemd.services.xo-bootstrap = mkIf cfg.xo.ssl.enable {
-      description = "XO TLS certificate generation";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" "systemd-tmpfiles-setup.service" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-        Group = "root";
-        ExecStart = genCerts;
-      };
-    };
-
     # Build service
     systemd.services.xo-build = {
       description = "Build Xen Orchestra from source";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
+      after = [ "network-online.target" ] ++ lib.optional cfg.xo.ssl.enable "xo-autocert.service";
       wants = [ "network-online.target" ];
-      requires = [ "redis-xo.service" ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
+      requires = [ "redis-xo.service" ];
 
       # Only run if build artifacts don't exist - prevents rebuilding on every boot
       unitConfig = {
@@ -554,13 +518,13 @@ in
     # XO Server service
     systemd.services.xo-server = {
       description = "Xen Orchestra Server";
-      after = [ 
-        "systemd-tmpfiles-setup.service" 
-        "network-online.target" 
-        "redis-xo.service" 
+      after = [
+        "systemd-tmpfiles-setup.service"
+        "network-online.target"
+        "redis-xo.service"
         "xo-build.service"
-      ] ++ lib.optional cfg.xo.ssl.enable "xo-bootstrap.service";
-      
+      ] ++ lib.optional cfg.xo.ssl.enable "xo-autocert.service";
+
       wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
       wantedBy = [ "multi-user.target" ];
       requires = [ "xo-build.service" "redis-xo.service" ];

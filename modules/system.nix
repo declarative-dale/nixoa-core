@@ -350,7 +350,7 @@
       host = vars.xoHost;
       port = vars.xoPort;
       httpsPort = vars.xoHttpsPort;
-      
+
       ssl = {
         enable = vars.tls.enable;
         redirectToHttps = vars.tls.redirectToHttps;
@@ -364,6 +364,11 @@
 
       # Network isolation during build
       buildIsolation = true;
+    };
+
+    # Automatic TLS certificate generation
+    autocert = {
+      enable = vars.tls.autoGenerate;
     };
 
     storage = {

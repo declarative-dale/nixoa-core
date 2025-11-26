@@ -34,6 +34,7 @@ enableV6Preview = false
 [tls]
 enable = true
 redirectToHttps = true
+autoGenerate = true  # Automatically generate/renew self-signed certs (disable if using ACME)
 dir = "/etc/ssl/xo"
 cert = "/etc/ssl/xo/certificate.pem"
 key = "/etc/ssl/xo/key.pem"

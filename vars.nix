@@ -62,6 +62,7 @@ in
   tls = {
     enable = get ["tls" "enable"] true;
     redirectToHttps = get ["tls" "redirectToHttps"] true;
+    autoGenerate = get ["tls" "autoGenerate"] true;
     dir = get ["tls" "dir"] "/etc/ssl/xo";
     cert = get ["tls" "cert"] "/etc/ssl/xo/certificate.pem";
     key = get ["tls" "key"] "/etc/ssl/xo/key.pem";
