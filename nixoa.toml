@@ -1,0 +1,190 @@
+# ==============================================================================
+# XOA NixOS Configuration
+# ==============================================================================
+# Copy this file to config.toml and customize your settings
+# This file is git-ignored and contains all your personal settings
+
+# ==============================================================================
+# REQUIRED SETTINGS
+# ==============================================================================
+
+system = "x86_64-linux"
+hostname = "nixoa"
+username = "xoa"
+timezone = "UTC"
+
+# Add your SSH public keys here (one per line)
+# Example: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@host"
+sshKeys = []
+
+# ==============================================================================
+# XEN ORCHESTRA CONFIGURATION
+# ==============================================================================
+
+[xo]
+host = "0.0.0.0"
+port = 80
+httpsPort = 443
+enableV6Preview = false
+
+# ==============================================================================
+# TLS/SSL CONFIGURATION
+# ==============================================================================
+
+[tls]
+enable = true
+redirectToHttps = true
+autoGenerate = true  # Automatically generate/renew self-signed certs (disable if using ACME)
+dir = "/etc/ssl/xo"
+cert = "/etc/ssl/xo/certificate.pem"
+key = "/etc/ssl/xo/key.pem"
+
+# ==============================================================================
+# NETWORKING & FIREWALL
+# ==============================================================================
+
+[networking.firewall]
+allowedTCPPorts = [80, 443, 3389, 5900, 8012]
+
+# ==============================================================================
+# STORAGE & MOUNTING
+# ==============================================================================
+
+[storage]
+mountsDir = "/var/lib/xo/mounts"
+
+[storage.nfs]
+enable = true
+
+[storage.cifs]
+enable = true
+
+# ==============================================================================
+# TERMINAL ENHANCEMENTS
+# ==============================================================================
+
+[extras]
+enable = false
+
+# ==============================================================================
+# AUTOMATED UPDATES
+# ==============================================================================
+
+[updates]
+repoDir = "~/nixoa"
+protectPaths = ["hardware-configuration.nix"]
+
+# Update monitoring and notifications
+[updates.monitoring]
+notifyOnSuccess = false
+
+[updates.monitoring.email]
+enable = false
+to = "admin@example.com"
+
+[updates.monitoring.ntfy]
+enable = false
+server = "https://ntfy.sh"
+topic = "xoa-updates"
+
+[updates.monitoring.webhook]
+enable = false
+url = ""
+
+# Garbage collection settings
+[updates.gc]
+enable = false
+schedule = "Sun 04:00"
+keepGenerations = 7
+
+# Flake update settings
+[updates.flake]
+enable = false
+schedule = "Sun 04:00"
+remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git"
+branch = "main"
+autoRebuild = false
+
+# NixOS package updates
+[updates.nixpkgs]
+enable = false
+schedule = "Mon 04:00"
+keepGenerations = 7
+
+# Xen Orchestra updates
+[updates.xoa]
+enable = false
+schedule = "Tue 04:00"
+keepGenerations = 7
+
+# libvhdi updates
+[updates.libvhdi]
+enable = false
+schedule = "Wed 04:00"
+keepGenerations = 7
+
+# ==============================================================================
+# SERVICE ACCOUNT SETTINGS
+# ==============================================================================
+
+[service]
+xoUser = "xo"
+xoGroup = "xo"
+
+# ==============================================================================
+# CUSTOM PACKAGES & SERVICES
+# ==============================================================================
+
+# Additional packages to install system-wide (available to all users)
+# Use nixpkgs attribute names (e.g., "vim", "git", "htop")
+[packages.system]
+extra = []
+# Example: extra = ["neovim", "ripgrep", "fd", "jq"]
+
+# Additional packages for the admin user account only
+# Use nixpkgs attribute names
+[packages.user]
+extra = []
+# Example: extra = ["lazygit", "fzf", "bat", "zoxide"]
+
+# ==============================================================================
+# CUSTOM SERVICES
+# ==============================================================================
+
+# Enable common NixOS services by name (uses default configurations)
+[services]
+enable = []
+# Example: enable = ["docker", "tailscale", "fail2ban"]
+
+# Configure services with custom options (uncomment and customize as needed):
+
+# [services.docker]
+# enable = true
+# enableOnBoot = true
+
+# [services.docker.autoPrune]
+# enable = true
+# dates = "weekly"
+
+# [services.tailscale]
+# enable = true
+# useRoutingFeatures = "both"
+
+# [services.fail2ban]
+# enable = true
+# maxretry = 5
+# bantime = "10m"
+
+# [services.postgresql]
+# enable = true
+# enableTCPIP = true
+# port = 5432
+
+# Note: Services in the 'enable' list use default configs.
+# For custom configuration, define the service explicitly with [services.servicename]
+
+# ==============================================================================
+# NIXOS STATE VERSION
+# ==============================================================================
+
+stateVersion = "25.05"
