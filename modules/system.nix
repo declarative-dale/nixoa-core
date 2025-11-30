@@ -359,9 +359,6 @@
         key = vars.tls.key;
       };
 
-      # Enable v6 preview
-      enableV6Preview = vars.enableV6Preview;
-
       # Network isolation during build
       buildIsolation = true;
     };

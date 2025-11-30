@@ -66,7 +66,6 @@ sshKeys = [
 
 [xo]
 port = 8080
-enableV6Preview = true
 
 [networking.firewall]
 allowedTCPPorts = [80, 443, 8080, 8443]

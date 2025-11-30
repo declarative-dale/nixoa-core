@@ -114,7 +114,6 @@ EOF
 
     [http.mounts]
     '/' = '${cfg.xo.webMountDir}'
-  '' + lib.optionalString cfg.xo.enableV6Preview ''
     '/v6' = '${cfg.xo.webMountDirv6}'
   '' + ''
 
@@ -144,7 +143,6 @@ EOF
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
-    # V6 Preview enabled: ${toString cfg.xo.enableV6Preview}
 
     # Create all required directories first
     install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
@@ -222,9 +220,8 @@ EOF
     echo "[2/3] Building..."
     ${yarn}/bin/yarn build
 
-    ${if cfg.xo.enableV6Preview then ''
-    # Build v6 preview
-    echo "[2.5/3] Building v6 preview..."
+    # Build v6
+    echo "[2.5/3] Building v6..."
     cd @xen-orchestra/web
 
     # Install dependencies if needed (v6 uses npm, not yarn)
@@ -246,7 +243,6 @@ EOF
 
     # Return to app root directory
     cd "${cfg.xo.appDir}"
-    '' else ""}
 
     # Patch native modules to include FUSE library paths
     echo "[3/4] Patching native modules..."
@@ -267,12 +263,10 @@ EOF
       exit 1
     fi
 
-    ${if cfg.xo.enableV6Preview then ''
     if [ ! -f @xen-orchestra/web/dist/index.html ]; then
       echo "ERROR: @xen-orchestra/web/dist/index.html not found!" >&2
       exit 1
     fi
-    '' else ""}
 
     echo "=== Build Complete ==="
   '';
@@ -423,13 +417,7 @@ in
       webMountDirv6 = mkOption {
         type = types.path;
         default = "${xoHome}/xen-orchestra/@xen-orchestra/web/dist";
-        description = "Web UI mount directory for v6 preview";
-      };
-
-      enableV6Preview = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Enable Xen Orchestra v6 preview at /v6";
+        description = "Web UI mount directory for v6";
       };
 
       buildIsolation = mkOption {

@@ -25,7 +25,6 @@ sshKeys = []
 host = "0.0.0.0"
 port = 80
 httpsPort = 443
-enableV6Preview = false
 
 # ==============================================================================
 # TLS/SSL CONFIGURATION

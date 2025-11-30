@@ -17,6 +17,8 @@ A complete, production-ready Xen Orchestra Community Edition deployment for NixO
 
 ## Quick Start
 
+> **Important:** This flake requires **path-based references** (not git-based) because it uses `nixoa.toml` for configuration, which is git-ignored. Using `git+file://` or remote git references will not work as your config file won't be included.
+
 ### 1. Clone Repository
 
 Choose a persistent location that survives system rebuilds:
@@ -25,13 +27,13 @@ Choose a persistent location that survives system rebuilds:
 # Option A: System-wide (recommended)
 sudo mkdir -p /etc/nixos
 cd /etc/nixos
-sudo git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git
-cd declarative-xoa-ce
+sudo git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git nixoa
+cd nixoa
 
 # Option B: User home directory
 cd ~
-git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git
-cd declarative-xoa-ce
+git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git nixoa
+cd nixoa
 ```
 
 ### 2. Configure System
@@ -61,12 +63,31 @@ sudo cp /etc/nixos/hardware-configuration.nix ./
 
 ### 3. Deploy
 
+This project **requires path-based flake references** to include your `nixoa.toml` configuration. The `.#` reference uses the current directory as a path (not git).
+
 ```bash
-# If repo is in /etc/nixos/declarative-xoa-ce
+# From within the repository directory (recommended)
 sudo nixos-rebuild switch --flake .#xoa -L
 
-# If repo is elsewhere, use absolute path
-sudo nixos-rebuild switch --flake /path/to/declarative-xoa-ce#xoa -L
+# Using absolute path (if not in the repo directory)
+sudo nixos-rebuild switch --flake /etc/nixos/nixoa#xoa -L
+# or
+sudo nixos-rebuild switch --flake /home/user/nixoa#xoa -L
+```
+
+**❌ Do NOT use git-based references** (these won't find your nixoa.toml):
+```bash
+# These will FAIL because nixoa.toml is git-ignored:
+sudo nixos-rebuild switch --flake git+file:///etc/nixos/nixoa#xoa    # ❌ Wrong
+sudo nixos-rebuild switch --flake github:user/repo#xoa               # ❌ Wrong
+sudo nixos-rebuild switch --flake git+https://codeberg.org/...#xoa   # ❌ Wrong
+```
+
+**✅ Correct references** (path-based, includes nixoa.toml):
+```bash
+sudo nixos-rebuild switch --flake .#xoa                    # ✅ Current directory
+sudo nixos-rebuild switch --flake /etc/nixos/nixoa#xoa     # ✅ Absolute path
+sudo nixos-rebuild switch --flake ~/nixoa#xoa              # ✅ Home directory
 ```
 
 ### 4. Access Xen Orchestra
@@ -74,11 +95,51 @@ sudo nixos-rebuild switch --flake /path/to/declarative-xoa-ce#xoa -L
 ```
 HTTPS: https://your-server-ip/
 HTTP:  http://your-server-ip/
+V6 UI: https://your-server-ip/v6  (new interface)
 
 Default credentials (change immediately):
   Username: admin@admin.net
   Password: admin
 ```
+
+---
+
+## Advanced: Using as a Flake Input
+
+If you have an existing `/etc/nixos/flake.nix`, you can reference this flake using a **path-based input**:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    # Use path reference to include nixoa.toml
+    nixoa.url = "path:/etc/nixos/nixoa";  # or "path:/home/user/nixoa"
+
+    # ❌ Do NOT use git references:
+    # nixoa.url = "git+file:///etc/nixos/nixoa";  # Won't work!
+  };
+
+  outputs = { self, nixpkgs, nixoa }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      system = "x86_64-linux";
+      modules = [
+        nixoa.nixosModules.default
+        ./hardware-configuration.nix
+        {
+          # Your configuration can override nixoa settings here
+          xoa.admin.sshAuthorizedKeys = [ "ssh-ed25519 ..." ];
+        }
+      ];
+    };
+  };
+}
+```
+
+**Key differences:**
+- `path:/absolute/path` - Includes untracked files (nixoa.toml) ✅
+- `git+file:///path` - Only committed files ❌
+- `.` - Current directory as path reference ✅
 
 ---
 
@@ -112,7 +173,7 @@ enable = true  # Enable CIFS/SMB mounting
 
 # Updates - see "Automated Updates" section
 [updates]
-repoDir = "/etc/nixos/declarative-xoa-ce"
+repoDir = "/etc/nixos/nixoa"  # Must match where you cloned the repository
 ```
 
 **See CONFIGURATION.md for complete documentation** on all available options.
@@ -156,57 +217,58 @@ sudo systemctl restart xo-server.service
 
 ## Automated Updates
 
-Enable automatic updates in `vars.nix`:
+Enable automatic updates in `nixoa.toml`:
 
-```nix
-updates = {
-  repoDir = "/etc/nixos/declarative-xoa-ce";  # Your clone location
-  
-  # Garbage collection - runs independently
-  gc = {
-    enable = true;              # Keep only recent generations
-    schedule = "Sun 04:00";     # When to run
-    keepGenerations = 7;        # How many to keep
-  };
-  
-  # Pull flake updates from Codeberg
-  flake = {
-    enable = true;              # Pull latest flake updates
-    schedule = "Sun 04:00";     # When to check
-    autoRebuild = false;        # Rebuild after pulling?
-    protectPaths = [ "vars.nix" "hardware-configuration.nix" ];
-  };
-  
-  # Update NixOS packages
-  nixos = {
-    enable = true;              # Update nixpkgs input
-    schedule = "Mon 04:00";     # When to update
-    keepGenerations = 7;        # GC after update
-  };
-  
-  # Update Xen Orchestra upstream
-  xoa = {
-    enable = true;              # Update XO source
-    schedule = "Tue 04:00";     # When to update
-    keepGenerations = 7;        # GC after update
-  };
-};
+```toml
+[updates]
+repoDir = "/etc/nixos/nixoa"  # Your clone location (must match where you cloned)
+
+# Garbage collection - runs independently
+[updates.gc]
+enable = true
+schedule = "Sun 04:00"
+keepGenerations = 7
+
+# Pull flake updates from remote repository
+[updates.flake]
+enable = true
+schedule = "Sun 04:00"
+remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git"
+branch = "main"
+autoRebuild = false
+
+# Protect these files from being overwritten during updates
+protectPaths = ["nixoa.toml", "hardware-configuration.nix"]
+
+# Update NixOS packages
+[updates.nixpkgs]
+enable = true
+schedule = "Mon 04:00"
+keepGenerations = 7
+
+# Update Xen Orchestra upstream source
+[updates.xoa]
+enable = true
+schedule = "Tue 04:00"
+keepGenerations = 7
 ```
 
 **How it works:**
 - Each timer runs independently on its schedule
-- Updates preserve your `vars.nix` and `hardware-configuration.nix`
+- Updates preserve your `nixoa.toml` and `hardware-configuration.nix`
 - Automatic GC keeps your system clean
 - All updates are logged to journald
 
 **Manual updates:**
 
 ```bash
+# From your repository directory
+cd /etc/nixos/nixoa  # or wherever you cloned it
+
 # Update XO to latest release
 nix run .#update-xo
 
 # Update and rebuild immediately
-cd /etc/nixos/declarative-xoa-ce
 sudo xoa-update-xoSrc-rebuild
 
 # Update nixpkgs and rebuild
@@ -255,8 +317,8 @@ sudo systemctl restart xo-server.service
 # Rebuild from source and restart
 sudo systemctl restart xo-build.service xo-server.service
 
-# Full system rebuild
-cd /etc/nixos/declarative-xoa-ce
+# Full system rebuild (from repository directory)
+cd /etc/nixos/nixoa  # or wherever you cloned it
 sudo nixos-rebuild switch --flake .#xoa -L
 ```
 
@@ -401,7 +463,7 @@ curl -H "Title: Test" -d "Testing ntfy from XOA" \
 which curl
 
 # Verify configuration
-grep -A5 "ntfy" /etc/nixos/declarative-xoa-ce/vars.nix
+grep -A5 "ntfy" /etc/nixos/nixoa/nixoa.toml
 ```
 
 **For email:**
@@ -478,16 +540,18 @@ services.fail2ban.enable = true;
 
 ## Performance Tuning
 
-For large deployments (50+ VMs):
+For large deployments (50+ VMs), add to your `nixoa.toml`:
 
-```nix
-# In vars.nix or as module options
-xoa.xo.extraServerEnv = {
-  NODE_OPTIONS = "--max-old-space-size=8192";  # 8GB heap
-};
+```toml
+# Note: Advanced options may require custom module configuration
+# For now, edit /etc/xo-server/config.toml directly and restart xo-server
 
-# Increase Redis memory
-services.redis.servers."xo".settings.maxmemory = "2gb";
+# Or create a custom NixOS module to override:
+# xoa.xo.extraServerEnv = {
+#   NODE_OPTIONS = "--max-old-space-size=8192";  # 8GB heap
+# };
+#
+# services.redis.servers."xo".settings.maxmemory = "2gb";
 ```
 
 ---
@@ -495,19 +559,22 @@ services.redis.servers."xo".settings.maxmemory = "2gb";
 ## Directory Structure
 
 ```
-declarative-xoa-ce/
+nixoa/                           # Your cloned repository
 ├── flake.nix                    # Main flake definition
-├── vars.nix                     # User configuration
-├── hardware-configuration.nix   # System hardware config
+├── nixoa.toml                   # User configuration (git-ignored, you create this)
+├── sample-nixoa.toml            # Configuration template
+├── vars.nix                     # TOML config loader
+├── hardware-configuration.nix   # System hardware config (copy from /etc/nixos)
 ├── modules/
 │   ├── xoa.nix                  # Core XO module
+│   ├── system.nix               # System configuration
 │   ├── storage.nix              # NFS/CIFS support
 │   ├── libvhdi.nix              # VHD tools
+│   ├── autocert.nix             # Auto SSL certificate generation
 │   └── updates.nix              # Update automation
 └── scripts/
     ├── xoa-install.sh           # Initial deployment
     ├── xoa-logs.sh              # View logs
-    ├── xoa-set-vars.sh          # Interactive setup
     └── xoa-update.sh            # Manual XO update
 ```
 
@@ -518,8 +585,9 @@ declarative-xoa-ce/
 Contributions welcome! Please:
 1. Test changes thoroughly
 2. Update documentation
-3. Keep `vars.nix` user-friendly
+3. Keep `nixoa.toml` configuration simple and user-friendly
 4. Maintain backward compatibility
+5. Remember that users need path-based flake references for nixoa.toml to work
 
 ---
 

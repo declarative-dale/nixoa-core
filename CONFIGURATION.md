@@ -69,7 +69,6 @@ sshKeys = [
 host = "0.0.0.0"
 port = 80
 httpsPort = 443
-enableV6Preview = false
 
 [tls]
 enable = true
@@ -130,7 +129,6 @@ sshKeys = [
 host = "0.0.0.0"        # 0.0.0.0 = all interfaces, 127.0.0.1 = localhost only
 port = 80               # HTTP port
 httpsPort = 443         # HTTPS port
-enableV6Preview = false # Enable XO v6 preview at /v6
 
 [tls]
 enable = true              # Auto-generate self-signed certificates

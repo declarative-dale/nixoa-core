@@ -60,7 +60,6 @@ in
   xoHost = get ["xo" "host"] "0.0.0.0";
   xoPort = get ["xo" "port"] 80;
   xoHttpsPort = get ["xo" "httpsPort"] 443;
-  enableV6Preview = get ["xo" "enableV6Preview"] false;
 
   tls = {
     enable = get ["tls" "enable"] true;
