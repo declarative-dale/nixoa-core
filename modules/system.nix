@@ -89,7 +89,7 @@
     description = "Xen Orchestra Administrator";
     createHome = true;
     home = "/home/${vars.username}";
-    shell = pkgs.bashInteractive;
+    shell = lib.mkDefault pkgs.bashInteractive;
     extraGroups = [ "wheel" "systemd-journal" ];
 
     # Locked password - SSH key authentication only
