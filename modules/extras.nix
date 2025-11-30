@@ -30,7 +30,8 @@ in
         ll = "eza -l --icons --group-directories-first --git";
         la = "eza -la --icons --group-directories-first --git";
         lt = "eza --tree --level=2 --icons";
-        cat = "bat";
+        cat = "bat --style=changes,header";
+        catn = "bat --style=numbers,changes,header";  # cat with line numbers
         ".." = "cd ..";
         "..." = "cd ../..";
       };
@@ -82,6 +83,7 @@ in
         "AUTO_CD"                 # cd by just typing directory name
         "CORRECT"                 # Auto correct mistakes
         "INTERACTIVE_COMMENTS"    # Allow comments in interactive shell
+        "NO_NOMATCH"              # Don't error on failed glob matches
       ];
 
       # Additional shell init for all users
@@ -93,8 +95,8 @@ in
         # Better history search with Ctrl+R (will use fzf)
         bindkey '^R' fzf-history-widget
 
-        # Initialize oh-my-posh with darcula theme
-        eval "$(${pkgs.oh-my-posh}/bin/oh-my-posh init zsh --config ${pkgs.oh-my-posh}/share/oh-my-posh/themes/dracula.omp.json)"
+        # Initialize oh-my-posh with custom theme
+        eval "$(${pkgs.oh-my-posh}/bin/oh-my-posh init zsh --config /etc/oh-my-posh/custom-theme.json)"
 
         # Initialize zoxide (smarter cd)
         eval "$(${pkgs.zoxide}/bin/zoxide init zsh)"
@@ -108,8 +110,8 @@ in
         source ${pkgs.fzf}/share/fzf/key-bindings.zsh
         source ${pkgs.fzf}/share/fzf/completion.zsh
 
-        # Better ls colors
-        eval "$(${pkgs.vivid}/bin/vivid generate molokai)"
+        # Better ls colors (suppress any errors)
+        eval "$(${pkgs.vivid}/bin/vivid generate molokai 2>/dev/null || true)"
 
         # bat theme
         export BAT_THEME="Dracula"
@@ -181,13 +183,86 @@ in
     # Configure bat (better cat)
     environment.etc."bat/config".text = ''
       --theme="Dracula"
-      --style="numbers,changes,header"
+      --style="changes,header"
       --map-syntax "*.conf:INI"
       --map-syntax ".ignore:Git Ignore"
     '';
 
+    # Custom oh-my-posh theme (Dracula with snowflake instead of heart)
+    environment.etc."oh-my-posh/custom-theme.json".text = builtins.toJSON {
+      "$schema" = "https://raw.githubusercontent.com/JanDeDobbeleer/oh-my-posh/main/themes/schema.json";
+      final_space = true;
+      version = 2;
+      blocks = [
+        {
+          type = "prompt";
+          alignment = "left";
+          segments = [
+            {
+              type = "session";
+              style = "diamond";
+              foreground = "#ffffff";
+              background = "#ff79c6";
+              leading_diamond = "❄ ";
+              template = " {{ .UserName }} ";
+            }
+            {
+              type = "path";
+              style = "powerline";
+              powerline_symbol = "";
+              foreground = "#ffffff";
+              background = "#bd93f9";
+              properties = {
+                style = "folder";
+              };
+              template = "  {{ .Path }} ";
+            }
+            {
+              type = "git";
+              style = "powerline";
+              powerline_symbol = "";
+              foreground = "#ffffff";
+              background = "#ffb86c";
+              background_templates = [
+                "{{ if or (.Working.Changed) (.Staging.Changed) }}#ff5555{{ end }}"
+                "{{ if and (gt .Ahead 0) (gt .Behind 0) }}#ffb86c{{ end }}"
+                "{{ if gt .Ahead 0 }}#50fa7b{{ end }}"
+                "{{ if gt .Behind 0 }}#ffb86c{{ end }}"
+              ];
+              template = " {{ .HEAD }}{{if .BranchStatus }} {{ .BranchStatus }}{{ end }}{{ if .Working.Changed }}  {{ .Working.String }}{{ end }}{{ if and (.Working.Changed) (.Staging.Changed) }} |{{ end }}{{ if .Staging.Changed }}  {{ .Staging.String }}{{ end }} ";
+            }
+          ];
+        }
+        {
+          type = "rprompt";
+          segments = [
+            {
+              type = "executiontime";
+              style = "plain";
+              foreground = "#f1fa8c";
+              properties = {
+                threshold = 500;
+              };
+              template = " {{ .FormattedMs }}";
+            }
+            {
+              type = "time";
+              style = "plain";
+              foreground = "#8be9fd";
+              template = " {{ .CurrentDate | date .Format }} ";
+            }
+          ];
+        }
+      ];
+    };
+
     # Create user-specific zsh config directory
     system.activationScripts.extras-zsh = ''
+      # Ensure .ssh directory exists for the admin user
+      mkdir -p /home/${username}/.ssh
+      chown ${username}:users /home/${username}/.ssh
+      chmod 700 /home/${username}/.ssh
+
       # Create .zshrc for the admin user
       if [ ! -f /home/${username}/.zshrc ]; then
         cat > /home/${username}/.zshrc << 'EOF'
