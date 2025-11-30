@@ -34,12 +34,6 @@
 
         # Auto-import all modules from ./modules directory
         ./modules
-
-        # Wire variables into the system
-        ({ config, ... }: {
-          # Pass variables to all modules
-          _module.args.vars = vars;
-        })
       ];
 
       # Provide flake-pinned sources to modules
