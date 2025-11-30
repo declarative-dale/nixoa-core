@@ -145,7 +145,7 @@ in
       eza              # Modern ls replacement
       fd               # Better find
       ripgrep          # Better grep
-      du-dust          # Better du
+      dust             # Better du
       duf              # Better df
       procs            # Better ps
 

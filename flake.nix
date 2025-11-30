@@ -2,7 +2,7 @@
   description = "XO CE on NixOS - Modular, Xen Orchestra deployment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
     # Xen Orchestra source (pinned to specific commit for stability)
     xoSrc = {

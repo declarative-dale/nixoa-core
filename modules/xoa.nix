@@ -225,7 +225,24 @@ EOF
     # Build v6 preview
     echo "[2.5/3] Building v6 preview..."
     cd @xen-orchestra/web
-    ${yarn}/bin/yarn build
+
+    # Install dependencies if needed (v6 uses npm, not yarn)
+    if [ ! -d node_modules ]; then
+      echo "Installing v6 dependencies with npm..."
+      ${pkgs.nodejs_20}/bin/npm install
+    fi
+
+    # Run vite build using npm (v6 uses npm run build)
+    echo "Running: npm run build"
+    ${pkgs.nodejs_20}/bin/npm run build
+
+    # Verify dist was created
+    if [ ! -d dist ]; then
+      echo "ERROR: v6 dist folder not created after npm run build!" >&2
+      ls -la
+      exit 1
+    fi
+
     cd ..
   '' + ''
 
