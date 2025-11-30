@@ -9,9 +9,12 @@ let
   configPath = ./nixoa.toml;
   configExists = builtins.pathExists configPath;
 
+  # Read the raw config content (forces Nix to track changes)
+  configContent = if configExists then builtins.readFile configPath else "";
+
   # Load config if it exists
   userConfig = if configExists
-    then builtins.fromTOML (builtins.readFile configPath)
+    then builtins.fromTOML configContent
     else {};
 
   # Helper to get value with fallback to default
@@ -221,5 +224,5 @@ in
   # NIXOS STATE VERSION
   # ============================================================================
 
-  stateVersion = get ["stateVersion"] "25.05";
+  stateVersion = get ["stateVersion"] "25.11";
 }

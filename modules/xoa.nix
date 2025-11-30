@@ -144,6 +144,7 @@ EOF
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
     umask 022
+    # V6 Preview enabled: ${toString cfg.xo.enableV6Preview}
 
     # Create all required directories first
     install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
@@ -220,8 +221,8 @@ EOF
     # Build
     echo "[2/3] Building..."
     ${yarn}/bin/yarn build
-  '' + lib.optionalString cfg.xo.enableV6Preview ''
 
+    ${if cfg.xo.enableV6Preview then ''
     # Build v6 preview
     echo "[2.5/3] Building v6 preview..."
     cd @xen-orchestra/web
@@ -244,7 +245,7 @@ EOF
     fi
 
     cd ..
-  '' + ''
+    '' else ""}
 
     # Patch native modules to include FUSE library paths
     echo "[3/4] Patching native modules..."
@@ -264,14 +265,14 @@ EOF
       echo "ERROR: xo-server CLI not found!" >&2
       exit 1
     fi
-  '' + lib.optionalString cfg.xo.enableV6Preview ''
 
+    ${if cfg.xo.enableV6Preview then ''
     if [ ! -f @xen-orchestra/web/dist/index.html ]; then
       echo "ERROR: @xen-orchestra/web/dist/index.html not found!" >&2
       exit 1
     fi
-  '' + ''
-    
+    '' else ""}
+
     echo "=== Build Complete ==="
   '';
 
