@@ -110,9 +110,6 @@ in
         source ${pkgs.fzf}/share/fzf/key-bindings.zsh
         source ${pkgs.fzf}/share/fzf/completion.zsh
 
-        # Better ls colors (suppress any errors)
-        eval "$(${pkgs.vivid}/bin/vivid generate molokai 2>/dev/null || true)"
-
         # bat theme
         export BAT_THEME="Dracula"
 
@@ -159,9 +156,6 @@ in
       # JSON/YAML tools
       jq               # JSON processor
       yq-go            # YAML processor
-
-      # Color schemes
-      vivid            # LS_COLORS generator
 
       # Network tools with better UX
       gping            # Ping with graph
