@@ -244,7 +244,8 @@ EOF
       exit 1
     fi
 
-    cd ..
+    # Return to app root directory
+    cd "${cfg.xo.appDir}"
     '' else ""}
 
     # Patch native modules to include FUSE library paths
@@ -252,7 +253,7 @@ EOF
     find node_modules -name "*.node" -type f 2>/dev/null | while read -r nodefile; do
       echo "Patching $nodefile..."
       ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib" "$nodefile" 2>/dev/null || true
-    done
+    done || true
 
     # Verify critical artifacts
     echo "[4/4] Verifying build artifacts..."
