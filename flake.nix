@@ -71,7 +71,7 @@
         license = licenses.asl20;
         maintainers = [{
           name = "Dale Morgan";
-          github = "dalemorgan";
+          codeberg = "dalemorgan";
         }];
         platforms = platforms.linux;
         homepage = "https://codeberg.org/dalemorgan/declarative-xoa-ce";
