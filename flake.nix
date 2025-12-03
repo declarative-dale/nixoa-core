@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 {
-  description = "XO CE on NixOS - Modular, Xen Orchestra deployment";
+  description = "NixOA - Experimental Xen Orchestra deployment for NixOS homelabs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
@@ -56,10 +56,14 @@
         echo "See https://codeberg.org/dalemorgan/declarative-xoa-ce for details." >> $out/share/doc/nixoa/README
       '';
       meta = with pkgs.lib; {
-        description = "NixOS-based Xen Orchestra Appliance (NixOA)";
+        description = "Experimental Xen Orchestra deployment for NixOS homelabs";
         longDescription = ''
-          A complete, production-ready Xen Orchestra Community Edition deployment
-          for NixOS with automated updates and secure defaults.
+          An experimental Xen Orchestra Community Edition deployment for NixOS,
+          ideal for homelab and testing environments.
+
+          WARNING: This is NOT production-ready and NOT supported by Vates.
+          For production use, purchase the official Xen Orchestra Appliance (XOA)
+          from Vates which includes professional support and SLA options.
 
           Author and Maintainer: Dale Morgan
           Licensed as of: December 3, 2025

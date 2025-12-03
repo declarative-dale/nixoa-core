@@ -3,7 +3,18 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-A complete, production-ready Xen Orchestra Community Edition deployment for NixOS with automated updates and secure defaults.
+An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for homelab and testing environments.
+
+> **⚠️ Important Disclaimer**
+>
+> This project is **experimental** and intended for **homelab use only**. It is **NOT production-ready** and is **NOT supported by Vates**.
+>
+> **For production environments:** Professional organizations should purchase the official [Xen Orchestra Appliance (XOA)](https://xen-orchestra.com/) from Vates, which includes:
+> - Pre-compiled, tested builds
+> - Official technical support
+> - Production-grade reliability
+> - Regular security updates and patches
+> - Professional SLA options
 
 ## Features
 
