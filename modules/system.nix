@@ -79,7 +79,7 @@
     createHome = true;
     group = vars.xoGroup;
     home = "/var/lib/xo";
-    shell = "${pkgs.shadow}/bin/nologin";
+    shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
     extraGroups = [ "fuse" ];
   };
 
@@ -89,7 +89,7 @@
     description = "Xen Orchestra Administrator";
     createHome = true;
     home = "/home/${vars.username}";
-    shell = lib.mkDefault pkgs.bashInteractive;
+    # shell is already provided by isNormalUser = true (defaults to bash)
     extraGroups = [ "wheel" "systemd-journal" ];
 
     # Locked password - SSH key authentication only
