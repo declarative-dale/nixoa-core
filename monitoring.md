@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # XOA Update Monitoring Guide
 
 This guide covers setting up notifications and monitoring for your XOA automatic updates.

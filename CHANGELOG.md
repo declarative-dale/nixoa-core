@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
 ## v0.3 — TOML Migration & Custom Packages/Services

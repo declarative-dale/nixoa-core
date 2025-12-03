@@ -1,4 +1,7 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Xen Orchestra on NixOS
+
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
 A complete, production-ready Xen Orchestra Community Edition deployment for NixOS with automated updates and secure defaults.
 
@@ -602,5 +605,13 @@ Contributions welcome! Please:
 
 ## License
 
-Configuration: Public Domain / Unlicense  
-Xen Orchestra: AGPL-3.0
+This project is licensed under the **Apache License 2.0**.
+
+**Copyright (c) 2023-2025 Dale Morgan**
+Licensed as of: December 3, 2025
+
+**Author and Maintainer:** Dale Morgan
+
+See [LICENSE](./LICENSE) for the full text and [legal/NOTICE](./legal/NOTICE) for additional notices.
+
+**Note:** This license applies to the NixOS configuration and integration code in this repository. Xen Orchestra itself remains under the AGPL-3.0 license.

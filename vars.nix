@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # vars.nix - TOML-based configuration
 # ============================================================================
 # Copy sample-nixoa.toml to nixoa.toml and customize your settings

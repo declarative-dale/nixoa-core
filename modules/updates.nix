@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 { config, lib, pkgs, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types concatStringsSep;

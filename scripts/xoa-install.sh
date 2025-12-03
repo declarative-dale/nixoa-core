@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 HOST=$(jq -r '.hostname' vars.nix 2>/dev/null || sed -n 's/hostname *= *"\(.*\)".*/\1/p' vars.nix | head -1)
 : "${HOST:?hostname not found in vars.nix}"

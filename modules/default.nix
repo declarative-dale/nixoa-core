@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # Auto-import all .nix modules in this directory
 { lib, ... }:
 

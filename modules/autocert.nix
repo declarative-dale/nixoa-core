@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 # autocert.nix - Automatic TLS Certificate Generation
 # ============================================================================
 # Handles automatic generation and renewal of self-signed TLS certificates

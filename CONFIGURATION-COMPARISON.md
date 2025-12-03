@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Configuration Approach: TOML
 
 This flake uses **TOML configuration** for all personal settings. TOML provides the best balance of human readability and Nix-native support.

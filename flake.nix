@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 {
   description = "XO CE on NixOS - Modular, Xen Orchestra deployment";
 
@@ -42,6 +43,37 @@
       };
     };
 
+    # Package metadata for the project
+    packages.${system}.default = pkgs.stdenv.mkDerivation {
+      pname = "nixoa";
+      version = "1.0.0";
+      dontUnpack = true;
+      dontBuild = true;
+      installPhase = ''
+        mkdir -p $out/share/doc/nixoa
+        echo "NixOA - Xen Orchestra on NixOS" > $out/share/doc/nixoa/README
+        echo "This is a NixOS configuration flake." >> $out/share/doc/nixoa/README
+        echo "See https://codeberg.org/dalemorgan/declarative-xoa-ce for details." >> $out/share/doc/nixoa/README
+      '';
+      meta = with pkgs.lib; {
+        description = "NixOS-based Xen Orchestra Appliance (NixOA)";
+        longDescription = ''
+          A complete, production-ready Xen Orchestra Community Edition deployment
+          for NixOS with automated updates and secure defaults.
+
+          Author and Maintainer: Dale Morgan
+          Licensed as of: December 3, 2025
+        '';
+        license = licenses.asl20;
+        maintainers = [{
+          name = "Dale Morgan";
+          github = "dalemorgan";
+        }];
+        platforms = platforms.linux;
+        homepage = "https://codeberg.org/dalemorgan/declarative-xoa-ce";
+      };
+    };
+
     # Runnable helper: nix run .#update-xo
     apps.${system}.update-xo = {
       type = "app";
@@ -64,8 +96,10 @@
           echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#${vars.hostname}"
         '';
       });
-      meta = {
+      meta = with pkgs.lib; {
         description = "Update the xoSrc input in flake.lock and show new commits.";
+        license = licenses.asl20;
+        platforms = platforms.linux;
       };
     };
 

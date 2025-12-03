@@ -1,3 +1,4 @@
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 # Configuration Guide
 
 This flake uses a **TOML configuration file** for all personal settings. This keeps your personal information separate from the flake code and allows the flake to be updated without conflicts.
