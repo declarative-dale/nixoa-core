@@ -182,7 +182,7 @@ keepGenerations = 7
 [updates.flake]
 enable = true
 schedule = "Sun 04:00"
-remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git"
+remoteUrl = "https://codeberg.org/dalemorgan/nixoa-ce.git"
 branch = "main"
 autoRebuild = false
 ```
@@ -373,7 +373,7 @@ With this configuration system, you can safely update the flake without losing y
 
 ```bash
 # Pull latest changes from upstream
-cd ~/nixoa
+cd /etc/nixos/nixoa-ce
 git pull origin main
 
 # Your nixoa.toml is never touched by git

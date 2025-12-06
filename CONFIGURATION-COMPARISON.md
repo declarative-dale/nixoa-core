@@ -89,9 +89,9 @@ nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'
 
 ### Setup
 
-1. **Use the .env-based vars.nix** (current default):
+1. **Use the .env-based vars.nix** (legacy):
    ```bash
-   cd ~/nixoa
+   cd /etc/nixos/nixoa-ce
    cp sample.env .env
    nano .env
    ```

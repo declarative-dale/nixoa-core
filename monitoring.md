@@ -50,7 +50,7 @@ This guide covers setting up notifications and monitoring for your XOA automatic
 
 5. **Rebuild and test:**
    ```bash
-   cd /etc/nixos/declarative-xoa-ce
+   cd /etc/nixos/nixoa-ce
    sudo nixos-rebuild switch --flake .#xoa
    
    # Test notification
@@ -373,7 +373,7 @@ monitoring = {
 curl -d "Test" https://ntfy.sh/your-topic
 
 # Check if topic is correct
-grep topic /etc/nixos/declarative-xoa-ce/vars.nix
+grep topic /etc/nixos/nixoa-ce/vars.nix
 
 # Verify curl is available
 which curl

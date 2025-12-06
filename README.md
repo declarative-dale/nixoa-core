@@ -1,5 +1,5 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# Xen Orchestra on NixOS
+# NixOA-CE: Xen Orchestra Community Edition on NixOS
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
@@ -33,6 +33,8 @@ An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for 
 
 > **Important:** This flake requires **path-based references** (not git-based) because it uses `nixoa.toml` for configuration, which is git-ignored. Using `git+file://` or remote git references will not work as your config file won't be included.
 
+> **Existing Users:** If you're upgrading from an older version with the repository named `nixoa` or `declarative-xoa-ce`, see [MIGRATION.md](./MIGRATION.md) for renaming instructions.
+
 ### 1. Clone Repository
 
 Choose a persistent location that survives system rebuilds:
@@ -41,13 +43,13 @@ Choose a persistent location that survives system rebuilds:
 # Option A: System-wide (recommended)
 sudo mkdir -p /etc/nixos
 cd /etc/nixos
-sudo git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git nixoa
-cd nixoa
+sudo git clone https://codeberg.org/dalemorgan/nixoa-ce.git nixoa-ce
+cd nixoa-ce
 
 # Option B: User home directory
 cd ~
-git clone https://codeberg.org/dalemorgan/declarative-xoa-ce.git nixoa
-cd nixoa
+git clone https://codeberg.org/dalemorgan/nixoa-ce.git nixoa-ce
+cd nixoa-ce
 ```
 
 ### 2. Configure System
@@ -84,24 +86,24 @@ This project **requires path-based flake references** to include your `nixoa.tom
 sudo nixos-rebuild switch --flake .#xoa -L
 
 # Using absolute path (if not in the repo directory)
-sudo nixos-rebuild switch --flake /etc/nixos/nixoa#xoa -L
+sudo nixos-rebuild switch --flake /etc/nixos/nixoa-ce#xoa -L
 # or
-sudo nixos-rebuild switch --flake /home/user/nixoa#xoa -L
+sudo nixos-rebuild switch --flake /home/user/nixoa-ce#xoa -L
 ```
 
 **❌ Do NOT use git-based references** (these won't find your nixoa.toml):
 ```bash
 # These will FAIL because nixoa.toml is git-ignored:
-sudo nixos-rebuild switch --flake git+file:///etc/nixos/nixoa#xoa    # ❌ Wrong
-sudo nixos-rebuild switch --flake github:user/repo#xoa               # ❌ Wrong
-sudo nixos-rebuild switch --flake git+https://codeberg.org/...#xoa   # ❌ Wrong
+sudo nixos-rebuild switch --flake git+file:///etc/nixos/nixoa-ce#xoa    # ❌ Wrong
+sudo nixos-rebuild switch --flake github:user/repo#xoa                  # ❌ Wrong
+sudo nixos-rebuild switch --flake git+https://codeberg.org/...#xoa      # ❌ Wrong
 ```
 
 **✅ Correct references** (path-based, includes nixoa.toml):
 ```bash
-sudo nixos-rebuild switch --flake .#xoa                    # ✅ Current directory
-sudo nixos-rebuild switch --flake /etc/nixos/nixoa#xoa     # ✅ Absolute path
-sudo nixos-rebuild switch --flake ~/nixoa#xoa              # ✅ Home directory
+sudo nixos-rebuild switch --flake .#xoa                      # ✅ Current directory
+sudo nixos-rebuild switch --flake /etc/nixos/nixoa-ce#xoa    # ✅ Absolute path
+sudo nixos-rebuild switch --flake ~/nixoa-ce#xoa             # ✅ Home directory
 ```
 
 ### 4. Access Xen Orchestra
@@ -128,20 +130,20 @@ If you have an existing `/etc/nixos/flake.nix`, you can reference this flake usi
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Use path reference to include nixoa.toml
-    nixoa.url = "path:/etc/nixos/nixoa";  # or "path:/home/user/nixoa"
+    nixoa-ce.url = "path:/etc/nixos/nixoa-ce";  # or "path:/home/user/nixoa-ce"
 
     # ❌ Do NOT use git references:
-    # nixoa.url = "git+file:///etc/nixos/nixoa";  # Won't work!
+    # nixoa-ce.url = "git+file:///etc/nixos/nixoa-ce";  # Won't work!
   };
 
-  outputs = { self, nixpkgs, nixoa }: {
+  outputs = { self, nixpkgs, nixoa-ce }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        nixoa.nixosModules.default
+        nixoa-ce.nixosModules.default
         ./hardware-configuration.nix
         {
-          # Your configuration can override nixoa settings here
+          # Your configuration can override nixoa-ce settings here
           xoa.admin.sshAuthorizedKeys = [ "ssh-ed25519 ..." ];
         }
       ];
@@ -187,7 +189,7 @@ enable = true  # Enable CIFS/SMB mounting
 
 # Updates - see "Automated Updates" section
 [updates]
-repoDir = "/etc/nixos/nixoa"  # Must match where you cloned the repository
+repoDir = "/etc/nixos/nixoa-ce"  # Must match where you cloned the repository
 ```
 
 **See CONFIGURATION.md for complete documentation** on all available options.
@@ -235,7 +237,7 @@ Enable automatic updates in `nixoa.toml`:
 
 ```toml
 [updates]
-repoDir = "/etc/nixos/nixoa"  # Your clone location (must match where you cloned)
+repoDir = "/etc/nixos/nixoa-ce"  # Your clone location (must match where you cloned)
 
 # Garbage collection - runs independently
 [updates.gc]
@@ -247,7 +249,7 @@ keepGenerations = 7
 [updates.flake]
 enable = true
 schedule = "Sun 04:00"
-remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git"
+remoteUrl = "https://codeberg.org/dalemorgan/nixoa-ce.git"
 branch = "main"
 autoRebuild = false
 
@@ -277,7 +279,7 @@ keepGenerations = 7
 
 ```bash
 # From your repository directory
-cd /etc/nixos/nixoa  # or wherever you cloned it
+cd /etc/nixos/nixoa-ce  # or wherever you cloned it
 
 # Update XO to latest release
 nix run .#update-xo
@@ -332,7 +334,7 @@ sudo systemctl restart xo-server.service
 sudo systemctl restart xo-build.service xo-server.service
 
 # Full system rebuild (from repository directory)
-cd /etc/nixos/nixoa  # or wherever you cloned it
+cd /etc/nixos/nixoa-ce  # or wherever you cloned it
 sudo nixos-rebuild switch --flake .#xoa -L
 ```
 
@@ -477,7 +479,7 @@ curl -H "Title: Test" -d "Testing ntfy from XOA" \
 which curl
 
 # Verify configuration
-grep -A5 "ntfy" /etc/nixos/nixoa/nixoa.toml
+grep -A5 "ntfy" /etc/nixos/nixoa-ce/nixoa.toml
 ```
 
 **For email:**
@@ -573,7 +575,7 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 ## Directory Structure
 
 ```
-nixoa/                           # Your cloned repository
+nixoa-ce/                        # Your cloned repository
 ├── flake.nix                    # Main flake definition
 ├── nixoa.toml                   # User configuration (git-ignored, you create this)
 ├── sample-nixoa.toml            # Configuration template
@@ -610,7 +612,7 @@ Contributions welcome! Please:
 - [Xen Orchestra Docs](https://xen-orchestra.com/docs/)
 - [XCP-ng Forums](https://xcp-ng.org/forum/)
 - [NixOS Manual](https://nixos.org/manual/nixos/stable/)
-- [Project Repository](https://codeberg.org/dalemorgan/declarative-xoa-ce)
+- [Project Repository](https://codeberg.org/dalemorgan/nixoa-ce)
 
 ---
 

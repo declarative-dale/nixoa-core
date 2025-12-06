@@ -1,6 +1,91 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v0.4 — Stability & Production Updates (Vates Camp 2025 Edition)
+
+Date: 2025-12-03
+
+This release focuses on stability improvements, NixOS 25.11 upgrade, v6 web UI support, terminal enhancements, and important production readiness clarifications.
+
+### ✨ Added
+
+**v6 Web UI Support**
+- `/v6` mount now builds by default to match latest XOA updates for Xen Orchestra 5.113
+- New web interface available alongside traditional v5 UI
+- Proper build directory handling with explicit path navigation
+
+**Enhanced Terminal Experience**
+- Oh My Posh configured with Darcula theme (custom themes may be explored in future releases)
+- `cat` command - Shows syntax highlighting without line numbers (easy to copy text)
+- `catn` command - Shows syntax highlighting with line numbers (for reference)
+- Removed `vivid` command that was causing errors (eza provides excellent colors natively)
+
+**Licensing Updates**
+- LICENSE file updates with proper Apache 2.0 attribution and copyright notices
+- Added SPDX license identifiers to all project files for compliance
+- Clarified open source licensing terms
+
+**Documentation & Metadata**
+- Updated flake.nix with correct repository metadata
+- Production readiness warnings and alternative solutions for professional use
+
+### 🔄 Changed
+
+**Project Rebranding**
+- Project renamed from "NixOA" to "NixOA-CE" (Community Edition)
+- Repository URL updated: `declarative-xoa-ce` → `nixoa-ce`
+- Updated all documentation and configuration references to reflect new naming
+- Repository location in configs changed from `/etc/nixos/declarative-xoa-ce` to `/etc/nixos/nixoa-ce`
+- Default `repoDir` in configuration now points to `/etc/nixos/nixoa-ce`
+- **For existing users:** See [MIGRATION.md](./MIGRATION.md) for instructions on renaming your local repository directory
+
+**System Updates**
+- Upgraded to NixOS 25.11 (latest stable)
+- All Nix files converted to Unix line endings for consistency
+- Improved shell configuration priority handling using `lib.mkDefault`
+
+**Build System Improvements**
+- Build script now explicitly returns to `${cfg.xo.appDir}` instead of relative `cd ..`
+- Replaced `lib.optionalString` with native Nix if-then-else in let blocks
+- Fixed autocert service dependencies in both xo-build and xo-server services
+
+**Module Cleanup**
+- Removed duplicate module that was redundantly passing vars through `_module.args`
+- Removed hardware configuration file checking logic (always required now)
+- Simplified conditional logic for autocert service integration
+
+### 🐛 Fixed
+
+**Service Dependencies**
+- Fixed xo-build.service to use `config.xoa.autocert.enable` correctly
+- Fixed xo-server.service autocert dependency conditions
+- Proper service ordering with `lib.optional` checks
+
+**Terminal Configuration**
+- Resolved shell priority conflicts between system.nix and extras.nix
+- Fixed Oh My Posh theme rendering issues
+
+### 📚 Important Notes
+
+**Production Readiness**
+- This project is **not production-ready** and is intended for testing and development
+- For professional/production use, consider:
+  - Official Xen Orchestra Appliance (XOA) from Vates
+  - Xen Orchestra from Sources (manual installation)
+  - Commercial support options from Vates
+
+**Flake Purity**
+- Sample `nixoa.toml` provided for flake purity compliance
+- Hardware configuration is now always required (no conditional checks)
+
+### 🗺️ Roadmap
+
+**Upcoming Improvements**
+- **Full Flake Purity:** Add local nixpkgs derivations for libvhdi and Xen Orchestra built from official repos using dream2nix, eliminating fetchFromGitHub dependencies and achieving complete flake reproducibility
+- **Separate User Configuration Flake:** Develop a companion repository for user-specific flake inputs, removing the need to edit `nixoa.toml` within the nixoa-ce repository and improving the separation between upstream project code and user configuration
+
+---
+
 ## v0.3 — TOML Migration & Custom Packages/Services
 
 Date: 2025-11-26

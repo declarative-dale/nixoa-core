@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 {
-  description = "NixOA - Experimental Xen Orchestra deployment for NixOS homelabs";
+  description = "NixOA-CE - Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
@@ -45,18 +45,18 @@
 
     # Package metadata for the project
     packages.${system}.default = pkgs.stdenv.mkDerivation {
-      pname = "nixoa";
+      pname = "nixoa-ce";
       version = "1.0.0";
       dontUnpack = true;
       dontBuild = true;
       installPhase = ''
-        mkdir -p $out/share/doc/nixoa
-        echo "NixOA - Xen Orchestra on NixOS" > $out/share/doc/nixoa/README
-        echo "This is a NixOS configuration flake." >> $out/share/doc/nixoa/README
-        echo "See https://codeberg.org/dalemorgan/declarative-xoa-ce for details." >> $out/share/doc/nixoa/README
+        mkdir -p $out/share/doc/nixoa-ce
+        echo "NixOA-CE - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa-ce/README
+        echo "This is a NixOS configuration flake." >> $out/share/doc/nixoa-ce/README
+        echo "See https://codeberg.org/dalemorgan/nixoa-ce for details." >> $out/share/doc/nixoa-ce/README
       '';
       meta = with pkgs.lib; {
-        description = "Experimental Xen Orchestra deployment for NixOS homelabs";
+        description = "Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
         longDescription = ''
           An experimental Xen Orchestra Community Edition deployment for NixOS,
           ideal for homelab and testing environments.
@@ -74,7 +74,7 @@
           codeberg = "dalemorgan";
         }];
         platforms = platforms.linux;
-        homepage = "https://codeberg.org/dalemorgan/declarative-xoa-ce";
+        homepage = "https://codeberg.org/dalemorgan/nixoa-ce";
       };
     };
 

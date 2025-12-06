@@ -70,7 +70,7 @@ enable = false
 # ==============================================================================
 
 [updates]
-repoDir = "~/nixoa"
+repoDir = "/etc/nixos/nixoa-ce"
 protectPaths = ["hardware-configuration.nix"]
 
 # Update monitoring and notifications
@@ -100,7 +100,7 @@ keepGenerations = 7
 [updates.flake]
 enable = false
 schedule = "Sun 04:00"
-remoteUrl = "https://codeberg.org/dalemorgan/declarative-xoa-ce.git"
+remoteUrl = "https://codeberg.org/dalemorgan/nixoa-ce.git"
 branch = "main"
 autoRebuild = false
 

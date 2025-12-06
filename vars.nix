@@ -104,7 +104,7 @@ in
   # ============================================================================
 
   updates = {
-    repoDir = get ["updates" "repoDir"] "~/nixoa";
+    repoDir = get ["updates" "repoDir"] "/etc/nixos/nixoa-ce";
     protectPaths = get ["updates" "protectPaths"] ["hardware-configuration.nix"];
 
     monitoring = {
@@ -136,7 +136,7 @@ in
     flake = {
       enable = get ["updates" "flake" "enable"] false;
       schedule = get ["updates" "flake" "schedule"] "Sun 04:00";
-      remoteUrl = get ["updates" "flake" "remoteUrl"] "https://codeberg.org/dalemorgan/declarative-xoa-ce.git";
+      remoteUrl = get ["updates" "flake" "remoteUrl"] "https://codeberg.org/dalemorgan/nixoa-ce.git";
       branch = get ["updates" "flake" "branch"] "main";
       autoRebuild = get ["updates" "flake" "autoRebuild"] false;
     };

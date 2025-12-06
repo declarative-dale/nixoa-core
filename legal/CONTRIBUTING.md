@@ -3,7 +3,7 @@
 
 ## Project Information
 
-**Project:** NixOA - Xen Orchestra on NixOS
+**Project:** NixOA-CE - Xen Orchestra Community Edition on NixOS
 **Author and Maintainer:** Dale Morgan
 **License:** Apache License 2.0 (Licensed as of December 3, 2025)
 
