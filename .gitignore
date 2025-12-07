@@ -1,5 +1,4 @@
 # Personal configuration - DO NOT commit!
-nixoa-presentation.md
 
 # Build results
 result
@@ -11,7 +10,6 @@ result-*
 
 # Editor/IDE
 .vscode/
-*.code-workspace
 .idea/
 *.swp
 *.swo
