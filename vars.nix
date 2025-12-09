@@ -1,21 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
-# vars.nix - TOML-based configuration
+# vars.nix - Configuration loader (supports both flake and TOML inputs)
 # ============================================================================
-# Copy sample-nixoa.toml to nixoa.toml and customize your settings
-# Uses builtins.fromTOML - simple and nix-native!
+# Prefers nixoa-config flake, falls back to nixoa.toml for backwards compatibility
 # ============================================================================
+
+{ nixoa-config ? null }:
 
 let
-  # Check if nixoa.toml exists, otherwise use defaults
-  configPath = ./nixoa.toml;
-  configExists = builtins.pathExists configPath;
+  # Prefer the nixoa-config flake if present
+  flakeConfig =
+    if nixoa-config != null && nixoa-config ? nixoa && nixoa-config.nixoa ? system
+    then nixoa-config.nixoa.system
+    else null;
 
-  # Read the raw config content (forces Nix to track changes)
-  configContent = if configExists then builtins.readFile configPath else "";
+  # Check if nixoa.toml exists (backwards compatibility)
+  configPath   = ./nixoa.toml;
+  tomlExists   = builtins.pathExists configPath;
+  configContent = if tomlExists then builtins.readFile configPath else "";
 
-  # Load config if it exists
-  userConfig = if configExists
-    then builtins.fromTOML configContent
+  # Raw user config source:
+  # 1. nixoa-config flake
+  # 2. nixoa.toml + builtins.fromTOML
+  # 3. empty set
+  userConfig =
+    if flakeConfig != null then flakeConfig
+    else if tomlExists then builtins.fromTOML configContent
     else {};
 
   # Helper to get value with fallback to default

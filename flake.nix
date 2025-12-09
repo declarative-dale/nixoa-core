@@ -16,11 +16,17 @@
       url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
       flake = false;
     };
+
+    # User configuration flake (optional, local path on the host)
+    nixoa-config = {
+      url = "path:/etc/nixos/nixoa-ce-config";
+      flake = true;
+    };
   };
 
-  outputs = { self, nixpkgs, xoSrc, libvhdiSrc, ... }:
+  outputs = { self, nixpkgs, xoSrc, libvhdiSrc, nixoa-config ? null, ... }:
   let
-    vars = import ./vars.nix;
+    vars = import ./vars.nix { inherit nixoa-config; };
     system = vars.system;
     pkgs = import nixpkgs { inherit system; };
     lib = nixpkgs.lib;
@@ -37,9 +43,9 @@
         ./modules
       ];
 
-      # Provide flake-pinned sources to modules
-      specialArgs = { 
-        inherit xoSrc libvhdiSrc vars;
+      # Provide flake-pinned sources and config to modules
+      specialArgs = {
+        inherit xoSrc libvhdiSrc vars nixoa-config;
       };
     };
 
