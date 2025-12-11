@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, xoSrc ? null, vars, ... }:
+{ config, lib, pkgs, xoSrc ? null, nixoa-config ? null, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.xoa;
@@ -95,50 +95,32 @@ exec /run/wrappers/bin/sudo "$@"
 EOF
     chmod +x $out/bin/sudo
   '';
-  
-  # Fixed xo-server config with proper HTTPS setup
-  xoDefaultConfig = pkgs.writeText "xo-config-default.toml" (''
-    [http]
-  '' + lib.optionalString (cfg.xo.ssl.enable && cfg.xo.ssl.redirectToHttps) ''
-    redirectToHttps = true
-  '' + ''
 
-    [[http.listen]]
-    port = ${toString cfg.xo.port}
-  '' + lib.optionalString cfg.xo.ssl.enable ''
+  # XO Server configuration from nixoa-ce-config flake
+  # This comes from xo-server-settings.toml in the nixoa-ce-config repository
+  xoServerConfig =
+    if nixoa-config == null then
+      builtins.throw ''
+        nixoa-ce: nixoa-config flake is required!
 
-    [[http.listen]]
-    port = ${toString cfg.xo.httpsPort}
-    cert = '${cfg.xo.ssl.cert}'
-    key = '${cfg.xo.ssl.key}'
-  '' + ''
+        The xo-server configuration must be provided via the nixoa-ce-config flake.
+        Please ensure /etc/nixos/nixoa-ce-config exists and is properly referenced in flake inputs.
+      ''
+    else if !(nixoa-config ? nixoa) || !(nixoa-config.nixoa ? xoServer) || !(nixoa-config.nixoa.xoServer ? toml) then
+      builtins.throw ''
+        nixoa-ce: nixoa-config.nixoa.xoServer.toml is missing!
 
-    [http.mounts]
-    '/' = '${cfg.xo.webMountDir}'
-    '/v6' = '${cfg.xo.webMountDirv6}'
-  '' + ''
+        The nixoa-ce-config flake must export:
+          nixoa.xoServer.toml
 
-    [redis]
-    socket = "/run/redis-xo/redis.sock"
+        Please check nixoa-ce-config/flake.nix and ensure it exports the XO server configuration.
+      ''
+    else
+      nixoa-config.nixoa.xoServer.toml;
 
-    [authentication]
-    defaultTokenValidity = "30 days"
-
-    [logs]
-    level = "info"
-
-    # Data paths
-    [dataStore]
-    path = '${cfg.xo.dataDir}'
-
-    [tempDir]
-    path = '${cfg.xo.tempDir}'
-
-    # Remote storage options - use sudo for NFS/CIFS mounts
-    [remoteOptions]
-    useSudo = true
-    mountsDir = '${config.xoa.storage.mountsDir}'
-  '');
+  # Generate TOML config file from the configuration
+  tomlFormat = pkgs.formats.toml { };
+  xoDefaultConfig = tomlFormat.generate "xo-server-config.toml" xoServerConfig;
 
   # Build script with directory creation
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
