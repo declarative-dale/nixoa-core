@@ -4,9 +4,12 @@ let
   inherit (lib) mkIf mkOption mkEnableOption types concatStringsSep;
   cfg = config.updates;
 
+  # Get admin username from config (set by system.nix from config.nixoa.admin.username)
+  adminUser = config.nixoa.admin.username or "xoa";
+
   # Expand tilde in repo directory path for systemd services
   expandedRepoDir = if lib.hasPrefix "~/" cfg.repoDir
-    then "/home/${config.users.users.xoa.name or "xoa"}/${lib.removePrefix "~/" cfg.repoDir}"
+    then "/home/${adminUser}/${lib.removePrefix "~/" cfg.repoDir}"
     else cfg.repoDir;
 
   # Common script utilities - reusable functions

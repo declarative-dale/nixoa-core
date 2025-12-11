@@ -26,12 +26,13 @@
 
   outputs = { self, nixpkgs, xoSrc, libvhdiSrc, nixoa-config ? null, ... }:
   let
-    vars = import ./vars.nix { inherit nixoa-config; };
-    system = vars.system;
+    # System architecture (cannot be overridden by modules)
+    system = "x86_64-linux";
     pkgs = import nixpkgs { inherit system; };
     lib = nixpkgs.lib;
   in {
-    nixosConfigurations.${vars.hostname} = lib.nixosSystem {
+    # Configuration name is always "nixoa" now (not from config)
+    nixosConfigurations.nixoa = lib.nixosSystem {
       inherit system;
 
       modules = [
@@ -40,12 +41,27 @@
         ./hardware-configuration.nix
 
         # Auto-import all modules from ./modules directory
+        # This includes nixoa-options.nix which defines options.nixoa.*
         ./modules
+
+        # Import user configuration module from nixoa-ce-config
+        (if nixoa-config != null
+         then nixoa-config.nixosModules.default
+         else {
+           # Minimal defaults if no nixoa-config provided (for development/testing)
+           config.nixoa = {
+             hostname = "nixoa";
+             admin = {
+               username = "xoa";
+               sshKeys = [];
+             };
+           };
+         })
       ];
 
       # Provide flake-pinned sources and config to modules
       specialArgs = {
-        inherit xoSrc libvhdiSrc vars nixoa-config;
+        inherit xoSrc libvhdiSrc nixoa-config;
       };
     };
 
@@ -103,7 +119,7 @@
           
           echo ""
           echo "✅ Update complete! Review changes with: git diff flake.lock"
-          echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#${vars.hostname}"
+          echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#nixoa"
         '';
       });
       meta = with pkgs.lib; {
@@ -131,8 +147,8 @@
         echo ""
         echo "📋 Available commands:"
         echo "  nix run .#update-xo                    - Update XO source"
-        echo "  sudo nixos-rebuild switch --flake .#${vars.hostname} - Deploy changes"
-        echo "  sudo nixos-rebuild test --flake .#${vars.hostname}   - Test changes"
+        echo "  sudo nixos-rebuild switch --flake .#nixoa - Deploy changes"
+        echo "  sudo nixos-rebuild test --flake .#nixoa   - Test changes"
         echo "  nix flake check                        - Validate flake"
         echo "  nix flake show                         - Show flake outputs"
         echo ""

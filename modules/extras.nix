@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, vars, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   inherit (lib) mkOption mkEnableOption types mkIf;
   cfg = config.xoa.extras;
-  username = vars.username;
+  # Get admin username from config (set by system.nix from config.nixoa.admin.username)
+  username = config.nixoa.admin.username;
 in
 {
   options.xoa.extras = {
