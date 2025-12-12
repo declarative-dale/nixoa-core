@@ -358,7 +358,7 @@ in
     repoDir = mkOption {
       type = types.str;
       default = "/etc/nixos/xoa-flake";
-      example = "/etc/nixos/nixoa-ce";
+      example = "/etc/nixos/nixoa/nixoa-vm";
       description = "Path to the flake repository directory";
     };
 
@@ -425,7 +425,7 @@ in
       };
       remoteUrl = mkOption {
         type = types.str;
-        default = "https://codeberg.org/dalemorgan/nixoa-ce.git";
+        default = "https://codeberg.org/nixoa/nixoa-vm.git";
         description = "Git remote URL for flake updates";
       };
       branch = mkOption {

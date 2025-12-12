@@ -329,7 +329,7 @@ in
         Compress=yes
       '';
     }
-    # Custom services from nixoa-ce-config [services] section
+    # Custom services from user-config [services] section
     # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
     # Or configure with options: [services.docker] enable = true, enableOnBoot = true
     cfg.services.definitions

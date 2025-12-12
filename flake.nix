@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 {
-  description = "NixOA-CE - Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
+  description = "NixOA-VM - Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
@@ -19,7 +19,7 @@
 
     # User configuration flake (optional, local path on the host)
     nixoa-config = {
-      url = "path:/etc/nixos/nixoa-ce-config";
+      url = "path:/etc/nixos/nixoa/user-config";
       flake = true;
     };
   };
@@ -36,20 +36,20 @@
       inherit system;
 
       modules = [
-        # Hardware configuration - imported from nixoa-ce-config
+        # Hardware configuration - imported from user-config
         (if nixoa-config != null && (nixoa-config ? nixosModules) && (nixoa-config.nixosModules ? hardware)
          then nixoa-config.nixosModules.hardware
          else builtins.throw ''
-           nixoa-ce: hardware-configuration.nix is missing in nixoa-ce-config!
+           nixoa-vm: hardware-configuration.nix is missing in user-config!
 
-           Please copy your hardware configuration to nixoa-ce-config:
-             sudo cp /etc/nixos/hardware-configuration.nix /etc/nixos/nixoa-ce-config/
+           Please copy your hardware configuration to user-config:
+             sudo cp /etc/nixos/hardware-configuration.nix /etc/nixos/nixoa/user-config/
 
            Or generate fresh:
-             sudo nixos-generate-config --show-hardware-config > /etc/nixos/nixoa-ce-config/hardware-configuration.nix
+             sudo nixos-generate-config --show-hardware-config > /etc/nixos/nixoa/user-config/hardware-configuration.nix
 
            Then commit the change:
-             cd /etc/nixos/nixoa-ce-config
+             cd /etc/nixos/nixoa/user-config
              ./commit-config "Add hardware-configuration.nix"
          '')
 
@@ -57,7 +57,7 @@
         # This includes nixoa-options.nix which defines options.nixoa.*
         ./modules
 
-        # Import user configuration module from nixoa-ce-config
+        # Import user configuration module from user-config
         (if nixoa-config != null
          then nixoa-config.nixosModules.default
          else {
@@ -80,15 +80,15 @@
 
     # Package metadata for the project
     packages.${system}.default = pkgs.stdenv.mkDerivation {
-      pname = "nixoa-ce";
+      pname = "nixoa-vm";
       version = "1.0.0";
       dontUnpack = true;
       dontBuild = true;
       installPhase = ''
-        mkdir -p $out/share/doc/nixoa-ce
-        echo "NixOA-CE - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa-ce/README
-        echo "This is a NixOS configuration flake." >> $out/share/doc/nixoa-ce/README
-        echo "See https://codeberg.org/dalemorgan/nixoa-ce for details." >> $out/share/doc/nixoa-ce/README
+        mkdir -p $out/share/doc/nixoa-vm
+        echo "NixOA-VM - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa-vm/README
+        echo "This is a NixOS configuration flake." >> $out/share/doc/nixoa-vm/README
+        echo "See https://codeberg.org/nixoa/nixoa-vm for details." >> $out/share/doc/nixoa-vm/README
       '';
       meta = with pkgs.lib; {
         description = "Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
@@ -109,7 +109,7 @@
           codeberg = "dalemorgan";
         }];
         platforms = platforms.linux;
-        homepage = "https://codeberg.org/dalemorgan/nixoa-ce";
+        homepage = "https://codeberg.org/nixoa/nixoa-vm";
       };
     };
 

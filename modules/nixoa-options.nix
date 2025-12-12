@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# NiXOA Options Definitions
+# NixOA Options Definitions
 # ==============================================================================
-# This module defines the complete options.nixoa.* namespace for NiXOA CE.
+# This module defines the complete options.nixoa.* namespace for NixOA.
 # These options provide a type-safe, declarative interface for configuring
-# the NiXOA system. Values are provided by nixoa-ce-config flake.
+# the NixOA system. Values are provided by user-config flake.
 # ==============================================================================
 
 { lib, ... }:
@@ -249,9 +249,9 @@ in
     updates = {
       repoDir = mkOption {
         type = types.str;
-        default = "/etc/nixos/nixoa-ce";
+        default = "/etc/nixos/nixoa/nixoa-vm";
         description = ''
-          Path to the NiXOA flake repository.
+          Path to the NixOA flake repository.
           Supports tilde expansion (~/path).
         '';
       };
@@ -325,7 +325,7 @@ in
         };
         remoteUrl = mkOption {
           type = types.str;
-          default = "https://codeberg.org/dalemorgan/nixoa-ce.git";
+          default = "https://codeberg.org/nixoa/nixoa-vm.git";
           description = "Remote repository URL to pull flake updates from.";
         };
         branch = mkOption {

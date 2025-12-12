@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# NiXOA CE - Command Line Interface
+# NiXOA - Command Line Interface
 
 set -euo pipefail
 
 VERSION="1.0.0"
-CONFIG_DIR="/etc/nixos/nixoa-ce-config"
-NIXOA_DIR="/etc/nixos/nixoa-ce"
+CONFIG_DIR="/etc/nixos/nixoa/user-config"
+NIXOA_DIR="/etc/nixos/nixoa/nixoa-vm"
 
 # Colors for output
 RED='\033[0;31m'
@@ -24,7 +24,7 @@ print_warning() { echo -e "${YELLOW}⚠ $1${NC}"; }
 # Show usage
 show_usage() {
     cat <<EOF
-NiXOA CE - Command Line Interface v${VERSION}
+NiXOA - Command Line Interface v${VERSION}
 
 USAGE:
     nixoa <command> [options]
@@ -39,13 +39,13 @@ CONFIGURATION COMMANDS:
     config status               Show git status of config repo
 
 SYSTEM COMMANDS:
-    rebuild [test|switch]       Rebuild NiXOA CE system (default: switch)
+    rebuild [test|switch]       Rebuild NiXOA system (default: switch)
     update                      Update flake inputs and rebuild
     rollback                    Rollback to previous generation
     list-generations            List available system generations
 
 INFORMATION COMMANDS:
-    status                      Show NiXOA CE system status
+    status                      Show NiXOA system status
     version                     Show version information
     help                        Show this help message
 
@@ -57,7 +57,7 @@ EXAMPLES:
     nixoa rebuild                          # Rebuild system
     nixoa update                           # Update all inputs
 
-For more information, visit: https://codeberg.org/dalemorgan/nixoa-ce
+For more information, visit: https://codeberg.org/nixoa/nixoa-vm
 EOF
 }
 
