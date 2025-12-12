@@ -256,15 +256,6 @@ in
         '';
       };
 
-      protectPaths = mkOption {
-        type = types.listOf types.str;
-        default = [ "hardware-configuration.nix" ];
-        description = ''
-          Files protected from automated updates.
-          These files will not be modified by update services.
-        '';
-      };
-
       # Monitoring and notifications
       monitoring = {
         notifyOnSuccess = mkOption {

@@ -77,11 +77,13 @@ nano system-settings.toml
 ./scripts/commit-config.sh "Initial configuration"
 ```
 
-**Copy hardware configuration:**
+**Copy hardware configuration to nixoa-ce-config:**
 
 ```bash
-cd /etc/nixos/nixoa-ce
-sudo cp /etc/nixos/hardware-configuration.nix ./
+# Hardware config must be in nixoa-ce-config (not nixoa-ce)
+sudo cp /etc/nixos/hardware-configuration.nix /etc/nixos/nixoa-ce-config/
+cd /etc/nixos/nixoa-ce-config
+./commit-config "Add hardware-configuration.nix"
 ```
 
 ### 3. Deploy
@@ -139,7 +141,7 @@ If you have an existing `/etc/nixos/flake.nix`, you can integrate NiXOA using bo
       modules = [
         nixoa-ce.nixosModules.default        # Imports options.nixoa.* definitions
         nixoa-config.nixosModules.default    # Sets config.nixoa.* from TOML
-        ./hardware-configuration.nix
+        nixoa-config.nixosModules.hardware   # Hardware config from nixoa-ce-config
         {
           # You can override TOML settings here
           config.nixoa.xo.port = 8080;
@@ -280,9 +282,6 @@ remoteUrl = "https://codeberg.org/dalemorgan/nixoa-ce.git"
 branch = "main"
 autoRebuild = false
 
-# Protect these files from being overwritten during updates
-protectPaths = ["hardware-configuration.nix"]
-
 # Update NixOS packages
 [updates.nixpkgs]
 enable = true
@@ -298,8 +297,8 @@ keepGenerations = 7
 
 **How it works:**
 - Each timer runs independently on its schedule
-- Updates preserve your `hardware-configuration.nix` and other protected paths
 - Configuration in nixoa-ce-config is separate and unaffected by nixoa-ce updates
+- hardware-configuration.nix lives in nixoa-ce-config (version controlled separately)
 - Automatic GC keeps your system clean
 - All updates are logged to journald
 
@@ -606,7 +605,6 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 /etc/nixos/
 ├── nixoa-ce/                    # Deployment flake (this repository)
 │   ├── flake.nix                # Main flake definition
-│   ├── hardware-configuration.nix   # System hardware config (copy from /etc/nixos)
 │   ├── MIGRATION-OPTIONS.md     # Options architecture documentation
 │   ├── modules/
 │   │   ├── nixoa-options.nix    # options.nixoa.* definitions

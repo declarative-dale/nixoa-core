@@ -25,16 +25,7 @@ let
       fi
       cd "${expandedRepoDir}"
     }
-    
-    protect_local_files() {
-      for p in ${concatStringsSep " " (map (p: "\"${p}\"") cfg.protectPaths)}; do
-        if [[ -e "$p" ]]; then
-          git update-index --skip-worktree "$p" 2>/dev/null || true
-          log_info "Protected: $p"
-        fi
-      done
-    }
-    
+
     rebuild_system() {
       local host="${config.networking.hostName}"
       log_info "Rebuilding NixOS configuration for host: $host"
@@ -181,10 +172,9 @@ let
     runtimeInputs = with pkgs; [ git ];
     text = ''
       ${commonUtils}
-      
+
       ensure_repo_dir
-      protect_local_files
-      
+
       REMOTE="${cfg.flake.remoteUrl}"
       BRANCH="${cfg.flake.branch}"
       
@@ -244,10 +234,9 @@ $commit_msgs" "success"
     runtimeInputs = with pkgs; [ git nix jq curl ];
     text = ''
       ${commonUtils}
-      
+
       ensure_repo_dir
-      protect_local_files
-      
+
       log_info "Updating ${inputName} input..."
       write_status "${inputName}-update" "running" "Updating ${inputName} input"
       
@@ -371,12 +360,6 @@ in
       default = "/etc/nixos/xoa-flake";
       example = "/etc/nixos/nixoa-ce";
       description = "Path to the flake repository directory";
-    };
-
-    protectPaths = mkOption {
-      type = types.listOf types.str;
-      default = [ "hardware-configuration.nix" ];
-      description = "Files to protect from git operations (skip-worktree). Personal info is now in .env which is git-ignored.";
     };
 
     monitoring = {

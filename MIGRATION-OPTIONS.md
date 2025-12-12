@@ -184,7 +184,6 @@ options.nixoa = {
   # Updates configuration
   updates = {
     repoDir = "/etc/nixos/nixoa-ce";     # String
-    protectPaths = ["hardware-configuration.nix"];  # List of strings
 
     monitoring = {
       notifyOnSuccess = false;           # Boolean
@@ -375,15 +374,7 @@ Always dry-build first:
 sudo nixos-rebuild dry-build --flake .#nixoa
 ```
 
-### 3. Protect Important Files
-
-Add to `nixoa.updates.protectPaths`:
-```toml
-[updates]
-protectPaths = ["hardware-configuration.nix", "my-custom-module.nix"]
-```
-
-### 4. Use Type-Safe Values
+### 3. Use Type-Safe Values
 
 The option system catches errors early:
 ```nix
