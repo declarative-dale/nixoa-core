@@ -96,32 +96,6 @@ EOF
     chmod +x $out/bin/sudo
   '';
 
-  # XO Server configuration from nixoa-ce-config flake
-  # This comes from xo-server-settings.toml in the nixoa-ce-config repository
-  xoServerConfig =
-    if nixoa-config == null then
-      builtins.throw ''
-        nixoa-ce: nixoa-config flake is required!
-
-        The xo-server configuration must be provided via the nixoa-ce-config flake.
-        Please ensure /etc/nixos/nixoa-ce-config exists and is properly referenced in flake inputs.
-      ''
-    else if !(nixoa-config ? nixoa) || !(nixoa-config.nixoa ? xoServer) || !(nixoa-config.nixoa.xoServer ? toml) then
-      builtins.throw ''
-        nixoa-ce: nixoa-config.nixoa.xoServer.toml is missing!
-
-        The nixoa-ce-config flake must export:
-          nixoa.xoServer.toml
-
-        Please check nixoa-ce-config/flake.nix and ensure it exports the XO server configuration.
-      ''
-    else
-      nixoa-config.nixoa.xoServer.toml;
-
-  # Generate TOML config file from the configuration
-  tomlFormat = pkgs.formats.toml { };
-  xoDefaultConfig = tomlFormat.generate "xo-server-config.toml" xoServerConfig;
-
   # Build script with directory creation
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
     set -euxo pipefail
@@ -547,18 +521,10 @@ in
         # PATH is automatically built from the 'path' directive above
         # Don't override it here to ensure our sudo wrapper is found first
 
-        # Copy default config if none exists (runs as root due to '+' prefix)
-        ExecStartPre = [
-          "+${pkgs.writeShellScript "setup-xo-config" ''
-            if [ ! -f /etc/xo-server/config.toml ]; then
-              cp ${xoDefaultConfig} /etc/xo-server/config.toml
-              chown ${cfg.xo.user}:${cfg.xo.group} /etc/xo-server/config.toml
-              chmod 0640 /etc/xo-server/config.toml
-            fi
-          ''}"
-        ];
-
-        ExecStart = "${startXO} --config /etc/xo-server/config.toml";
+        # XO automatically loads all config files from /etc/xo-server/:
+        # - config.toml (XO's built-in defaults, created by XO on first run)
+        # - config.nixoa.toml (nixoa overrides, placed by nixoa-ce-config via environment.etc)
+        ExecStart = "${startXO}";
         
         Restart = "on-failure";
         RestartSec = 10;
