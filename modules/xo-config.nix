@@ -20,7 +20,8 @@ in
   # Only generate the file if the user flake actually provides config
   config = mkIf (xoTomlData != null) {
     environment.etc."xo-server/config.toml" = {
-      text = lib.generators.toTOML {} xoTomlData;
+      # xoTomlData is already a TOML-formatted string, use it directly
+      text = xoTomlData;
       # Set permissions for the xo user (matches xoa.nix behavior)
       mode = "0640";
     };
