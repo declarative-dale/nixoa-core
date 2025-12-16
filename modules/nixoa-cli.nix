@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # NiXOA CE CLI tool module
 
-{ config, lib, pkgs, vars, ... }:
+{ config, lib, pkgs, ... }:
 
 let
   inherit (lib) mkIf;

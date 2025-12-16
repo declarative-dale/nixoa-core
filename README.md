@@ -31,81 +31,100 @@ An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for 
 
 ## Quick Start
 
-> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) to keep your settings isolated from the deployment code. Configuration is **NOT** stored in this repository.
+> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) to keep your settings isolated from the deployment code. Configuration is stored in your **home directory** (`~/user-config`), not in system directories.
 
 > **Existing Users:** If you're upgrading from an older version with the repository named `nixoa` or `declarative-xoa-ce`, see [MIGRATION.md](./MIGRATION.md) for renaming instructions.
 
-### 1. Clone Repositories
+### Automated Installation (Recommended)
 
-You need **both** the deployment flake (nixoa-vm) and configuration flake (user-config):
+The easiest way to get started is to use the bootstrap installer. It handles everything automatically:
 
 ```bash
-# System-wide installation (recommended)
-sudo mkdir -p /etc/nixos/nixoa
-cd /etc/nixos/nixoa
-
-# Clone deployment flake
-sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
-
-# Clone configuration flake (separate repository)
-sudo git clone https://codeberg.org/nixoa/user-config.git
+# Run as a regular user (NOT root)
+bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
 ```
 
-### 2. Configure System
-
-Edit your configuration in the **separate config repository**:
+Or clone the repo first and run locally:
 
 ```bash
-cd /etc/nixos/nixoa/user-config
+git clone https://codeberg.org/nixoa/nixoa-vm.git
+cd nixoa-vm/scripts
+bash xoa-install.sh
+```
+
+The installer will:
+1. Clone the nixoa-vm flake to `/etc/nixos/nixoa/nixoa-vm`
+2. Create your user-config flake in `~/user-config`
+3. Generate all necessary Nix modules and TOML files
+4. Copy/generate your hardware configuration
+5. Create the symlink for flake input resolution
+6. Provide next steps for customization
+
+### Manual Installation
+
+If you prefer more control, follow these steps:
+
+#### 1. Clone Repositories
+
+```bash
+# Clone system deployment flake (as root)
+sudo mkdir -p /etc/nixos/nixoa
+cd /etc/nixos/nixoa
+sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
+
+# Clone user configuration to your home directory (as regular user)
+git clone https://codeberg.org/nixoa/user-config.git ~/user-config
+
+# Create symlink for flake input
+sudo ln -sf ~/user-config /etc/nixos/nixoa/user-config
+```
+
+#### 2. Configure System
+
+Edit your configuration in your **home directory**:
+
+```bash
+cd ~/user-config
 nano system-settings.toml
 ```
 
 **Required changes:**
 - `hostname` - Your system's hostname
-- `username` - Admin user for SSH access
-- `sshKeys` - Your SSH public key(s)
+- `admin.username` - Admin user for SSH access
+- `admin.sshKeys` - Your SSH public key(s)
 
 **Optional changes:**
 - `xo.port` / `xo.httpsPort` - Change default ports
 - `storage.*` - Enable/disable NFS and CIFS support
-- `updates.repoDir` - Path to nixoa-vm repository (default: `/etc/nixos/nixoa/nixoa-vm`)
 - `extras.enable` - Enhanced terminal experience with zsh
 - `services.*` - Custom NixOS services
 
-**Commit your configuration** (recommended for version control):
+#### 3. Apply Configuration
+
+After editing, apply your configuration:
+
 ```bash
+cd ~/user-config
+./scripts/apply-config.sh "Initial deployment"
+```
+
+This will:
+1. Commit your configuration changes to git
+2. Run `sudo nixos-rebuild switch` with your configured hostname
+3. Apply all settings to your system
+
+Alternatively, for more control:
+
+```bash
+# Just commit without rebuilding
 ./scripts/commit-config.sh "Initial configuration"
-```
 
-**Copy hardware configuration to user-config:**
-
-```bash
-# Hardware config must be in user-config (not nixoa-vm)
-sudo cp /etc/nixos/hardware-configuration.nix /etc/nixos/nixoa/user-config/
-cd /etc/nixos/nixoa/user-config
-./commit-config "Add hardware-configuration.nix"
-```
-
-### 3. Deploy
-
-```bash
+# Later, rebuild manually
 cd /etc/nixos/nixoa/nixoa-vm
-sudo nixos-rebuild switch --flake .#nixoa -L
+sudo nixos-rebuild switch --flake .#<hostname> -L
 ```
 
-The flake will automatically:
-1. Read configuration from `user-config/system-settings.toml`
-2. Apply settings via the `options.nixoa.*` module system
-3. Build and activate your NiXOA system
-
-**Note:** The configuration name is always `nixoa` (not based on your hostname).
-
-**✅ Correct references** (path-based):
-```bash
-sudo nixos-rebuild switch --flake .#nixoa                             # ✅ Current directory
-sudo nixos-rebuild switch --flake /etc/nixos/nixoa/nixoa-vm#nixoa    # ✅ Absolute path
-sudo nixos-rebuild switch --flake ~/nixoa/nixoa-vm#nixoa             # ✅ Home directory
-```
+Replace `<hostname>` with the value in `~/user-config/system-settings.toml`.
 
 ### 4. Access Xen Orchestra
 
@@ -192,7 +211,7 @@ Skip user-config and configure directly in Nix:
 
 ### system-settings.toml Structure
 
-Configuration is managed in the **separate user-config repository** at `/etc/nixos/nixoa/user-config/system-settings.toml`:
+Configuration is managed in your **home directory** at `~/user-config/system-settings.toml`:
 
 ```toml
 # System basics
@@ -262,11 +281,11 @@ sudo systemctl restart xo-server.service
 
 ## Automated Updates
 
-Enable automatic updates in `/etc/nixos/nixoa/user-config/system-settings.toml`:
+Enable automatic updates in `~/user-config/system-settings.toml`:
 
 ```toml
 [updates]
-repoDir = "/etc/nixos/nixoa/nixoa-vm"  # Your clone location (must match where you cloned)
+repoDir = "/etc/nixos/nixoa/nixoa-vm"  # Location of your cloned nixoa-vm repository
 
 # Garbage collection - runs independently
 [updates.gc]
@@ -506,7 +525,7 @@ curl -H "Title: Test" -d "Testing ntfy from XOA" \
 which curl
 
 # Verify configuration
-grep -A5 "ntfy" /etc/nixos/nixoa/user-config/system-settings.toml
+grep -A5 "ntfy" ~/user-config/system-settings.toml
 ```
 
 **For email:**
@@ -602,7 +621,17 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 ## Directory Structure
 
 ```
-/etc/nixos/
+/home/<user>/
+└── user-config/                 # Configuration flake (your home directory)
+    ├── flake.nix                # Exports NixOS module
+    ├── system-settings.toml     # Your configuration (TOML frontend)
+    ├── hardware-configuration.nix  # Your hardware config
+    ├── modules/
+    │   └── nixoa-config.nix     # TOML → NixOS module converter
+    └── scripts/
+        └── commit-config.sh     # Commit configuration changes
+
+/etc/nixos/nixoa/
 ├── nixoa-vm/                    # Deployment flake (this repository)
 │   ├── flake.nix                # Main flake definition
 │   ├── MIGRATION-OPTIONS.md     # Options architecture documentation
@@ -619,13 +648,7 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 │       ├── xoa-logs.sh          # View logs
 │       └── xoa-update.sh        # Manual XO update
 │
-└── user-config/                 # Configuration flake (separate repository)
-    ├── flake.nix                # Exports NixOS module
-    ├── system-settings.toml     # Your configuration (TOML frontend)
-    ├── modules/
-    │   └── nixoa-config.nix     # TOML → NixOS module converter
-    └── scripts/
-        └── commit-config.sh     # Commit configuration changes
+└── user-config → /home/<user>/user-config  # Symlink for flake input
 ```
 
 ---

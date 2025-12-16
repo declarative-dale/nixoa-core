@@ -5,16 +5,10 @@
 # Only writes the file if the user flake provides config
 # ============================================================================
 
-{ config, lib, nixoa-config ? null, ... }:
+{ config, lib, xoTomlData ? null, ... }:
 
 let
   inherit (lib) mkIf;
-
-  xoTomlData =
-    if nixoa-config != null && nixoa-config ? nixoa &&
-       nixoa-config.nixoa ? xoServer && nixoa-config.nixoa.xoServer ? toml
-    then nixoa-config.nixoa.xoServer.toml
-    else null;
 in
 {
   # Only generate the file if the user flake actually provides config

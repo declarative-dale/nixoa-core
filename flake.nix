@@ -28,11 +28,29 @@
   let
     # System architecture (cannot be overridden by modules)
     system = "x86_64-linux";
-    pkgs = import nixpkgs { inherit system; };
     lib = nixpkgs.lib;
+
+    # Only import pkgs where needed (for packages/apps/devShells)
+    pkgs = nixpkgs.legacyPackages.${system};
+
+    # Extract hostname from user-config (defaults to "nixoa")
+    # This allows users to customize the hostname in system-settings.toml
+    configHostname =
+      if nixoa-config != null && nixoa-config ? nixoa && nixoa-config.nixoa ? hostname
+      then nixoa-config.nixoa.hostname
+      else "nixoa";
+
+    # Extract XO TOML data at flake level
+    # This separates config data (passed via _module.args) from flake inputs (specialArgs)
+    xoTomlData =
+      if nixoa-config != null && nixoa-config ? nixoa &&
+         nixoa-config.nixoa ? xoServer && nixoa-config.nixoa.xoServer ? toml
+      then nixoa-config.nixoa.xoServer.toml
+      else null;
   in {
-    # Configuration name is always "nixoa" now (not from config)
-    nixosConfigurations.nixoa = lib.nixosSystem {
+    # Configuration name comes from user-config, defaults to "nixoa"
+    # Users can customize by setting hostname in system-settings.toml
+    nixosConfigurations.${configHostname} = lib.nixosSystem {
       inherit system;
 
       modules = [
@@ -70,11 +88,20 @@
              };
            };
          })
+
+        # Provide module arguments via _module.args
+        # Config data goes here (follows NixOS 25.11 best practices)
+        {
+          _module.args = {
+            inherit xoTomlData;
+          };
+        }
       ];
 
-      # Provide flake-pinned sources and config to modules
+      # Provide flake-pinned sources to modules via specialArgs
+      # These are source code references that should not be overridden by module system
       specialArgs = {
-        inherit xoSrc libvhdiSrc nixoa-config;
+        inherit xoSrc libvhdiSrc;
       };
     };
 
@@ -132,7 +159,19 @@
           
           echo ""
           echo "✅ Update complete! Review changes with: git diff flake.lock"
-          echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#nixoa"
+
+          # Resolve config directory with proper sudo handling
+          if [ -n "''${SUDO_USER:-}" ]; then
+              REAL_HOME=$(getent passwd "''${SUDO_USER}" | cut -d: -f6)
+              CONFIG_DIR="''${REAL_HOME}/user-config"
+          else
+              CONFIG_DIR="''${HOME}/user-config"
+          fi
+
+          # Get configured hostname for rebuild command
+          HOSTNAME=$(grep "^hostname" "''${CONFIG_DIR}/system-settings.toml" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
+          HOSTNAME="''${HOSTNAME:-nixoa}"
+          echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#''${HOSTNAME}"
         '';
       });
       meta = with pkgs.lib; {
@@ -159,11 +198,14 @@
         echo "╚══════════════════════════════════════════════════════════╝"
         echo ""
         echo "📋 Available commands:"
-        echo "  nix run .#update-xo                    - Update XO source"
-        echo "  sudo nixos-rebuild switch --flake .#nixoa - Deploy changes"
-        echo "  sudo nixos-rebuild test --flake .#nixoa   - Test changes"
-        echo "  nix flake check                        - Validate flake"
-        echo "  nix flake show                         - Show flake outputs"
+        echo "  nix run .#update-xo                      - Update XO source"
+        echo "  sudo nixos-rebuild switch --flake .#<hostname> - Deploy changes"
+        echo "  sudo nixos-rebuild test --flake .#<hostname>   - Test changes"
+        echo "  nix flake check                          - Validate flake"
+        echo "  nix flake show                           - Show flake outputs"
+        echo ""
+        echo "📝 Note: Replace <hostname> with your configured hostname (default: nixoa)"
+        echo "    You can set hostname in system-settings.toml [hostname = \"myhost\"]"
         echo ""
         echo "📁 Module locations:"
         echo "  ./modules/system.nix  - Core system configuration"
@@ -171,7 +213,9 @@
         echo "  ./modules/storage.nix - NFS/CIFS mount support"
         echo "  ./modules/libvhdi.nix - VHD image support"
         echo "  ./modules/extras.nix  - Terminal enhancements"
-        echo "  ./vars.nix            - User configuration"
+        echo ""
+        echo "📝 Configuration:"
+        echo "  Edit /etc/nixos/nixoa/user-config/system-settings.toml to customize"
         echo ""
       '';
     };

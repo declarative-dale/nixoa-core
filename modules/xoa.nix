@@ -8,13 +8,8 @@ let
   yarn   = pkgs.yarn;
   rsync  = pkgs.rsync;
   
-  # Properly define xoSource - this was missing in the original!
-  xoSource = if xoSrc != null then xoSrc else pkgs.fetchFromGitHub {
-    owner = "vatesfr";
-    repo = "xen-orchestra";
-    rev = "master";
-    hash = lib.fakeHash; # Replace with actual hash after first build attempt
-  };
+  # xoSource must be provided via flake input to ensure reproducible builds
+  xoSource = assert xoSrc != null; xoSrc;
   
   # XO home directory
   xoHome = "/var/lib/xo";

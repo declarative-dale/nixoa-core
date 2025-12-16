@@ -101,8 +101,15 @@ in
 
     openssh.authorizedKeys.keys = cfg.admin.sshKeys;
 
-    # Custom user packages from configuration
-    packages = map (name: pkgs.${name}) cfg.packages.user.extra;
+    # Custom user packages from configuration with validation
+    packages = map (name:
+      if pkgs ? ${name}
+      then pkgs.${name}
+      else throw ''
+        Package "${name}" not found in nixpkgs.
+        Check spelling or remove from system-settings.toml [packages.user] extra array.
+      ''
+    ) cfg.packages.user.extra;
   };
 
   # ============================================================================
@@ -202,7 +209,14 @@ in
 
     # Monitoring
     prometheus-node-exporter
-  ] ++ (map (name: pkgs.${name}) cfg.packages.system.extra);
+  ] ++ (map (name:
+    if pkgs ? ${name}
+    then pkgs.${name}
+    else throw ''
+      Package "${name}" not found in nixpkgs.
+      Check spelling or remove from system-settings.toml [packages.system] extra array.
+    ''
+  ) cfg.packages.system.extra);
 
   # ============================================================================
   # NIX CONFIGURATION
@@ -332,6 +346,8 @@ in
     # Custom services from user-config [services] section
     # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
     # Or configure with options: [services.docker] enable = true, enableOnBoot = true
+    # Note: Service names are validated by NixOS module system at evaluation time
+    # Invalid service names will produce clear error messages
     cfg.services.definitions
   ];
 

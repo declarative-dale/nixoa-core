@@ -5,8 +5,15 @@
 set -euo pipefail
 
 VERSION="1.0.0"
-CONFIG_DIR="/etc/nixos/nixoa/user-config"
 NIXOA_DIR="/etc/nixos/nixoa/nixoa-vm"
+
+# Resolve config directory with proper sudo handling
+if [ -n "${SUDO_USER:-}" ]; then
+    REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    CONFIG_DIR="${REAL_HOME}/user-config"
+else
+    CONFIG_DIR="${HOME}/user-config"
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -236,9 +243,13 @@ rebuild_system() {
         exit 1
     }
 
-    print_info "Running: sudo nixos-rebuild $mode --flake .#nixoa"
+    # Read hostname from user-config (defaults to "nixoa" if not set)
+    CONFIG_HOSTNAME=$(grep "^hostname" "$CONFIG_DIR/system-settings.toml" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
+    CONFIG_HOSTNAME="${CONFIG_HOSTNAME:-nixoa}"
 
-    if sudo nixos-rebuild "$mode" --flake .#nixoa; then
+    print_info "Running: sudo nixos-rebuild $mode --flake .#${CONFIG_HOSTNAME}"
+
+    if sudo nixos-rebuild "$mode" --flake ".#${CONFIG_HOSTNAME}"; then
         print_success "System rebuilt successfully!"
 
         if [ "$mode" = "switch" ]; then

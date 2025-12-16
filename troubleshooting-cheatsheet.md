@@ -1,5 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# XOA Monitoring Quick Reference
+# NiXOA Troubleshooting Quick Reference
+
+This is a quick reference for common troubleshooting and monitoring tasks on NiXOA.
 
 ## Check Status
 
@@ -174,14 +176,14 @@ nix-store --optimize --dry-run
 ## Configuration Validation
 
 ```bash
-# Check vars.nix syntax
-nix eval --file vars.nix
-
 # Validate flake
 nix flake check
 
+# Validate TOML syntax
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+
 # Show current configuration
-nix eval --json .#nixosConfigurations.xoa.config.updates | jq
+nix eval --json .#nixosConfigurations.nixoa.config.updates | jq
 
 # Preview next update
 nix flake lock --update-input xoSrc --dry-run
@@ -203,10 +205,18 @@ alias xoa-rebuild='cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --f
 ## Important Paths
 
 ```
-/etc/nixos/nixoa/nixoa-vm/         # Flake repository
-/var/lib/xoa-updates/              # Status files
+~/user-config/                     # Your configuration (home directory)
+  ├── system-settings.toml         # System configuration file
+  ├── xo-server-settings.toml      # XO server configuration
+  ├── hardware-configuration.nix   # Hardware configuration
+  └── scripts/                     # Helper scripts
+
+/etc/nixos/nixoa/
+  ├── nixoa-vm/                    # Deployment flake repository
+  └── user-config → ~/user-config  # Symlink to your configuration
+
 /var/lib/xo/                       # XO application data
-/etc/xo-server/config.toml         # XO configuration
+/etc/xo-server/config.toml         # XO configuration (auto-generated)
 /var/log/journal/                  # Systemd logs
 ```
 
