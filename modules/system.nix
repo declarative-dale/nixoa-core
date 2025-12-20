@@ -94,6 +94,7 @@ in
     createHome = true;
     home = "/home/${cfg.admin.username}";
     # shell is already provided by isNormalUser = true (defaults to bash)
+    # Home Manager will set shell to zsh if extras.enable = true
     extraGroups = [ "wheel" "systemd-journal" ];
 
     # Locked password - SSH key authentication only
@@ -101,15 +102,8 @@ in
 
     openssh.authorizedKeys.keys = cfg.admin.sshKeys;
 
-    # Custom user packages from configuration with validation
-    packages = map (name:
-      if pkgs ? ${name}
-      then pkgs.${name}
-      else throw ''
-        Package "${name}" not found in nixpkgs.
-        Check spelling or remove from system-settings.toml [packages.user] extra array.
-      ''
-    ) cfg.packages.user.extra;
+    # User packages are now managed by Home Manager
+    # (removed packages attribute - see user-config/home/home.nix)
   };
 
   # ============================================================================

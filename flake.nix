@@ -5,6 +5,12 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
 
+    # Home Manager for user environment management
+    home-manager = {
+      url = "github:nix-community/home-manager/release-25.11";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Xen Orchestra source (pinned to specific commit for stability)
     xoSrc = {
       url = "github:vatesfr/xen-orchestra";
@@ -24,7 +30,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, xoSrc, libvhdiSrc, nixoa-config ? null, ... }:
+  outputs = { self, nixpkgs, home-manager, xoSrc, libvhdiSrc, nixoa-config ? null, ... }:
   let
     # System architecture (cannot be overridden by modules)
     system = "x86_64-linux";
@@ -47,6 +53,13 @@
          nixoa-config.nixoa ? xoServer && nixoa-config.nixoa.xoServer ? toml
       then nixoa-config.nixoa.xoServer.toml
       else null;
+
+    # Extract user args from nixoa-config for use with specialArgs and Home Manager
+    # These values will be available as module function arguments in both NixOS and HM modules
+    userArgs =
+      if nixoa-config != null && nixoa-config ? nixoa && nixoa-config.nixoa ? specialArgs
+      then nixoa-config.nixoa.specialArgs
+      else { username = "xoa"; hostname = "nixoa"; system = "x86_64-linux"; };
   in {
     # Configuration name comes from user-config, defaults to "nixoa"
     # Users can customize by setting hostname in system-settings.toml
@@ -89,6 +102,29 @@
            };
          })
 
+        # Home Manager NixOS module - manages user environment
+        home-manager.nixosModules.home-manager
+
+        # Home Manager configuration
+        {
+          home-manager = {
+            useGlobalPkgs = true;
+            useUserPackages = true;
+
+            # Pass the same args to Home Manager as NixOS
+            extraSpecialArgs = userArgs;
+
+            # Configure home for the admin user
+            users.${userArgs.username or "xoa"} =
+              if nixoa-config != null && nixoa-config ? homeManagerModules && nixoa-config.homeManagerModules ? default
+              then nixoa-config.homeManagerModules.default
+              else { config, pkgs, ... }: {
+                # Minimal Home Manager config if no user-config provided
+                home.stateVersion = "25.11";
+              };
+          };
+        }
+
         # Provide module arguments via _module.args
         # Config data goes here (follows NixOS 25.11 best practices)
         {
@@ -100,9 +136,10 @@
 
       # Provide flake-pinned sources to modules via specialArgs
       # These are source code references that should not be overridden by module system
+      # Also merge user-specific args (username, nixoaCfg, etc.) from user-config
       specialArgs = {
         inherit xoSrc libvhdiSrc;
-      };
+      } // userArgs;
     };
 
     # Package metadata for the project
