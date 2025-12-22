@@ -15,7 +15,7 @@ in
   };
 
   config = mkIf cfg.enable {
-    # Enable zsh system-wide (required for Home Manager to use it)
+    # Enable zsh system-wide (required for it to be a valid login shell)
     programs.zsh.enable = true;
 
     # Enable direnv system-wide (Home Manager will configure per-user)

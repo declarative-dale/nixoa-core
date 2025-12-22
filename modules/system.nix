@@ -31,6 +31,14 @@ in
   };
 
   # ============================================================================
+  # SHELLS
+  # ============================================================================
+
+  # Ensure both bash and zsh are valid login shells for the system
+  # Shell selection per-user is configured in users.users.<name>.shell
+  environment.shells = [ pkgs.bashInteractive pkgs.zsh ];
+
+  # ============================================================================
   # BOOTLOADER
   # ============================================================================
   
@@ -93,8 +101,9 @@ in
     description = "Xen Orchestra Administrator";
     createHome = true;
     home = "/home/${cfg.admin.username}";
-    # shell is already provided by isNormalUser = true (defaults to bash)
-    # Home Manager will set shell to zsh if extras.enable = true
+    # Shell selection based on [extras].enable in system-settings.toml
+    # extras=false → bash (default), extras=true → zsh
+    shell = if cfg.extras.enable then pkgs.zsh else pkgs.bashInteractive;
     extraGroups = [ "wheel" "systemd-journal" ];
 
     # Locked password - SSH key authentication only
