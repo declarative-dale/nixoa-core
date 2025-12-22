@@ -590,6 +590,7 @@ in
           cfg.xo.dataDir
           cfg.xo.tempDir
           "/etc/xo-server"
+          "/var/lib/xo-server"  # XO server internal state directory
           config.xoa.storage.mountsDir
           "/run/lock"           # LVM lock files
           "/run/redis-xo"       # Redis socket
@@ -613,6 +614,7 @@ in
       "d ${cfg.xo.home}/.config                  0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.home}/.config/xo-server        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d /etc/xo-server                          0755 root root - -"
+      "d /var/lib/xo-server                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
     ] ++ lib.optionals cfg.xo.ssl.enable [
       "d ${cfg.xo.ssl.dir}                       0755 root root - -"
     ];
