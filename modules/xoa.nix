@@ -14,6 +14,9 @@ let
   # XO home directory
   xoHome = "/var/lib/xo";
 
+  # Marker file to track source changes and trigger rebuilds
+  xoSourceMarker = "${xoHome}/xen-orchestra/.xo-source-info.json";
+
   # Sudo wrapper for CIFS mounts - injects credentials as mount options
   # This is the "Nix way" - transform the command instead of fighting sudo's env handling
   sudoWrapper = pkgs.runCommand "xo-sudo-wrapper" {} ''
@@ -221,12 +224,58 @@ EOF
     fi
 
     echo "=== Build Complete ==="
+
+    # Record source version for rebuild detection
+    # When flake.lock updates, xoSource store path changes automatically
+    mkdir -p "$(dirname "${xoSourceMarker}")"
+    ${pkgs.jq}/bin/jq -n \
+      --arg source "${xoSource}" \
+      --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg commit "$(cd ${xoSource} 2>/dev/null && ${pkgs.git}/bin/git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+      '{source_path: $source, built_at: $timestamp, source_commit: $commit}' \
+      > "${xoSourceMarker}"
+    echo "Source info recorded to ${xoSourceMarker}"
   '';
 
   # Wrapper for Node with FUSE libraries
   nodeWithFuse = pkgs.writeShellScriptBin "node-with-fuse" ''
     export LD_LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     exec ${node}/bin/node "$@"
+  '';
+
+  # Check if XO rebuild is needed (when source changes)
+  checkXORebuildNeeded = pkgs.writeShellScript "check-xo-rebuild-needed" ''
+    set -euo pipefail
+
+    MARKER="${xoSourceMarker}"
+    CLI_MJS="${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
+    CLI_JS="${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
+    CURRENT_SOURCE="${xoSource}"
+
+    # Always rebuild if CLI doesn't exist (first build)
+    if [[ ! -f "$CLI_MJS" ]] && [[ ! -f "$CLI_JS" ]]; then
+      echo "XO CLI not found, rebuild needed"
+      exit 0  # Rebuild (ExecCondition success means run the service)
+    fi
+
+    # Rebuild if marker doesn't exist (shouldn't happen, but safety)
+    if [[ ! -f "$MARKER" ]]; then
+      echo "XO source marker not found, rebuild needed"
+      exit 0  # Rebuild
+    fi
+
+    # Rebuild if source path changed (flake.lock was updated)
+    STORED_SOURCE=$(${pkgs.jq}/bin/jq -r '.source_path' "$MARKER" 2>/dev/null || echo "")
+    if [[ "$CURRENT_SOURCE" != "$STORED_SOURCE" ]]; then
+      echo "XO source changed, rebuild needed"
+      echo "  Old: $STORED_SOURCE"
+      echo "  New: $CURRENT_SOURCE"
+      exit 0  # Rebuild
+    fi
+
+    # No rebuild needed
+    echo "XO source unchanged, skipping rebuild"
+    exit 1  # Skip service (ExecCondition failure means skip the service)
   '';
 
   # Start script for xo-server
@@ -422,14 +471,6 @@ in
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ];
 
-      # Only run if build artifacts don't exist - prevents rebuilding on every boot
-      unitConfig = {
-        ConditionPathExists = [
-          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
-          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
-        ];
-      };
-
       path = with pkgs; [
         git nodejs_20 yarn python3 gcc gnumake pkg-config
         coreutils findutils bash esbuild patchelf
@@ -450,6 +491,9 @@ in
         WorkingDirectory = cfg.xo.appDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
+
+        # Check if rebuild is needed before running (when source changes via flake.lock update)
+        ExecCondition = "${checkXORebuildNeeded}";
 
         ReadWritePaths = [
           cfg.xo.appDir
