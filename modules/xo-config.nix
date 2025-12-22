@@ -17,7 +17,7 @@ in
       # xoTomlData is already a TOML-formatted string, use it directly
       text = xoTomlData;
       # Set permissions for the xo user (matches xoa.nix behavior)
-      mode = "0640";
+      mode = "0644";
     };
   };
 }
