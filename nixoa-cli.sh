@@ -187,7 +187,7 @@ config_edit() {
     echo "  2. xo-server-settings.toml"
     echo ""
 
-    read -p "Which file to edit? [1/2/both] (default: 1): " choice
+    read -r -p "Which file to edit? [1/2/both] (default: 1): " choice
 
     case "${choice:-1}" in
         1)
@@ -340,7 +340,8 @@ show_status() {
 
     if [ -d "$CONFIG_DIR/.git" ]; then
         cd "$CONFIG_DIR"
-        local last_commit=$(git log -1 --oneline -- system-settings.toml xo-server-settings.toml 2>/dev/null | head -1)
+        local last_commit
+        last_commit=$(git log -1 --oneline -- system-settings.toml xo-server-settings.toml 2>/dev/null | head -1)
         if [ -n "$last_commit" ]; then
             echo "  Last config change: $last_commit"
         fi
