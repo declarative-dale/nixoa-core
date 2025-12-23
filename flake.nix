@@ -109,6 +109,10 @@
             useGlobalPkgs = true;
             useUserPackages = true;
 
+            # Automatically back up conflicting files with .bak extension
+            # (in case user-managed dotfiles already exist)
+            backupFileExtension = "bak";
+
             # Pass the same args to Home Manager as NixOS
             extraSpecialArgs = userArgs;
 
