@@ -74,9 +74,6 @@ sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
 
 # Clone user configuration to your home directory (as regular user)
 git clone https://codeberg.org/nixoa/user-config.git ~/user-config
-
-# Create symlink for flake input
-sudo ln -sf ~/user-config /etc/nixos/nixoa/user-config
 ```
 
 #### 2. Configure System
@@ -85,19 +82,20 @@ Edit your configuration in your **home directory**:
 
 ```bash
 cd ~/user-config
-nano system-settings.toml
+nano configuration.nix
 ```
 
-**Required changes:**
+**Required changes in `systemSettings`:**
 - `hostname` - Your system's hostname
-- `admin.username` - Admin user for SSH access
-- `admin.sshKeys` - Your SSH public key(s)
+- `username` - Admin user for SSH access
+- `sshKeys` - Your SSH public key(s)
 
 **Optional changes:**
-- `xo.port` / `xo.httpsPort` - Change default ports
+- `xo.port` / `xo.httpsPort` - Change default XO ports
 - `storage.*` - Enable/disable NFS and CIFS support
-- `extras.enable` - Enhanced terminal experience with zsh
-- `services.*` - Custom NixOS services
+- `userSettings.extras.enable` - Enhanced terminal experience with zsh
+- `userSettings.packages.extra` - Additional user packages
+- `systemSettings.packages.system.extra` - System-wide packages
 
 #### 3. Apply Configuration
 
@@ -124,7 +122,7 @@ cd /etc/nixos/nixoa/nixoa-vm
 sudo nixos-rebuild switch --flake .#<hostname> -L
 ```
 
-Replace `<hostname>` with the value in `~/user-config/system-settings.toml`.
+Replace `<hostname>` with the `hostname` value in `~/user-config/configuration.nix`.
 
 ### 4. Access Xen Orchestra
 
@@ -209,38 +207,57 @@ Skip user-config and configure directly in Nix:
 
 ## Configuration
 
-### system-settings.toml Structure
+### configuration.nix Structure
 
-Configuration is managed in your **home directory** at `~/user-config/system-settings.toml`:
+Configuration is managed in your **home directory** at `~/user-config/configuration.nix` using pure Nix:
 
-```toml
-# System basics
-hostname = "nixoa"
-username = "xoa"
-sshKeys = ["ssh-ed25519 ..."]  # Your public keys
+```nix
+{ lib, pkgs, ... }:
 
-# Xen Orchestra ports
-[xo]
-port = 80
-httpsPort = 443
+{
+  userSettings = {
+    packages.extra = [ ];  # Additional user packages
+    extras.enable = false;  # Enable terminal enhancements (zsh, oh-my-posh, etc.)
+  };
 
-# TLS settings
-[tls]
-enable = true  # Auto-generate self-signed certs
+  systemSettings = {
+    # Basic system identification
+    hostname = "nixoa";
+    username = "xoa";
+    stateVersion = "25.11";
+    timezone = "UTC";
+    sshKeys = [ "ssh-ed25519 ..." ];  # Your SSH public keys
 
-# Storage support
-[storage.nfs]
-enable = true  # Enable NFS mounting
+    # Xen Orchestra configuration
+    xo = {
+      port = 80;
+      httpsPort = 443;
+      tls = {
+        enable = true;
+        redirectToHttps = true;
+        autoGenerate = true;  # Auto-generate self-signed certs
+      };
+    };
 
-[storage.cifs]
-enable = true  # Enable CIFS/SMB mounting
+    # Storage support
+    storage = {
+      nfs.enable = true;
+      cifs.enable = true;
+      vhd.enable = true;
+    };
 
-# Updates - see "Automated Updates" section
-[updates]
-repoDir = "/etc/nixos/nixoa/nixoa-vm"  # Must match where you cloned the repository
+    # System packages
+    packages.system.extra = [ ];
+
+    # Optional: Automated updates configuration
+    updates = { };
+  };
+}
 ```
 
-**See MIGRATION-OPTIONS.md for complete options documentation** including pure Nix configuration methods.
+You can also optionally customize XO server settings in `config.nixoa.toml` (optional overrides).
+
+**See README.md and CLI-REFERENCE.md for complete configuration examples.**
 
 ### Manual Configuration
 
@@ -281,37 +298,42 @@ sudo systemctl restart xo-server.service
 
 ## Automated Updates
 
-Enable automatic updates in `~/user-config/system-settings.toml`:
+Enable automatic updates in `~/user-config/configuration.nix`:
 
-```toml
-[updates]
-repoDir = "/etc/nixos/nixoa/nixoa-vm"  # Location of your cloned nixoa-vm repository
+```nix
+systemSettings = {
+  updates = {
+    # Garbage collection - runs independently
+    gc = {
+      enable = true;
+      schedule = "Sun 04:00";
+      keepGenerations = 7;
+    };
 
-# Garbage collection - runs independently
-[updates.gc]
-enable = true
-schedule = "Sun 04:00"
-keepGenerations = 7
+    # Pull flake updates from remote repository
+    flake = {
+      enable = true;
+      schedule = "Sun 04:00";
+      remoteUrl = "https://codeberg.org/nixoa/nixoa-vm.git";
+      branch = "main";
+      autoRebuild = false;
+    };
 
-# Pull flake updates from remote repository
-[updates.flake]
-enable = true
-schedule = "Sun 04:00"
-remoteUrl = "https://codeberg.org/nixoa/nixoa-vm.git"
-branch = "main"
-autoRebuild = false
+    # Update NixOS packages
+    nixpkgs = {
+      enable = true;
+      schedule = "Mon 04:00";
+      keepGenerations = 7;
+    };
 
-# Update NixOS packages
-[updates.nixpkgs]
-enable = true
-schedule = "Mon 04:00"
-keepGenerations = 7
-
-# Update Xen Orchestra upstream source
-[updates.xoa]
-enable = true
-schedule = "Tue 04:00"
-keepGenerations = 7
+    # Update Xen Orchestra upstream source
+    xoa = {
+      enable = true;
+      schedule = "Tue 04:00";
+      keepGenerations = 7;
+    };
+  };
+};
 ```
 
 **How it works:**
@@ -524,8 +546,8 @@ curl -H "Title: Test" -d "Testing ntfy from XOA" \
 # Check if curl is available
 which curl
 
-# Verify configuration
-grep -A5 "ntfy" ~/user-config/system-settings.toml
+# Verify configuration in configuration.nix
+cat ~/user-config/configuration.nix | grep -A5 "updates"
 ```
 
 **For email:**
@@ -654,9 +676,9 @@ NixOA modules are organized by concern for clarity and maintainability:
 ```
 /home/<user>/
 └── user-config/                 # Configuration flake (your home directory)
-    ├── flake.nix                # Simplified (data exports only)
-    ├── configuration.nix        # Pure Nix configuration
-    ├── system-settings.toml     # Your system settings (TOML)
+    ├── flake.nix                # Simplified flake (data exports only)
+    ├── configuration.nix        # Pure Nix configuration (systemSettings, userSettings)
+    ├── config.nixoa.toml        # Optional XO server config overrides
     ├── hardware-configuration.nix  # Your hardware config
     └── scripts/
         ├── apply-config.sh      # Commit and rebuild

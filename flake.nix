@@ -23,9 +23,10 @@
       flake = false;
     };
 
-    # User configuration flake (optional, local path on the host)
+    # User configuration flake (optional, local path in current user's home)
+    # Uses HOME environment variable to work with any username
     nixoa-config = {
-      url = "path:/home/xoa/user-config";
+      url = "path:${builtins.getEnv "HOME"}/user-config";
       flake = true;
     };
   };
@@ -77,15 +78,18 @@
          else builtins.throw ''
            nixoa-vm: hardware-configuration.nix is missing in user-config!
 
-           Please copy your hardware configuration to user-config:
-             sudo cp /etc/nixos/hardware-configuration.nix /etc/nixos/nixoa/user-config/
+           Make sure user-config is cloned to your home directory:
+             git clone https://codeberg.org/nixoa/user-config.git ~/user-config
+
+           Then copy your hardware configuration to user-config:
+             sudo cp /etc/nixos/hardware-configuration.nix ~/user-config/
 
            Or generate fresh:
-             sudo nixos-generate-config --show-hardware-config > /etc/nixos/nixoa/user-config/hardware-configuration.nix
+             sudo nixos-generate-config --show-hardware-config > ~/user-config/hardware-configuration.nix
 
            Then commit the change:
-             cd /etc/nixos/nixoa/user-config
-             ./commit-config "Add hardware-configuration.nix"
+             cd ~/user-config
+             ./scripts/commit-config.sh "Add hardware-configuration.nix"
          '')
 
         # Auto-import all modules from ./modules directory
@@ -190,7 +194,7 @@
           fi
 
           # Get configured hostname for rebuild command
-          HOSTNAME=$(grep "^hostname" "''${CONFIG_DIR}/system-settings.toml" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
+          HOSTNAME=$(grep "hostname = " "''${CONFIG_DIR}/configuration.nix" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
           HOSTNAME="''${HOSTNAME:-nixoa}"
           echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#''${HOSTNAME}"
         '';
@@ -235,7 +239,7 @@
         echo "  ./modules/bundle.nix - Dynamic module discovery"
         echo ""
         echo "📝 Configuration:"
-        echo "  Edit /etc/nixos/nixoa/user-config/configuration.nix to customize"
+        echo "  Edit ~/user-config/configuration.nix to customize"
         echo ""
       '';
     };
