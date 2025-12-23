@@ -25,7 +25,7 @@
 
     # User configuration flake (optional, local path on the host)
     nixoa-config = {
-      url = "path:/etc/nixos/nixoa/user-config";
+      url = "path:/home/xoa/user-config";
       flake = true;
     };
   };
