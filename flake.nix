@@ -91,14 +91,6 @@
         # Auto-import all modules from ./modules directory
         ./modules
 
-        # Import user configuration module from user-config
-        (if nixoa-config != null
-         then nixoa-config.nixosModules.default
-         else {
-           # Minimal defaults if no nixoa-config provided (for development/testing)
-           config = {};
-         })
-
         # Home Manager NixOS module - manages user environment
         home-manager.nixosModules.home-manager
 
@@ -112,13 +104,8 @@
             extraSpecialArgs = userArgs;
 
             # Configure home for the admin user
-            users.${userArgs.username or "xoa"} =
-              if nixoa-config != null && nixoa-config ? homeManagerModules && nixoa-config.homeManagerModules ? default
-              then nixoa-config.homeManagerModules.default
-              else { config, pkgs, ... }: {
-                # Minimal Home Manager config if no user-config provided
-                home.stateVersion = "25.11";
-              };
+            # Home Manager configuration is now in nixoa-vm/modules/home/home.nix
+            users.${userArgs.username or "xoa"} = import ./modules/home/home.nix;
           };
         }
 
