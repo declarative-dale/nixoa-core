@@ -8,13 +8,14 @@ let
   modulesDir = ./.;
 
   # Recursively collect all .nix files from directory and subdirectories
+  # Excludes: bundle.nix, default.nix, and home/ directory (handled separately in flake.nix)
   collectNixFiles = dir: prefix:
     let
       entries = builtins.readDir dir;
       processEntry = name: type:
         if type == "regular" && lib.hasSuffix ".nix" name && name != "bundle.nix" && name != "default.nix"
         then [ (prefix + name) ]
-        else if type == "directory"
+        else if type == "directory" && name != "home"
         then collectNixFiles (dir + "/${name}") (prefix + name + "/")
         else [ ];
     in
