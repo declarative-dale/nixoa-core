@@ -140,6 +140,16 @@ EOF
       ${pkgs.git}/bin/git commit -q -m "imported snapshot" || true
     fi
 
+    # Fix TypeScript generic inference issue in select-column.ts
+    # Upstream bug: VtsSelect uses Vue 3.3+ generic types that TypeScript can't infer in h() calls
+    # This patches the MUTABLE COPY in /var/lib/xo (same approach as SMB handler patch above)
+    echo "Patching select-column.ts TypeScript error..."
+    if [ -f @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts ]; then
+      sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
+        @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts
+      echo "select-column.ts: added type assertion for generic component"
+    fi
+
     # Environment configuration
     export HOME="${cfg.xo.home}"
     export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
@@ -149,6 +159,7 @@ EOF
     export CI="true"
     export YARN_ENABLE_IMMUTABLE_INSTALLS=true
     export PYTHON="${pkgs.python3}/bin/python3"
+    export TURBO_TELEMETRY_DISABLED=1
 
     # Don't force esbuild binary - let yarn install the correct version
     # export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
@@ -174,27 +185,14 @@ EOF
     echo "[2/3] Building..."
     ${yarn}/bin/yarn build
 
-    # Build v6
-    echo "[2.5/3] Building v6..."
-    cd @xen-orchestra/web
-
-    # Install dependencies using npm ci for reproducible builds
-    echo "Installing v6 dependencies with npm ci..."
-    ${pkgs.nodejs_20}/bin/npm ci
-
-    # Run vite build using npm (v6 uses npm run build)
-    echo "Running: npm run build"
-    ${pkgs.nodejs_20}/bin/npm run build
-
-    # Verify dist was created
-    if [ ! -d dist ]; then
-      echo "ERROR: v6 dist folder not created after npm run build!" >&2
-      ls -la
+    # Verify @xen-orchestra/web was built successfully by yarn build (via Turbo)
+    # Note: yarn workspaces handle @xen-orchestra/web dependencies and Turbo builds it automatically
+    # The previous separate npm ci/npm run build was redundant
+    echo "[2.5/3] Verifying @xen-orchestra/web build..."
+    if [ ! -d @xen-orchestra/web/dist ]; then
+      echo "ERROR: @xen-orchestra/web dist not created!" >&2
       exit 1
     fi
-
-    # Return to app root directory
-    cd "${cfg.xo.appDir}"
 
     # Patch native modules to include FUSE library paths
     echo "[3/4] Patching native modules..."
