@@ -7,10 +7,10 @@
 set -euo pipefail
 
 # Configuration
-BASE_DIR="/etc/nixos/nixoa"          # Target location for base flake (nixoa-vm)
+BASE_DIR="/etc/nixos/nixoa"                          # Target location for base flake (nixoa-vm)
 BASE_REPO="https://codeberg.org/nixoa/nixoa-vm.git"
-USER_REPO_DIR="$HOME/user-config"    # Target location for user config flake (home directory)
-USER_REPO_REMOTE=""                  # Will be prompted from user
+USER_REPO_DIR="/etc/nixos/nixoa/user-config"        # Target location for user config flake
+USER_REPO_REMOTE="https://codeberg.org/nixoa/user-config.git"
 DRY_RUN=false
 
 # Parse arguments
@@ -73,29 +73,17 @@ if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" ]]; then
   fi
 fi
 
-# 3. Set up user config flake repository in home directory
+# 3. Set up user config flake repository
 if [[ -d "$USER_REPO_DIR" ]]; then
   echo "User config directory $USER_REPO_DIR already exists."
   if [[ -d "$USER_REPO_DIR/.git" ]]; then
     echo " - Git repository detected for user config."
   else
-    echo " - Initializing git in $USER_REPO_DIR (was not a repo)."
-    run "git init \"$USER_REPO_DIR\""
+    echo " - Note: $USER_REPO_DIR exists but is not a git repo."
   fi
 else
-  echo "Creating user config flake in $USER_REPO_DIR ..."
-  run "mkdir -p \"$USER_REPO_DIR\""
-  run "git init \"$USER_REPO_DIR\""
-fi
-
-# Optionally prompt for remote URL for user-config repo
-if [[ $DRY_RUN == false ]]; then
-  read -rp "Enter a git remote URL for your user-config (or leave blank to skip): " REPO_URL
-  USER_REPO_REMOTE="$REPO_URL"
-fi
-if [[ -n "$USER_REPO_REMOTE" ]]; then
-  echo "Setting origin remote for user-config to $USER_REPO_REMOTE"
-  run "git -C \"$USER_REPO_DIR\" remote add origin \"$USER_REPO_REMOTE\" || true"
+  echo "Cloning user config flake to $USER_REPO_DIR ..."
+  run "sudo git clone $USER_REPO_REMOTE $USER_REPO_DIR"
 fi
 
 # 4. Populate user config flake with initial files
@@ -432,11 +420,7 @@ echo "Committing initial files in user-config repo..."
 run "git -C \"$USER_REPO_DIR\" add -A"
 run "git -C \"$USER_REPO_DIR\" commit -m \"Initial NiXOA configuration\" || true"
 
-# 7. Create symlink for flake input
-echo "Creating symlink for flake input..."
-run "sudo ln -sf \"$USER_REPO_DIR\" \"$BASE_DIR/user-config\""
-
-# 8. Prompt user to edit configuration before first rebuild
+# 7. Prompt user to edit configuration before first rebuild
 echo ""
 echo "================================"
 echo "Initial Setup Complete!"

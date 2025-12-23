@@ -23,10 +23,11 @@
       flake = false;
     };
 
-    # User configuration flake (optional, local path in current user's home)
-    # Uses HOME environment variable to work with any username
+    # User configuration flake
+    # Located at /etc/nixos/nixoa/user-config
+    # Setup: git clone https://codeberg.org/nixoa/user-config.git /etc/nixos/nixoa/user-config
     nixoa-config = {
-      url = "path:${builtins.getEnv "HOME"}/user-config";
+      url = "path:/etc/nixos/nixoa/user-config";
       flake = true;
     };
   };
@@ -72,24 +73,28 @@
       inherit system;
 
       modules = [
-        # Hardware configuration - imported from user-config
-        (if nixoa-config != null && (nixoa-config ? nixosModules) && (nixoa-config.nixosModules ? hardware)
-         then nixoa-config.nixosModules.hardware
+        # Hardware configuration - imported directly from user-config directory
+        (if nixoa-config != null
+         then "${nixoa-config}/hardware-configuration.nix"
          else builtins.throw ''
-           nixoa-vm: hardware-configuration.nix is missing in user-config!
+           nixoa-vm: user-config flake not found!
 
-           Make sure user-config is cloned to your home directory:
-             git clone https://codeberg.org/nixoa/user-config.git ~/user-config
+           Setup steps:
+           1. Clone user-config to /etc/nixos/nixoa:
+              sudo git clone https://codeberg.org/nixoa/user-config.git /etc/nixos/nixoa/user-config
 
-           Then copy your hardware configuration to user-config:
-             sudo cp /etc/nixos/hardware-configuration.nix ~/user-config/
+           2. Ensure hardware configuration exists:
+              ls /etc/nixos/nixoa/user-config/hardware-configuration.nix
 
-           Or generate fresh:
-             sudo nixos-generate-config --show-hardware-config > ~/user-config/hardware-configuration.nix
+              If missing, copy or generate:
+              sudo cp /etc/nixos/hardware-configuration.nix /etc/nixos/nixoa/user-config/
+              OR
+              sudo nixos-generate-config --show-hardware-config > /etc/nixos/nixoa/user-config/hardware-configuration.nix
 
-           Then commit the change:
-             cd ~/user-config
-             ./scripts/commit-config.sh "Add hardware-configuration.nix"
+           3. Commit the change:
+              cd /etc/nixos/nixoa/user-config
+              sudo git add hardware-configuration.nix
+              sudo git commit -m "Add hardware-configuration.nix"
          '')
 
         # Auto-import all modules from ./modules directory
@@ -185,18 +190,11 @@
           echo ""
           echo "✅ Update complete! Review changes with: git diff flake.lock"
 
-          # Resolve config directory with proper sudo handling
-          if [ -n "''${SUDO_USER:-}" ]; then
-              REAL_HOME=$(getent passwd "''${SUDO_USER}" | cut -d: -f6)
-              CONFIG_DIR="''${REAL_HOME}/user-config"
-          else
-              CONFIG_DIR="''${HOME}/user-config"
-          fi
-
           # Get configured hostname for rebuild command
+          CONFIG_DIR="/etc/nixos/nixoa/user-config"
           HOSTNAME=$(grep "hostname = " "''${CONFIG_DIR}/configuration.nix" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
           HOSTNAME="''${HOSTNAME:-nixoa}"
-          echo "📦 To rebuild: sudo nixos-rebuild switch --flake .#''${HOSTNAME}"
+          echo "📦 To rebuild: cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --flake .#''${HOSTNAME}"
         '';
       });
       meta = with pkgs.lib; {
@@ -239,7 +237,7 @@
         echo "  ./modules/bundle.nix - Dynamic module discovery"
         echo ""
         echo "📝 Configuration:"
-        echo "  Edit ~/user-config/configuration.nix to customize"
+        echo "  Edit /etc/nixos/nixoa/user-config/configuration.nix to customize"
         echo ""
       '';
     };

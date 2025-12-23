@@ -67,21 +67,25 @@ If you prefer more control, follow these steps:
 #### 1. Clone Repositories
 
 ```bash
-# Clone system deployment flake (as root)
+# Create nixos config directory
 sudo mkdir -p /etc/nixos/nixoa
 cd /etc/nixos/nixoa
+
+# Clone system deployment flake (nixoa-vm)
 sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
 
-# Clone user configuration to your home directory (as regular user)
-git clone https://codeberg.org/nixoa/user-config.git ~/user-config
+# Clone user configuration as a sibling directory
+sudo git clone https://codeberg.org/nixoa/user-config.git user-config
 ```
+
+Both repositories are now in `/etc/nixos/nixoa/` with nixoa-vm finding user-config via a relative path reference.
 
 #### 2. Configure System
 
-Edit your configuration in your **home directory**:
+Edit your configuration:
 
 ```bash
-cd ~/user-config
+cd /etc/nixos/nixoa/user-config
 nano configuration.nix
 ```
 
