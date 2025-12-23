@@ -18,7 +18,7 @@ let
         then collectNixFiles (dir + "/${name}") (prefix + name + "/")
         else [ ];
     in
-      lib.concatMap processEntry (builtins.attrNames entries);
+      lib.concatMap (name: processEntry name entries.${name}) (builtins.attrNames entries);
 
   # Get all .nix files relative to modules directory
   nixFiles = collectNixFiles modulesDir "";
