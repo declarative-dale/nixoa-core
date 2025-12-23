@@ -344,17 +344,14 @@ echo "=== Configuration Changes ==="
 git diff --stat configuration.nix config.nixoa.toml 2>/dev/null || true
 echo ""
 
-# Stage the configuration files
-git add configuration.nix config.nixoa.toml 2>/dev/null || true
-
 # Check if there are changes to commit
-if git diff --staged --quiet; then
+if git diff --quiet configuration.nix config.nixoa.toml 2>/dev/null; then
     echo "No changes to commit."
     exit 0
 fi
 
-# Commit the changes
-git commit -m "$COMMIT_MSG"
+# Commit the changes (auto-stages tracked files)
+git commit -a -m "$COMMIT_MSG"
 
 echo "✓ Configuration committed successfully!"
 echo ""

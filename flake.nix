@@ -226,7 +226,7 @@
         echo "  nix flake show                           - Show flake outputs"
         echo ""
         echo "📝 Note: Replace <hostname> with your configured hostname (default: nixoa)"
-        echo "    You can set hostname in system-settings.toml [hostname = \"myhost\"]"
+        echo "    You can set hostname in configuration.nix (systemSettings.hostname = \"myhost\")"
         echo ""
         echo "📁 Module organization:"
         echo "  ./modules/core/     - System modules (users, network, packages, services)"
@@ -235,7 +235,7 @@
         echo "  ./modules/bundle.nix - Dynamic module discovery"
         echo ""
         echo "📝 Configuration:"
-        echo "  Edit /etc/nixos/nixoa/user-config/system-settings.toml to customize"
+        echo "  Edit /etc/nixos/nixoa/user-config/configuration.nix to customize"
         echo ""
       '';
     };
