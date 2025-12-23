@@ -10,7 +10,7 @@ let
   nixoa-cli = pkgs.writeShellApplication {
     name = "nixoa";
     runtimeInputs = with pkgs; [ git coreutils gnused gawk nixos-rebuild nix ];
-    text = builtins.readFile ../nixoa-cli.sh;
+    text = builtins.readFile ../../nixoa-cli.sh;
   };
 
   # Bash completion for nixoa command
