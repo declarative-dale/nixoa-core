@@ -39,30 +39,34 @@
     # Only import pkgs where needed (for packages/apps/devShells)
     pkgs = nixpkgs.legacyPackages.${system};
 
-    # Extract hostname from user-config (defaults to "nixoa")
-    # This allows users to customize the hostname in system-settings.toml
-    configHostname =
-      if nixoa-config != null && nixoa-config ? nixoa && nixoa-config.nixoa ? hostname
-      then nixoa-config.nixoa.hostname
-      else "nixoa";
-
-    # Extract XO TOML data at flake level
-    # This separates config data (passed via _module.args) from flake inputs (specialArgs)
-    xoTomlData =
-      if nixoa-config != null && nixoa-config ? nixoa &&
-         nixoa-config.nixoa ? xoServer && nixoa-config.nixoa.xoServer ? toml
-      then nixoa-config.nixoa.xoServer.toml
-      else null;
-
     # Extract user args from nixoa-config for use with specialArgs and Home Manager
     # These values will be available as module function arguments in both NixOS and HM modules
     userArgs =
       if nixoa-config != null && nixoa-config ? nixoa && nixoa-config.nixoa ? specialArgs
       then nixoa-config.nixoa.specialArgs
-      else { username = "xoa"; hostname = "nixoa"; system = "x86_64-linux"; };
+      else {
+        # Fallback defaults if no nixoa-config provided (for development/testing)
+        username = "xoa";
+        hostname = "nixoa";
+        system = "x86_64-linux";
+        userSettings = { packages.extra = []; extras.enable = false; };
+        systemSettings = {
+          hostname = "nixoa";
+          username = "xoa";
+          stateVersion = "25.11";
+          sshKeys = [];
+          xo = { port = 80; httpsPort = 443; };
+          storage.mountsDir = "/var/lib/xo/mounts";
+        };
+        xoTomlData = null;
+      };
+
+    # Extract hostname and XO TOML data for convenience
+    configHostname = userArgs.systemSettings.hostname or userArgs.hostname or "nixoa";
+    xoTomlData = userArgs.xoTomlData or null;
   in {
     # Configuration name comes from user-config, defaults to "nixoa"
-    # Users can customize by setting hostname in system-settings.toml
+    # Users can customize by setting hostname in configuration.nix
     nixosConfigurations.${configHostname} = lib.nixosSystem {
       inherit system;
 
@@ -85,7 +89,6 @@
          '')
 
         # Auto-import all modules from ./modules directory
-        # This includes nixoa-options.nix which defines options.nixoa.*
         ./modules
 
         # Import user configuration module from user-config
@@ -93,13 +96,7 @@
          then nixoa-config.nixosModules.default
          else {
            # Minimal defaults if no nixoa-config provided (for development/testing)
-           config.nixoa = {
-             hostname = "nixoa";
-             admin = {
-               username = "xoa";
-               sshKeys = [];
-             };
-           };
+           config = {};
          })
 
         # Home Manager NixOS module - manages user environment

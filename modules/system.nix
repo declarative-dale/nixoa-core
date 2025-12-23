@@ -1,21 +1,59 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, pkgs, lib, ... }:
+{ config, pkgs, lib, systemSettings ? {}, userSettings ? {}, ... }:
 
 let
-  cfg = config.nixoa;
+  # Safe attribute access with defaults
+  get = path: default:
+    let
+      getValue = cfg: pathList:
+        if pathList == []
+        then cfg
+        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
+        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
+        else null;
+      result = getValue systemSettings path;
+    in
+      if result == null then default else result;
+
+  # Extract commonly used values
+  hostname = get ["hostname"] "nixoa";
+  username = get ["username"] "xoa";
+  stateVersion = get ["stateVersion"] "25.11";
+  timezone = get ["timezone"] "UTC";
+  sshKeys = get ["sshKeys"] [];
+  extrasEnable = userSettings.extras.enable or false;
+  systemPackagesExtra = get ["packages" "system" "extra"] [];
+  allowedTCPPorts = get ["networking" "firewall" "allowedTCPPorts"] [80 443 3389 5900 8012];
+  xoServiceUser = get ["xo" "service" "user"] "xo";
+  xoServiceGroup = get ["xo" "service" "group"] "xo";
+  xoHost = get ["xo" "host"] "0.0.0.0";
+  xoPort = get ["xo" "port"] 80;
+  xoHttpsPort = get ["xo" "httpsPort"] 443;
+  xoTlsEnable = get ["xo" "tls" "enable"] true;
+  xoTlsRedirect = get ["xo" "tls" "redirectToHttps"] true;
+  xoTlsAutoGen = get ["xo" "tls" "autoGenerate"] true;
+  xoTlsDir = get ["xo" "tls" "dir"] "/etc/ssl/xo";
+  xoTlsCert = get ["xo" "tls" "cert"] "/etc/ssl/xo/certificate.pem";
+  xoTlsKey = get ["xo" "tls" "key"] "/etc/ssl/xo/key.pem";
+  storageNfsEnable = get ["storage" "nfs" "enable"] true;
+  storageCifsEnable = get ["storage" "cifs" "enable"] true;
+  storageVhdEnable = get ["storage" "vhd" "enable"] true;
+  storageMountsDir = get ["storage" "mountsDir"] "/var/lib/xo/mounts";
+  servicesDefinitions = get ["services" "definitions"] {};
+  updatesConfig = get ["updates"] {};
 in
 {
   # ============================================================================
   # SYSTEM IDENTIFICATION
   # ============================================================================
 
-  networking.hostName = cfg.hostname;
+  networking.hostName = hostname;
 
   # ============================================================================
   # LOCALE & INTERNATIONALIZATION
   # ============================================================================
 
-  time.timeZone = lib.mkDefault cfg.timezone;
+  time.timeZone = lib.mkDefault timezone;
   
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
@@ -81,35 +119,35 @@ in
   # ============================================================================
   
   # Primary group for XO service
-  users.groups.${cfg.xo.service.group} = {};
+  users.groups.${xoServiceGroup} = {};
   users.groups.fuse = {};
 
   # XO service account (runs xo-server and related services)
-  users.users.${cfg.xo.service.user} = {
+  users.users.${xoServiceUser} = {
     isSystemUser = true;
     description = "Xen Orchestra service account";
     createHome = true;
-    group = cfg.xo.service.group;
+    group = xoServiceGroup;
     home = "/var/lib/xo";
     shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
     extraGroups = [ "fuse" ];
   };
 
   # XOA admin account: SSH-key login only, sudo-capable
-  users.users.${cfg.admin.username} = {
+  users.users.${username} = {
     isNormalUser = true;
     description = "Xen Orchestra Administrator";
     createHome = true;
-    home = "/home/${cfg.admin.username}";
-    # Shell selection based on [extras].enable in system-settings.toml
-    # extras=false → bash (default), extras=true → zsh
-    shell = if cfg.extras.enable then pkgs.zsh else pkgs.bashInteractive;
+    home = "/home/${username}";
+    # Shell selection based on extras.enable in configuration.nix
+    # extras.enable=false → bash (default), extras.enable=true → zsh
+    shell = if extrasEnable then pkgs.zsh else pkgs.bashInteractive;
     extraGroups = [ "wheel" "systemd-journal" ];
 
     # Locked password - SSH key authentication only
     hashedPassword = "!";
 
-    openssh.authorizedKeys.keys = cfg.admin.sshKeys;
+    openssh.authorizedKeys.keys = sshKeys;
 
     # User packages are now managed by Home Manager
     # (removed packages attribute - see user-config/home/home.nix)
@@ -126,7 +164,7 @@ in
     extraRules = [
       # Admin user with full sudo access
       {
-        users = [ cfg.admin.username ];
+        users = [ username ];
         commands = [
           { command = "ALL"; options = [ "NOPASSWD" ]; }
         ];
@@ -150,7 +188,7 @@ in
   # Firewall configuration
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = cfg.networking.firewall.allowedTCPPorts;
+    allowedTCPPorts = allowedTCPPorts;
 
     # Optional: Allow ping
     allowPing = true;
@@ -217,9 +255,9 @@ in
     then pkgs.${name}
     else throw ''
       Package "${name}" not found in nixpkgs.
-      Check spelling or remove from system-settings.toml [packages.system] extra array.
+      Check spelling or remove from configuration.nix systemSettings.packages.system.extra.
     ''
-  ) cfg.packages.system.extra);
+  ) systemPackagesExtra);
 
   # ============================================================================
   # NIX CONFIGURATION
@@ -234,7 +272,7 @@ in
       auto-optimise-store = true;
       
       # Trusted users (can use binary caches)
-      trusted-users = [ "root" cfg.admin.username ];
+      trusted-users = [ "root" username ];
       
       # Prevent disk space issues
       min-free = lib.mkDefault (1024 * 1024 * 1024); # 1GB
@@ -277,7 +315,7 @@ in
           PasswordAuthentication = false;
           KbdInteractiveAuthentication = false;
           PubkeyAuthentication = true;
-          AllowUsers = [ cfg.admin.username ];
+          AllowUsers = [ username ];
 
           # Security hardening
           X11Forwarding = false;
@@ -346,12 +384,11 @@ in
         Compress=yes
       '';
     }
-    # Custom services from user-config [services] section
-    # Users can enable services with defaults: services.enable = ["docker", "tailscale"]
-    # Or configure with options: [services.docker] enable = true, enableOnBoot = true
+    # Custom services from user-config services.definitions
+    # Users can define services with custom configurations
     # Note: Service names are validated by NixOS module system at evaluation time
     # Invalid service names will produce clear error messages
-    cfg.services.definitions
+    servicesDefinitions
   ];
 
   # ============================================================================
@@ -359,28 +396,28 @@ in
   # ============================================================================
 
   # Main XOA module configuration
-  # Bridge config.nixoa.* to config.xoa.* (internal XOA module options)
+  # Configure XO service based on systemSettings
   xoa = {
     enable = true;
 
     admin = {
-      user = cfg.admin.username;
-      sshAuthorizedKeys = cfg.admin.sshKeys;
+      user = username;
+      sshAuthorizedKeys = sshKeys;
     };
 
     xo = {
-      user = cfg.xo.service.user;
-      group = cfg.xo.service.group;
-      host = cfg.xo.host;
-      port = cfg.xo.port;
-      httpsPort = cfg.xo.httpsPort;
+      user = xoServiceUser;
+      group = xoServiceGroup;
+      host = xoHost;
+      port = xoPort;
+      httpsPort = xoHttpsPort;
 
       ssl = {
-        enable = cfg.xo.tls.enable;
-        redirectToHttps = cfg.xo.tls.redirectToHttps;
-        dir = cfg.xo.tls.dir;
-        cert = cfg.xo.tls.cert;
-        key = cfg.xo.tls.key;
+        enable = xoTlsEnable;
+        redirectToHttps = xoTlsRedirect;
+        dir = xoTlsDir;
+        cert = xoTlsCert;
+        key = xoTlsKey;
       };
 
       # Network isolation during build
@@ -389,14 +426,14 @@ in
 
     # Automatic TLS certificate generation
     autocert = {
-      enable = cfg.xo.tls.autoGenerate;
+      enable = xoTlsAutoGen;
     };
 
     storage = {
-      nfs.enable = cfg.storage.nfs.enable;
-      cifs.enable = cfg.storage.cifs.enable;
-      vhd.enable = cfg.storage.vhd.enable;
-      mountsDir = cfg.storage.mountsDir;
+      nfs.enable = storageNfsEnable;
+      cifs.enable = storageCifsEnable;
+      vhd.enable = storageVhdEnable;
+      mountsDir = storageMountsDir;
     };
   };
 
@@ -420,10 +457,10 @@ in
   };
 
   # Pass update configuration to updates module
-  updates = cfg.updates;
+  updates = updatesConfig;
 
   # Pass extras configuration to extras module
-  xoa.extras = cfg.extras;
+  xoa.extras = userSettings.extras or {};
 
   # ============================================================================
   # SYSTEM MONITORING (OPTIONAL)
@@ -458,13 +495,13 @@ in
   # System limits
   security.pam.loginLimits = [
     {
-      domain = cfg.xo.service.user;
+      domain = xoServiceUser;
       type = "soft";
       item = "nofile";
       value = "65536";
     }
     {
-      domain = cfg.xo.service.user;
+      domain = xoServiceUser;
       type = "hard";
       item = "nofile";
       value = "1048576";
@@ -476,5 +513,5 @@ in
   # ============================================================================
 
   # DO NOT CHANGE after initial installation
-  system.stateVersion = cfg.stateVersion;
+  system.stateVersion = stateVersion;
 }
