@@ -632,7 +632,7 @@ NixOA modules are organized by concern for clarity and maintainability:
 **xo/** - XO-specific modules
 - `integration.nix` - Bridges systemSettings → XO service configuration
 - `xoa.nix` - Core XO service, build system, Node.js setup
-- `xo-config.nix` - Generates `/etc/xo-server/config.toml`
+- `xo-config.nix` - Generates `/etc/xo-server/config.nixoa.toml`
 - `storage.nix` - NFS/CIFS/VHD remote storage support
 - `libvhdi.nix` - VHD (Virtual Hard Disk) library service
 - `autocert.nix` - Automatic TLS certificate generation
