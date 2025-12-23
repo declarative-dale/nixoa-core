@@ -147,7 +147,7 @@ EOF
     export NPM_CONFIG_CACHE="${cfg.xo.cacheDir}/npm"
     export NODE_OPTIONS="--max-old-space-size=4096"
     export CI="true"
-    export YARN_ENABLE_IMMUTABLE_INSTALLS=false
+    export YARN_ENABLE_IMMUTABLE_INSTALLS=true
     export PYTHON="${pkgs.python3}/bin/python3"
 
     # Don't force esbuild binary - let yarn install the correct version
@@ -166,10 +166,9 @@ EOF
     echo "Source: ${xoSource}"
     echo "Target: ${cfg.xo.appDir}"
     
-    # Install dependencies
+    # Install dependencies (use frozen lockfile to ensure reproducible builds)
     echo "[1/3] Installing dependencies..."
-    ${yarn}/bin/yarn install --network-timeout 300000 || \
-      ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000
+    ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000
     
     # Build
     echo "[2/3] Building..."
@@ -179,11 +178,9 @@ EOF
     echo "[2.5/3] Building v6..."
     cd @xen-orchestra/web
 
-    # Install dependencies if needed (v6 uses npm, not yarn)
-    if [ ! -d node_modules ]; then
-      echo "Installing v6 dependencies with npm..."
-      ${pkgs.nodejs_20}/bin/npm install
-    fi
+    # Install dependencies using npm ci for reproducible builds
+    echo "Installing v6 dependencies with npm ci..."
+    ${pkgs.nodejs_20}/bin/npm ci
 
     # Run vite build using npm (v6 uses npm run build)
     echo "Running: npm run build"
