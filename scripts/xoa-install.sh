@@ -99,181 +99,216 @@ if [[ -n "$USER_REPO_REMOTE" ]]; then
 fi
 
 # 4. Populate user config flake with initial files
-# a) flake.nix
+# a) flake.nix (simplified - data exports only)
 FLAKE_NIX_CONTENT='
 {
   description = "User configuration flake for NiXOA";
-  inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+  };
+
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
       lib = nixpkgs.lib;
       pkgs = nixpkgs.legacyPackages.${system};
-      # Import the hardware config if present
+
+      # Import configuration (pure Nix)
+      config = import ./configuration.nix { inherit lib pkgs; };
+
+      # Extract settings from configuration
+      userSettings = config.userSettings;
+      systemSettings = config.systemSettings;
+
+      # Read XO server TOML directly from file
+      xoTomlData = builtins.readFile ./config.nixoa.toml;
+
+      # Extract convenience scalars
+      hostname = systemSettings.hostname or "nixoa";
+      username = systemSettings.username or "xoa";
+
+      # Create args bundle for modules
+      userArgs = {
+        inherit username hostname system;
+        inherit userSettings systemSettings;
+        inherit xoTomlData;
+      };
+
+      # Hardware configuration path
       hardwareConfigPath = ./hardware-configuration.nix;
     in {
-      # NixOS module for NiXOA (converts TOML to options)
-      nixosModules.default = import ./modules/nixoa-config.nix;
-      nixosModules.hardware =
-        if builtins.pathExists hardwareConfigPath then import hardwareConfigPath
-        else throw "Missing hardware-configuration.nix in user-config!";
-      # Raw config data exports
+      # Configuration data exports (nixoa-vm flake consumes these)
       nixoa = {
-        system = import ./modules/system.nix;
-        xoServer.toml = import ./modules/xo-server-config.nix;
+        inherit hostname;
+        specialArgs = userArgs;
+        extraSpecialArgs = userArgs;
+        xoServer.toml = xoTomlData;
+      };
+
+      # Helper apps for configuration management
+      apps.${system} = {
+        commit = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "commit-config" ''
+            ${builtins.readFile ./scripts/commit-config.sh}
+          '');
+        };
+        apply = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "apply-config" ''
+            ${builtins.readFile ./scripts/apply-config.sh}
+          '');
+        };
+        diff = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "show-diff" ''
+            ${builtins.readFile ./scripts/show-diff.sh}
+          '');
+        };
+        history = {
+          type = "app";
+          program = toString (pkgs.writeShellScript "history" ''
+            ${builtins.readFile ./scripts/history.sh}
+          '');
+        };
       };
     };
 }
 '
 if [[ ! -f "$USER_REPO_DIR/flake.nix" ]]; then
   echo "Writing flake.nix to user config..."
-  run "cat > \"$USER_REPO_DIR/flake.nix\" <<< '$FLAKE_NIX_CONTENT'"
-fi
-
-# b) system-settings.toml (if not exists, create from template)
-if [[ ! -f "$USER_REPO_DIR/system-settings.toml" ]]; then
-  echo "Creating initial system-settings.toml..."
-  SETTINGS_CONTENT='[nixoa]
-# NiXOA system basic settings
-hostname = "nixoa"
-stateVersion = "25.11"
-
-[admin]
-username = "xoa"
-sshKeys = []
-# Add your SSH public keys here, e.g.:
-# sshKeys = [
-#   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... user@laptop"
-# ]
-
-[xo]
-host = "0.0.0.0"
-port = 80
-httpsPort = 443
-
-[xo.service]
-xoUser = "xo"
-xoGroup = "xo"
-
-[tls]
-enable = true
-redirectToHttps = true
-autoGenerate = true
-# cert/key paths can be left default
-cert = "/etc/ssl/xo/certificate.pem"
-key = "/etc/ssl/xo/key.pem"
-
-[storage.nfs]
-enable = true
-[storage.cifs]
-enable = true
-[storage.vhd]
-enable = true
-mountsDir = "/var/lib/xo/mounts"
-
-[networking.firewall]
-allowedTCPPorts = [80, 443, 3389, 5900, 8012]
-
-# Optionally, define updates, packages, services etc. per documentation
-'
-  run "cat > \"$USER_REPO_DIR/system-settings.toml\" <<'EOF'
-$SETTINGS_CONTENT
+  run "cat > \"$USER_REPO_DIR/flake.nix\" <<'EOF'
+$FLAKE_NIX_CONTENT
 EOF"
 fi
 
-# c) xo-server-settings.toml (ensure [nixoa] section exists)
-if [[ ! -f "$USER_REPO_DIR/xo-server-settings.toml" ]]; then
-  echo "Creating initial xo-server-settings.toml..."
-  XO_SETTINGS_CONTENT='[nixoa]
-# XO server configuration
-raw_toml = """
-# You can put custom XO-server configuration overrides here.
-# By default, this is empty, meaning XO uses its defaults.
-"""
-'
-  run "cat > \"$USER_REPO_DIR/xo-server-settings.toml\" <<'EOF'
-$XO_SETTINGS_CONTENT
-EOF"
-fi
+# b) configuration.nix (pure Nix configuration)
+if [[ ! -f "$USER_REPO_DIR/configuration.nix" ]]; then
+  echo "Writing configuration.nix..."
+  CONFIG_NIX_CONTENT='# SPDX-License-Identifier: Apache-2.0
+# NiXOA User Configuration
+# Pure Nix configuration with userSettings and systemSettings
 
-# d) modules and scripts
-MODULES_DIR="$USER_REPO_DIR/modules"
-SCRIPTS_DIR="$USER_REPO_DIR/scripts"
-run "mkdir -p \"$MODULES_DIR\" \"$SCRIPTS_DIR\""
+{ lib, pkgs, ... }:
 
-# Write nixoa-config.nix (TOML->NixOS conversion module)
-if [[ ! -f "$MODULES_DIR/nixoa-config.nix" ]]; then
-  echo "Writing modules/nixoa-config.nix..."
-  NIXOA_CONFIG_CONTENT='{ lib, ... }:
-let
-  settings = builtins.fromTOML (builtins.readFile ../system-settings.toml);
-  get = path: default:
-    let val = builtins.tryEval (builtins.getAttrByPath path settings); in
-    if val.success then val.value else default;
-in {
-  config.nixoa = {
-    hostname = get ["nixoa" "hostname"] "nixoa";
-    stateVersion = get ["nixoa" "stateVersion"] "25.11";
-    admin = {
-      username = get ["admin" "username"] "xoa";
-      sshKeys = get ["admin" "sshKeys"] [];
-    };
+{
+  # ========================================================================
+  # USER SETTINGS (Home Manager, extra packages, etc.)
+  # ========================================================================
+
+  userSettings = {
+    # User-specific packages managed by Home Manager
+    packages.extra = [
+      # Add your user packages here, e.g.:
+      # "neovim"
+      # "tmux"
+      # "lazygit"
+    ];
+
+    # Enable terminal enhancements (zsh, oh-my-posh, enhanced tools, etc.)
+    extras.enable = false;
+  };
+
+  # ========================================================================
+  # SYSTEM SETTINGS (XO configuration, networking, storage, etc.)
+  # ========================================================================
+
+  systemSettings = {
+    # Basic system identification
+    hostname = "nixoa";
+    username = "xoa";
+    stateVersion = "25.11";
+    timezone = "UTC";
+
+    # SSH access (REQUIRED)
+    sshKeys = [
+      # Add your SSH public keys here, e.g.:
+      # "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@laptop"
+    ];
+
+    # Xen Orchestra service account
     xo = {
-      host = get ["xo" "host"] "0.0.0.0";
-      port = get ["xo" "port"] 80;
-      httpsPort = get ["xo" "httpsPort"] 443;
       service = {
-        user = get ["xo" "service" "xoUser"] "xo";
-        group = get ["xo" "service" "xoGroup"] "xo";
+        user = "xo";
+        group = "xo";
       };
+      host = "0.0.0.0";
+      port = 80;
+      httpsPort = 443;
+
+      # TLS/HTTPS configuration
       tls = {
-        enable = get ["tls" "enable"] true;
-        redirectToHttps = get ["tls" "redirectToHttps"] true;
-        autoGenerate = get ["tls" "autoGenerate"] true;
-        dir = get ["tls" "dir"] "/etc/ssl/xo";
-        cert = get ["tls" "cert"] "/etc/ssl/xo/certificate.pem";
-        key = get ["tls" "key"] "/etc/ssl/xo/key.pem";
+        enable = true;
+        redirectToHttps = true;
+        autoGenerate = true;  # Auto-generate self-signed certificates
+        dir = "/etc/ssl/xo";
+        cert = "/etc/ssl/xo/certificate.pem";
+        key = "/etc/ssl/xo/key.pem";
       };
     };
+
+    # Remote storage support
     storage = {
-      nfs.enable = get ["storage" "nfs" "enable"] true;
-      cifs.enable = get ["storage" "cifs" "enable"] true;
-      vhd.enable = get ["storage" "vhd" "enable"] true;
-      mountsDir = get ["storage" "mountsDir"] "/var/lib/xo/mounts";
+      nfs.enable = true;
+      cifs.enable = true;
+      vhd.enable = true;
+      mountsDir = "/var/lib/xo/mounts";
     };
-    networking.firewall.allowedTCPPorts = get ["networking" "firewall" "allowedTCPPorts"] [80 443 3389 5900 8012];
+
+    # Networking and firewall
+    networking.firewall.allowedTCPPorts = [ 80 443 3389 5900 8012 ];
+
+    # System packages to install globally
+    packages.system.extra = [
+      # Add system packages here, e.g.:
+      # "neovim"
+      # "htop"
+    ];
+
+    # Automated updates configuration
+    updates = {
+      # Configure automatic updates here if desired
+    };
+
+    # Custom services
+    services.definitions = {};
   };
 }
 '
-  run "cat > \"$MODULES_DIR/nixoa-config.nix\" <<'EOF'
-$NIXOA_CONFIG_CONTENT
+  run "cat > \"$USER_REPO_DIR/configuration.nix\" <<'EOF'
+$CONFIG_NIX_CONTENT
 EOF"
 fi
 
-# Write system.nix (raw system settings export)
-if [[ ! -f "$MODULES_DIR/system.nix" ]]; then
-  echo "Writing modules/system.nix..."
-  SYSTEM_NIX_CONTENT='{ }:
-builtins.fromTOML (builtins.readFile ../system-settings.toml)
+# c) config.nixoa.toml (XO server configuration)
+if [[ ! -f "$USER_REPO_DIR/config.nixoa.toml" ]]; then
+  echo "Creating initial config.nixoa.toml..."
+  XO_CONFIG_CONTENT='# SPDX-License-Identifier: Apache-2.0
+# XO Server Configuration
+# Optional: Customize XO server settings here
+
+# Example authentication settings (uncomment to use):
+# [authentication]
+# defaultTokenValidity = "30 days"
+
+# Example mail settings for alerts:
+# [mail]
+# from = "xo@example.com"
+# transport = "smtp://smtp.example.com:587"
+
+# Example logging:
+# [logs]
+# level = "info"  # trace, debug, info, warn, error
 '
-  run "cat > \"$MODULES_DIR/system.nix\" <<'EOF'
-$SYSTEM_NIX_CONTENT
+  run "cat > \"$USER_REPO_DIR/config.nixoa.toml\" <<'EOF'
+$XO_CONFIG_CONTENT
 EOF"
 fi
 
-# Write xo-server-config.nix (extract xoServer raw TOML)
-if [[ ! -f "$MODULES_DIR/xo-server-config.nix" ]]; then
-  echo "Writing modules/xo-server-config.nix..."
-  XOSC_NIX_CONTENT='{ }:
-let
-  cfg = builtins.fromTOML (builtins.readFile ../xo-server-settings.toml);
-  rawToml = cfg.nixoa.raw_toml or "";
-in builtins.toString rawToml
-'
-  run "cat > \"$MODULES_DIR/xo-server-config.nix\" <<'EOF'
-$XOSC_NIX_CONTENT
-EOF"
-fi
+# d) scripts directory
+SCRIPTS_DIR="$USER_REPO_DIR/scripts"
+run "mkdir -p \"$SCRIPTS_DIR\""
 
 # Scripts: commit-config.sh, apply-config.sh, etc.
 if [[ ! -f "$SCRIPTS_DIR/commit-config.sh" ]]; then
@@ -306,11 +341,11 @@ COMMIT_MSG="$1"
 
 # Show what'"'"'s changed
 echo "=== Configuration Changes ==="
-git diff --stat system-settings.toml xo-server-settings.toml 2>/dev/null || true
+git diff --stat configuration.nix config.nixoa.toml 2>/dev/null || true
 echo ""
 
-# Stage the TOML files
-git add system-settings.toml xo-server-settings.toml
+# Stage the configuration files
+git add configuration.nix config.nixoa.toml 2>/dev/null || true
 
 # Check if there are changes to commit
 if git diff --staged --quiet; then
@@ -326,7 +361,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Review changes: git log -1 -p"
 # Get configured hostname for rebuild command
-CONFIG_HOST=$(grep "^hostname" system-settings.toml 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
+CONFIG_HOST=$(grep "hostname = " configuration.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 CONFIG_HOST="${CONFIG_HOST:-nixoa}"
 echo "  2. Rebuild NiXOA: cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
 echo ""
@@ -365,7 +400,7 @@ echo "=== Applying configuration to NiXOA ==="
 cd /etc/nixos/nixoa/nixoa-vm
 
 # Read hostname from user-config (defaults to "nixoa" if not set)
-HOSTNAME=$(grep "^hostname" "$CONFIG_DIR/system-settings.toml" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
+HOSTNAME=$(grep "hostname = " "$CONFIG_DIR/configuration.nix" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 HOSTNAME="${HOSTNAME:-nixoa}"
 
 echo "Running: sudo nixos-rebuild switch --flake .#${HOSTNAME}"
@@ -412,13 +447,15 @@ echo "================================"
 echo ""
 echo "Next steps:"
 echo "1. Edit your configuration in your user-config:"
-echo "   nano $USER_REPO_DIR/system-settings.toml"
+echo "   nano $USER_REPO_DIR/configuration.nix"
 echo ""
-echo "2. Add your SSH public key(s) to the sshKeys array (REQUIRED)"
+echo "2. Add your SSH public key(s) to systemSettings.sshKeys (REQUIRED)"
 echo ""
-echo "3. Set hostname, admin username, and other settings as needed"
+echo "3. Set hostname, username, and other settings in systemSettings"
 echo ""
-echo "4. Apply your configuration:"
+echo "4. (Optional) Customize XO server settings in config.nixoa.toml"
+echo ""
+echo "5. Apply your configuration:"
 echo "   cd $USER_REPO_DIR"
 echo "   ./scripts/apply-config.sh \"Initial deployment\""
 echo ""
@@ -429,5 +466,4 @@ echo ""
 echo "For more information, see:"
 echo "  - $USER_REPO_DIR/README.md"
 echo "  - $BASE_DIR/nixoa-vm/README.md"
-echo "  - $BASE_DIR/nixoa-vm/CONFIGURATION.md"
 echo ""

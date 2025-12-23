@@ -618,31 +618,79 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 
 ---
 
+## Module Architecture
+
+NixOA modules are organized by concern for clarity and maintainability:
+
+**core/** - System-level modules (no XO-specific logic)
+- `base.nix` - System ID, locale, bootloader, kernel support
+- `users.nix` - User accounts, groups, SSH, sudo, PAM
+- `networking.nix` - Network config, firewall, NFS support
+- `packages.nix` - System packages, Nix configuration, GC
+- `services.nix` - Journald, monitoring, custom service definitions
+
+**xo/** - XO-specific modules
+- `integration.nix` - Bridges systemSettings → XO service configuration
+- `xoa.nix` - Core XO service, build system, Node.js setup
+- `xo-config.nix` - Generates `/etc/xo-server/config.toml`
+- `storage.nix` - NFS/CIFS/VHD remote storage support
+- `libvhdi.nix` - VHD (Virtual Hard Disk) library service
+- `autocert.nix` - Automatic TLS certificate generation
+- `updates.nix` - Automated NiXOA update system
+- `extras.nix` - Terminal enhancements (zsh, oh-my-posh, tools)
+- `nixoa-cli.nix` - NiXOA CLI tools and utilities
+
+**home/** - Home Manager configuration
+- `home.nix` - Admin user environment, packages, shell aliases
+
+**Dynamic bundling:**
+- `bundle.nix` - Recursively discovers and imports all .nix files
+- `default.nix` - Simple entry point that delegates to bundle.nix
+
+---
+
 ## Directory Structure
 
 ```
 /home/<user>/
 └── user-config/                 # Configuration flake (your home directory)
-    ├── flake.nix                # Exports NixOS module
-    ├── system-settings.toml     # Your configuration (TOML frontend)
+    ├── flake.nix                # Simplified (data exports only)
+    ├── configuration.nix        # Pure Nix configuration
+    ├── system-settings.toml     # Your system settings (TOML)
     ├── hardware-configuration.nix  # Your hardware config
-    ├── modules/
-    │   └── nixoa-config.nix     # TOML → NixOS module converter
     └── scripts/
-        └── commit-config.sh     # Commit configuration changes
+        ├── apply-config.sh      # Commit and rebuild
+        ├── commit-config.sh     # Commit configuration changes
+        ├── show-diff.sh         # Show diff from HEAD
+        └── history              # Show git history
 
 /etc/nixos/nixoa/
 ├── nixoa-vm/                    # Deployment flake (this repository)
 │   ├── flake.nix                # Main flake definition
-│   ├── MIGRATION-OPTIONS.md     # Options architecture documentation
-│   ├── modules/
-│   │   ├── nixoa-options.nix    # options.nixoa.* definitions
-│   │   ├── xoa.nix              # Core XO module
-│   │   ├── system.nix           # System configuration
-│   │   ├── storage.nix          # NFS/CIFS support
-│   │   ├── libvhdi.nix          # VHD tools
-│   │   ├── autocert.nix         # Auto SSL certificate generation
-│   │   └── updates.nix          # Update automation
+│   ├── README.md                # This file
+│   ├── MIGRATION.md             # Migration guide for existing users
+│   ├── modules/                 # Organized modular system
+│   │   ├── default.nix          # Entry point (delegates to bundle.nix)
+│   │   ├── bundle.nix           # Dynamic module discovery
+│   │   ├── core/
+│   │   │   ├── base.nix
+│   │   │   ├── users.nix
+│   │   │   ├── networking.nix
+│   │   │   ├── packages.nix
+│   │   │   └── services.nix
+│   │   ├── xo/
+│   │   │   ├── integration.nix
+│   │   │   ├── xoa.nix
+│   │   │   ├── xo-config.nix
+│   │   │   ├── storage.nix
+│   │   │   ├── libvhdi.nix
+│   │   │   ├── autocert.nix
+│   │   │   ├── updates.nix
+│   │   │   ├── extras.nix
+│   │   │   └── nixoa-cli.nix
+│   │   └── home/
+│   │       └── home.nix
+│   ├── hardware-configuration.nix  # Reference template
 │   └── scripts/
 │       ├── xoa-install.sh       # Initial deployment
 │       ├── xoa-logs.sh          # View logs
@@ -650,6 +698,14 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 │
 └── user-config → /home/<user>/user-config  # Symlink for flake input
 ```
+
+### Module Design
+
+- **Clear separation of concerns**: Core system modules are independent of XO, making the system reusable
+- **Single responsibility**: Each module handles one logical domain (users, networking, services, etc.)
+- **Focused modules**: 100-150 lines each vs. monolithic 500+ line files
+- **Dynamic discovery**: New modules in any subdirectory are automatically imported
+- **Explicit organization**: Subdirectories (core/, xo/, home/) make the architecture clear at a glance
 
 ---
 
