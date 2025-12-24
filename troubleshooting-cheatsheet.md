@@ -180,7 +180,7 @@ nix-store --optimize --dry-run
 nix flake check
 
 # Validate TOML syntax
-nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/configuration.nix)'
 
 # Show current configuration
 nix eval --json .#nixosConfigurations.nixoa.config.updates | jq
@@ -206,8 +206,8 @@ alias xoa-rebuild='cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --f
 
 ```
 ~/user-config/                     # Your configuration (home directory)
-  ├── system-settings.toml         # System configuration file
-  ├── xo-server-settings.toml      # XO server configuration
+  ├── configuration.nix         # System configuration file
+  ├── config.nixoa.toml      # XO server configuration
   ├── hardware-configuration.nix   # Hardware configuration
   └── scripts/                     # Helper scripts
 

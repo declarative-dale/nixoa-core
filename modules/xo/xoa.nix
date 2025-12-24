@@ -1,21 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, xoSrc ? null, nixoa-config ? null, ... }:
+# Xen Orchestra Application (packaged via yarn2nix)
+{ config, lib, pkgs, nixoaPackages, nixoaUtils, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.xoa;
 
-  node   = pkgs.nodejs_20;
-  yarn   = pkgs.yarn;
-  rsync  = pkgs.rsync;
-  
-  # xoSource must be provided via flake input to ensure reproducible builds
-  xoSource = assert xoSrc != null; xoSrc;
-  
-  # XO home directory
-  xoHome = "/var/lib/xo";
+  # Reference the packaged XOA from flake
+  xoaPackage = nixoaPackages.xoa;
 
-  # Marker file to track source changes and trigger rebuilds
-  xoSourceMarker = "${xoHome}/xen-orchestra/.xo-source-info.json";
+  # XO app directory is now immutable in /nix/store
+  xoAppDir = "${xoaPackage}/libexec/xen-orchestra";
+
+  # Runtime directories (mutable state)
+  xoHome = cfg.xo.home;
 
   # Sudo wrapper for CIFS mounts - injects credentials as mount options
   # This is the "Nix way" - transform the command instead of fighting sudo's env handling
@@ -94,205 +91,26 @@ EOF
     chmod +x $out/bin/sudo
   '';
 
-  # Build script with directory creation
-  buildXO = pkgs.writeShellScript "xo-build.sh" ''
-    set -euxo pipefail
-    umask 022
-
-    # Create all required directories first
-    install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} \
-      "${cfg.xo.home}" \
-      "${cfg.xo.appDir}" \
-      "${cfg.xo.cacheDir}" \
-      "${cfg.xo.dataDir}" \
-      "${cfg.xo.tempDir}" \
-      "${cfg.xo.home}/.config" \
-      "${cfg.xo.home}/.config/xo-server"
-    
-    # Create /etc/xo-server as root (needs to be done before we drop to user)
-    if [ ! -d "/etc/xo-server" ]; then
-      install -d -m 0755 "/etc/xo-server"
-    fi
-
-    # Sync source into app dir
-    ${rsync}/bin/rsync -a --no-perms --chmod=ugo=rwX --delete \
-      --exclude node_modules/ --exclude .git/ \
-      "${xoSource}/" "${cfg.xo.appDir}/"
-    chmod -R u+rwX "${cfg.xo.appDir}"
-    cd "${cfg.xo.appDir}"
-
-    # Fix SMB handler registration - mount.cifs -V exits with code 1 on NixOS
-    echo "Patching SMB handler registration..."
-    if [ -f @xen-orchestra/fs/src/index.js ]; then
-      # The issue: mount.cifs -V returns exit code 1 due to setuid warning
-      # Replace the strict check with one that ignores exit code 1
-      sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" @xen-orchestra/fs/src/index.js
-      echo "SMB handler patch applied"
-    fi
-
-    # Initialize minimal git repo if needed (some build tools expect it)
-    if [ ! -d ".git" ]; then
-      echo "Initializing minimal git repository for build tooling..."
-      ${pkgs.git}/bin/git init -q
-      ${pkgs.git}/bin/git config user.email "xoa-builder@localhost"
-      ${pkgs.git}/bin/git config user.name "XOA Builder"
-      ${pkgs.git}/bin/git add -A || true
-      ${pkgs.git}/bin/git commit -q -m "imported snapshot" || true
-    fi
-
-    # Fix TypeScript generic inference issue in select-column.ts
-    # Upstream bug: VtsSelect uses Vue 3.3+ generic types that TypeScript can't infer in h() calls
-    # This patches the MUTABLE COPY in /var/lib/xo (same approach as SMB handler patch above)
-    echo "Patching select-column.ts TypeScript error..."
-    if [ -f @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts ]; then
-      sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
-        @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts
-      echo "select-column.ts: added type assertion for generic component"
-    fi
-
-    # Environment configuration
-    export HOME="${cfg.xo.home}"
-    export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
-    export YARN_CACHE_FOLDER="${cfg.xo.cacheDir}"
-    export NPM_CONFIG_CACHE="${cfg.xo.cacheDir}/npm"
-    export NODE_OPTIONS="--max-old-space-size=4096"
-    export CI="true"
-    export YARN_ENABLE_IMMUTABLE_INSTALLS=true
-    export PYTHON="${pkgs.python3}/bin/python3"
-    export TURBO_TELEMETRY_DISABLED=1
-
-    # Don't force esbuild binary - let yarn install the correct version
-    # export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
-
-    # CRITICAL: LD_LIBRARY_PATH for native module compilation
-    export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-    
-    # Log output
-    LOG="${cfg.xo.appDir}/.last-build.log"
-    exec > >(tee -a "$LOG") 2>&1
-    
-    echo "=== Xen Orchestra Build Started ==="
-    echo "Node version: $(${node}/bin/node --version)"
-    echo "Yarn version: $(${yarn}/bin/yarn --version)"
-    echo "Source: ${xoSource}"
-    echo "Target: ${cfg.xo.appDir}"
-    
-    # Install dependencies (use frozen lockfile to ensure reproducible builds)
-    echo "[1/3] Installing dependencies..."
-    ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000
-    
-    # Build
-    echo "[2/3] Building..."
-    ${yarn}/bin/yarn build
-
-    # Verify @xen-orchestra/web was built successfully by yarn build (via Turbo)
-    # Note: yarn workspaces handle @xen-orchestra/web dependencies and Turbo builds it automatically
-    # The previous separate npm ci/npm run build was redundant
-    echo "[2.5/3] Verifying @xen-orchestra/web build..."
-    if [ ! -d @xen-orchestra/web/dist ]; then
-      echo "ERROR: @xen-orchestra/web dist not created!" >&2
-      exit 1
-    fi
-
-    # Patch native modules to include FUSE library paths
-    echo "[3/4] Patching native modules..."
-    find node_modules -name "*.node" -type f 2>/dev/null | while read -r nodefile; do
-      echo "Patching $nodefile..."
-      ${pkgs.patchelf}/bin/patchelf --set-rpath "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib" "$nodefile" 2>/dev/null || true
-    done || true
-
-    # Verify critical artifacts
-    echo "[4/4] Verifying build artifacts..."
-    if [ ! -f packages/xo-web/dist/index.html ]; then
-      echo "ERROR: xo-web/dist/index.html not found!" >&2
-      exit 1
-    fi
-
-    if [ ! -f packages/xo-server/dist/cli.mjs ] && [ ! -f packages/xo-server/dist/cli.js ]; then
-      echo "ERROR: xo-server CLI not found!" >&2
-      exit 1
-    fi
-
-    if [ ! -f @xen-orchestra/web/dist/index.html ]; then
-      echo "ERROR: @xen-orchestra/web/dist/index.html not found!" >&2
-      exit 1
-    fi
-
-    echo "=== Build Complete ==="
-
-    # Record source version for rebuild detection
-    # When flake.lock updates, xoSource store path changes automatically
-    mkdir -p "$(dirname "${xoSourceMarker}")"
-    ${pkgs.jq}/bin/jq -n \
-      --arg source "${xoSource}" \
-      --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-      --arg commit "$(cd ${xoSource} 2>/dev/null && ${pkgs.git}/bin/git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
-      '{source_path: $source, built_at: $timestamp, source_commit: $commit}' \
-      > "${xoSourceMarker}"
-    echo "Source info recorded to ${xoSourceMarker}"
-  '';
-
-  # Wrapper for Node with FUSE libraries
-  nodeWithFuse = pkgs.writeShellScriptBin "node-with-fuse" ''
-    export LD_LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-    exec ${node}/bin/node "$@"
-  '';
-
-  # Check if XO rebuild is needed (when source changes)
-  checkXORebuildNeeded = pkgs.writeShellScript "check-xo-rebuild-needed" ''
-    set -euo pipefail
-
-    MARKER="${xoSourceMarker}"
-    CLI_MJS="${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
-    CLI_JS="${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
-    CURRENT_SOURCE="${xoSource}"
-
-    # Always rebuild if CLI doesn't exist (first build)
-    if [[ ! -f "$CLI_MJS" ]] && [[ ! -f "$CLI_JS" ]]; then
-      echo "XO CLI not found, rebuild needed"
-      exit 0  # Rebuild (ExecCondition success means run the service)
-    fi
-
-    # Rebuild if marker doesn't exist (shouldn't happen, but safety)
-    if [[ ! -f "$MARKER" ]]; then
-      echo "XO source marker not found, rebuild needed"
-      exit 0  # Rebuild
-    fi
-
-    # Rebuild if source path changed (flake.lock was updated)
-    STORED_SOURCE=$(${pkgs.jq}/bin/jq -r '.source_path' "$MARKER" 2>/dev/null || echo "")
-    if [[ "$CURRENT_SOURCE" != "$STORED_SOURCE" ]]; then
-      echo "XO source changed, rebuild needed"
-      echo "  Old: $STORED_SOURCE"
-      echo "  New: $CURRENT_SOURCE"
-      exit 0  # Rebuild
-    fi
-
-    # No rebuild needed
-    echo "XO source unchanged, skipping rebuild"
-    exit 1  # Skip service (ExecCondition failure means skip the service)
-  '';
-
   # Start script for xo-server
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
 
-    cd "${cfg.xo.appDir}"
+    cd "${xoAppDir}"
 
-    # Find the CLI entry point
+    # Find CLI in package (handles both .mjs and .js extensions)
     if [ -f packages/xo-server/dist/cli.mjs ]; then
       CLI="packages/xo-server/dist/cli.mjs"
     elif [ -f packages/xo-server/dist/cli.js ]; then
       CLI="packages/xo-server/dist/cli.js"
     else
-      echo "ERROR: Cannot find xo-server CLI!" >&2
+      echo "ERROR: Cannot find xo-server CLI in ${xoAppDir}!" >&2
       exit 1
     fi
 
     echo "Starting XO-server from $CLI..."
-    exec ${nodeWithFuse}/bin/node-with-fuse "$CLI" "$@"
+    exec ${pkgs.nodejs_20}/bin/node "$CLI" "$@"
   '';
 
 in
@@ -379,13 +197,7 @@ in
         default = xoHome;
         description = "XO service home directory";
       };
-      
-      appDir = mkOption {
-        type = types.path;
-        default = "${xoHome}/xen-orchestra";
-        description = "XO application directory";
-      };
-      
+
       cacheDir = mkOption {
         type = types.path;
         default = "${xoHome}/.cache";
@@ -403,25 +215,7 @@ in
         default = "${xoHome}/tmp";
         description = "Temporary directory for XO operations";
       };
-      
-      webMountDir = mkOption {
-        type = types.path;
-        default = "${xoHome}/xen-orchestra/packages/xo-web/dist";
-        description = "Web UI mount directory";
-      };
 
-      webMountDirv6 = mkOption {
-        type = types.path;
-        default = "${xoHome}/xen-orchestra/@xen-orchestra/web/dist";
-        description = "Web UI mount directory for v6";
-      };
-
-      buildIsolation = mkOption {
-        type = types.bool;
-        default = false;
-        description = "Enable network isolation during build";
-      };
-      
       extraServerEnv = mkOption {
         type = types.attrsOf types.str;
         default = {};
@@ -458,61 +252,6 @@ in
       fuse zlib libpng xen lvm2 esbuild
     ];
 
-    # Build service
-    systemd.services.xo-build = {
-      description = "Build Xen Orchestra from source";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "network-online.target" ] ++ lib.optional (config.xoa.autocert.enable && cfg.xo.ssl.enable) "xo-autocert.service";
-      wants = [ "network-online.target" ];
-      requires = [ "redis-xo.service" ];
-
-      path = with pkgs; [
-        git nodejs_20 yarn python3 gcc gnumake pkg-config
-        coreutils findutils bash esbuild patchelf
-        # Mount utilities must be available at build time for handler registration
-        nfs-utils cifs-utils util-linux
-      ];
-
-      environment = {
-        HOME = cfg.xo.home;
-        PYTHON = "${pkgs.python3}/bin/python3";
-      };
-
-      serviceConfig = {
-        Type = "oneshot";
-        RemainAfterExit = true;
-        User = cfg.xo.user;
-        Group = cfg.xo.group;
-        WorkingDirectory = cfg.xo.appDir;
-        StateDirectory = "xo";
-        CacheDirectory = "xo";
-
-        # Check if rebuild is needed before running (when source changes via flake.lock update)
-        ExecCondition = "${checkXORebuildNeeded}";
-
-        ReadWritePaths = [
-          cfg.xo.appDir
-          cfg.xo.cacheDir
-          cfg.xo.dataDir
-          cfg.xo.tempDir
-          cfg.xo.home
-          "/etc/xo-server"
-        ] ++ lib.optional cfg.xo.ssl.enable cfg.xo.ssl.dir;
-
-        ExecStartPre = [
-          "+${pkgs.coreutils}/bin/install -d -m 0750 -o ${cfg.xo.user} -g ${cfg.xo.group} ${cfg.xo.appDir}"
-          "+${pkgs.coreutils}/bin/chown -R ${cfg.xo.user}:${cfg.xo.group} ${cfg.xo.home}"
-        ];
-
-        ExecStart = buildXO;
-        TimeoutStartSec = "45min";
-        LimitNOFILE = 1048576;
-      } // lib.optionalAttrs cfg.xo.buildIsolation {
-        RestrictAddressFamilies = [ "AF_INET" "AF_INET6" ];
-        PrivateNetwork = false;
-      };
-    };
-
     # XO Server service
     systemd.services.xo-server = {
       description = "Xen Orchestra Server";
@@ -520,12 +259,11 @@ in
         "systemd-tmpfiles-setup.service"
         "network-online.target"
         "redis-xo.service"
-        "xo-build.service"
       ] ++ lib.optional (config.xoa.autocert.enable && cfg.xo.ssl.enable) "xo-autocert.service";
 
-      wants = [ "network-online.target" "redis-xo.service" "xo-build.service" ];
+      wants = [ "network-online.target" "redis-xo.service" ];
       wantedBy = [ "multi-user.target" ];
-      requires = [ "xo-build.service" "redis-xo.service" ];
+      requires = [ "redis-xo.service" ];
       
       # Sudo wrapper must be first in path to intercept sudo calls and handle env vars
       path = [ sudoWrapper ] ++ (with pkgs; [
@@ -539,14 +277,13 @@ in
         XDG_CONFIG_HOME = "${cfg.xo.home}/.config";
         XDG_CACHE_HOME = cfg.xo.cacheDir;
         NODE_ENV = "production";
-        LD_LIBRARY_PATH = "${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib";
       };
 
       serviceConfig = {
         User = cfg.xo.user;
         Group = cfg.xo.group;
 
-        WorkingDirectory = cfg.xo.appDir;
+        WorkingDirectory = xoAppDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
         LogsDirectory = "xo";
@@ -580,7 +317,6 @@ in
 
         ReadWritePaths = [
           cfg.xo.home
-          cfg.xo.appDir
           cfg.xo.cacheDir
           cfg.xo.dataDir
           cfg.xo.tempDir
@@ -601,7 +337,6 @@ in
     # Create necessary directories
     systemd.tmpfiles.rules = [
       "d ${cfg.xo.home}                          0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.appDir}                        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.cacheDir}                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.dataDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.tempDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"

@@ -1,28 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # User and group management, SSH configuration, security, and sudo
 
-{ config, pkgs, lib, systemSettings ? {}, userSettings ? {}, ... }:
+{ config, pkgs, lib, systemSettings ? {}, userSettings ? {}, nixoaUtils, ... }:
 
 let
-  # Safe attribute access with defaults
-  get = path: default:
-    let
-      getValue = cfg: pathList:
-        if pathList == []
-        then cfg
-        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
-        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
-        else null;
-      result = getValue systemSettings path;
-    in
-      if result == null then default else result;
+  inherit (nixoaUtils) getOption;
 
   # Extract commonly used values
-  username = get ["username"] "xoa";
-  sshKeys = get ["sshKeys"] [];
+  username = getOption systemSettings ["username"] "xoa";
+  sshKeys = getOption systemSettings ["sshKeys"] [];
   extrasEnable = userSettings.extras.enable or false;
-  xoServiceUser = get ["xo" "service" "user"] "xo";
-  xoServiceGroup = get ["xo" "service" "group"] "xo";
+  xoServiceUser = getOption systemSettings ["xo" "service" "user"] "xo";
+  xoServiceGroup = getOption systemSettings ["xo" "service" "group"] "xo";
 in
 {
   # ============================================================================

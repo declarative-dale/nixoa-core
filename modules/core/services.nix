@@ -1,24 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # Core system services: journald, monitoring, and custom service definitions
 
-{ config, pkgs, lib, systemSettings ? {}, ... }:
+{ config, pkgs, lib, systemSettings ? {}, nixoaUtils, ... }:
 
 let
-  # Safe attribute access with defaults
-  get = path: default:
-    let
-      getValue = cfg: pathList:
-        if pathList == []
-        then cfg
-        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
-        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
-        else null;
-      result = getValue systemSettings path;
-    in
-      if result == null then default else result;
+  inherit (nixoaUtils) getOption;
 
   # Extract commonly used values
-  servicesDefinitions = get ["services" "definitions"] {};
+  servicesDefinitions = getOption systemSettings ["services" "definitions"] {};
 in
 {
   # ============================================================================

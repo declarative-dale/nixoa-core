@@ -25,13 +25,13 @@ cd ~/user-config
 
 ```bash
 # Edit your system configuration
-nano system-settings.toml
+nano configuration.nix
 ```
 
 **Required minimum settings:**
 - `hostname` - Your system's hostname
-- `admin.username` - Admin user for SSH access
-- `admin.sshKeys` - Your SSH public key(s)
+- `username` - Admin user for SSH access
+- `sshKeys` - Your SSH public key(s)
 
 ### 3. Create System Symlink
 
@@ -67,7 +67,7 @@ cd /etc/nixos/nixoa/nixoa-vm
 sudo nixos-rebuild switch --flake .#<hostname>
 ```
 
-Replace `<hostname>` with the value you set in `system-settings.toml`.
+Replace `<hostname>` with the value you set in `configuration.nix`.
 
 ---
 
@@ -77,16 +77,16 @@ Replace `<hostname>` with the value you set in `system-settings.toml`.
 /home/<user>/
 └── user-config/                      # Your configuration flake
     ├── flake.nix                     # Flake inputs/outputs
-    ├── system-settings.toml          # Your system configuration
-    ├── xo-server-settings.toml       # XO service overrides
+    ├── configuration.nix             # Your system configuration (Nix format)
+    ├── config.nixoa.toml             # XO service overrides (TOML format)
     ├── hardware-configuration.nix    # Your hardware config
     ├── modules/
-    │   ├── nixoa-config.nix          # TOML → NixOS converter
-    │   ├── system.nix                # Raw system TOML export
-    │   └── xo-server-config.nix      # XO TOML export
+    │   └── home.nix                  # Home Manager configuration
     └── scripts/
         ├── commit-config.sh          # Git commit helper
-        └── apply-config.sh           # Commit + rebuild
+        ├── apply-config.sh           # Commit + rebuild
+        ├── show-diff.sh              # Show pending changes
+        └── history.sh                # Show configuration history
 
 /etc/nixos/nixoa/
 ├── nixoa-vm/                         # Deployment flake (from repo)
@@ -112,9 +112,9 @@ Replace `<hostname>` with the value you set in `system-settings.toml`.
 
 ## Configuration File Format
 
-### system-settings.toml
+### configuration.nix
 
-This is the main configuration file. It uses TOML format for readability and type-safety.
+This is the main configuration file. It uses Nix format and exports configuration as a set with `userSettings` and `systemSettings`.
 
 **Example minimal configuration:**
 
@@ -356,7 +356,7 @@ enable = false                        # Enable zsh, oh-my-posh, fzf, etc.
 1. **Edit your configuration:**
    ```bash
    cd ~/user-config
-   nano system-settings.toml
+   nano configuration.nix
    ```
 
 2. **Review changes:**
@@ -399,7 +399,7 @@ git log --oneline -10
 git show <commit-hash>
 
 # Revert to a previous version
-git checkout <commit-hash> -- system-settings.toml xo-server-settings.toml
+git checkout <commit-hash> -- configuration.nix config.nixoa.toml
 ```
 
 ---
@@ -412,7 +412,7 @@ Validate your TOML syntax before rebuilding:
 
 ```bash
 # Validate with Nix
-nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/configuration.nix)'
 
 # If valid, returns the config as Nix attributes
 # If invalid, shows TOML parse error
@@ -439,7 +439,7 @@ nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/sys
 
 2. Validate TOML:
    ```bash
-   nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+   nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/configuration.nix)'
    ```
 
 3. Check flake can load:
@@ -483,13 +483,13 @@ If you can't edit files in `~/user-config`:
 
 ```bash
 # Verify ownership
-ls -la ~/user-config/system-settings.toml
+ls -la ~/user-config/configuration.nix
 
 # Fix if needed
-chown $USER:$USER ~/user-config/system-settings.toml
+chown $USER:$USER ~/user-config/configuration.nix
 
 # Check permissions
-chmod 644 ~/user-config/system-settings.toml
+chmod 644 ~/user-config/configuration.nix
 ```
 
 ### Rebuild Fails

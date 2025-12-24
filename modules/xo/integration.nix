@@ -1,41 +1,30 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO integration: bridges systemSettings to XO modules and service configuration
 
-{ config, pkgs, lib, systemSettings ? {}, userSettings ? {}, ... }:
+{ config, pkgs, lib, systemSettings ? {}, userSettings ? {}, nixoaUtils, ... }:
 
 let
-  # Safe attribute access with defaults
-  get = path: default:
-    let
-      getValue = cfg: pathList:
-        if pathList == []
-        then cfg
-        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
-        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
-        else null;
-      result = getValue systemSettings path;
-    in
-      if result == null then default else result;
+  inherit (nixoaUtils) getOption;
 
   # Extract commonly used values
-  username = get ["username"] "xoa";
-  sshKeys = get ["sshKeys"] [];
-  xoServiceUser = get ["xo" "service" "user"] "xo";
-  xoServiceGroup = get ["xo" "service" "group"] "xo";
-  xoHost = get ["xo" "host"] "0.0.0.0";
-  xoPort = get ["xo" "port"] 80;
-  xoHttpsPort = get ["xo" "httpsPort"] 443;
-  xoTlsEnable = get ["xo" "tls" "enable"] true;
-  xoTlsRedirect = get ["xo" "tls" "redirectToHttps"] true;
-  xoTlsAutoGen = get ["xo" "tls" "autoGenerate"] true;
-  xoTlsDir = get ["xo" "tls" "dir"] "/etc/ssl/xo";
-  xoTlsCert = get ["xo" "tls" "cert"] "/etc/ssl/xo/certificate.pem";
-  xoTlsKey = get ["xo" "tls" "key"] "/etc/ssl/xo/key.pem";
-  storageNfsEnable = get ["storage" "nfs" "enable"] true;
-  storageCifsEnable = get ["storage" "cifs" "enable"] true;
-  storageVhdEnable = get ["storage" "vhd" "enable"] true;
-  storageMountsDir = get ["storage" "mountsDir"] "/var/lib/xo/mounts";
-  updatesConfig = get ["updates"] {};
+  username = getOption systemSettings ["username"] "xoa";
+  sshKeys = getOption systemSettings ["sshKeys"] [];
+  xoServiceUser = getOption systemSettings ["xo" "service" "user"] "xo";
+  xoServiceGroup = getOption systemSettings ["xo" "service" "group"] "xo";
+  xoHost = getOption systemSettings ["xo" "host"] "0.0.0.0";
+  xoPort = getOption systemSettings ["xo" "port"] 80;
+  xoHttpsPort = getOption systemSettings ["xo" "httpsPort"] 443;
+  xoTlsEnable = getOption systemSettings ["xo" "tls" "enable"] true;
+  xoTlsRedirect = getOption systemSettings ["xo" "tls" "redirectToHttps"] true;
+  xoTlsAutoGen = getOption systemSettings ["xo" "tls" "autoGenerate"] true;
+  xoTlsDir = getOption systemSettings ["xo" "tls" "dir"] "/etc/ssl/xo";
+  xoTlsCert = getOption systemSettings ["xo" "tls" "cert"] "/etc/ssl/xo/certificate.pem";
+  xoTlsKey = getOption systemSettings ["xo" "tls" "key"] "/etc/ssl/xo/key.pem";
+  storageNfsEnable = getOption systemSettings ["storage" "nfs" "enable"] true;
+  storageCifsEnable = getOption systemSettings ["storage" "cifs" "enable"] true;
+  storageVhdEnable = getOption systemSettings ["storage" "vhd" "enable"] true;
+  storageMountsDir = getOption systemSettings ["storage" "mountsDir"] "/var/lib/xo/mounts";
+  updatesConfig = getOption systemSettings ["updates"] {};
 in
 {
   # ============================================================================

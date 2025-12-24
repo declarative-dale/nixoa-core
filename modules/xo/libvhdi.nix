@@ -1,82 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, libvhdiSrc ? null, ... }:
+{ config, lib, pkgs, nixoaPackages, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.services.libvhdi;
 
-  version = "20240509";
-  
-  # Use flake-provided source or fetch it
-  src = if libvhdiSrc != null then libvhdiSrc else pkgs.fetchurl {
-    url = "https://github.com/libyal/libvhdi/releases/download/${version}/libvhdi-alpha-${version}.tar.gz";
-    hash = "sha256-nv6+VKeubPi0kQOjoMN1U/PyLXUmMDplSutZ7KWMzsc=";
-  };
-  
-  # Build libvhdi from source with full feature support
-  libvhdi = pkgs.stdenv.mkDerivation {
-    pname = "libvhdi";
-    inherit version src;
-    
-    nativeBuildInputs = with pkgs; [ 
-      autoreconfHook 
-      pkg-config 
-    ];
-    
-    buildInputs = with pkgs; [ 
-      fuse          # FUSE2 for vhdimount
-      fuse3         # FUSE3 support
-      zlib          # Compression support
-    ];
-    
-    configureFlags = [
-      "--enable-shared"
-      "--enable-static=no"
-      "--enable-python=no"
-      "--with-libfuse=yes"
-      "--enable-multi-threading=yes"
-      "--enable-wide-character-type"
-    ];
-    
-    enableParallelBuilding = true;
-    
-    postInstall = ''
-      # Verify the library and tools were built
-      if [ ! -f "$out/lib/libvhdi.so" ]; then
-        echo "Error: libvhdi.so not found after build" >&2
-        exit 1
-      fi
-      
-      if [ ! -f "$out/bin/vhdimount" ]; then
-        echo "Error: vhdimount tool not found after build" >&2
-        exit 1
-      fi
-      
-      if [ ! -f "$out/bin/vhdiinfo" ]; then
-        echo "Error: vhdiinfo tool not found after build" >&2
-        exit 1
-      fi
-      
-      echo "libvhdi tools installed:"
-      ls -la "$out/bin/"
-    '';
-    
-    meta = with lib; {
-      description = "Library and tools to access the Virtual Hard Disk (VHD) image format";
-      longDescription = ''
-        libvhdi provides:
-        - vhdiinfo: Display information about VHD/VHDX files
-        - vhdimount: FUSE-based tool to mount VHD/VHDX as a filesystem
-        - vhdiexport: Export VHD data to raw format
-        
-        Used by Xen Orchestra for backup restore and disk inspection operations.
-        This package supports both VHD (Virtual Hard Disk) and VHDX (Virtual Hard Disk v2) formats.
-      '';
-      homepage = "https://github.com/libyal/libvhdi";
-      license = licenses.lgpl3Plus;
-      platforms = platforms.linux;
-      maintainers = [ ];
-    };
-  };
+  # Reference the packaged libvhdi from flake
+  libvhdiPackage = nixoaPackages.libvhdi;
 in
 {
   options.services.libvhdi = {
@@ -84,8 +13,8 @@ in
 
     package = mkOption {
       type = types.package;
-      default = libvhdi;
-      defaultText = lib.literalExpression "libvhdi";
+      default = libvhdiPackage;
+      defaultText = lib.literalExpression "nixoaPackages.libvhdi";
       description = "libvhdi package to use";
     };
   };

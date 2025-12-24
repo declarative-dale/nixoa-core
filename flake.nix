@@ -32,7 +32,26 @@
 
     # Only import pkgs where needed (for packages/apps/devShells)
     pkgs = nixpkgs.legacyPackages.${system};
+
+    # Import utility library for modules
+    utils = import ./lib/utils.nix { inherit lib; };
   in {
+    # Package outputs - XOA and libvhdi built from source
+    packages.${system} = {
+      xo-ce = pkgs.callPackage ./pkgs/xo-ce { inherit xoSrc; };
+      libvhdi = pkgs.callPackage ./pkgs/libvhdi { inherit libvhdiSrc; };
+      default = self.packages.${system}.xo-ce;
+    };
+
+    # Overlay for easy nixpkgs extension
+    # Usage: overlays.default (adds nixoa.xo-ce and nixoa.libvhdi to pkgs)
+    overlays.default = final: prev: {
+      nixoa = {
+        xo-ce = self.packages.${system}.xo-ce;
+        libvhdi = self.packages.${system}.libvhdi;
+      };
+    };
+
     # Module library export - nixoa-vm is a module provider for user-config
     # Usage in user-config: nixoa-vm.nixosModules.default
     nixosModules.default = { config, lib, pkgs, ... }: {
@@ -41,15 +60,16 @@
         ./modules
       ];
 
-      # Make flake sources available to modules
+      # Make packages and utilities available to all modules
       _module.args = {
-        inherit xoSrc libvhdiSrc;
+        nixoaPackages = self.packages.${system};
+        nixoaUtils = utils;
       };
     };
 
     # Package metadata for the project
-    packages.${system}.default = pkgs.stdenv.mkDerivation {
-      pname = "nixoa-vm";
+    packages.${system}.metadata = pkgs.stdenv.mkDerivation {
+      pname = "nixoa-vm-metadata";
       version = "1.0.0";
       dontUnpack = true;
       dontBuild = true;
@@ -91,14 +111,14 @@
         text = ''
           #!/usr/bin/env bash
           set -euo pipefail
-          
+
           echo "🔄 Updating Xen Orchestra source..."
           nix flake lock --update-input xoSrc
-          
+
           echo "📋 Recent commits in xen-orchestra:"
           curl -s https://api.github.com/repos/vatesfr/xen-orchestra/commits?per_page=5 | \
             jq -r '.[] | "  • \(.sha[0:7]) - \(.commit.message | split("\n")[0]) (\(.commit.author.date))"'
-          
+
           echo ""
           echo "✅ Update complete! Review changes with: git diff flake.lock"
           echo ""
@@ -115,15 +135,15 @@
 
     # Development shell
     devShells.${system}.default = pkgs.mkShell {
-      packages = with pkgs; [ 
-        jq 
-        git 
-        curl 
+      packages = with pkgs; [
+        jq
+        git
+        curl
         nixos-rebuild
         nix-tree
         nix-diff
       ];
-      
+
       shellHook = ''
         echo "╔══════════════════════════════════════════════════════════╗"
         echo "║     NixOA-VM Module Library Development Environment       ║"
