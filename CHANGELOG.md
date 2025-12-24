@@ -1,6 +1,238 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v0.8 - NiXOA-VM Appliance Mode
+
+**Release Date:** December 24, 2025
+
+### 🎉 Major Architectural Change: Module Library Migration
+
+This release represents a fundamental restructuring of the NixOA project, inverting the dependency between `nixoa-vm` and `user-config` flakes for a cleaner, more maintainable architecture.
+
+---
+
+### What Changed
+
+#### Before (v0.x - Inverted Architecture)
+```
+nixoa-vm (entry point)
+├── Exports: nixosConfigurations
+├── Imports: user-config
+└── Rebuild location: /etc/nixos/nixoa/nixoa-vm
+
+user-config (data export)
+├── Exports: configuration data only
+├── Contains: configuration.nix, config.nixoa.toml
+└── Location: /etc/nixos/nixoa/user-config
+```
+
+#### After (v0.8 - Correct Architecture)
+```
+user-config (entry point) ✅
+├── Exports: nixosConfigurations
+├── Imports: nixoa-vm as module library
+├── Contains: modules/home.nix, configuration.nix
+└── Rebuild location: ~/user-config
+
+nixoa-vm (module library) ✅
+├── Exports: nixosModules.default
+├── Contains: core/, xo/ system modules (immutable)
+├── Location: /etc/nixos/nixoa/nixoa-vm (git-managed)
+└── Updated via: git pull only
+```
+
+---
+
+### nixoa-vm Flake Changes
+
+#### ✨ New: Module Library Exports
+- **`nixosModules.default`** - Primary export bundling all system modules (core/, xo/)
+- Automatically imports all modules except home/ (now in user-config)
+- Makes flake sources (xoSrc, libvhdiSrc) available to modules
+- Can be imported by user-config: `nixoa-vm.nixosModules.default`
+
+#### 🔄 Removed: Configuration Entry Point
+- `nixosConfigurations.*` output removed (responsibility moved to user-config)
+- No longer consumes `nixoa-config` input
+- No longer imports hardware-configuration.nix directly
+- Simplified to pure module provider (no configuration logic)
+
+#### 📝 Updated: Development Shell
+- Updated devShell messages to reflect module library purpose
+- Clarified that configuration is in ~/user-config, not here
+- Added usage instructions for module imports
+
+#### 📍 Updated: Installer Script
+- Changed user-config installation location from `/etc/nixos/nixoa/user-config` to `~/user-config`
+- Simplified installer to clone both flakes to their new locations
+- Updated rebuild command examples to reference new entry point
+
+#### 🔧 Updated: Update Module
+- Changed `updates.repoDir` default from `/etc/nixos/xoa-flake` to `~/user-config`
+- Rebuild commands now target correct entry point automatically
+- Tilde expansion works with admin user home directory
+
+#### 📚 Updated: Documentation
+- README.md updated with new installation flow
+- Installation steps now show correct directory structure
+- Examples reflect rebuilding from ~/user-config
+- Clarified that nixoa-vm is immutable module library
+
+---
+
+### How This Affects You
+
+#### Installation Workflow
+**Old (v0.x):**
+```bash
+sudo mkdir -p /etc/nixos/nixoa
+sudo git clone https://codeberg.org/nixoa/nixoa-vm.git /etc/nixos/nixoa/nixoa-vm
+sudo git clone https://codeberg.org/nixoa/user-config.git /etc/nixos/nixoa/user-config
+# Edit /etc/nixos/nixoa/user-config/configuration.nix
+cd /etc/nixos/nixoa/nixoa-vm
+sudo nixos-rebuild switch --flake .#hostname
+```
+
+**New (v0.8):**
+```bash
+bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
+# Installer clones both automatically:
+# - nixoa-vm → /etc/nixos/nixoa/nixoa-vm (immutable)
+# - user-config → ~/user-config (your home directory)
+
+# Edit ~/user-config/configuration.nix
+cd ~/user-config
+sudo nixos-rebuild switch --flake .#hostname
+```
+
+#### Rebuild Workflow
+**Old:**
+```bash
+cd /etc/nixos/nixoa/nixoa-vm
+sudo nixos-rebuild switch --flake .#<hostname>
+```
+
+**New:**
+```bash
+cd ~/user-config  # Your personal configuration
+sudo nixos-rebuild switch --flake .#<hostname>
+```
+
+#### File Organization
+
+##### nixoa-vm (Immutable)
+```
+/etc/nixos/nixoa/nixoa-vm/
+├── flake.nix              # Module library exports
+├── modules/
+│   ├── core/              # System modules
+│   ├── xo/                # XO service modules
+│   └── home/              # REMOVED (moved to user-config)
+├── scripts/               # Setup and helper scripts
+└── README.md              # Installation guide
+```
+
+##### user-config (Your Configuration)
+```
+~/user-config/
+├── flake.nix              # Entry point (exports nixosConfigurations)
+├── configuration.nix      # Your settings
+├── modules/
+│   └── home.nix           # Home-manager config (NEW location)
+├── hardware-configuration.nix
+├── config.nixoa.toml
+└── scripts/               # Helper scripts
+```
+
+---
+
+### Benefits of This Architecture
+
+#### ✅ Clearer Separation of Concerns
+- **nixoa-vm**: Immutable system module definitions
+- **user-config**: User configuration and settings
+
+#### ✅ Better Maintainability
+- nixoa-vm updates via git (controlled)
+- user-config changes are personal (isolated)
+- No circular dependencies
+
+#### ✅ Improved User Experience
+- All edits happen in one place: `~/user-config/`
+- Rebuild command runs from configuration directory (intuitive)
+- Home-manager config with your settings, not system-wide
+
+#### ✅ Easier System Updates
+- Update nixoa-vm: `cd /etc/nixos/nixoa/nixoa-vm && sudo git pull`
+- Update user-config: `cd ~/user-config && git pull`
+- Rebuild from user-config: automatic module import from nixoa-vm
+
+---
+
+### Breaking Changes ⚠️
+
+This is a **major version release** with breaking changes. Existing installations will not work with v1.0 without updates.
+
+#### What Breaks
+- ❌ Old flake.lock files invalid (nixoa-config input removed)
+- ❌ Cannot rebuild from `/etc/nixos/nixoa/nixoa-vm` anymore
+- ❌ user-config cannot be at `/etc/nixos/nixoa/user-config` (must be ~/user-config)
+- ❌ home-manager config location changed (moved to user-config/modules/home.nix)
+
+#### Migration Path
+
+For **fresh installations**, use the new installer (recommended):
+```bash
+bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
+```
+
+---
+
+### Module Library Usage
+
+If you want to extend NixOA with custom flakes, you can now import nixoa-vm as a module library:
+
+```nix
+# In your flake.nix
+inputs = {
+  nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+  nixoa-vm = {
+    url = "path:/etc/nixos/nixoa/nixoa-vm";
+    inputs.nixpkgs.follows = "nixpkgs";
+  };
+};
+
+outputs = { self, nixpkgs, nixoa-vm }:
+{
+  nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+    system = "x86_64-linux";
+    modules = [
+      nixoa-vm.nixosModules.default
+      # Your custom modules here
+    ];
+  };
+};
+```
+
+---
+
+### Technical Details
+
+#### Flake Input Resolution
+- **nixoa-vm input path**: `path:/etc/nixos/nixoa/nixoa-vm`
+- **home-manager source**: Follows from nixoa-vm (`home-manager.follows = "nixoa-vm/home-manager"`)
+- **nixpkgs consistency**: Both flakes follow the same nixpkgs (25.11 release branch)
+
+### Module Bundling
+- **Bundle mechanism**: `modules/bundle.nix` dynamically discovers all .nix files
+- **Exclusions**: `bundle.nix`, `default.nix`, and `home/` directory
+- **Imports**: Automatic recursive import from subdirectories (core/, xo/)
+
+### Home-Manager Integration
+- **Location**: Moved from `nixoa-vm/modules/home/home.nix` to `user-config/modules/home.nix`
+- **Configuration**: Still integrated as NixOS module (single rebuild command)
+- **Specialization**: Receives userSettings and systemSettings via extraSpecialArgs
+---
 ## v0.4 — Stability & Production Updates (Vates Camp 2025 Edition)
 
 Date: 2025-12-03
