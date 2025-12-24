@@ -76,6 +76,7 @@ let
   updateInputScript = inputName: pkgs.writeShellApplication {
     name = "xoa-update-${inputName}";
     runtimeInputs = with pkgs; [ git nix jq curl ];
+    excludeShellChecks = [ "SC1091" ];
     text = ''
       source ${xoaCommonLib}
       source ${mkNotificationHelper}
@@ -157,6 +158,7 @@ $commit_summary" "success"
   updateAndRebuildScript = inputName: pkgs.writeShellApplication {
     name = "xoa-update-${inputName}-rebuild";
     runtimeInputs = with pkgs; [ git nix ];
+    excludeShellChecks = [ "SC1091" ];
     text = ''
       source ${xoaCommonLib}
       source ${mkNotificationHelper}
