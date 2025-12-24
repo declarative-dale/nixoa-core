@@ -73,128 +73,132 @@ let
   '';
 
   # Update specific flake input with commit comparison
-  updateInputScript = inputName: pkgs.writeShellScript "xoa-update-${inputName}" ''
-    set -euo pipefail
+  updateInputScript = inputName: pkgs.writeShellApplication {
+    name = "xoa-update-${inputName}";
+    runtimeInputs = with pkgs; [ git nix jq curl ];
+    text = ''
+      source ${xoaCommonLib}
+      source ${mkNotificationHelper}
 
-    source ${xoaCommonLib}
-    source ${mkNotificationHelper}
+      REPO_DIR="${expandedRepoDir}"
+      INPUT_NAME="${inputName}"
 
-    REPO_DIR="${expandedRepoDir}"
-    INPUT_NAME="${inputName}"
+      cd "$REPO_DIR"
 
-    cd "$REPO_DIR"
+      log_info "Updating $INPUT_NAME input..."
+      write_status "$INPUT_NAME-update" "running" "Updating $INPUT_NAME input"
 
-    log_info "Updating $INPUT_NAME input..."
-    write_status "$INPUT_NAME-update" "running" "Updating $INPUT_NAME input"
+      # Get current rev
+      OLD_REV=$(jq -r '.nodes.$INPUT_NAME.locked.rev // empty' flake.lock 2>/dev/null || echo "")
 
-    # Get current rev
-    OLD_REV=$(jq -r '.nodes.$INPUT_NAME.locked.rev // empty' flake.lock 2>/dev/null || echo "")
+      # Update the input
+      if ! nix flake lock --update-input $INPUT_NAME --commit-lock-file; then
+        log_error "Failed to update $INPUT_NAME input"
+        write_status "$INPUT_NAME-update" "failed" "Flake lock failed"
+        send_notification "$INPUT_NAME Update Failed" "Failed to update flake input" "error"
+        exit 1
+      fi
 
-    # Update the input
-    if ! nix flake lock --update-input $INPUT_NAME --commit-lock-file; then
-      log_error "Failed to update $INPUT_NAME input"
-      write_status "$INPUT_NAME-update" "failed" "Flake lock failed"
-      send_notification "$INPUT_NAME Update Failed" "Failed to update flake input" "error"
-      exit 1
-    fi
+      # Get new rev
+      NEW_REV=$(jq -r '.nodes.$INPUT_NAME.locked.rev // empty' flake.lock)
 
-    # Get new rev
-    NEW_REV=$(jq -r '.nodes.$INPUT_NAME.locked.rev // empty' flake.lock)
+      if [[ -z "$NEW_REV" ]]; then
+        log_error "Could not read new revision from flake.lock"
+        write_status "$INPUT_NAME-update" "failed" "Invalid flake.lock"
+        send_notification "$INPUT_NAME Update Failed" "Could not read new revision" "error"
+        exit 1
+      fi
 
-    if [[ -z "$NEW_REV" ]]; then
-      log_error "Could not read new revision from flake.lock"
-      write_status "$INPUT_NAME-update" "failed" "Invalid flake.lock"
-      send_notification "$INPUT_NAME Update Failed" "Could not read new revision" "error"
-      exit 1
-    fi
+      if [[ "$OLD_REV" == "$NEW_REV" ]]; then
+        log_info "$INPUT_NAME already up to date"
+        write_status "$INPUT_NAME-update" "success" "Already up to date"
+        exit 0
+      fi
 
-    if [[ "$OLD_REV" == "$NEW_REV" ]]; then
-      log_info "$INPUT_NAME already up to date"
-      write_status "$INPUT_NAME-update" "success" "Already up to date"
-      exit 0
-    fi
+      log_info "$INPUT_NAME: ''${OLD_REV:-none} -> $NEW_REV"
 
-    log_info "$INPUT_NAME: ''${OLD_REV:-none} -> $NEW_REV"
+      # Show commits if both revisions exist
+      commit_summary=""
+      if [[ -n "$OLD_REV" && "$OLD_REV" != "$NEW_REV" ]]; then
+        log_info "Fetching commit history..."
 
-    # Show commits if both revisions exist
-    commit_summary=""
-    if [[ -n "$OLD_REV" && "$OLD_REV" != "$NEW_REV" ]]; then
-      log_info "Fetching commit history..."
+        # For GitHub repos, try API first
+        if [[ "$INPUT_NAME" == "xoSrc" ]]; then
+          API_URL="https://api.github.com/repos/vatesfr/xen-orchestra/compare/$OLD_REV...$NEW_REV"
 
-      # For GitHub repos, try API first
-      if [[ "$INPUT_NAME" == "xoSrc" ]]; then
-        API_URL="https://api.github.com/repos/vatesfr/xen-orchestra/compare/$OLD_REV...$NEW_REV"
-
-        if response=$(curl -s "$API_URL" 2>/dev/null); then
-          commit_count=$(echo "$response" | jq -r '.total_commits // 0' 2>/dev/null || echo "0")
-          if [[ "$commit_count" != "0" ]]; then
-            commit_summary=$(echo "$response" | jq -r '.commits[]? | "  \(.sha[0:7]) \(.commit.message | split("\n")[0])"' 2>/dev/null | head -5 || echo "")
-            if [[ -n "$commit_summary" ]]; then
-              echo "Changes ($commit_count commits):"
-              echo "$commit_summary"
+          if response=$(curl -s "$API_URL" 2>/dev/null); then
+            commit_count=$(echo "$response" | jq -r '.total_commits // 0' 2>/dev/null || echo "0")
+            if [[ "$commit_count" != "0" ]]; then
+              commit_summary=$(echo "$response" | jq -r '.commits[]? | "  \(.sha[0:7]) \(.commit.message | split("\n")[0])"' 2>/dev/null | head -5 || echo "")
+              if [[ -n "$commit_summary" ]]; then
+                echo "Changes ($commit_count commits):"
+                echo "$commit_summary"
+              fi
             fi
           fi
+        elif [[ "$INPUT_NAME" == "nixpkgs" ]]; then
+          commit_summary="Updated nixpkgs from $OLD_REV to $NEW_REV"
+        elif [[ "$INPUT_NAME" == "libvhdiSrc" ]]; then
+          commit_summary="Updated libvhdi from $OLD_REV to $NEW_REV"
         fi
-      elif [[ "$INPUT_NAME" == "nixpkgs" ]]; then
-        commit_summary="Updated nixpkgs from $OLD_REV to $NEW_REV"
-      elif [[ "$INPUT_NAME" == "libvhdiSrc" ]]; then
-        commit_summary="Updated libvhdi from $OLD_REV to $NEW_REV"
       fi
-    fi
 
-    log_success "$INPUT_NAME input updated"
-    write_status "$INPUT_NAME-update" "success" "Updated to $NEW_REV"
+      log_success "$INPUT_NAME input updated"
+      write_status "$INPUT_NAME-update" "success" "Updated to $NEW_REV"
 
-    if [[ -n "$commit_summary" ]] || ${if cfg.monitoring.notifyOnSuccess then "true" else "false"}; then
-      send_notification "$INPUT_NAME Updated" "Updated to $NEW_REV
+      if [[ -n "$commit_summary" ]] || ${if cfg.monitoring.notifyOnSuccess then "true" else "false"}; then
+        send_notification "$INPUT_NAME Updated" "Updated to $NEW_REV
 $commit_summary" "success"
-    fi
-  '';
+      fi
+    '';
+  };
 
   # Combined update and rebuild script
-  updateAndRebuildScript = inputName: pkgs.writeShellScript "xoa-update-${inputName}-rebuild" ''
-    set -euo pipefail
+  updateAndRebuildScript = inputName: pkgs.writeShellApplication {
+    name = "xoa-update-${inputName}-rebuild";
+    runtimeInputs = with pkgs; [ git nix ];
+    text = ''
+      source ${xoaCommonLib}
+      source ${mkNotificationHelper}
 
-    source ${xoaCommonLib}
-    source ${mkNotificationHelper}
+      REPO_DIR="${expandedRepoDir}"
+      HOSTNAME="${config.networking.hostName}"
+      INPUT_NAME="${inputName}"
 
-    REPO_DIR="${expandedRepoDir}"
-    HOSTNAME="${config.networking.hostName}"
-    INPUT_NAME="${inputName}"
+      cd "$REPO_DIR"
 
-    cd "$REPO_DIR"
+      log_info "Starting $INPUT_NAME update and rebuild"
+      write_status "$INPUT_NAME-rebuild" "running" "Starting update and rebuild"
 
-    log_info "Starting $INPUT_NAME update and rebuild"
-    write_status "$INPUT_NAME-rebuild" "running" "Starting update and rebuild"
+      start_time=$(date +%s)
 
-    start_time=$(date +%s)
+      # Update the input
+      if ! ${updateInputScript inputName}/bin/xoa-update-$INPUT_NAME; then
+        log_error "Input update failed"
+        write_status "$INPUT_NAME-rebuild" "failed" "Input update failed"
+        send_notification "$INPUT_NAME Rebuild Failed" "Failed to update $INPUT_NAME input" "error"
+        exit 1
+      fi
 
-    # Update the input
-    if ! ${updateInputScript inputName}; then
-      log_error "Input update failed"
-      write_status "$INPUT_NAME-rebuild" "failed" "Input update failed"
-      send_notification "$INPUT_NAME Rebuild Failed" "Failed to update $INPUT_NAME input" "error"
-      exit 1
-    fi
+      # Rebuild system
+      log_info "Rebuilding NixOS configuration for host: $HOSTNAME"
+      if nixos-rebuild switch --flake ".#$HOSTNAME" -L; then
+        log_success "System rebuild completed"
+      else
+        log_error "System rebuild failed"
+        write_status "$INPUT_NAME-rebuild" "failed" "System rebuild failed"
+        send_notification "$INPUT_NAME Rebuild Failed" "NixOS rebuild failed - system may need manual intervention" "error"
+        exit 1
+      fi
 
-    # Rebuild system
-    log_info "Rebuilding NixOS configuration for host: $HOSTNAME"
-    if nixos-rebuild switch --flake ".#$HOSTNAME" -L; then
-      log_success "System rebuild completed"
-    else
-      log_error "System rebuild failed"
-      write_status "$INPUT_NAME-rebuild" "failed" "System rebuild failed"
-      send_notification "$INPUT_NAME Rebuild Failed" "NixOS rebuild failed - system may need manual intervention" "error"
-      exit 1
-    fi
+      end_time=$(date +%s)
+      duration=$((end_time - start_time))
 
-    end_time=$(date +%s)
-    duration=$((end_time - start_time))
-
-    log_success "Update completed successfully in ''${duration}s"
-    write_status "$INPUT_NAME-rebuild" "success" "Completed in ''${duration}s"
-    send_notification "$INPUT_NAME Rebuild Successful" "System updated and rebuilt successfully in ''${duration}s" "success"
-  '';
+      log_success "Update completed successfully in ''${duration}s"
+      write_status "$INPUT_NAME-rebuild" "success" "Completed in ''${duration}s"
+      send_notification "$INPUT_NAME Rebuild Successful" "System updated and rebuilt successfully in ''${duration}s" "success"
+    '';
+  };
 
   # Script to check all statuses
   statusScript = pkgs.writeShellApplication {
