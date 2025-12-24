@@ -98,9 +98,9 @@ in
 
     # Garbage collection
     gc = {
-      automatic = false;
-      dates = "weekly";
-      options = "--delete-older-than 14d";
+      automatic = lib.mkDefault false;
+      dates = lib.mkDefault "weekly";
+      options = lib.mkDefault "--delete-older-than 14d";
     };
 
     # Optimize store on a schedule
