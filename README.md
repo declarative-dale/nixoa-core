@@ -1,9 +1,9 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# NixOA-CE: Xen Orchestra Community Edition on NixOS
+# NiXOA: Xen Orchestra Community Edition on NixOS
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for homelab and testing environments.
+An experimental Xen Orchestra Community Edition flake for NixOS VMs in XCP-NG.
 
 > **⚠️ Important Disclaimer**
 >
@@ -31,80 +31,101 @@ An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for 
 
 ## Quick Start
 
-> **Important:** This flake requires **path-based references** (not git-based) because it uses `nixoa.toml` for configuration, which is git-ignored. Using `git+file://` or remote git references will not work as your config file won't be included.
+> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) to keep your settings isolated from the deployment code. Configuration is stored in **the system directory.** (`/etc/nixos/NiXOA/user-config`)
 
-> **Existing Users:** If you're upgrading from an older version with the repository named `nixoa` or `declarative-xoa-ce`, see [MIGRATION.md](./MIGRATION.md) for renaming instructions.
 
-### 1. Clone Repository
+### Automated Installation (Untested)
 
-Choose a persistent location that survives system rebuilds:
-
-```bash
-# Option A: System-wide (recommended)
-sudo mkdir -p /etc/nixos
-cd /etc/nixos
-sudo git clone https://codeberg.org/dalemorgan/nixoa-ce.git nixoa-ce
-cd nixoa-ce
-
-# Option B: User home directory
-cd ~
-git clone https://codeberg.org/dalemorgan/nixoa-ce.git nixoa-ce
-cd nixoa-ce
-```
-
-### 2. Configure System
-
-Create your configuration file from the sample:
+The easiest way to get started is to use the bootstrap installer. It handles everything automatically:
 
 ```bash
-cp sample-nixoa.toml nixoa.toml
-nano nixoa.toml
+# Run as a regular user (NOT root)
+bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
+```
+### Manual Installation (Tested)
+Or clone the repo first and run locally:
+
+```bash
+git clone https://codeberg.org/nixoa/nixoa-vm.git
+cd nixoa-vm/scripts
+bash xoa-install.sh
 ```
 
-**Required changes:**
+The installer will:
+1. Clone the nixoa-vm flake to `/etc/nixos/nixoa/nixoa-vm`
+2. Create your user-config flake in `~/user-config`
+3. Generate all necessary Nix modules and TOML files
+4. Copy/generate your hardware configuration
+5. Create the symlink for flake input resolution
+6. Provide next steps for customization
+
+### Manual Installation
+
+If you prefer more control, follow these steps:
+
+#### 1. Clone Repositories
+
+```bash
+# Create nixos config directory
+sudo mkdir -p /etc/nixos/nixoa
+cd /etc/nixos/nixoa
+
+# Clone system deployment flake (nixoa-vm)
+sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
+
+# Clone user configuration as a sibling directory
+sudo git clone https://codeberg.org/nixoa/user-config.git user-config
+```
+
+Both repositories are now in `/etc/nixos/nixoa/` with nixoa-vm finding user-config via a relative path reference.
+
+#### 2. Configure System
+
+Edit your configuration:
+
+```bash
+cd /etc/nixos/nixoa/user-config
+nano configuration.nix
+```
+
+**Required changes in `systemSettings`:**
 - `hostname` - Your system's hostname
 - `username` - Admin user for SSH access
 - `sshKeys` - Your SSH public key(s)
 
 **Optional changes:**
-- `xo.port` / `xo.httpsPort` - Change default ports
+- `xo.port` / `xo.httpsPort` - Change default XO ports
 - `storage.*` - Enable/disable NFS and CIFS support
-- `updates.repoDir` - Must match your clone location
+- `userSettings.extras.enable` - Enhanced terminal experience with zsh
+- `userSettings.packages.extra` - Additional user packages
+- `systemSettings.packages.system.extra` - System-wide packages
 
-**Copy hardware configuration:**
+#### 3. Apply Configuration
 
-```bash
-sudo cp /etc/nixos/hardware-configuration.nix ./
-```
-
-### 3. Deploy
-
-This project **requires path-based flake references** to include your `nixoa.toml` configuration. The `.#` reference uses the current directory as a path (not git).
+After editing, apply your configuration:
 
 ```bash
-# From within the repository directory (recommended)
-sudo nixos-rebuild switch --flake .#xoa -L
-
-# Using absolute path (if not in the repo directory)
-sudo nixos-rebuild switch --flake /etc/nixos/nixoa-ce#xoa -L
-# or
-sudo nixos-rebuild switch --flake /home/user/nixoa-ce#xoa -L
+cd ~/user-config
+./scripts/apply-config.sh "Initial deployment"
 ```
 
-**❌ Do NOT use git-based references** (these won't find your nixoa.toml):
+This will:
+1. Commit your configuration changes to git
+2. Run `sudo nixos-rebuild switch` with your configured hostname
+3. Apply all settings to your system
+
+Alternatively, for more control:
+
 ```bash
-# These will FAIL because nixoa.toml is git-ignored:
-sudo nixos-rebuild switch --flake git+file:///etc/nixos/nixoa-ce#xoa    # ❌ Wrong
-sudo nixos-rebuild switch --flake github:user/repo#xoa                  # ❌ Wrong
-sudo nixos-rebuild switch --flake git+https://codeberg.org/...#xoa      # ❌ Wrong
+# Just commit without rebuilding
+./scripts/commit-config.sh "Initial configuration"
+
+# Later, rebuild manually
+cd /etc/nixos/nixoa/nixoa-vm
+sudo nixos-rebuild switch --flake .#<hostname> -L
 ```
 
-**✅ Correct references** (path-based, includes nixoa.toml):
-```bash
-sudo nixos-rebuild switch --flake .#xoa                      # ✅ Current directory
-sudo nixos-rebuild switch --flake /etc/nixos/nixoa-ce#xoa    # ✅ Absolute path
-sudo nixos-rebuild switch --flake ~/nixoa-ce#xoa             # ✅ Home directory
-```
+Replace `<hostname>` with the `hostname` value in `~/user-config/configuration.nix`.
 
 ### 4. Access Xen Orchestra
 
@@ -122,77 +143,90 @@ Default credentials (change immediately):
 
 ## Advanced: Using as a Flake Input
 
-If you have an existing `/etc/nixos/flake.nix`, you can reference this flake using a **path-based input**:
+If you have an existing `/etc/nixos/flake.nix`, you can integrate NiXOA using both flakes as inputs:
 
 ```nix
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
-    # Use path reference to include nixoa.toml
-    nixoa-ce.url = "path:/etc/nixos/nixoa-ce";  # or "path:/home/user/nixoa-ce"
-
-    # ❌ Do NOT use git references:
-    # nixoa-ce.url = "git+file:///etc/nixos/nixoa-ce";  # Won't work!
+    # Reference both flakes
+    nixoa-vm.url = "path:/etc/nixos/nixoa/nixoa-vm";
+    nixoa-config.url = "path:/etc/nixos/nixoa/user-config";
   };
 
-  outputs = { self, nixpkgs, nixoa-ce }: {
+  outputs = { self, nixpkgs, nixoa-vm, nixoa-config }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
-        nixoa-ce.nixosModules.default
-        ./hardware-configuration.nix
+        nixoa-vm.nixosModules.default        # Imports options.nixoa.* definitions
+        nixoa-config.nixosModules.default    # Sets config.nixoa.* from TOML
+        nixoa-config.nixosModules.hardware   # Hardware config from user-config
         {
-          # Your configuration can override nixoa-ce settings here
-          xoa.admin.sshAuthorizedKeys = [ "ssh-ed25519 ..." ];
+          # You can override TOML settings here
+          config.nixoa.xo.port = 8080;
+          config.nixoa.admin.sshKeys = [ "ssh-ed25519 ..." ];
         }
       ];
     };
   };
 }
 ```
-
-**Key differences:**
-- `path:/absolute/path` - Includes untracked files (nixoa.toml) ✅
-- `git+file:///path` - Only committed files ❌
-- `.` - Current directory as path reference ✅
-
 ---
 
 ## Configuration
 
-### nixoa.toml Structure
+### configuration.nix Structure
 
-This flake uses TOML for configuration, which is more human-readable and supports native comments:
+Configuration is managed in your **home directory** at `~/user-config/configuration.nix` using pure Nix:
 
-```toml
-# System basics
-hostname = "xoa"
-username = "xoa"
-sshKeys = ["ssh-ed25519 ..."]  # Your public keys
+```nix
+{ lib, pkgs, ... }:
 
-# Xen Orchestra ports
-[xo]
-port = 80
-httpsPort = 443
+{
+  userSettings = {
+    packages.extra = [ ];  # Additional user packages
+    extras.enable = false;  # Enable terminal enhancements (zsh, oh-my-posh, etc.)
+  };
 
-# TLS settings
-[tls]
-enable = true  # Auto-generate self-signed certs
+  systemSettings = {
+    # Basic system identification
+    hostname = "nixoa";
+    username = "xoa";
+    stateVersion = "25.11";
+    timezone = "UTC";
+    sshKeys = [ "ssh-ed25519 ..." ];  # Your SSH public keys
 
-# Storage support
-[storage.nfs]
-enable = true  # Enable NFS mounting
+    # Xen Orchestra configuration
+    xo = {
+      port = 80;
+      httpsPort = 443;
+      tls = {
+        enable = true;
+        redirectToHttps = true;
+        autoGenerate = true;  # Auto-generate self-signed certs
+      };
+    };
 
-[storage.cifs]
-enable = true  # Enable CIFS/SMB mounting
+    # Storage support
+    storage = {
+      nfs.enable = true;
+      cifs.enable = true;
+      vhd.enable = true;
+    };
 
-# Updates - see "Automated Updates" section
-[updates]
-repoDir = "/etc/nixos/nixoa-ce"  # Must match where you cloned the repository
+    # System packages
+    packages.system.extra = [ ];
+
+    # Optional: Automated updates configuration
+    updates = { };
+  };
+}
 ```
 
-**See CONFIGURATION.md for complete documentation** on all available options.
+You can also optionally customize XO server settings in `config.nixoa.toml` (optional overrides).
+
+**See README.md and CLI-REFERENCE.md for complete configuration examples.**
 
 ### Manual Configuration
 
@@ -233,45 +267,48 @@ sudo systemctl restart xo-server.service
 
 ## Automated Updates
 
-Enable automatic updates in `nixoa.toml`:
+Enable automatic updates in `~/user-config/configuration.nix`:
 
-```toml
-[updates]
-repoDir = "/etc/nixos/nixoa-ce"  # Your clone location (must match where you cloned)
+```nix
+systemSettings = {
+  updates = {
+    # Garbage collection - runs independently
+    gc = {
+      enable = true;
+      schedule = "Sun 04:00";
+      keepGenerations = 7;
+    };
 
-# Garbage collection - runs independently
-[updates.gc]
-enable = true
-schedule = "Sun 04:00"
-keepGenerations = 7
+    # Pull flake updates from remote repository
+    flake = {
+      enable = true;
+      schedule = "Sun 04:00";
+      remoteUrl = "https://codeberg.org/nixoa/nixoa-vm.git";
+      branch = "main";
+      autoRebuild = false;
+    };
 
-# Pull flake updates from remote repository
-[updates.flake]
-enable = true
-schedule = "Sun 04:00"
-remoteUrl = "https://codeberg.org/dalemorgan/nixoa-ce.git"
-branch = "main"
-autoRebuild = false
+    # Update NixOS packages
+    nixpkgs = {
+      enable = true;
+      schedule = "Mon 04:00";
+      keepGenerations = 7;
+    };
 
-# Protect these files from being overwritten during updates
-protectPaths = ["nixoa.toml", "hardware-configuration.nix"]
-
-# Update NixOS packages
-[updates.nixpkgs]
-enable = true
-schedule = "Mon 04:00"
-keepGenerations = 7
-
-# Update Xen Orchestra upstream source
-[updates.xoa]
-enable = true
-schedule = "Tue 04:00"
-keepGenerations = 7
+    # Update Xen Orchestra upstream source
+    xoa = {
+      enable = true;
+      schedule = "Tue 04:00";
+      keepGenerations = 7;
+    };
+  };
+};
 ```
 
 **How it works:**
 - Each timer runs independently on its schedule
-- Updates preserve your `nixoa.toml` and `hardware-configuration.nix`
+- Configuration in user-config is separate and unaffected by nixoa-vm updates
+- hardware-configuration.nix lives in user-config (version controlled separately)
 - Automatic GC keeps your system clean
 - All updates are logged to journald
 
@@ -279,7 +316,7 @@ keepGenerations = 7
 
 ```bash
 # From your repository directory
-cd /etc/nixos/nixoa-ce  # or wherever you cloned it
+cd /etc/nixos/nixoa/nixoa-vm  # or wherever you cloned it
 
 # Update XO to latest release
 nix run .#update-xo
@@ -334,7 +371,7 @@ sudo systemctl restart xo-server.service
 sudo systemctl restart xo-build.service xo-server.service
 
 # Full system rebuild (from repository directory)
-cd /etc/nixos/nixoa-ce  # or wherever you cloned it
+cd /etc/nixos/nixoa/nixoa-vm  # or wherever you cloned it
 sudo nixos-rebuild switch --flake .#xoa -L
 ```
 
@@ -478,8 +515,8 @@ curl -H "Title: Test" -d "Testing ntfy from XOA" \
 # Check if curl is available
 which curl
 
-# Verify configuration
-grep -A5 "ntfy" /etc/nixos/nixoa-ce/nixoa.toml
+# Verify configuration in configuration.nix
+cat ~/user-config/configuration.nix | grep -A5 "updates"
 ```
 
 **For email:**
@@ -572,27 +609,94 @@ For large deployments (50+ VMs), add to your `nixoa.toml`:
 
 ---
 
+## Module Architecture
+
+NixOA modules are organized by concern for clarity and maintainability:
+
+**core/** - System-level modules (no XO-specific logic)
+- `base.nix` - System ID, locale, bootloader, kernel support
+- `users.nix` - User accounts, groups, SSH, sudo, PAM
+- `networking.nix` - Network config, firewall, NFS support
+- `packages.nix` - System packages, Nix configuration, GC
+- `services.nix` - Journald, monitoring, custom service definitions
+
+**xo/** - XO-specific modules
+- `integration.nix` - Bridges systemSettings → XO service configuration
+- `xoa.nix` - Core XO service, build system, Node.js setup
+- `xo-config.nix` - Generates `/etc/xo-server/config.nixoa.toml`
+- `storage.nix` - NFS/CIFS/VHD remote storage support
+- `libvhdi.nix` - VHD (Virtual Hard Disk) library service
+- `autocert.nix` - Automatic TLS certificate generation
+- `updates.nix` - Automated NiXOA update system
+- `extras.nix` - Terminal enhancements (zsh, oh-my-posh, tools)
+- `nixoa-cli.nix` - NiXOA CLI tools and utilities
+
+**home/** - Home Manager configuration
+- `home.nix` - Admin user environment, packages, shell aliases
+
+**Dynamic bundling:**
+- `bundle.nix` - Recursively discovers and imports all .nix files
+- `default.nix` - Simple entry point that delegates to bundle.nix
+
+---
+
 ## Directory Structure
 
 ```
-nixoa-ce/                        # Your cloned repository
-├── flake.nix                    # Main flake definition
-├── nixoa.toml                   # User configuration (git-ignored, you create this)
-├── sample-nixoa.toml            # Configuration template
-├── vars.nix                     # TOML config loader
-├── hardware-configuration.nix   # System hardware config (copy from /etc/nixos)
-├── modules/
-│   ├── xoa.nix                  # Core XO module
-│   ├── system.nix               # System configuration
-│   ├── storage.nix              # NFS/CIFS support
-│   ├── libvhdi.nix              # VHD tools
-│   ├── autocert.nix             # Auto SSL certificate generation
-│   └── updates.nix              # Update automation
-└── scripts/
-    ├── xoa-install.sh           # Initial deployment
-    ├── xoa-logs.sh              # View logs
-    └── xoa-update.sh            # Manual XO update
+/home/<user>/
+└── user-config/                 # Configuration flake (your home directory)
+    ├── flake.nix                # Simplified flake (data exports only)
+    ├── configuration.nix        # Pure Nix configuration (systemSettings, userSettings)
+    ├── config.nixoa.toml        # Optional XO server config overrides
+    ├── hardware-configuration.nix  # Your hardware config
+    └── scripts/
+        ├── apply-config.sh      # Commit and rebuild
+        ├── commit-config.sh     # Commit configuration changes
+        ├── show-diff.sh         # Show diff from HEAD
+        └── history              # Show git history
+
+/etc/nixos/nixoa/
+├── nixoa-vm/                    # Deployment flake (this repository)
+│   ├── flake.nix                # Main flake definition
+│   ├── README.md                # This file
+│   ├── MIGRATION.md             # Migration guide for existing users
+│   ├── modules/                 # Organized modular system
+│   │   ├── default.nix          # Entry point (delegates to bundle.nix)
+│   │   ├── bundle.nix           # Dynamic module discovery
+│   │   ├── core/
+│   │   │   ├── base.nix
+│   │   │   ├── users.nix
+│   │   │   ├── networking.nix
+│   │   │   ├── packages.nix
+│   │   │   └── services.nix
+│   │   ├── xo/
+│   │   │   ├── integration.nix
+│   │   │   ├── xoa.nix
+│   │   │   ├── xo-config.nix
+│   │   │   ├── storage.nix
+│   │   │   ├── libvhdi.nix
+│   │   │   ├── autocert.nix
+│   │   │   ├── updates.nix
+│   │   │   ├── extras.nix
+│   │   │   └── nixoa-cli.nix
+│   │   └── home/
+│   │       └── home.nix
+│   ├── hardware-configuration.nix  # Reference template
+│   └── scripts/
+│       ├── xoa-install.sh       # Initial deployment
+│       ├── xoa-logs.sh          # View logs
+│       └── xoa-update.sh        # Manual XO update
+│
+└── user-config → /home/<user>/user-config  # Symlink for flake input
 ```
+
+### Module Design
+
+- **Clear separation of concerns**: Core system modules are independent of XO, making the system reusable
+- **Single responsibility**: Each module handles one logical domain (users, networking, services, etc.)
+- **Focused modules**: 100-150 lines each vs. monolithic 500+ line files
+- **Dynamic discovery**: New modules in any subdirectory are automatically imported
+- **Explicit organization**: Subdirectories (core/, xo/, home/) make the architecture clear at a glance
 
 ---
 
@@ -601,9 +705,10 @@ nixoa-ce/                        # Your cloned repository
 Contributions welcome! Please:
 1. Test changes thoroughly
 2. Update documentation
-3. Keep `nixoa.toml` configuration simple and user-friendly
-4. Maintain backward compatibility
-5. Remember that users need path-based flake references for nixoa.toml to work
+3. Keep `options.nixoa.*` definitions well-documented with clear types and descriptions
+4. Update MIGRATION-OPTIONS.md when adding new options
+5. Ensure user-config TOML converter handles new options correctly
+6. Test with both TOML and pure Nix configuration methods
 
 ---
 
@@ -612,7 +717,7 @@ Contributions welcome! Please:
 - [Xen Orchestra Docs](https://xen-orchestra.com/docs/)
 - [XCP-ng Forums](https://xcp-ng.org/forum/)
 - [NixOS Manual](https://nixos.org/manual/nixos/stable/)
-- [Project Repository](https://codeberg.org/dalemorgan/nixoa-ce)
+- [Project Repository](https://codeberg.org/nixoa/nixoa-vm)
 
 ---
 

@@ -4,9 +4,12 @@ let
   inherit (lib) mkIf mkOption mkEnableOption types concatStringsSep;
   cfg = config.updates;
 
+  # Get admin username from config (set by system.nix from config.nixoa.admin.username)
+  adminUser = config.nixoa.admin.username or "xoa";
+
   # Expand tilde in repo directory path for systemd services
   expandedRepoDir = if lib.hasPrefix "~/" cfg.repoDir
-    then "/home/${config.users.users.xoa.name or "xoa"}/${lib.removePrefix "~/" cfg.repoDir}"
+    then "/home/${adminUser}/${lib.removePrefix "~/" cfg.repoDir}"
     else cfg.repoDir;
 
   # Common script utilities - reusable functions
@@ -22,16 +25,7 @@ let
       fi
       cd "${expandedRepoDir}"
     }
-    
-    protect_local_files() {
-      for p in ${concatStringsSep " " (map (p: "\"${p}\"") cfg.protectPaths)}; do
-        if [[ -e "$p" ]]; then
-          git update-index --skip-worktree "$p" 2>/dev/null || true
-          log_info "Protected: $p"
-        fi
-      done
-    }
-    
+
     rebuild_system() {
       local host="${config.networking.hostName}"
       log_info "Rebuilding NixOS configuration for host: $host"
@@ -178,10 +172,9 @@ let
     runtimeInputs = with pkgs; [ git ];
     text = ''
       ${commonUtils}
-      
+
       ensure_repo_dir
-      protect_local_files
-      
+
       REMOTE="${cfg.flake.remoteUrl}"
       BRANCH="${cfg.flake.branch}"
       
@@ -241,10 +234,9 @@ $commit_msgs" "success"
     runtimeInputs = with pkgs; [ git nix jq curl ];
     text = ''
       ${commonUtils}
-      
+
       ensure_repo_dir
-      protect_local_files
-      
+
       log_info "Updating ${inputName} input..."
       write_status "${inputName}-update" "running" "Updating ${inputName} input"
       
@@ -366,14 +358,8 @@ in
     repoDir = mkOption {
       type = types.str;
       default = "/etc/nixos/xoa-flake";
-      example = "/etc/nixos/nixoa-ce";
+      example = "/etc/nixos/nixoa/nixoa-vm";
       description = "Path to the flake repository directory";
-    };
-
-    protectPaths = mkOption {
-      type = types.listOf types.str;
-      default = [ "hardware-configuration.nix" ];
-      description = "Files to protect from git operations (skip-worktree). Personal info is now in .env which is git-ignored.";
     };
 
     monitoring = {
@@ -439,7 +425,7 @@ in
       };
       remoteUrl = mkOption {
         type = types.str;
-        default = "https://codeberg.org/dalemorgan/nixoa-ce.git";
+        default = "https://codeberg.org/nixoa/nixoa-vm.git";
         description = "Git remote URL for flake updates";
       };
       branch = mkOption {

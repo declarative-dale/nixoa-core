@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, xoSrc ? null, vars, ... }:
+{ config, lib, pkgs, xoSrc ? null, nixoa-config ? null, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.xoa;
@@ -8,16 +8,14 @@ let
   yarn   = pkgs.yarn;
   rsync  = pkgs.rsync;
   
-  # Properly define xoSource - this was missing in the original!
-  xoSource = if xoSrc != null then xoSrc else pkgs.fetchFromGitHub {
-    owner = "vatesfr";
-    repo = "xen-orchestra";
-    rev = "master";
-    hash = lib.fakeHash; # Replace with actual hash after first build attempt
-  };
+  # xoSource must be provided via flake input to ensure reproducible builds
+  xoSource = assert xoSrc != null; xoSrc;
   
   # XO home directory
   xoHome = "/var/lib/xo";
+
+  # Marker file to track source changes and trigger rebuilds
+  xoSourceMarker = "${xoHome}/xen-orchestra/.xo-source-info.json";
 
   # Sudo wrapper for CIFS mounts - injects credentials as mount options
   # This is the "Nix way" - transform the command instead of fighting sudo's env handling
@@ -95,50 +93,6 @@ exec /run/wrappers/bin/sudo "$@"
 EOF
     chmod +x $out/bin/sudo
   '';
-  
-  # Fixed xo-server config with proper HTTPS setup
-  xoDefaultConfig = pkgs.writeText "xo-config-default.toml" (''
-    [http]
-  '' + lib.optionalString (cfg.xo.ssl.enable && cfg.xo.ssl.redirectToHttps) ''
-    redirectToHttps = true
-  '' + ''
-
-    [[http.listen]]
-    port = ${toString cfg.xo.port}
-  '' + lib.optionalString cfg.xo.ssl.enable ''
-
-    [[http.listen]]
-    port = ${toString cfg.xo.httpsPort}
-    cert = '${cfg.xo.ssl.cert}'
-    key = '${cfg.xo.ssl.key}'
-  '' + ''
-
-    [http.mounts]
-    '/' = '${cfg.xo.webMountDir}'
-    '/v6' = '${cfg.xo.webMountDirv6}'
-  '' + ''
-
-    [redis]
-    socket = "/run/redis-xo/redis.sock"
-
-    [authentication]
-    defaultTokenValidity = "30 days"
-
-    [logs]
-    level = "info"
-
-    # Data paths
-    [dataStore]
-    path = '${cfg.xo.dataDir}'
-
-    [tempDir]
-    path = '${cfg.xo.tempDir}'
-
-    # Remote storage options - use sudo for NFS/CIFS mounts
-    [remoteOptions]
-    useSudo = true
-    mountsDir = '${config.xoa.storage.mountsDir}'
-  '');
 
   # Build script with directory creation
   buildXO = pkgs.writeShellScript "xo-build.sh" ''
@@ -186,6 +140,16 @@ EOF
       ${pkgs.git}/bin/git commit -q -m "imported snapshot" || true
     fi
 
+    # Fix TypeScript generic inference issue in select-column.ts
+    # Upstream bug: VtsSelect uses Vue 3.3+ generic types that TypeScript can't infer in h() calls
+    # This patches the MUTABLE COPY in /var/lib/xo (same approach as SMB handler patch above)
+    echo "Patching select-column.ts TypeScript error..."
+    if [ -f @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts ]; then
+      sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
+        @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts
+      echo "select-column.ts: added type assertion for generic component"
+    fi
+
     # Environment configuration
     export HOME="${cfg.xo.home}"
     export XDG_CACHE_HOME="${cfg.xo.cacheDir}"
@@ -193,8 +157,9 @@ EOF
     export NPM_CONFIG_CACHE="${cfg.xo.cacheDir}/npm"
     export NODE_OPTIONS="--max-old-space-size=4096"
     export CI="true"
-    export YARN_ENABLE_IMMUTABLE_INSTALLS=false
+    export YARN_ENABLE_IMMUTABLE_INSTALLS=true
     export PYTHON="${pkgs.python3}/bin/python3"
+    export TURBO_TELEMETRY_DISABLED=1
 
     # Don't force esbuild binary - let yarn install the correct version
     # export ESBUILD_BINARY_PATH="${pkgs.esbuild}/bin/esbuild"
@@ -212,38 +177,22 @@ EOF
     echo "Source: ${xoSource}"
     echo "Target: ${cfg.xo.appDir}"
     
-    # Install dependencies
+    # Install dependencies (use frozen lockfile to ensure reproducible builds)
     echo "[1/3] Installing dependencies..."
-    ${yarn}/bin/yarn install --network-timeout 300000 || \
-      ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000
+    ${yarn}/bin/yarn install --frozen-lockfile --network-timeout 300000
     
     # Build
     echo "[2/3] Building..."
     ${yarn}/bin/yarn build
 
-    # Build v6
-    echo "[2.5/3] Building v6..."
-    cd @xen-orchestra/web
-
-    # Install dependencies if needed (v6 uses npm, not yarn)
-    if [ ! -d node_modules ]; then
-      echo "Installing v6 dependencies with npm..."
-      ${pkgs.nodejs_20}/bin/npm install
-    fi
-
-    # Run vite build using npm (v6 uses npm run build)
-    echo "Running: npm run build"
-    ${pkgs.nodejs_20}/bin/npm run build
-
-    # Verify dist was created
-    if [ ! -d dist ]; then
-      echo "ERROR: v6 dist folder not created after npm run build!" >&2
-      ls -la
+    # Verify @xen-orchestra/web was built successfully by yarn build (via Turbo)
+    # Note: yarn workspaces handle @xen-orchestra/web dependencies and Turbo builds it automatically
+    # The previous separate npm ci/npm run build was redundant
+    echo "[2.5/3] Verifying @xen-orchestra/web build..."
+    if [ ! -d @xen-orchestra/web/dist ]; then
+      echo "ERROR: @xen-orchestra/web dist not created!" >&2
       exit 1
     fi
-
-    # Return to app root directory
-    cd "${cfg.xo.appDir}"
 
     # Patch native modules to include FUSE library paths
     echo "[3/4] Patching native modules..."
@@ -270,12 +219,58 @@ EOF
     fi
 
     echo "=== Build Complete ==="
+
+    # Record source version for rebuild detection
+    # When flake.lock updates, xoSource store path changes automatically
+    mkdir -p "$(dirname "${xoSourceMarker}")"
+    ${pkgs.jq}/bin/jq -n \
+      --arg source "${xoSource}" \
+      --arg timestamp "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --arg commit "$(cd ${xoSource} 2>/dev/null && ${pkgs.git}/bin/git rev-parse HEAD 2>/dev/null || echo 'unknown')" \
+      '{source_path: $source, built_at: $timestamp, source_commit: $commit}' \
+      > "${xoSourceMarker}"
+    echo "Source info recorded to ${xoSourceMarker}"
   '';
 
   # Wrapper for Node with FUSE libraries
   nodeWithFuse = pkgs.writeShellScriptBin "node-with-fuse" ''
     export LD_LIBRARY_PATH="${pkgs.fuse.out}/lib:${pkgs.fuse3.out}/lib:${pkgs.stdenv.cc.cc.lib}/lib''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     exec ${node}/bin/node "$@"
+  '';
+
+  # Check if XO rebuild is needed (when source changes)
+  checkXORebuildNeeded = pkgs.writeShellScript "check-xo-rebuild-needed" ''
+    set -euo pipefail
+
+    MARKER="${xoSourceMarker}"
+    CLI_MJS="${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
+    CLI_JS="${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
+    CURRENT_SOURCE="${xoSource}"
+
+    # Always rebuild if CLI doesn't exist (first build)
+    if [[ ! -f "$CLI_MJS" ]] && [[ ! -f "$CLI_JS" ]]; then
+      echo "XO CLI not found, rebuild needed"
+      exit 0  # Rebuild (ExecCondition success means run the service)
+    fi
+
+    # Rebuild if marker doesn't exist (shouldn't happen, but safety)
+    if [[ ! -f "$MARKER" ]]; then
+      echo "XO source marker not found, rebuild needed"
+      exit 0  # Rebuild
+    fi
+
+    # Rebuild if source path changed (flake.lock was updated)
+    STORED_SOURCE=$(${pkgs.jq}/bin/jq -r '.source_path' "$MARKER" 2>/dev/null || echo "")
+    if [[ "$CURRENT_SOURCE" != "$STORED_SOURCE" ]]; then
+      echo "XO source changed, rebuild needed"
+      echo "  Old: $STORED_SOURCE"
+      echo "  New: $CURRENT_SOURCE"
+      exit 0  # Rebuild
+    fi
+
+    # No rebuild needed
+    echo "XO source unchanged, skipping rebuild"
+    exit 1  # Skip service (ExecCondition failure means skip the service)
   '';
 
   # Start script for xo-server
@@ -471,14 +466,6 @@ in
       wants = [ "network-online.target" ];
       requires = [ "redis-xo.service" ];
 
-      # Only run if build artifacts don't exist - prevents rebuilding on every boot
-      unitConfig = {
-        ConditionPathExists = [
-          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.mjs"
-          "!${cfg.xo.appDir}/packages/xo-server/dist/cli.js"
-        ];
-      };
-
       path = with pkgs; [
         git nodejs_20 yarn python3 gcc gnumake pkg-config
         coreutils findutils bash esbuild patchelf
@@ -499,6 +486,9 @@ in
         WorkingDirectory = cfg.xo.appDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
+
+        # Check if rebuild is needed before running (when source changes via flake.lock update)
+        ExecCondition = "${checkXORebuildNeeded}";
 
         ReadWritePaths = [
           cfg.xo.appDir
@@ -565,18 +555,10 @@ in
         # PATH is automatically built from the 'path' directive above
         # Don't override it here to ensure our sudo wrapper is found first
 
-        # Copy default config if none exists (runs as root due to '+' prefix)
-        ExecStartPre = [
-          "+${pkgs.writeShellScript "setup-xo-config" ''
-            if [ ! -f /etc/xo-server/config.toml ]; then
-              cp ${xoDefaultConfig} /etc/xo-server/config.toml
-              chown ${cfg.xo.user}:${cfg.xo.group} /etc/xo-server/config.toml
-              chmod 0640 /etc/xo-server/config.toml
-            fi
-          ''}"
-        ];
-
-        ExecStart = "${startXO} --config /etc/xo-server/config.toml";
+        # XO automatically loads all config files from /etc/xo-server/:
+        # - config.toml (XO's built-in defaults, created by XO on first run)
+        # - config.nixoa.toml (nixoa overrides, placed by user-config via environment.etc)
+        ExecStart = "${startXO}";
         
         Restart = "on-failure";
         RestartSec = 10;
@@ -603,6 +585,7 @@ in
           cfg.xo.dataDir
           cfg.xo.tempDir
           "/etc/xo-server"
+          "/var/lib/xo-server"  # XO server internal state directory
           config.xoa.storage.mountsDir
           "/run/lock"           # LVM lock files
           "/run/redis-xo"       # Redis socket
@@ -626,6 +609,7 @@ in
       "d ${cfg.xo.home}/.config                  0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d ${cfg.xo.home}/.config/xo-server        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
       "d /etc/xo-server                          0755 root root - -"
+      "d /var/lib/xo-server                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
     ] ++ lib.optionals cfg.xo.ssl.enable [
       "d ${cfg.xo.ssl.dir}                       0755 root root - -"
     ];

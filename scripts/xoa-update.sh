@@ -34,4 +34,16 @@ fi
 
 echo
 echo "Done. Rebuild with:"
-echo "  sudo nixos-rebuild switch --flake .#$(jq -r '.hostname' vars.nix)"
+
+# Resolve config directory with proper sudo handling
+if [ -n "${SUDO_USER:-}" ]; then
+    REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
+    CONFIG_DIR="${REAL_HOME}/user-config"
+else
+    CONFIG_DIR="${HOME}/user-config"
+fi
+
+# Get configured hostname for the rebuild command
+CONFIG_HOST=$(grep "hostname = " "${CONFIG_DIR}/configuration.nix" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
+CONFIG_HOST="${CONFIG_HOST:-nixoa}"
+echo "  sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"

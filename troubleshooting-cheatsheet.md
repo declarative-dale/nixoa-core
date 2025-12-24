@@ -1,5 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
-# XOA Monitoring Quick Reference
+# NiXOA Troubleshooting Quick Reference
+
+This is a quick reference for common troubleshooting and monitoring tasks on NiXOA.
 
 ## Check Status
 
@@ -75,7 +77,7 @@ journalctl -u xoa-xo-update.timer -e
 sudo journalctl -u xoa-xo-update.service -e -p err
 
 # Verify repository location
-cd /etc/nixos/nixoa-ce
+cd /etc/nixos/nixoa/nixoa-vm
 git status
 
 # Check network connectivity
@@ -83,7 +85,7 @@ curl -I https://github.com
 curl -I https://ntfy.sh
 
 # Test rebuild manually
-cd /etc/nixos/nixoa-ce
+cd /etc/nixos/nixoa/nixoa-vm
 sudo nixos-rebuild switch --flake .#xoa -L
 ```
 
@@ -174,14 +176,14 @@ nix-store --optimize --dry-run
 ## Configuration Validation
 
 ```bash
-# Check vars.nix syntax
-nix eval --file vars.nix
-
 # Validate flake
 nix flake check
 
+# Validate TOML syntax
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+
 # Show current configuration
-nix eval --json .#nixosConfigurations.xoa.config.updates | jq
+nix eval --json .#nixosConfigurations.nixoa.config.updates | jq
 
 # Preview next update
 nix flake lock --update-input xoSrc --dry-run
@@ -196,17 +198,25 @@ Add to `~/.bashrc` or `/etc/profile`:
 alias xoa-status='sudo xoa-update-status'
 alias xoa-logs='sudo journalctl -u xoa-xo-update.service -u xoa-nixpkgs-update.service -f'
 alias xoa-timers='systemctl list-timers "xoa-*"'
-alias xoa-update='cd /etc/nixos/nixoa-ce && sudo systemctl start xoa-xo-update.service'
-alias xoa-rebuild='cd /etc/nixos/nixoa-ce && sudo nixos-rebuild switch --flake .#xoa -L'
+alias xoa-update='cd /etc/nixos/nixoa/nixoa-vm && sudo systemctl start xoa-xo-update.service'
+alias xoa-rebuild='cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --flake .#xoa -L'
 ```
 
 ## Important Paths
 
 ```
-/etc/nixos/nixoa-ce/     # Flake repository
-/var/lib/xoa-updates/              # Status files
+~/user-config/                     # Your configuration (home directory)
+  ├── system-settings.toml         # System configuration file
+  ├── xo-server-settings.toml      # XO server configuration
+  ├── hardware-configuration.nix   # Hardware configuration
+  └── scripts/                     # Helper scripts
+
+/etc/nixos/nixoa/
+  ├── nixoa-vm/                    # Deployment flake repository
+  └── user-config → ~/user-config  # Symlink to your configuration
+
 /var/lib/xo/                       # XO application data
-/etc/xo-server/config.toml         # XO configuration
+/etc/xo-server/config.toml         # XO configuration (auto-generated)
 /var/log/journal/                  # Systemd logs
 ```
 
@@ -214,5 +224,5 @@ alias xoa-rebuild='cd /etc/nixos/nixoa-ce && sudo nixos-rebuild switch --flake .
 
 - Status dashboard: `sudo xoa-update-status`
 - Service logs: `sudo journalctl -u xoa-xo-update.service`
-- Project repo: https://codeberg.org/dalemorgan/nixoa-ce
+- Project repo: https://codeberg.org/nixoa/nixoa-vm
 - NixOS manual: https://nixos.org/manual/nixos/stable/

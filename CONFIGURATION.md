@@ -1,287 +1,326 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Configuration Guide
 
-This flake uses a **TOML configuration file** for all personal settings. This keeps your personal information separate from the flake code and allows the flake to be updated without conflicts.
+NiXOA uses a **dual-flake architecture** where configuration is managed separately from deployment. Your personal configuration lives in `~/user-config` (your home directory) and the deployment code lives in `/etc/nixos/nixoa/nixoa-vm` (system directory).
 
-## Quick Start
+This separation ensures:
+- ✅ Configuration stays in your home directory (user-owned)
+- ✅ Deployment code can be updated without touching your settings
+- ✅ No merge conflicts when updating the flake
+- ✅ Git-friendly: version control your config separately
 
-1. **Copy the sample configuration:**
-   ```bash
-   cp sample-nixoa.toml nixoa.toml
-   ```
+---
 
-2. **Edit `nixoa.toml` with your settings:**
-   ```bash
-   nano nixoa.toml  # or use your preferred editor
-   ```
+## Initial Setup
 
-3. **Configure at minimum:**
-   - `hostname` - Your system's hostname
-   - `username` - Your admin username
-   - `sshKeys` - Array of your SSH public keys (generate with `ssh-keygen -t ed25519`)
-   - `timezone` - Your timezone (e.g., `America/New_York`, `Europe/London`)
+### 1. Clone Configuration Flake
 
-4. **Build and deploy:**
-   ```bash
-   sudo nixos-rebuild switch --flake .#your-hostname
-   ```
-
-## How It Works
-
-### File Structure
-
-- **`nixoa.toml`** - Your personal configuration (git-ignored, NEVER committed)
-- **`sample-nixoa.toml`** - Template with all available options and defaults
-- **`vars.nix`** - Reads nixoa.toml using `builtins.fromTOML` and provides values to the flake
-
-### Configuration Flow
-
-```
-nixoa.toml (your personal config)
-  ↓
-vars.nix (reads via builtins.fromTOML)
-  ↓
-flake.nix → modules/*.nix (uses vars)
+```bash
+# As a regular user, clone to your home directory
+git clone https://codeberg.org/nixoa/user-config.git ~/user-config
+cd ~/user-config
 ```
 
-## Key Benefits
+### 2. Edit Configuration Files
 
-✅ **Nix-native**: Uses built-in `builtins.fromTOML` (no custom parser)
-✅ **Type-safe**: Real booleans, numbers, arrays, objects
-✅ **Hierarchical**: Natural nested structure with dotted keys
-✅ **Git-safe**: `nixoa.toml` is automatically ignored by git
-✅ **Flexible**: All .nix files can be updated freely without conflicts
-✅ **Human-readable**: Clean TOML format with native comment support
+```bash
+# Edit your system configuration
+nano system-settings.toml
+```
 
-## Configuration Options
+**Required minimum settings:**
+- `hostname` - Your system's hostname
+- `admin.username` - Admin user for SSH access
+- `admin.sshKeys` - Your SSH public key(s)
 
-### Example nixoa.toml
+### 3. Create System Symlink
+
+The flake input path must be absolute, so we use a symlink:
+
+```bash
+sudo mkdir -p /etc/nixos/nixoa
+sudo ln -sf ~/user-config /etc/nixos/nixoa/user-config
+```
+
+This allows the flake to find your config while you edit it in your home directory.
+
+### 4. Copy Hardware Configuration
+
+```bash
+# Copy or generate hardware configuration
+sudo cp /etc/nixos/hardware-configuration.nix ~/user-config/
+sudo chown $USER:$USER ~/user-config/hardware-configuration.nix
+
+# Or generate a fresh one
+sudo nixos-generate-config --show-hardware-config > ~/user-config/hardware-configuration.nix
+```
+
+### 5. Deploy
+
+```bash
+# Commit your initial configuration
+cd ~/user-config
+./scripts/commit-config.sh "Initial configuration"
+
+# Build and deploy
+cd /etc/nixos/nixoa/nixoa-vm
+sudo nixos-rebuild switch --flake .#<hostname>
+```
+
+Replace `<hostname>` with the value you set in `system-settings.toml`.
+
+---
+
+## Directory Structure
+
+```
+/home/<user>/
+└── user-config/                      # Your configuration flake
+    ├── flake.nix                     # Flake inputs/outputs
+    ├── system-settings.toml          # Your system configuration
+    ├── xo-server-settings.toml       # XO service overrides
+    ├── hardware-configuration.nix    # Your hardware config
+    ├── modules/
+    │   ├── nixoa-config.nix          # TOML → NixOS converter
+    │   ├── system.nix                # Raw system TOML export
+    │   └── xo-server-config.nix      # XO TOML export
+    └── scripts/
+        ├── commit-config.sh          # Git commit helper
+        └── apply-config.sh           # Commit + rebuild
+
+/etc/nixos/nixoa/
+├── nixoa-vm/                         # Deployment flake (from repo)
+│   ├── flake.nix
+│   ├── flake.lock
+│   ├── modules/                      # Core system modules
+│   │   ├── nixoa-options.nix         # Option definitions
+│   │   ├── xoa.nix                   # XO service setup
+│   │   ├── system.nix                # System configuration
+│   │   ├── storage.nix               # NFS/CIFS support
+│   │   ├── libvhdi.nix               # VHD tools
+│   │   ├── autocert.nix              # TLS certificate generation
+│   │   └── updates.nix               # Update automation
+│   └── scripts/
+│       ├── xoa-install.sh            # Initial install
+│       ├── xoa-logs.sh               # View service logs
+│       └── xoa-update.sh             # Manual XO update
+│
+└── user-config → /home/<user>/user-config  # Symlink to your home config
+```
+
+---
+
+## Configuration File Format
+
+### system-settings.toml
+
+This is the main configuration file. It uses TOML format for readability and type-safety.
+
+**Example minimal configuration:**
 
 ```toml
-hostname = "xoa"
-username = "admin"
-timezone = "UTC"
+# System basics (required)
+hostname = "nixoa"
+stateVersion = "25.11"
 
+[admin]
+username = "xoa"
 sshKeys = [
   "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... user@laptop"
 ]
 
+# Xen Orchestra web interface (optional - defaults shown)
 [xo]
 host = "0.0.0.0"
 port = 80
 httpsPort = 443
 
+# TLS/HTTPS settings
 [tls]
 enable = true
 redirectToHttps = true
+autoGenerate = true
+cert = "/etc/ssl/xo/certificate.pem"
+key = "/etc/ssl/xo/key.pem"
 
-[networking.firewall]
-allowedTCPPorts = [80, 443, 3389, 5900, 8012]
-
-[storage]
-mountsDir = "/var/lib/xo/mounts"
-
+# Remote storage support
 [storage.nfs]
 enable = true
 
 [storage.cifs]
 enable = true
 
-[updates.gc]
+[storage.vhd]
 enable = true
-schedule = "Sun 04:00"
-keepGenerations = 7
+mountsDir = "/var/lib/xo/mounts"
+
+# Firewall rules
+[networking.firewall]
+allowedTCPPorts = [80, 443, 3389, 5900, 8012]
 ```
 
-### Required Settings
+---
 
-| Key | Type | Description | Example |
-|-----|------|-------------|---------|
-| `hostname` | string | System hostname | `"xoa"` |
-| `username` | string | Admin username | `"admin"` |
-| `timezone` | string | System timezone | `"UTC"` or `"America/New_York"` |
-| `sshKeys` | array | SSH public keys | `["ssh-ed25519 AAAA..."]` |
+## Configuration Options
 
-### SSH Keys
-
-Add multiple SSH keys as an array:
+### System Basics
 
 ```toml
+hostname = "nixoa"                    # System hostname (used in flake output)
+stateVersion = "25.11"                # NixOS state version (DO NOT CHANGE)
+```
+
+### Admin User
+
+```toml
+[admin]
+username = "xoa"                      # Admin user account name
 sshKeys = [
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAbc... alice@laptop",
-  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBcd... bob@desktop",
-  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQ... charlie@phone"
+  "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5...",
+  "ssh-rsa AAAAB3NzaC1yc2EAAAADAQAB..."
 ]
 ```
 
-TOML supports native comments with `#`:
+**Generate SSH keys:**
+```bash
+# ED25519 (preferred)
+ssh-keygen -t ed25519 -C "user@host"
 
-```toml
-# Add your SSH public keys here
-sshKeys = [
-  "ssh-ed25519 AAAAC3... your-key-here"
-]
+# Or RSA (older systems)
+ssh-keygen -t rsa -b 4096 -C "user@host"
 ```
 
-### Web Interface Settings
+### Xen Orchestra Web Interface
 
 ```toml
 [xo]
-host = "0.0.0.0"        # 0.0.0.0 = all interfaces, 127.0.0.1 = localhost only
-port = 80               # HTTP port
-httpsPort = 443         # HTTPS port
+host = "0.0.0.0"                      # All interfaces (or "127.0.0.1" for localhost)
+port = 80                             # HTTP port (requires no special privileges)
+httpsPort = 443                       # HTTPS port (requires no special privileges in systemd)
 
-[tls]
-enable = true              # Auto-generate self-signed certificates
-redirectToHttps = true     # Redirect HTTP to HTTPS
-dir = "/etc/ssl/xo"        # Certificate directory
-cert = "/etc/ssl/xo/certificate.pem"
-key = "/etc/ssl/xo/key.pem"
+[xo.service]
+xoUser = "xo"                         # Service user (rarely needs changing)
+xoGroup = "xo"                        # Service group
 ```
 
-### Firewall
+### TLS/HTTPS Configuration
+
+```toml
+[tls]
+enable = true                         # Enable HTTPS
+redirectToHttps = true                # Redirect HTTP → HTTPS
+autoGenerate = true                   # Auto-generate self-signed certs
+dir = "/etc/ssl/xo"                   # Certificate directory
+cert = "/etc/ssl/xo/certificate.pem"  # Certificate file path
+key = "/etc/ssl/xo/key.pem"           # Private key file path
+```
+
+**Using Let's Encrypt instead:**
+
+To use proper certificates, edit the NixOS configuration directly (advanced):
+
+```bash
+# Edit flake modules or add a custom NixOS module
+sudo nano /etc/nixos/configuration.nix
+```
+
+### Storage Support
+
+```toml
+[storage]
+mountsDir = "/var/lib/xo/mounts"      # Where remote storage mounts live
+
+[storage.nfs]
+enable = true                         # Enable NFS remote storage mounting
+
+[storage.cifs]
+enable = true                         # Enable CIFS/SMB remote storage mounting
+
+[storage.vhd]
+enable = true                         # Enable VHD/VHDX image support
+```
+
+### Firewall Rules
 
 ```toml
 [networking.firewall]
 allowedTCPPorts = [
-  80,    # HTTP
-  443,   # HTTPS
-  3389,  # RDP console
-  5900,  # VNC console
-  8012   # XO service port
+  80,                                 # HTTP
+  443,                                # HTTPS
+  3389,                               # RDP console access
+  5900,                               # VNC console access
+  8012                                # XO service port
 ]
-```
-
-### Storage
-
-```toml
-[storage]
-mountsDir = "/var/lib/xo/mounts"
-
-[storage.nfs]
-enable = true    # Enable NFS remote storage
-
-[storage.cifs]
-enable = true    # Enable CIFS/SMB remote storage
 ```
 
 ### Automated Updates
 
-Configure automatic updates for different components:
+Configure automatic updates for your system components:
 
-**Garbage Collection:**
 ```toml
+[updates]
+repoDir = "/etc/nixos/nixoa/nixoa-vm"  # Path to nixoa-vm clone
+
+# Garbage collection
 [updates.gc]
 enable = true
-schedule = "Sun 04:00"
+schedule = "Sun *-*-* 04:00:00"       # Run Sunday at 4 AM
 keepGenerations = 7
-```
 
-**Flake Self-Update:**
-```toml
+# Flake self-update (update nixoa-vm from repo)
 [updates.flake]
 enable = true
-schedule = "Sun 04:00"
-remoteUrl = "https://codeberg.org/dalemorgan/nixoa-ce.git"
+schedule = "Sun *-*-* 05:00:00"
+remoteUrl = "https://codeberg.org/nixoa/nixoa-vm.git"
 branch = "main"
 autoRebuild = false
-```
 
-**Component Updates:**
-```toml
+# NixOS packages update
 [updates.nixpkgs]
 enable = true
-schedule = "Mon 04:00"
+schedule = "Mon *-*-* 04:00:00"
 keepGenerations = 7
 
+# Xen Orchestra source update
 [updates.xoa]
 enable = true
-schedule = "Tue 04:00"
-keepGenerations = 7
-
-[updates.libvhdi]
-enable = true
-schedule = "Wed 04:00"
+schedule = "Tue *-*-* 04:00:00"
 keepGenerations = 7
 ```
 
-### Notifications
-
-**Email:**
-```toml
-[updates.monitoring]
-notifyOnSuccess = false
-
-[updates.monitoring.email]
-enable = true
-to = "admin@example.com"
-```
-
-**ntfy.sh Push Notifications:**
-```toml
-[updates.monitoring.ntfy]
-enable = true
-server = "https://ntfy.sh"
-topic = "my-unique-topic-name"
-```
-
-**Webhook:**
-```toml
-[updates.monitoring.webhook]
-enable = true
-url = "https://hooks.example.com/webhook"
-```
-
-### Terminal Enhancements
+### System Packages
 
 ```toml
-[extras]
-enable = false  # Enable enhanced terminal (zsh, oh-my-posh, fzf, etc.)
-```
-
-### Service Account
-
-```toml
-[service]
-xoUser = "xo"    # Rarely needs changing
-xoGroup = "xo"
-```
-
-### Custom Packages
-
-Add extra packages to your system or user account:
-
-**System Packages (available to all users):**
-```toml
+# System-wide packages (available to all users)
 [packages.system]
-extra = ["neovim", "ripgrep", "fd", "jq", "docker-compose"]
-```
+extra = [
+  "htop",
+  "tmux",
+  "vim",
+  "ripgrep"
+]
 
-**User Packages (only for admin user):**
-```toml
+# Admin user packages (only for admin account)
 [packages.user]
-extra = ["lazygit", "fzf", "bat", "zoxide"]
+extra = [
+  "lazygit",
+  "fzf",
+  "bat"
+]
 ```
 
-Package names should match nixpkgs attribute names. Search available packages at [search.nixos.org](https://search.nixos.org/packages).
+Find package names at [search.nixos.org/packages](https://search.nixos.org/packages).
 
 ### Custom Services
 
-Enable and configure NixOS services directly from nixoa.toml:
+Enable NixOS services directly:
 
-**Simple Enable (uses defaults):**
 ```toml
+# Simple enable (uses defaults)
 [services]
-enable = ["docker", "tailscale", "fail2ban"]
-```
+enable = ["docker", "fail2ban"]
 
-**Configure with Custom Options:**
-```toml
-# Simple enable list
-[services]
-enable = ["tailscale"]
-
-# Detailed configuration for docker
+# Configure docker with custom options
 [services.docker]
 enable = true
 enableOnBoot = true
@@ -289,161 +328,208 @@ enableOnBoot = true
 [services.docker.autoPrune]
 enable = true
 dates = "weekly"
-
-# PostgreSQL with custom settings
-[services.postgresql]
-enable = true
-enableTCPIP = true
-port = 5432
-
-# Fail2ban configuration
-[services.fail2ban]
-enable = true
-maxretry = 5
-bantime = "10m"
 ```
 
-**Common Services:**
+Common services:
 - `docker` - Container runtime
-- `tailscale` - Zero-config VPN
 - `fail2ban` - Intrusion prevention
-- `postgresql` - SQL database
-- `mysql` - SQL database
-- `redis` - Key-value store
-- `prometheus` - Monitoring system
+- `postgresql` - PostgreSQL database
+- `mysql` - MySQL database
+- `redis` - Redis cache
+- `tailscale` - VPN
+- `prometheus` - Monitoring
 - `grafana` - Metrics dashboard
 
-**Note:** Services in the `enable` list use default configurations. For custom settings, define the service explicitly with a `[services.servicename]` section.
-
-See [search.nixos.org/options](https://search.nixos.org/options) for all available services and their configuration options.
-
-### State Version
+### Terminal Enhancements
 
 ```toml
-stateVersion = "25.05"  # DO NOT CHANGE after initial installation
+[extras]
+enable = false                        # Enable zsh, oh-my-posh, fzf, etc.
 ```
 
-## TOML Tips
+---
 
-### Validation
+## Configuration Workflow
 
-Validate your TOML before rebuilding:
+### Making Changes
+
+1. **Edit your configuration:**
+   ```bash
+   cd ~/user-config
+   nano system-settings.toml
+   ```
+
+2. **Review changes:**
+   ```bash
+   ./scripts/show-diff.sh    # or: git diff
+   ```
+
+3. **Commit and apply:**
+   ```bash
+   ./scripts/apply-config.sh "Describe your changes"
+   ```
+
+   This will:
+   - Commit changes to git
+   - Run `sudo nixos-rebuild switch` with your hostname
+   - Apply the configuration to the system
+
+### Manual Apply (Advanced)
+
+If you prefer more control:
 
 ```bash
-# Nix can validate TOML directly
-nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'
+# Just commit
+./scripts/commit-config.sh "Your message"
 
-# Or use a TOML validator if available
-toml-cli check nixoa.toml  # if you have toml-cli installed
+# Later, rebuild separately
+cd /etc/nixos/nixoa/nixoa-vm
+sudo nixos-rebuild switch --flake .#<hostname> -L
 ```
 
-### Comments
-
-TOML has native comment support with `#`:
-
-```toml
-# This is a comment
-hostname = "xoa"
-
-# Ports below 1024 require root
-[xo]
-port = 80
-```
-
-### Default Values
-
-If you omit a setting from `nixoa.toml`, the default value from `sample-nixoa.toml` is used. You only need to specify settings you want to change.
-
-**Minimal nixoa.toml:**
-```toml
-hostname = "my-xoa"
-username = "admin"
-timezone = "America/New_York"
-
-sshKeys = [
-  "ssh-ed25519 AAAAC3... user@host"
-]
-```
-
-All other settings will use defaults!
-
-## Updating the Flake
-
-With this configuration system, you can safely update the flake without losing your settings:
+### Viewing History
 
 ```bash
-# Pull latest changes from upstream
-cd /etc/nixos/nixoa-ce
-git pull origin main
+cd ~/user-config
 
-# Your nixoa.toml is never touched by git
-# No merge conflicts!
+# See recent changes
+git log --oneline -10
 
-# Rebuild with your existing configuration
-sudo nixos-rebuild switch --flake .#$(hostname)
+# See full diff of a commit
+git show <commit-hash>
+
+# Revert to a previous version
+git checkout <commit-hash> -- system-settings.toml xo-server-settings.toml
 ```
+
+---
 
 ## Troubleshooting
 
-### Configuration not taking effect
+### TOML Validation
 
-Make sure your `nixoa.toml`:
-- Is in the flake root directory (same directory as `flake.nix`)
-- Is valid TOML (use `nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'` to validate)
-- Uses proper types (booleans are `true`/`false`, not `"true"`/`"false"`)
+Validate your TOML syntax before rebuilding:
 
-### TOML syntax errors
-
-Common TOML issues:
-- ❌ Missing quotes on strings: `hostname = xoa`
-- ✅ Quoted strings: `hostname = "xoa"`
-- ❌ Wrong array syntax: `ports = 80, 443`
-- ✅ Correct array syntax: `ports = [80, 443]`
-- ✅ Comments use #: `port = 80  # HTTP port`
-
-Validate with Nix:
 ```bash
-nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)' || echo "Invalid TOML!"
+# Validate with Nix
+nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+
+# If valid, returns the config as Nix attributes
+# If invalid, shows TOML parse error
 ```
 
-### SSH keys not working
+### Common TOML Mistakes
+
+❌ **Wrong:** `hostname = xoa` (missing quotes)
+✅ **Right:** `hostname = "xoa"`
+
+❌ **Wrong:** `allowedTCPPorts = 80, 443` (not an array)
+✅ **Right:** `allowedTCPPorts = [80, 443]`
+
+❌ **Wrong:** `sshKeys = ["key", "key2",]` (trailing comma)
+✅ **Right:** `sshKeys = ["key", "key2"]`
+
+### Configuration Not Taking Effect
+
+1. Check if changes are committed:
+   ```bash
+   cd ~/user-config
+   git status
+   ```
+
+2. Validate TOML:
+   ```bash
+   nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/system-settings.toml)'
+   ```
+
+3. Check flake can load:
+   ```bash
+   cd /etc/nixos/nixoa/nixoa-vm
+   nix flake show
+   ```
+
+4. Manual rebuild:
+   ```bash
+   sudo nixos-rebuild switch --flake .#<hostname> -L --show-trace
+   ```
+
+### SSH Keys Not Working
 
 Ensure:
+- Keys are in proper format: `ssh-ed25519 AAAA...` or `ssh-rsa AAAA...`
 - Keys are in an array: `["key1", "key2"]`
-- Keys start with `ssh-ed25519`, `ssh-rsa`, etc.
-- Keys are strings with double quotes
-- No extra spaces or newlines within the key string
+- No extra whitespace or newlines
+- File permissions correct: `sudo chmod 600 ~/.ssh/authorized_keys`
 
-### Checking current configuration
+### Symlink Issues
 
-Verify vars.nix is reading your nixoa.toml correctly:
+If the symlink is broken:
 
 ```bash
-# Check hostname
-nix eval .#nixosConfigurations.xoa.config.networking.hostName
+# Check symlink
+ls -la /etc/nixos/nixoa/user-config
 
-# Check timezone
-nix eval .#nixosConfigurations.xoa.config.time.timeZone
+# Recreate if needed
+sudo rm /etc/nixos/nixoa/user-config
+sudo ln -sf ~/user-config /etc/nixos/nixoa/user-config
 
-# Check if flake loads
-nix flake show
+# Verify
+ls -la /etc/nixos/nixoa/user-config
 ```
 
-## Security Notes
+### Can't Edit Config
 
-⚠️ **Important Security Considerations:**
+If you can't edit files in `~/user-config`:
 
-- `nixoa.toml` contains sensitive information (SSH keys, API tokens, etc.)
-- Never commit `nixoa.toml` to git (it's in `.gitignore`)
-- Keep backups of `nixoa.toml` in a secure location
-- Set appropriate file permissions: `chmod 600 nixoa.toml`
-- Use SSH keys, not passwords
-- Review `sample-nixoa.toml` to understand all options
+```bash
+# Verify ownership
+ls -la ~/user-config/system-settings.toml
 
-## Support
+# Fix if needed
+chown $USER:$USER ~/user-config/system-settings.toml
 
-For issues or questions:
-- Check `sample-nixoa.toml` for all available options
-- Review `vars.nix` to see how defaults are handled
-- Validate TOML with `nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ./nixoa.toml)'`
-- See main README.md for general flake documentation
+# Check permissions
+chmod 644 ~/user-config/system-settings.toml
+```
+
+### Rebuild Fails
+
+Check detailed error output:
+
+```bash
+cd /etc/nixos/nixoa/nixoa-vm
+sudo nixos-rebuild switch --flake .#<hostname> -L --show-trace 2>&1 | tail -100
+```
+
+Common issues:
+- Missing hardware-configuration.nix
+- Invalid TOML syntax
+- Package name doesn't exist
+- Hostname mismatch between config and command
+
+---
+
+## Advanced: Updating While Preserving Config
+
+Since your config is separate, you can safely update nixoa-vm:
+
+```bash
+# Update the deployment flake
+cd /etc/nixos/nixoa/nixoa-vm
+git pull origin main
+
+# Your ~/user-config is untouched!
+
+# Rebuild with your existing config
+sudo nixos-rebuild switch --flake .#<hostname>
+```
+
+No merge conflicts, no lost settings!
+
+---
+
+## See Also
+
+- [README.md](README.md) - Main documentation and troubleshooting
+- [user-config/README.md](../user-config/README.md) - User configuration flake docs
+- [MIGRATION-OPTIONS.md](MIGRATION-OPTIONS.md) - Complete options reference

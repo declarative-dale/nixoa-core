@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, vars, ... }:
+{ config, lib, pkgs, ... }:
 let
   inherit (lib) mkOption mkEnableOption types mkIf;
   cfg = config.xoa.storage;
-  xoUser = config.xoa.xo.user or vars.xoUser;
-  xoGroup = config.xoa.xo.group or vars.xoGroup;
+  # Get XO service user/group from config (set by system.nix from config.nixoa.xo.service.*)
+  xoUser = config.xoa.xo.user;
+  xoGroup = config.xoa.xo.group;
 
 in
 {
