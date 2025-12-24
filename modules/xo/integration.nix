@@ -55,9 +55,6 @@ in
         cert = xoTlsCert;
         key = xoTlsKey;
       };
-
-      # Network isolation during build
-      buildIsolation = true;
     };
 
     # Automatic TLS certificate generation
