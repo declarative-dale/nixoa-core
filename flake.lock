@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1766292113,
-        "narHash": "sha256-sWTtmkQujRpjWYCnZc8LWdDiCzrRlSBPrGovkZpLkBI=",
+        "lastModified": 1766553861,
+        "narHash": "sha256-ZbnG01yA3O8Yr1vUm3+NQ2qk9iRhS5bloAnuXHHy7+c=",
         "owner": "nix-community",
         "repo": "home-manager",
-        "rev": "fdec8815a86db36f42fc9c8cb2931cd8485f5aed",
+        "rev": "0999ed8f965bbbd991437ad9c5ed3434cecbc30e",
         "type": "github"
       },
       "original": {
@@ -34,44 +34,13 @@
         "url": "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz"
       }
     },
-    "nixoa-config": {
-      "inputs": {
-        "nixpkgs": "nixpkgs"
-      },
-      "locked": {
-        "lastModified": 1766406672,
-        "narHash": "sha256-fO5WgAaO/edlEWkhpzjUbCLuS0t4yAAJna2L7RwR9t8=",
-        "path": "/etc/nixos/nixoa/user-config",
-        "type": "path"
-      },
-      "original": {
-        "path": "/etc/nixos/nixoa/user-config",
-        "type": "path"
-      }
-    },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1766201043,
-        "narHash": "sha256-eplAP+rorKKd0gNjV3rA6+0WMzb1X1i16F5m5pASnjA=",
+        "lastModified": 1766473571,
+        "narHash": "sha256-5G1NDO2PulBx1RoaA6U1YoUDX0qZslpPxv+n5GX6Qto=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "b3aad468604d3e488d627c0b43984eb60e75e782",
-        "type": "github"
-      },
-      "original": {
-        "owner": "NixOS",
-        "ref": "nixos-25.11",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1766201043,
-        "narHash": "sha256-eplAP+rorKKd0gNjV3rA6+0WMzb1X1i16F5m5pASnjA=",
-        "owner": "NixOS",
-        "repo": "nixpkgs",
-        "rev": "b3aad468604d3e488d627c0b43984eb60e75e782",
+        "rev": "76701a179d3a98b07653e2b0409847499b2a07d3",
         "type": "github"
       },
       "original": {
@@ -85,19 +54,18 @@
       "inputs": {
         "home-manager": "home-manager",
         "libvhdiSrc": "libvhdiSrc",
-        "nixoa-config": "nixoa-config",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": "nixpkgs",
         "xoSrc": "xoSrc"
       }
     },
     "xoSrc": {
       "flake": false,
       "locked": {
-        "lastModified": 1766422949,
-        "narHash": "sha256-bqb2TeMLsECrUTxRBTVCmXvVqQm2aHCejshAkS5iO+U=",
+        "lastModified": 1766500892,
+        "narHash": "sha256-ye/7FVOy5rktdD+OW4yVALyX/dq6KKOxRYFvlWQp9uU=",
         "owner": "vatesfr",
         "repo": "xen-orchestra",
-        "rev": "6908001bd814d582bf51e630cee3990918524993",
+        "rev": "b89c26459cfd301bb92adf0a98a0b2dbab57e487",
         "type": "github"
       },
       "original": {

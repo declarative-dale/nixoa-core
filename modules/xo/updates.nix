@@ -63,13 +63,14 @@ let
       local subject="$1"
       local body="$2"
       local priority="$3"  # success, warning, error
-      
+
+      # shellcheck disable=SC2034
       ${if cfg.monitoring.email.enable then ''
         if command -v mail >/dev/null 2>&1; then
           echo "$body" | mail -s "[XOA] $subject" "${cfg.monitoring.email.to}"
         fi
       '' else ""}
-      
+
       ${if cfg.monitoring.ntfy.enable then ''
         if command -v curl >/dev/null 2>&1; then
           curl -H "Title: $subject" \
@@ -79,7 +80,7 @@ let
                "${cfg.monitoring.ntfy.server}/${cfg.monitoring.ntfy.topic}" 2>/dev/null || true
         fi
       '' else ""}
-      
+
       ${if cfg.monitoring.webhook.enable then ''
         if command -v curl >/dev/null 2>&1; then
           curl -X POST "${cfg.monitoring.webhook.url}" \
@@ -104,10 +105,10 @@ let
       # Get current generation
       current_gen=$(readlink /nix/var/nix/profiles/system | sed 's/.*-\([0-9]*\)-link$/\1/')
       log_info "Current system generation: $current_gen"
-      
+
       # List all system generations
-      all_gens=$(ls -1 /nix/var/nix/profiles/system-*-link 2>/dev/null | sed 's/.*-\([0-9]*\)-link$/\1/' | sort -nr)
-      
+      all_gens=$(find /nix/var/nix/profiles -maxdepth 1 -name 'system-*-link' -type l 2>/dev/null | sed 's/.*-\([0-9]*\)-link$/\1/' | sort -nr)
+
       # Keep only the specified number of generations
       keep_count=0
       for gen in $all_gens; do
@@ -117,7 +118,7 @@ let
         else
           if [[ $gen != "$current_gen" ]]; then
             log_info "Removing generation $gen"
-            nix-env -p /nix/var/nix/profiles/system --delete-generations $gen 2>/dev/null || true
+            nix-env -p /nix/var/nix/profiles/system --delete-generations "$gen" 2>/dev/null || true
           fi
         fi
       done
