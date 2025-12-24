@@ -357,9 +357,9 @@ in
   options.updates = {
     repoDir = mkOption {
       type = types.str;
-      default = "/etc/nixos/xoa-flake";
-      example = "/etc/nixos/nixoa/nixoa-vm";
-      description = "Path to the flake repository directory";
+      default = "~/user-config";
+      example = "~/user-config";
+      description = "Path to the user-config flake repository directory (~ expands to admin user home)";
     };
 
     monitoring = {

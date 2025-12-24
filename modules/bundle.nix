@@ -8,7 +8,7 @@ let
   modulesDir = ./.;
 
   # Recursively collect all .nix files from directory and subdirectories
-  # Excludes: bundle.nix, default.nix, and home/ directory (handled separately in flake.nix)
+  # Excludes: bundle.nix, default.nix, and home/ directory (home-manager config now in user-config)
   collectNixFiles = dir: prefix:
     let
       entries = builtins.readDir dir;

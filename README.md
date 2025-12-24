@@ -31,7 +31,7 @@ An experimental Xen Orchestra Community Edition flake for NixOS VMs in XCP-NG.
 
 ## Quick Start
 
-> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) to keep your settings isolated from the deployment code. Configuration is stored in **the system directory.** (`/etc/nixos/NiXOA/user-config`)
+> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) that is the primary entry point. You will run system rebuilds from `~/user-config` (your home directory), while `nixoa-vm` remains immutable and git-managed in `/etc/nixos/nixoa/nixoa-vm`.
 
 
 ### Automated Installation (Untested)
@@ -52,12 +52,12 @@ bash xoa-install.sh
 ```
 
 The installer will:
-1. Clone the nixoa-vm flake to `/etc/nixos/nixoa/nixoa-vm`
-2. Create your user-config flake in `~/user-config`
-3. Generate all necessary Nix modules and TOML files
-4. Copy/generate your hardware configuration
-5. Create the symlink for flake input resolution
-6. Provide next steps for customization
+1. Clone the nixoa-vm flake to `/etc/nixos/nixoa/nixoa-vm` (immutable module library)
+2. Clone user-config flake to `~/user-config` (your configuration entry point)
+3. Generate initial configuration files if missing (configuration.nix, config.nixoa.toml)
+4. Copy/generate your hardware configuration to `~/user-config`
+5. Initialize git repository for version control
+6. Provide next steps for customization and first rebuild
 
 ### Manual Installation
 
@@ -66,25 +66,26 @@ If you prefer more control, follow these steps:
 #### 1. Clone Repositories
 
 ```bash
-# Create nixos config directory
+# Create nixos config directory for module library
 sudo mkdir -p /etc/nixos/nixoa
 cd /etc/nixos/nixoa
 
-# Clone system deployment flake (nixoa-vm)
+# Clone module library (nixoa-vm) - this is immutable, only updated via git
 sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
 
-# Clone user configuration as a sibling directory
-sudo git clone https://codeberg.org/nixoa/user-config.git user-config
+# Clone user configuration to home directory - this is where YOU make changes
+git clone https://codeberg.org/nixoa/user-config.git ~/user-config
 ```
 
-Both repositories are now in `/etc/nixos/nixoa/` with nixoa-vm finding user-config via a relative path reference.
+- **nixoa-vm** in `/etc/nixos/nixoa/nixoa-vm` - immutable module library, system-wide
+- **user-config** in `~/user-config` - your personal configuration, entry point for rebuilds
 
 #### 2. Configure System
 
-Edit your configuration:
+Edit your user configuration:
 
 ```bash
-cd /etc/nixos/nixoa/user-config
+cd ~/user-config
 nano configuration.nix
 ```
 
