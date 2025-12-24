@@ -234,6 +234,7 @@ $commit_msgs" "success"
     name = "xoa-update-${inputName}";
     runtimeInputs = with pkgs; [ git nix jq curl ];
     text = ''
+      # shellcheck disable=SC2050
       ${commonUtils}
 
       ensure_repo_dir
