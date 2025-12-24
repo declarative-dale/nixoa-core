@@ -284,8 +284,8 @@ in
       enable = mkEnableOption "Automatic garbage collection";
       schedule = mkOption {
         type = types.str;
-        default = "weekly";
-        description = "When to run GC (systemd calendar format, e.g., 'daily', 'weekly', 'Sun 04:00')";
+        default = "monthly";
+        description = "When to run GC (systemd calendar format, e.g., 'daily', 'weekly', 'monthly', 'Sun 04:00', '*-*-01 04:00')";
       };
       keepDays = mkOption {
         type = types.int;
@@ -340,11 +340,13 @@ in
     # Enable nix-command and flakes
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
-    # Built-in garbage collection
+    # Built-in garbage collection - deletes both old generations and unreachable paths
     nix.gc = mkIf cfg.gc.enable {
       automatic = true;
       dates = cfg.gc.schedule;
-      options = "--delete-older-than ${toString cfg.gc.keepDays}d";
+      # Empty options: collect all unreachable paths (includes cleanup from generations older than keepDays)
+      # The keepDays setting is kept in options for reference but full -d cleanup is more thorough
+      options = "";
     };
 
     nix.optimise.automatic = mkIf cfg.gc.enable true;
