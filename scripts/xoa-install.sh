@@ -9,7 +9,7 @@ set -euo pipefail
 # Configuration
 BASE_DIR="/etc/nixos/nixoa"                          # Target location for base flake (nixoa-vm)
 BASE_REPO="https://codeberg.org/nixoa/nixoa-vm.git"
-USER_REPO_DIR="/etc/nixos/nixoa/user-config"        # Target location for user config flake
+USER_REPO_DIR="$HOME/user-config"                   # Target location for user config flake (user home directory)
 USER_REPO_REMOTE="https://codeberg.org/nixoa/user-config.git"
 DRY_RUN=false
 
@@ -86,92 +86,10 @@ else
   run "sudo git clone $USER_REPO_REMOTE $USER_REPO_DIR"
 fi
 
-# 4. Populate user config flake with initial files
-# a) flake.nix (simplified - data exports only)
-FLAKE_NIX_CONTENT='
-{
-  description = "User configuration flake for NiXOA";
+# 4. Populate user config flake with initial files (if not already present from git)
+# User-config is now a full flake in git, but we'll populate missing config files
 
-  inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-  };
-
-  outputs = { self, nixpkgs }:
-    let
-      system = "x86_64-linux";
-      lib = nixpkgs.lib;
-      pkgs = nixpkgs.legacyPackages.${system};
-
-      # Import configuration (pure Nix)
-      config = import ./configuration.nix { inherit lib pkgs; };
-
-      # Extract settings from configuration
-      userSettings = config.userSettings;
-      systemSettings = config.systemSettings;
-
-      # Read XO server TOML directly from file
-      xoTomlData = builtins.readFile ./config.nixoa.toml;
-
-      # Extract convenience scalars
-      hostname = systemSettings.hostname or "nixoa";
-      username = systemSettings.username or "xoa";
-
-      # Create args bundle for modules
-      userArgs = {
-        inherit username hostname system;
-        inherit userSettings systemSettings;
-        inherit xoTomlData;
-      };
-
-      # Hardware configuration path
-      hardwareConfigPath = ./hardware-configuration.nix;
-    in {
-      # Configuration data exports (nixoa-vm flake consumes these)
-      nixoa = {
-        inherit hostname;
-        specialArgs = userArgs;
-        extraSpecialArgs = userArgs;
-        xoServer.toml = xoTomlData;
-      };
-
-      # Helper apps for configuration management
-      apps.${system} = {
-        commit = {
-          type = "app";
-          program = toString (pkgs.writeShellScript "commit-config" ''
-            ${builtins.readFile ./scripts/commit-config.sh}
-          '');
-        };
-        apply = {
-          type = "app";
-          program = toString (pkgs.writeShellScript "apply-config" ''
-            ${builtins.readFile ./scripts/apply-config.sh}
-          '');
-        };
-        diff = {
-          type = "app";
-          program = toString (pkgs.writeShellScript "show-diff" ''
-            ${builtins.readFile ./scripts/show-diff.sh}
-          '');
-        };
-        history = {
-          type = "app";
-          program = toString (pkgs.writeShellScript "history" ''
-            ${builtins.readFile ./scripts/history.sh}
-          '');
-        };
-      };
-    };
-}
-'
-if [[ ! -f "$USER_REPO_DIR/flake.nix" ]]; then
-  echo "Writing flake.nix to user config..."
-  run "cat > \"$USER_REPO_DIR/flake.nix\" <<'EOF'
-$FLAKE_NIX_CONTENT
-EOF"
-fi
-
-# b) configuration.nix (pure Nix configuration)
+# a) configuration.nix (pure Nix configuration)
 if [[ ! -f "$USER_REPO_DIR/configuration.nix" ]]; then
   echo "Writing configuration.nix..."
   CONFIG_NIX_CONTENT='# SPDX-License-Identifier: Apache-2.0
@@ -348,7 +266,7 @@ echo "  1. Review changes: git log -1 -p"
 # Get configured hostname for rebuild command
 CONFIG_HOST=$(grep "hostname = " configuration.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 CONFIG_HOST="${CONFIG_HOST:-nixoa}"
-echo "  2. Rebuild NiXOA: cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
+echo "  2. Rebuild NiXOA: cd ~/user-config && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
 echo ""
 echo "To undo this commit: git reset HEAD~1
 '
@@ -379,10 +297,10 @@ fi
 echo "=== Committing configuration changes ==="
 "$SCRIPT_DIR/commit-config.sh" "$COMMIT_MSG"
 
-# Apply the configuration
+# Apply the configuration from user-config directory
 echo ""
 echo "=== Applying configuration to NiXOA ==="
-cd /etc/nixos/nixoa/nixoa-vm
+cd "$CONFIG_DIR"
 
 # Read hostname from user-config (defaults to "nixoa" if not set)
 HOSTNAME=$(grep "hostname = " "$CONFIG_DIR/configuration.nix" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
@@ -441,7 +359,7 @@ echo "   cd $USER_REPO_DIR"
 echo "   ./scripts/apply-config.sh \"Initial deployment\""
 echo ""
 echo "Or manually:"
-echo "   cd /etc/nixos/nixoa/nixoa-vm"
+echo "   cd ~/user-config"
 echo "   sudo nixos-rebuild switch --flake .#<hostname>"
 echo ""
 echo "For more information, see:"
