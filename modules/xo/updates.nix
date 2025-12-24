@@ -59,12 +59,12 @@ let
     }
     
     # Send notification if configured
+    # shellcheck disable=SC2034
     send_notification() {
       local subject="$1"
       local body="$2"
       local priority="$3"  # success, warning, error
 
-      # shellcheck disable=SC2034
       ${if cfg.monitoring.email.enable then ''
         if command -v mail >/dev/null 2>&1; then
           echo "$body" | mail -s "[XOA] $subject" "${cfg.monitoring.email.to}"
