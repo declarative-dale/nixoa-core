@@ -3,7 +3,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](./LICENSE)
 
-An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for homelab and testing environments.
+An experimental Xen Orchestra Community Edition flake for NixOS VMs in XCP-NG.
 
 > **⚠️ Important Disclaimer**
 >
@@ -31,11 +31,10 @@ An experimental Xen Orchestra Community Edition deployment for NixOS, ideal for 
 
 ## Quick Start
 
-> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) to keep your settings isolated from the deployment code. Configuration is stored in your **home directory** (`~/user-config`), not in system directories.
+> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) to keep your settings isolated from the deployment code. Configuration is stored in **the system directory.** (`/etc/nixos/NiXOA/user-config`)
 
-> **Existing Users:** If you're upgrading from an older version with the repository named `nixoa` or `declarative-xoa-ce`, see [MIGRATION.md](./MIGRATION.md) for renaming instructions.
 
-### Automated Installation (Recommended)
+### Automated Installation (Untested)
 
 The easiest way to get started is to use the bootstrap installer. It handles everything automatically:
 
@@ -43,7 +42,7 @@ The easiest way to get started is to use the bootstrap installer. It handles eve
 # Run as a regular user (NOT root)
 bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
 ```
-
+### Manual Installation (Tested)
 Or clone the repo first and run locally:
 
 ```bash
@@ -173,40 +172,6 @@ If you have an existing `/etc/nixos/flake.nix`, you can integrate NiXOA using bo
   };
 }
 ```
-
-**Alternative: Pure Nix Configuration**
-
-Skip user-config and configure directly in Nix:
-
-```nix
-{
-  inputs.nixoa-vm.url = "path:/etc/nixos/nixoa/nixoa-vm";
-
-  outputs = { nixpkgs, nixoa-vm, ... }: {
-    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-      system = "x86_64-linux";
-      modules = [
-        nixoa-vm.nixosModules.default
-        ./hardware-configuration.nix
-        {
-          config.nixoa = {
-            hostname = "myhost";
-            admin = {
-              username = "admin";
-              sshKeys = [ "ssh-ed25519 ..." ];
-            };
-            xo.port = 8080;
-            # ... all other options
-          };
-        }
-      ];
-    };
-  };
-}
-```
-
-**See MIGRATION-OPTIONS.md** for complete options reference.
-
 ---
 
 ## Configuration
