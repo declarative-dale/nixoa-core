@@ -19,7 +19,10 @@ pkgs.stdenv.mkDerivation {
 
   # Only this derivation needs network access for initial fetch
   __noChroot = true;
+
+  # Configure SSL/TLS for Node.js yarn
   SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+  NODE_EXTRA_CA_CERTS = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
 
   nativeBuildInputs = with pkgs; [
     nodejs_20
@@ -51,14 +54,19 @@ pkgs.stdenv.mkDerivation {
     export HOME=$TMPDIR
     export TURBO_TELEMETRY_DISABLED=1
     export NODE_ENV=production
+    export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+    export NODE_EXTRA_CA_CERTS="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
   '';
 
   buildPhase = ''
     export HOME=$TMPDIR
     export TURBO_TELEMETRY_DISABLED=1
     export NODE_ENV=production
+    export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
+    export NODE_EXTRA_CA_CERTS="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
 
     echo "Fetching yarn dependencies..."
+    echo "Using CA bundle from: $NODE_EXTRA_CA_CERTS"
     yarn install --frozen-lockfile
 
     echo "Dependencies fetched successfully!"
