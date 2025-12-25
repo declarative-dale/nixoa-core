@@ -41,34 +41,9 @@
       xo-ce = pkgs.callPackage ./pkgs/xo-ce { inherit xoSrc; };
       libvhdi = pkgs.callPackage ./pkgs/libvhdi { inherit libvhdiSrc; };
       default = self.packages.${system}.xo-ce;
-    };
 
-    # Overlay for easy nixpkgs extension
-    # Usage: overlays.default (adds nixoa.xo-ce and nixoa.libvhdi to pkgs)
-    overlays.default = final: prev: {
-      nixoa = {
-        xo-ce = self.packages.${system}.xo-ce;
-        libvhdi = self.packages.${system}.libvhdi;
-      };
-    };
-
-    # Module library export - nixoa-vm is a module provider for user-config
-    # Usage in user-config: nixoa-vm.nixosModules.default
-    nixosModules.default = { config, lib, pkgs, ... }: {
-      imports = [
-        # Auto-import all modules EXCEPT home/ (handled separately in user-config)
-        ./modules
-      ];
-
-      # Make packages and utilities available to all modules
-      _module.args = {
-        nixoaPackages = self.packages.${system};
-        nixoaUtils = utils;
-      };
-    };
-
-    # Package metadata for the project
-    packages.${system}.metadata = pkgs.stdenv.mkDerivation {
+      # Package metadata for the project
+      metadata = pkgs.stdenv.mkDerivation {
       pname = "nixoa-vm-metadata";
       version = "1.0.0";
       dontUnpack = true;
@@ -99,6 +74,30 @@
         }];
         platforms = platforms.linux;
         homepage = "https://codeberg.org/nixoa/nixoa-vm";
+      };
+    };
+
+    # Overlay for easy nixpkgs extension
+    # Usage: overlays.default (adds nixoa.xo-ce and nixoa.libvhdi to pkgs)
+    overlays.default = final: prev: {
+      nixoa = {
+        xo-ce = self.packages.${system}.xo-ce;
+        libvhdi = self.packages.${system}.libvhdi;
+      };
+    };
+
+    # Module library export - nixoa-vm is a module provider for user-config
+    # Usage in user-config: nixoa-vm.nixosModules.default
+    nixosModules.default = { config, lib, pkgs, ... }: {
+      imports = [
+        # Auto-import all modules EXCEPT home/ (handled separately in user-config)
+        ./modules
+      ];
+
+      # Make packages and utilities available to all modules
+      _module.args = {
+        nixoaPackages = self.packages.${system};
+        nixoaUtils = utils;
       };
     };
 
