@@ -15,6 +15,9 @@ pkgs.mkYarnPackage rec {
   packageJSON = "${xoSrc}/package.json";
   yarnLock = "${xoSrc}/yarn.lock";
 
+  # Disable offline mirror (not compatible with local workspace packages)
+  offlineMode = false;
+
   nativeBuildInputs = with pkgs; [
     nodejs_20
     yarn
