@@ -11,8 +11,8 @@ let
   # XO app directory is now immutable in /nix/store
   xoAppDir = "${xoaPackage}/libexec/xen-orchestra";
 
-  # Runtime directories (mutable state)
-  xoHome = cfg.xo.home;
+  # Default home directory for XO service (can be overridden via cfg.xo.home option)
+  xoHome = "/var/lib/xo";
 
   # Sudo wrapper for CIFS mounts - injects credentials as mount options
   # This is the "Nix way" - transform the command instead of fighting sudo's env handling
