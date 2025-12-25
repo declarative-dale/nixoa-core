@@ -2,18 +2,73 @@
 # Xen Orchestra Package - Built from source using Yarn
 # This package builds the complete Xen Orchestra application (xo-server + xo-web)
 # from a Yarn v1 workspace monorepo with Turbo build orchestration.
+#
+# Uses a two-stage approach: separate fetcher for dependencies (needs network),
+# main build with sandboxing enabled (uses pre-fetched deps).
 
 { pkgs, lib, xoSrc }:
 
-pkgs.stdenv.mkDerivation rec {
-  pname = "xen-orchestra";
+let
   version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
-  src = xoSrc;
+  # Stage 1: Fetch all yarn dependencies (requires network access)
+  yarnDeps = pkgs.stdenv.mkDerivation {
+    pname = "xen-orchestra-yarn-deps";
+    inherit version;
+    src = xoSrc;
 
-  # Enable network access for yarn to fetch packages from npm registry
-  __noChroot = true;
-  SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+    # Only this derivation needs network access
+    __noChroot = true;
+    SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+
+    nativeBuildInputs = with pkgs; [
+      nodejs_20
+      yarn
+      git
+    ];
+
+    phases = [ "unpackPhase" "patchPhase" "buildPhase" ];
+
+    # Apply the same patches as the main build
+    prePatch = ''
+      # SMB handler fix: prevent execa rejection on mount.cifs version check
+      sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" \
+        @xen-orchestra/fs/src/index.js || true
+
+      # TypeScript generic fix for VtsSelect component
+      sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
+        @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
+    '';
+
+    buildPhase = ''
+      export HOME=$TMPDIR
+      export TURBO_TELEMETRY_DISABLED=1
+      export NODE_ENV=production
+
+      # Initialize git repository (required by some build tools)
+      git init
+      git config user.email "builder@localhost"
+      git config user.name "Nix Builder"
+      git add -A
+      git commit -m "build snapshot" || true
+
+      # Install dependencies and cache them
+      yarn install --frozen-lockfile
+
+      # Output the node_modules and yarn.lock for the main build
+      mkdir -p $out
+      cp -r node_modules $out/
+      cp yarn.lock $out/
+      cp package.json $out/
+    '';
+  };
+in
+
+pkgs.stdenv.mkDerivation rec {
+  pname = "xen-orchestra";
+  inherit version;
+
+  src = xoSrc;
 
   nativeBuildInputs = with pkgs; [
     nodejs_20
@@ -30,7 +85,7 @@ pkgs.stdenv.mkDerivation rec {
     zlib
     libpng
     stdenv.cc.cc.lib
-  ];
+  ] ++ [ yarnDeps ];
 
   # Apply patches to source before build
   prePatch = ''
@@ -51,12 +106,21 @@ pkgs.stdenv.mkDerivation rec {
     git add -A
     git commit -m "build snapshot" || true
 
-    # Install dependencies
+    # Link pre-fetched dependencies instead of downloading
     export HOME=$TMPDIR
     export TURBO_TELEMETRY_DISABLED=1
     export NODE_ENV=production
 
-    yarn install --no-audit
+    # Copy pre-fetched node_modules and use frozen lockfile
+    rm -rf node_modules package-lock.json
+    cp -r ${yarnDeps}/node_modules .
+    cp ${yarnDeps}/yarn.lock .
+
+    # Verify dependencies are in place
+    if [ ! -d "node_modules" ]; then
+      echo "ERROR: node_modules not found after linking!" >&2
+      exit 1
+    fi
   '';
 
   buildPhase = ''
