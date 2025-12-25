@@ -298,7 +298,7 @@ in
         ExecStart = "${startXO}";
         
         Restart = "on-failure";
-        RestartSec = 10;
+        RestartSec = "10s";
         TimeoutStartSec = "5min";
 
         # Security hardening
@@ -330,7 +330,7 @@ in
           "/var/log"            # Sudo audit logs
         ];
         
-        LimitNOFILE = 1048576;
+        LimitNOFILE = "1048576";
       };
     };
     
