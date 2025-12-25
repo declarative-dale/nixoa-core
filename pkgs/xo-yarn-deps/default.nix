@@ -65,9 +65,17 @@ pkgs.stdenv.mkDerivation {
     export SSL_CERT_FILE="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
     export NODE_EXTRA_CA_CERTS="${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt"
 
+    # Clear any cached yarn data to ensure clean extraction
+    rm -rf $HOME/.cache/yarn 2>/dev/null || true
+
     echo "Fetching yarn dependencies..."
     echo "Using CA bundle from: $NODE_EXTRA_CA_CERTS"
-    yarn install --frozen-lockfile
+
+    # Install with permissions handling and script execution disabled
+    # --unsafe-perm: Allow yarn to chmod files without restrictions
+    # --ignore-scripts: Skip post-install scripts (they run during actual build)
+    # --frozen-lockfile: Use exact versions from yarn.lock
+    yarn install --frozen-lockfile --unsafe-perm --ignore-scripts
 
     echo "Dependencies fetched successfully!"
   '';
