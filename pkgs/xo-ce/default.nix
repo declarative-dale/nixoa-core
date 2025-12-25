@@ -1,123 +1,110 @@
 # SPDX-License-Identifier: Apache-2.0
-# Xen Orchestra Package - Built with Dream2Nix
-# This package uses Dream2Nix to handle Node.js monorepo dependencies
-# with proper workspace support and permission handling.
+# Xen Orchestra Package - Built with buildNpmPackage
+# This package builds the complete Xen Orchestra application (xo-server + xo-web)
+# from a Yarn v1 workspace monorepo with Turbo build orchestration.
+#
+# Uses pkgs.buildNpmPackage (official Nix solution) which handles:
+# - Dependency fetching from yarn.lock
+# - Workspace resolution
+# - Permission issues gracefully
+# - Native module patching
 
-{ pkgs, lib, xoSrc, dream2nix }:
+{ pkgs, lib, xoSrc }:
 
-let
-  # Evaluate dream2nix modules for the XOA source
-  # This parses yarn.lock and resolves all workspace dependencies
-  d2nEval = dream2nix.lib.evalModules {
-    projectRoot = xoSrc;
-    modules = [
-      # Use nodejs-package-lock to understand yarn.lock
-      {
-        imports = [ dream2nix.modules.dream2nix.nodejs-package-lock ];
-        paths.projectRoot = xoSrc;
-        paths.lockFile = "${xoSrc}/yarn.lock";
-      }
-      # Configure the build
-      {
-        config = {
-          # Dream2Nix should use yarn to install
-          build.package = pkgs.stdenv.mkDerivation {
-            pname = "xo-ce";
-            version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
-            src = xoSrc;
+pkgs.buildNpmPackage rec {
+  pname = "xo-ce";
+  version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
-            nativeBuildInputs = with pkgs; [
-              nodejs_20
-              yarn
-              python3
-              pkg-config
-              git
-              patchelf
-            ];
+  src = xoSrc;
 
-            buildInputs = with pkgs; [
-              fuse
-              fuse3
-              zlib
-              libpng
-              stdenv.cc.cc.lib
-            ];
+  # buildNpmPackage uses yarn by default with yarn.lock
+  npmWorkspace = ".";  # Root of monorepo
 
-            prePatch = ''
-              # SMB handler fix: prevent execa rejection on mount.cifs version check
-              sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" \
-                @xen-orchestra/fs/src/index.js || true
+  # Native build inputs
+  nativeBuildInputs = with pkgs; [
+    python3
+    pkg-config
+    git
+    patchelf
+  ];
 
-              # TypeScript generic fix for VtsSelect component
-              sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
-                @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
-            '';
+  buildInputs = with pkgs; [
+    fuse
+    fuse3
+    zlib
+    libpng
+    stdenv.cc.cc.lib
+  ];
 
-            postUnpack = ''
-              cd "$sourceRoot"
-              git init
-              git config user.email "builder@localhost"
-              git config user.name "Nix Builder"
-              git add -A
-              git commit -m "build snapshot" || true
-            '';
+  # Apply patches to source before build
+  prePatch = ''
+    # SMB handler fix: prevent execa rejection on mount.cifs version check
+    sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" \
+      @xen-orchestra/fs/src/index.js || true
 
-            configurePhase = ''
-              export HOME=$TMPDIR
-              export TURBO_TELEMETRY_DISABLED=1
-              export NODE_ENV=production
-            '';
+    # TypeScript generic fix for VtsSelect component
+    sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
+      @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
+  '';
 
-            buildPhase = ''
-              # Dream2Nix will have resolved dependencies
-              # Now build with Turbo
-              yarn build
-            '';
+  postUnpack = ''
+    # Initialize git repository (required by some build tools)
+    cd "$sourceRoot"
+    git init
+    git config user.email "builder@localhost"
+    git config user.name "Nix Builder"
+    git add -A
+    git commit -m "build snapshot" || true
+  '';
 
-            installPhase = ''
-              mkdir -p $out/libexec/xen-orchestra
+  # buildNpmPackage automatically handles npm install
+  # (it uses the lock file we specify)
 
-              # Copy built artifacts and dependencies
-              cp -r packages $out/libexec/xen-orchestra/ || true
-              cp -r node_modules $out/libexec/xen-orchestra/ || true
-              cp -r @xen-orchestra $out/libexec/xen-orchestra/ || true
-              cp yarn.lock $out/libexec/xen-orchestra/ || true
-              cp package.json $out/libexec/xen-orchestra/ || true
+  buildScript = "yarn build";
 
-              # Patch native modules with FUSE library paths
-              find $out -name "*.node" -type f | while read nodefile; do
-                patchelf --set-rpath "${lib.makeLibraryPath [ pkgs.fuse pkgs.fuse3 pkgs.stdenv.cc.cc.lib ]}" \
-                  "$nodefile" 2>/dev/null || true
-              done
+  # buildNpmPackage installs to node_modules by default
+  # We need custom install to match our module structure
+  installPhase = ''
+    mkdir -p $out/libexec/xen-orchestra
 
-              # Verify critical build artifacts exist
-              if [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.mjs" ] && \
-                 [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.js" ]; then
-                echo "ERROR: xo-server CLI not found!" >&2
-                exit 1
-              fi
+    # Copy built artifacts and dependencies
+    cp -r packages $out/libexec/xen-orchestra/ || true
+    cp -r node_modules $out/libexec/xen-orchestra/ || true
+    cp -r @xen-orchestra $out/libexec/xen-orchestra/ || true
+    cp yarn.lock $out/libexec/xen-orchestra/ || true
+    cp package.json $out/libexec/xen-orchestra/ || true
 
-              if [ ! -f "$out/libexec/xen-orchestra/packages/xo-web/dist/index.html" ]; then
-                echo "ERROR: xo-web build output not found!" >&2
-                exit 1
-              fi
+    # Patch native modules with FUSE library paths
+    find $out -name "*.node" -type f | while read nodefile; do
+      patchelf --set-rpath "${lib.makeLibraryPath [ pkgs.fuse pkgs.fuse3 pkgs.stdenv.cc.cc.lib ]}" \
+        "$nodefile" 2>/dev/null || true
+    done
 
-              echo "XOA package build successful!"
-            '';
+    # Verify critical build artifacts exist
+    if [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.mjs" ] && \
+       [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.js" ]; then
+      echo "ERROR: xo-server CLI not found!" >&2
+      exit 1
+    fi
 
-            meta = with lib; {
-              description = "Xen Orchestra Community Edition - Web interface for XCP-ng and XenServer";
-              homepage = "https://github.com/vatesfr/xen-orchestra";
-              license = licenses.agpl3Plus;
-              platforms = platforms.linux;
-              maintainers = [];
-            };
-          };
-        };
-      }
-    ];
+    if [ ! -f "$out/libexec/xen-orchestra/packages/xo-web/dist/index.html" ]; then
+      echo "ERROR: xo-web build output not found!" >&2
+      exit 1
+    fi
+
+    echo "XOA package build successful!"
+  '';
+
+  # buildNpmPackage has limited outputs by default, we need more
+  postInstall = ''
+    # buildNpmPackage cleanup happens here but we've already custom installed
+  '';
+
+  meta = with lib; {
+    description = "Xen Orchestra Community Edition - Web interface for XCP-ng and XenServer";
+    homepage = "https://github.com/vatesfr/xen-orchestra";
+    license = licenses.agpl3Plus;
+    platforms = platforms.linux;
+    maintainers = [];
   };
-
-in
-# Return the built package from dream2nix evaluation
-d2nEval.config.build.package
+}
