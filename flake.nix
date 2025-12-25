@@ -11,6 +11,12 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    # Dream2Nix for proper Node.js monorepo support
+    dream2nix = {
+      url = "github:nix-community/dream2nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     # Xen Orchestra source (pinned to specific commit for stability)
     xoSrc = {
       url = "github:vatesfr/xen-orchestra";
@@ -24,7 +30,7 @@
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, xoSrc, libvhdiSrc, ... }:
+  outputs = { self, nixpkgs, home-manager, dream2nix, xoSrc, libvhdiSrc, ... }@inputs:
   let
     # System architecture (cannot be overridden by modules)
     system = "x86_64-linux";
@@ -38,8 +44,7 @@
   in {
     # Package outputs - XOA and libvhdi built from source
     packages.${system} = {
-      xo-ce-yarn-deps = pkgs.callPackage ./pkgs/xo-yarn-deps { inherit xoSrc; };
-      xo-ce = pkgs.callPackage ./pkgs/xo-ce { inherit xoSrc; xo-yarn-deps = self.packages.${system}.xo-ce-yarn-deps; };
+      xo-ce = pkgs.callPackage ./pkgs/xo-ce { inherit xoSrc dream2nix; };
       libvhdi = pkgs.callPackage ./pkgs/libvhdi { inherit libvhdiSrc; };
       default = self.packages.${system}.xo-ce;
 

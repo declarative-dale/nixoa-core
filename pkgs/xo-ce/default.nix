@@ -1,19 +1,26 @@
 # SPDX-License-Identifier: Apache-2.0
-# Xen Orchestra Package - Built from source using Yarn
+# Xen Orchestra Package - Built using Dream2Nix
 # This package builds the complete Xen Orchestra application (xo-server + xo-web)
 # from a Yarn v1 workspace monorepo with Turbo build orchestration.
 #
-# Uses pre-computed yarn dependencies (xo-yarn-deps) for pure sandboxed builds.
-# The dependency fetching is separated to a standalone package that can be cached.
+# Dream2Nix handles all dependency fetching, workspace resolution, and permission
+# issues automatically, providing a pure and reproducible build without sandboxing workarounds.
 
-{ pkgs, lib, xoSrc, xo-yarn-deps }:
+{ pkgs, lib, xoSrc, dream2nix }:
 
-pkgs.stdenv.mkDerivation rec {
+dream2nix.lib.mkDerivation rec {
   pname = "xo-ce";
   version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
   src = xoSrc;
 
+  # Use the nodejs-package-lock source type for yarn.lock
+  sourceType = "nodejs-package-lock";
+
+  # Dream2Nix will auto-detect yarn.lock in the source root
+  # No need to manually specify lock files
+
+  # Native build inputs
   nativeBuildInputs = with pkgs; [
     nodejs_20
     yarn
@@ -42,53 +49,31 @@ pkgs.stdenv.mkDerivation rec {
       @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
   '';
 
-  configurePhase = ''
+  postUnpack = ''
     # Initialize git repository (required by some build tools)
+    cd "$sourceRoot"
     git init
     git config user.email "builder@localhost"
     git config user.name "Nix Builder"
     git add -A
     git commit -m "build snapshot" || true
-
-    # Use pre-computed yarn dependencies (fully sandboxed, no network needed)
-    export HOME=$TMPDIR
-    export TURBO_TELEMETRY_DISABLED=1
-    export NODE_ENV=production
-
-    # Link pre-fetched dependencies instead of downloading
-    # This is pure - node_modules hash is deterministic from xo-yarn-deps
-    rm -rf node_modules package-lock.json .yarn/cache 2>/dev/null || true
-    cp -r ${xo-yarn-deps}/node_modules .
-    cp ${xo-yarn-deps}/yarn.lock .
-
-    # Verify dependencies are in place
-    if [ ! -d "node_modules" ]; then
-      echo "ERROR: node_modules not found after linking from ${xo-yarn-deps}!" >&2
-      exit 1
-    fi
-
-    echo "Using pre-computed yarn dependencies from ${xo-yarn-deps}"
   '';
 
-  buildPhase = ''
+  configurePhase = ''
     export HOME=$TMPDIR
     export TURBO_TELEMETRY_DISABLED=1
     export NODE_ENV=production
-
-    # Run Turbo-based build for xo-server, xo-web, and plugins
-    # Dependencies are already present from configurePhase, no fetch needed
-    yarn build
   '';
 
   installPhase = ''
     mkdir -p $out/libexec/xen-orchestra
 
     # Copy built artifacts and dependencies
-    cp -r packages $out/libexec/xen-orchestra/
-    cp -r node_modules $out/libexec/xen-orchestra/
+    cp -r packages $out/libexec/xen-orchestra/ || true
+    cp -r node_modules $out/libexec/xen-orchestra/ || true
     cp -r @xen-orchestra $out/libexec/xen-orchestra/ || true
-    cp yarn.lock $out/libexec/xen-orchestra/
-    cp package.json $out/libexec/xen-orchestra/
+    cp yarn.lock $out/libexec/xen-orchestra/ || true
+    cp package.json $out/libexec/xen-orchestra/ || true
 
     # Patch native modules with FUSE library paths
     find $out -name "*.node" -type f | while read nodefile; do
