@@ -3,70 +3,14 @@
 # This package builds the complete Xen Orchestra application (xo-server + xo-web)
 # from a Yarn v1 workspace monorepo with Turbo build orchestration.
 #
-# Uses a two-stage approach: separate fetcher for dependencies (needs network),
-# main build with sandboxing enabled (uses pre-fetched deps).
+# Uses pre-computed yarn dependencies (xo-yarn-deps) for pure sandboxed builds.
+# The dependency fetching is separated to a standalone package that can be cached.
 
-{ pkgs, lib, xoSrc }:
-
-let
-  version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
-
-  # Stage 1: Fetch all yarn dependencies (requires network access)
-  yarnDeps = pkgs.stdenv.mkDerivation {
-    pname = "xen-orchestra-yarn-deps";
-    inherit version;
-    src = xoSrc;
-
-    # Only this derivation needs network access
-    __noChroot = true;
-    SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
-
-    nativeBuildInputs = with pkgs; [
-      nodejs_20
-      yarn
-      git
-    ];
-
-    phases = [ "unpackPhase" "patchPhase" "buildPhase" ];
-
-    # Apply the same patches as the main build
-    prePatch = ''
-      # SMB handler fix: prevent execa rejection on mount.cifs version check
-      sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" \
-        @xen-orchestra/fs/src/index.js || true
-
-      # TypeScript generic fix for VtsSelect component
-      sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
-        @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
-    '';
-
-    buildPhase = ''
-      export HOME=$TMPDIR
-      export TURBO_TELEMETRY_DISABLED=1
-      export NODE_ENV=production
-
-      # Initialize git repository (required by some build tools)
-      git init
-      git config user.email "builder@localhost"
-      git config user.name "Nix Builder"
-      git add -A
-      git commit -m "build snapshot" || true
-
-      # Install dependencies and cache them
-      yarn install --frozen-lockfile
-
-      # Output the node_modules and yarn.lock for the main build
-      mkdir -p $out
-      cp -r node_modules $out/
-      cp yarn.lock $out/
-      cp package.json $out/
-    '';
-  };
-in
+{ pkgs, lib, xoSrc, xo-yarn-deps }:
 
 pkgs.stdenv.mkDerivation rec {
-  pname = "xen-orchestra";
-  inherit version;
+  pname = "xo-ce";
+  version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
   src = xoSrc;
 
@@ -85,7 +29,7 @@ pkgs.stdenv.mkDerivation rec {
     zlib
     libpng
     stdenv.cc.cc.lib
-  ] ++ [ yarnDeps ];
+  ];
 
   # Apply patches to source before build
   prePatch = ''
@@ -106,21 +50,24 @@ pkgs.stdenv.mkDerivation rec {
     git add -A
     git commit -m "build snapshot" || true
 
-    # Link pre-fetched dependencies instead of downloading
+    # Use pre-computed yarn dependencies (fully sandboxed, no network needed)
     export HOME=$TMPDIR
     export TURBO_TELEMETRY_DISABLED=1
     export NODE_ENV=production
 
-    # Copy pre-fetched node_modules and use frozen lockfile
-    rm -rf node_modules package-lock.json
-    cp -r ${yarnDeps}/node_modules .
-    cp ${yarnDeps}/yarn.lock .
+    # Link pre-fetched dependencies instead of downloading
+    # This is pure - node_modules hash is deterministic from xo-yarn-deps
+    rm -rf node_modules package-lock.json .yarn/cache 2>/dev/null || true
+    cp -r ${xo-yarn-deps}/node_modules .
+    cp ${xo-yarn-deps}/yarn.lock .
 
     # Verify dependencies are in place
     if [ ! -d "node_modules" ]; then
-      echo "ERROR: node_modules not found after linking!" >&2
+      echo "ERROR: node_modules not found after linking from ${xo-yarn-deps}!" >&2
       exit 1
     fi
+
+    echo "Using pre-computed yarn dependencies from ${xo-yarn-deps}"
   '';
 
   buildPhase = ''
@@ -129,6 +76,7 @@ pkgs.stdenv.mkDerivation rec {
     export NODE_ENV=production
 
     # Run Turbo-based build for xo-server, xo-web, and plugins
+    # Dependencies are already present from configurePhase, no fetch needed
     yarn build
   '';
 
