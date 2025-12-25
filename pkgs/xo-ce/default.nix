@@ -11,6 +11,10 @@ pkgs.stdenv.mkDerivation rec {
 
   src = xoSrc;
 
+  # Enable network access for yarn to fetch packages from npm registry
+  __noChroot = true;
+  SSL_CERT_FILE = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
+
   nativeBuildInputs = with pkgs; [
     nodejs_20
     yarn
