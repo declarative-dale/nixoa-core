@@ -68,14 +68,18 @@ pkgs.stdenv.mkDerivation {
     # Clear any cached yarn data to ensure clean extraction
     rm -rf $HOME/.cache/yarn 2>/dev/null || true
 
+    # Allow all file permissions during extraction (Nix build uses restrictive umask)
+    umask 0000
+
     echo "Fetching yarn dependencies..."
     echo "Using CA bundle from: $NODE_EXTRA_CA_CERTS"
 
-    # Install with permissions handling and script execution disabled
-    # --unsafe-perm: Allow yarn to chmod files without restrictions
-    # --ignore-scripts: Skip post-install scripts (they run during actual build)
+    # Install dependencies with permission and script handling
     # --frozen-lockfile: Use exact versions from yarn.lock
-    yarn install --frozen-lockfile --unsafe-perm --ignore-scripts
+    # --unsafe-perm: Allow chmod operations during extraction
+    # --ignore-scripts: Skip post-install scripts (run during actual build)
+    # --no-optional: Skip optional dependencies that may have permission issues
+    yarn install --frozen-lockfile --unsafe-perm --ignore-scripts --no-optional
 
     echo "Dependencies fetched successfully!"
   '';
