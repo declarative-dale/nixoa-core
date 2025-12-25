@@ -57,6 +57,9 @@ pkgs.mkYarnPackage rec {
     export TURBO_TELEMETRY_DISABLED=1
     export NODE_ENV=production
 
+    # Install dependencies with network access (mkYarnPackage handles workspace setup)
+    yarn install --prefer-offline --no-audit
+
     # Run Turbo-based build for xo-server, xo-web, and plugins
     # This filters and builds only the necessary packages
     yarn build
