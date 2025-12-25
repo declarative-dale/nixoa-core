@@ -76,6 +76,7 @@
         homepage = "https://codeberg.org/nixoa/nixoa-vm";
       };
     };
+    };
 
     # Overlay for easy nixpkgs extension
     # Usage: overlays.default (adds nixoa.xo-ce and nixoa.libvhdi to pkgs)
