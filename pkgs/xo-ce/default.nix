@@ -15,9 +15,6 @@ pkgs.mkYarnPackage rec {
   packageJSON = "${xoSrc}/package.json";
   yarnLock = "${xoSrc}/yarn.lock";
 
-  # Enable Yarn v1 workspace support for monorepo
-  workspaceDependencies = true;
-
   nativeBuildInputs = with pkgs; [
     nodejs_20
     yarn
