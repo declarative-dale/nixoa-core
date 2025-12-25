@@ -6,7 +6,7 @@ let
   cfg = config.xoa;
 
   # Reference the packaged XOA from flake
-  xoaPackage = nixoaPackages.xoa;
+  xoaPackage = nixoaPackages.xo-ce;
 
   # XO app directory is now immutable in /nix/store
   xoAppDir = "${xoaPackage}/libexec/xen-orchestra";
