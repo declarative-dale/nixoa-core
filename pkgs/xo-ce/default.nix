@@ -15,21 +15,11 @@
 
 { pkgs, lib, xoSrc }:
 
-let
-  # Merge xoSrc with local package-lock.json
-  # This ensures package-lock.json is included in the source before buildNpmPackage processes it
-  srcWithLockfile = pkgs.runCommand "xo-src-with-lockfile" {} ''
-    cp -r ${xoSrc} $out
-    chmod -R +w $out
-    cp ${./package-lock.json} $out/package-lock.json
-  '';
-
-in
 pkgs.buildNpmPackage {
   pname = "xo-ce";
   version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
-  src = srcWithLockfile;
+  src = xoSrc;
 
   nativeBuildInputs = with pkgs; [
     python3           # Required by node-gyp for native module compilation
@@ -55,9 +45,10 @@ pkgs.buildNpmPackage {
   # Disable npm postinstall scripts (husky hooks, etc.) during build
   npmFlags = [ "--ignore-scripts" ];
 
-  # Initialize git repository (required by some build tools)
+  # Copy local package-lock.json into source (required for npm-deps phase)
   postUnpack = ''
     cd "$sourceRoot"
+    cp ${./package-lock.json} ./package-lock.json
     git init
     git config user.email "builder@localhost"
     git config user.name "Nix Builder"
