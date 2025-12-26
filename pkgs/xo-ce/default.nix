@@ -52,6 +52,9 @@ pkgs.buildNpmPackage {
   PKG_CONFIG_PATH = "${pkgs.fuse3.dev}/lib/pkgconfig";
   npm_config_nodedir = "${pkgs.nodejs_20}";
 
+  # Disable npm postinstall scripts (husky hooks, etc.) during build
+  npmFlags = [ "--ignore-scripts" ];
+
   # Initialize git repository (required by some build tools)
   postUnpack = ''
     cd "$sourceRoot"
