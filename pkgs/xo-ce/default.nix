@@ -55,7 +55,7 @@ pkgs.buildNpmPackage {
 
   # buildNpmPackage expects npmDepsHash (hash of all npm dependencies)
   # Update this after first build with actual hash from error message
-  npmDepsHash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+  npmDepsHash = "sha256-c3aqGWyZZn3dAgTVf1B2ncrkox6AlU5NlwRLCzR4+3M=";
 
   # Environment variables for pkg-config and node-gyp
   PKG_CONFIG_PATH = "${pkgs.fuse3.dev}/lib/pkgconfig";
