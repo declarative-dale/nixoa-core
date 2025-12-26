@@ -33,13 +33,12 @@ pkgs.buildNpmPackage {
 
   nativeBuildInputs = with pkgs; [
     python3           # Required by node-gyp for native module compilation
-    pkg-config        # Find fuse3 headers/libs via .pc file
+    pkg-config        # Find library headers/libs via .pc files
     git               # Required by build tools
-    patchelf          # Patch fuse-native rpath to find libfuse3
   ];
 
   buildInputs = with pkgs; [
-    fuse3             # libfuse3.so.3 + headers for fuse-native
+    fuse3             # libfuse3 for FUSE native module
     zlib              # Compression library
     libpng            # Image processing
     stdenv.cc.cc.lib  # C++ standard library
@@ -56,12 +55,9 @@ pkgs.buildNpmPackage {
   # Initialize git repository (required by some build tools)
   postUnpack = ''
     cd "$sourceRoot"
-
     git init
     git config user.email "builder@localhost"
     git config user.name "Nix Builder"
-    git add -A
-    git commit -m "build snapshot" || true
   '';
 
   # Apply source patches before build
@@ -121,18 +117,6 @@ pkgs.buildNpmPackage {
     if [ ! -f "$out/libexec/xen-orchestra/packages/xo-web/dist/index.html" ]; then
       echo "ERROR: xo-web build output not found!" >&2
       exit 1
-    fi
-
-    # Patch fuse-native rpath to find system libfuse3.so.3 at runtime
-    FUSE_NATIVE_BINARY=$(find $out/libexec/xen-orchestra/node_modules/fuse-native -name "*.node" 2>/dev/null | head -1)
-    if [ -n "$FUSE_NATIVE_BINARY" ]; then
-      echo "Patching fuse-native rpath: $FUSE_NATIVE_BINARY"
-      ${pkgs.patchelf}/bin/patchelf --set-rpath "${lib.makeLibraryPath [ pkgs.fuse3 pkgs.stdenv.cc.cc.lib ]}" \
-        "$FUSE_NATIVE_BINARY"
-
-      # Verify linkage
-      echo "Verifying fuse-native linkage:"
-      ${pkgs.binutils}/bin/readelf -d "$FUSE_NATIVE_BINARY" | grep -i "libfuse" || echo "  (library not directly linked, may use dlopen)"
     fi
 
     echo "XOA package build successful!"
