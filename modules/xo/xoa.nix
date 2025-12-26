@@ -249,7 +249,9 @@ in
     # System packages needed by XO
     environment.systemPackages = with pkgs; [
       nodejs_20 yarn git rsync pkg-config python3 gcc gnumake micro openssl
-      fuse zlib libpng xen lvm2 esbuild
+      fuse fuse3 zlib libpng xen lvm2 esbuild
+      libguestfs    # VM disk inspection and mounting
+      ntfs-3g       # NTFS filesystem support for VM backups
     ];
 
     # XO Server service
