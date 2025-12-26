@@ -17,7 +17,7 @@ let
     owner = "sagemathinc";
     repo = "fuse-native";
     rev = "master";
-    sha256 = "sha256-mlVnrKlKMVMZmzPKc2p/TvF0v7W8zFH+vTD7KL7tTF8=";
+    sha256 = "sha256-+qOaBDbsgLPF3nq1PmSpdcmdgjGS5RCooyBaGG+mNTw=";
   };
 
 in
