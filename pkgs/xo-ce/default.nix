@@ -42,7 +42,11 @@ pkgs.buildNpmPackage {
   npm_config_nodedir = "${pkgs.nodejs_20}";
 
   # Disable npm postinstall scripts (husky hooks, etc.) during build
-  npmFlags = [ "--ignore-scripts" ];
+  # Add legacy-peer-deps for monorepo compatibility
+  npmFlags = [ "--ignore-scripts" "--legacy-peer-deps" ];
+
+  # Allow npm cache to be writable to avoid OOM issues
+  makeCacheWritable = true;
 
   # Apply source patches before build
   postPatch = ''
