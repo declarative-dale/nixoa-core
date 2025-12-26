@@ -24,12 +24,20 @@ let
     sha256 = "sha256-+qOaBDbsgLPF3nq1PmSpdcmdgjGS5RCooyBaGG+mNTw=";
   };
 
+  # Merge xoSrc with local package-lock.json
+  # This ensures package-lock.json is included in the source before buildNpmPackage processes it
+  srcWithLockfile = pkgs.runCommand "xo-src-with-lockfile" {} ''
+    cp -r ${xoSrc} $out
+    chmod -R +w $out
+    cp ${./package-lock.json} $out/package-lock.json
+  '';
+
 in
 pkgs.buildNpmPackage {
   pname = "xo-ce";
   version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
-  src = xoSrc;
+  src = srcWithLockfile;
 
   nativeBuildInputs = with pkgs; [
     python3           # Required by node-gyp for native module compilation
@@ -54,12 +62,8 @@ pkgs.buildNpmPackage {
   npm_config_nodedir = "${pkgs.nodejs_20}";
 
   # Initialize git repository (required by some build tools)
-  # Copy local package-lock.json into unpacked source
   postUnpack = ''
     cd "$sourceRoot"
-
-    # Copy local package-lock.json (from nixoa-vm/pkgs/xo-ce/)
-    cp ${./package-lock.json} ./package-lock.json
 
     git init
     git config user.email "builder@localhost"
