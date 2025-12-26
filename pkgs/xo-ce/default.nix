@@ -16,14 +16,6 @@
 { pkgs, lib, xoSrc }:
 
 let
-  # Fetch SageMath fuse-native fork (uses system libfuse3 instead of bundled binary)
-  fuseNativeFork = pkgs.fetchFromGitHub {
-    owner = "sagemathinc";
-    repo = "fuse-native";
-    rev = "master";
-    sha256 = "sha256-+qOaBDbsgLPF3nq1PmSpdcmdgjGS5RCooyBaGG+mNTw=";
-  };
-
   # Merge xoSrc with local package-lock.json
   # This ensures package-lock.json is included in the source before buildNpmPackage processes it
   srcWithLockfile = pkgs.runCommand "xo-src-with-lockfile" {} ''
@@ -81,24 +73,6 @@ pkgs.buildNpmPackage {
     # TypeScript generic fix for VtsSelect component
     sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
       @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
-  '';
-
-  # Configure phase: Replace fuse-native with SageMath fork
-  # buildNpmPackage automatically installs node_modules before this phase runs
-  preConfigure = ''
-    # Replace bundled fuse-native with SageMath fork (uses system libfuse3)
-    if [ -d "node_modules/fuse-native" ]; then
-      echo "Replacing fuse-native npm package with SageMath fork..."
-      rm -rf node_modules/fuse-native
-      cp -r ${fuseNativeFork} node_modules/fuse-native
-      chmod -R +w node_modules/fuse-native
-
-      # Build the native module against system libfuse3 via pkg-config
-      cd node_modules/fuse-native
-      export HOME=$TMPDIR
-      npm run install || npx node-gyp rebuild
-      cd ../..
-    fi
   '';
 
   # Build phase: Run Turbo-based build for xo-server, xo-web, and plugins
