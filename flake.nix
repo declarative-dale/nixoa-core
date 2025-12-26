@@ -11,9 +11,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Xen Orchestra source (pinned to specific commit for stability)
+    # Xen Orchestra source (using local fork with package-lock.json)
+    # For reproducible builds across machines, use your GitHub fork instead:
+    # url = "github:YOUR_USERNAME/xen-orchestra";
     xoSrc = {
-      url = "github:vatesfr/xen-orchestra";
+      url = "path:/home/xoa/xen-orchestra";
       flake = false;
     };
 

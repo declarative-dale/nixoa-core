@@ -9,35 +9,16 @@
 # FUSE integration: Replaces bundled fuse-native with SageMath fork that uses
 # system libfuse3 instead of vendored binaries (better security, ARM64 support).
 #
-# NOTE: Generates package-lock.json dynamically during build
-# No manual lock file needed - npm install --package-lock-only is run on xoSrc
+# NOTE: Requires package-lock.json in xoSrc
+# Either committed to the repo or generated via npm install --package-lock-only
 
 { pkgs, lib, xoSrc }:
 
-let
-  # Generate package-lock.json from xoSrc on the fly
-  srcWithPackageLock = pkgs.runCommand "xo-src-with-package-lock" {
-    nativeBuildInputs = with pkgs; [ nodejs git ];
-  } ''
-    cp -r ${xoSrc} $out
-    chmod -R +w $out
-    cd $out
-
-    # Initialize git (some tools need it)
-    git init
-    git config user.email "builder@localhost"
-    git config user.name "Nix Builder"
-
-    # Generate package-lock.json from package.json
-    npm install --package-lock-only --ignore-scripts
-  '';
-
-in
 pkgs.buildNpmPackage {
   pname = "xo-ce";
   version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
-  src = srcWithPackageLock;
+  src = xoSrc;
 
   nativeBuildInputs = with pkgs; [
     python3           # Required by node-gyp for native module compilation
