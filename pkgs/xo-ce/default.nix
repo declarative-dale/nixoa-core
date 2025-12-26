@@ -1,13 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-# Xen Orchestra Package - Built using yarn2nix for reproducible builds
+# Xen Orchestra Package - Built using buildNpmPackage for reproducible builds
 # This package builds the complete Xen Orchestra application (xo-server + xo-web)
 # from a Yarn v1 workspace monorepo with Turbo build orchestration.
 #
-# Uses mkYarnPackage for fully sandboxed, offline dependency fetching.
+# Uses buildNpmPackage with package-lock.json for fully sandboxed, offline dependency fetching.
 # No --no-sandbox flag required. Reproducible builds with binary cache support.
 #
 # FUSE integration: Replaces bundled fuse-native with SageMath fork that uses
 # system libfuse3 instead of vendored binaries (better security, ARM64 support).
+#
+# NOTE: Uses local package-lock.json from nixoa-vm/pkgs/xo-ce/package-lock.json
+# Generate with: cd xen-orchestra && npm install --package-lock-only
+# Then copy package-lock.json to this directory.
 
 { pkgs, lib, xoSrc }:
 
@@ -21,15 +25,13 @@ let
   };
 
 in
-pkgs.mkYarnPackage {
+pkgs.buildNpmPackage {
   pname = "xo-ce";
   version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
 
   src = xoSrc;
 
   nativeBuildInputs = with pkgs; [
-    nodejs_20
-    yarn
     python3           # Required by node-gyp for native module compilation
     pkg-config        # Find fuse3 headers/libs via .pc file
     git               # Required by build tools
@@ -43,13 +45,22 @@ pkgs.mkYarnPackage {
     stdenv.cc.cc.lib  # C++ standard library
   ];
 
+  # buildNpmPackage expects npmDepsHash (hash of all npm dependencies)
+  # Update this after first build if hash changes
+  npmDepsHash = lib.fakeSha256;
+
   # Environment variables for pkg-config and node-gyp
   PKG_CONFIG_PATH = "${pkgs.fuse3.dev}/lib/pkgconfig";
   npm_config_nodedir = "${pkgs.nodejs_20}";
 
   # Initialize git repository (required by some build tools)
+  # Copy local package-lock.json into unpacked source
   postUnpack = ''
     cd "$sourceRoot"
+
+    # Copy local package-lock.json (from nixoa-vm/pkgs/xo-ce/)
+    cp ${./package-lock.json} ./package-lock.json
+
     git init
     git config user.email "builder@localhost"
     git config user.name "Nix Builder"
@@ -69,10 +80,8 @@ pkgs.mkYarnPackage {
   '';
 
   # Configure phase: Replace fuse-native with SageMath fork
-  # mkYarnPackage automatically links node_modules before this phase runs
-  configurePhase = ''
-    runHook preConfig
-
+  # buildNpmPackage automatically installs node_modules before this phase runs
+  preConfigure = ''
     # Replace bundled fuse-native with SageMath fork (uses system libfuse3)
     if [ -d "node_modules/fuse-native" ]; then
       echo "Replacing fuse-native npm package with SageMath fork..."
@@ -83,11 +92,9 @@ pkgs.mkYarnPackage {
       # Build the native module against system libfuse3 via pkg-config
       cd node_modules/fuse-native
       export HOME=$TMPDIR
-      ${pkgs.nodejs_20}/bin/npm run install || ${pkgs.nodejs_20}/bin/npx node-gyp rebuild
+      npm run install || npx node-gyp rebuild
       cd ../..
     fi
-
-    runHook postConfig
   '';
 
   # Build phase: Run Turbo-based build for xo-server, xo-web, and plugins
@@ -102,8 +109,8 @@ pkgs.mkYarnPackage {
 
     mkdir -p $TURBO_CACHE_DIR
 
-    # Run offline build with Turbo (node_modules already linked)
-    yarn build --offline
+    # Run build with Turbo (node_modules already installed)
+    npm run build
 
     runHook postBuild
   '';
@@ -114,17 +121,17 @@ pkgs.mkYarnPackage {
 
     mkdir -p $out/libexec/xen-orchestra
 
-    # mkYarnPackage creates deps/xen-orchestra/ directory structure
-    cp -r deps/xen-orchestra/packages $out/libexec/xen-orchestra/
-    cp -r deps/xen-orchestra/@xen-orchestra $out/libexec/xen-orchestra/ || true
-    cp -r deps/xen-orchestra/@vates $out/libexec/xen-orchestra/ || true
+    # Copy workspace packages
+    cp -r packages $out/libexec/xen-orchestra/ || true
+    cp -r @xen-orchestra $out/libexec/xen-orchestra/ || true
+    cp -r @vates $out/libexec/xen-orchestra/ || true
 
     # Copy node_modules with compiled native modules
     cp -r node_modules $out/libexec/xen-orchestra/
 
     # Copy metadata
-    cp deps/xen-orchestra/yarn.lock $out/libexec/xen-orchestra/
-    cp deps/xen-orchestra/package.json $out/libexec/xen-orchestra/
+    cp package-lock.json $out/libexec/xen-orchestra/ || true
+    cp package.json $out/libexec/xen-orchestra/
 
     # Verify critical build artifacts exist
     if [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.mjs" ] && \
