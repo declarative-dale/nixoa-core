@@ -83,30 +83,41 @@ stdenv.mkDerivation rec {
   HUSKY = "0";
   CI = "1";
 
-  # CRITICAL: Run yarn install in development mode to get devDependencies
-  # (vite, vue-tsc, etc.). Must use preConfigure to ensure hooks see these.
-  preConfigure = ''
-    export NODE_ENV=development
-    export NPM_CONFIG_PRODUCTION=false
-    export YARN_PRODUCTION=false
-  '';
-
-  # Optional: run compilation in production mode after deps are installed
-  preBuild = ''
-    export NODE_ENV=production
-  '';
+  # Make sure Yarn does NOT drop devDependencies (vite/vue-tsc live there).
+  # Leave NODE_ENV unset to avoid conflicts with build environment defaults.
+  YARN_PRODUCTION = "false";
+  NPM_CONFIG_PRODUCTION = "false";
 
   # If you hit `EPERM: operation not permitted, chmod ...` in sandbox,
   # enableChmodSanitizer will strip setuid/setgid bits during extraction.
   NODE_OPTIONS = lib.optionalString enableChmodSanitizer "--require ${yarnChmodSanitize}";
 
-  # Flags passed to yarn install/build via nixpkgs yarn hooks.
-  yarnFlags = [
+  # Flags for yarn install (and sometimes reused by build hooks).
+  yarnInstallFlags = [
     "--offline"
     "--frozen-lockfile"
     "--non-interactive"
     "--ignore-engines"
+    "--production=false"
   ];
+
+  # Keep the old name too (some nixpkgs versions/hooks read yarnFlags).
+  yarnFlags = yarnInstallFlags;
+
+  # After yarnConfigHook has populated node_modules, patch bin shebangs thoroughly.
+  # This fixes the common case where node_modules/.bin/* are symlinks to scripts
+  # that still have "#!/usr/bin/env node" and fail as "not found" under /bin/sh.
+  postConfigure = ''
+    patchShebangs node_modules
+  '';
+
+  # Fail early with a clearer error if the tools are missing.
+  preBuild = ''
+    echo "Checking build-time web tooling exists..."
+    ls -l node_modules/.bin | grep -E '^(lrwx|-) .* (vite|vue-tsc)' || true
+    test -e node_modules/.bin/vite || (echo "ERROR: vite not found in node_modules/.bin" && exit 1)
+    test -e node_modules/.bin/vue-tsc || (echo "ERROR: vue-tsc not found in node_modules/.bin" && exit 1)
+  '';
 
   # Conditional patching: only patches if file exists and has expected pattern.
   # This makes updates to xoSrc.rev survive upstream fixes without breaking the build.
