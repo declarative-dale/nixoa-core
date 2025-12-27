@@ -83,6 +83,17 @@ stdenv.mkDerivation rec {
   HUSKY = "0";
   CI = "1";
 
+  # CRITICAL: XO's web build needs devDependencies (vite, vue-tsc, etc.)
+  # If NODE_ENV=production here, yarn skips devDependencies → build fails
+  NODE_ENV = "development";
+  NPM_CONFIG_PRODUCTION = "false";
+  YARN_PRODUCTION = "false";
+
+  # Optional: run compilation in production mode after deps are installed
+  preBuild = ''
+    export NODE_ENV=production
+  '';
+
   # If you hit `EPERM: operation not permitted, chmod ...` in sandbox,
   # enableChmodSanitizer will strip setuid/setgid bits during extraction.
   NODE_OPTIONS = lib.optionalString enableChmodSanitizer "--require ${yarnChmodSanitize}";
