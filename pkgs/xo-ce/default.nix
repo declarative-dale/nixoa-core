@@ -14,6 +14,7 @@
 { lib
 , stdenv
 , fetchYarnDeps
+, yarn
 , yarnConfigHook
 , yarnBuildHook
 , writableTmpDirAsHomeHook
@@ -51,7 +52,8 @@ stdenv.mkDerivation rec {
   nativeBuildInputs = [
     writableTmpDirAsHomeHook
 
-    # Yarn v1 hooks: install deps from offline cache + build
+    # Yarn v1 and hooks
+    yarn
     yarnConfigHook
     yarnBuildHook
 
