@@ -1,12 +1,16 @@
 # SPDX-License-Identifier: Apache-2.0
-# Xen Orchestra Application (packaged via yarn2nix)
+# Xen Orchestra Application - NixOS service module
+# Provides declarative configuration, Redis backend, and systemd service
 { config, lib, pkgs, nixoaPackages, nixoaUtils, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.xoa;
 
-  # Reference the packaged XOA from flake
-  xoaPackage = nixoaPackages.xo-ce;
+  # Use the package option (allows override for chmod sanitizer, etc.)
+  xoaPackage = cfg.package;
+
+  # TOML format for rendering config from attrset
+  tomlFormat = pkgs.formats.toml { };
 
   # XO app directory is now immutable in /nix/store
   xoAppDir = "${xoaPackage}/libexec/xen-orchestra";
@@ -91,32 +95,45 @@ EOF
     chmod +x $out/bin/sudo
   '';
 
-  # Start script for xo-server
+  # Start script for xo-server (uses bin wrapper from xoaPackage)
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-
-    cd "${xoAppDir}"
-
-    # Find CLI in package (handles both .mjs and .js extensions)
-    if [ -f packages/xo-server/dist/cli.mjs ]; then
-      CLI="packages/xo-server/dist/cli.mjs"
-    elif [ -f packages/xo-server/dist/cli.js ]; then
-      CLI="packages/xo-server/dist/cli.js"
-    else
-      echo "ERROR: Cannot find xo-server CLI in ${xoAppDir}!" >&2
-      exit 1
-    fi
-
-    echo "Starting XO-server from $CLI..."
-    exec ${pkgs.nodejs_20}/bin/node "$CLI" "$@"
+    exec ${xoaPackage}/bin/xo-server "$@"
   '';
 
 in
 {
   options.xoa = {
     enable = mkEnableOption "Xen Orchestra from source";
+
+    package = mkOption {
+      type = types.package;
+      default = nixoaPackages.xo-ce;
+      defaultText = lib.literalExpression "nixoaPackages.xo-ce";
+      description = ''
+        The Xen Orchestra package to run.
+
+        To enable the optional yarn chmod sanitizer build workaround:
+
+          xoa.package = nixoaPackages.xo-ce.override { enableChmodSanitizer = true; };
+
+        (Keep it off unless you hit EPERM chmod failures during build.)
+      '';
+    };
+
+    configFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "Path to an xo-server config.toml file to be linked into /etc/xo-server/config.toml. Use this for secrets via agenix/sops.";
+    };
+
+    settings = mkOption {
+      type = types.attrsOf types.unspecified;
+      default = { };
+      description = "xo-server configuration as a Nix attrset (rendered to TOML). Avoid putting secrets here; use configFile instead.";
+    };
 
     admin = {
       user = mkOption {
@@ -224,6 +241,14 @@ in
     };
   };
 
+  # Determine effective config source (priority: configFile > settings > sample.config.toml)
+  effectiveConfigSource =
+    if cfg.configFile != null then cfg.configFile
+    else if cfg.settings != { } then tomlFormat.generate "xo-server-config.toml" cfg.settings
+    else "${xoaPackage}/libexec/xen-orchestra/packages/xo-server/sample.config.toml";
+
+in
+{
   config = mkIf cfg.enable {
     assertions = [
       {
@@ -246,13 +271,22 @@ in
       };
     };
 
-    # System packages needed by XO
+    # System packages needed by XO (runtime only; build-time deps are in package derivation, not here)
     environment.systemPackages = with pkgs; [
-      nodejs_20 yarn git rsync pkg-config python3 gcc gnumake micro openssl
-      fuse fuse3 zlib libpng xen lvm2 esbuild
+      rsync micro openssl
+      fuse fuse3 xen lvm2
       libguestfs    # VM disk inspection and mounting
       ntfs-3g       # NTFS filesystem support for VM backups
     ];
+
+    # Declarative config.toml linking
+    # Priority: configFile > settings > sample.config.toml
+    environment.etc."xo-server/config.toml" = {
+      source = effectiveConfigSource;
+      mode = "0640";
+      user = "root";
+      group = cfg.xo.group;
+    };
 
     # XO Server service
     systemd.services.xo-server = {

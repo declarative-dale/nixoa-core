@@ -1,124 +1,153 @@
 # SPDX-License-Identifier: Apache-2.0
-# Xen Orchestra Package - Built using buildNpmPackage for reproducible builds
-# This package builds the complete Xen Orchestra application (xo-server + xo-web)
-# from a Yarn v1 workspace monorepo with Turbo build orchestration.
+# Xen Orchestra Community Edition (XO-CE) — deterministic Yarn v1 build.
 #
-# Uses buildNpmPackage with package-lock.json for fully sandboxed, offline dependency fetching.
-# No --no-sandbox flag required. Reproducible builds with binary cache support.
+# Why this structure:
+# - Xen Orchestra uses a Yarn v1 workspace monorepo.
+# - Nixpkgs provides fetchYarnDeps + yarn{Config,Build}Hook for Yarn v1.
+#   This lets us build fully offline (sandboxed) with a fixed-output yarn cache.
 #
-# FUSE integration: Replaces bundled fuse-native with SageMath fork that uses
-# system libfuse3 instead of vendored binaries (better security, ARM64 support).
-#
-# NOTE: Requires package-lock.json in xoSrc
-# Either committed to the repo or generated via npm install --package-lock-only
+# Optional workaround:
+# - Some npm tarballs contain files with setuid/setgid bits.
+# - In Nix sandboxes, chmod() of those bits can fail (EPERM) due to nosuid.
+# - enableChmodSanitizer makes Node strip those bits during yarn extraction.
 
-{ pkgs, lib, xoSrc }:
+{ lib
+, stdenv
+, fetchYarnDeps
+, yarnConfigHook
+, yarnBuildHook
+, writableTmpDirAsHomeHook
+, nodejs_20
+, esbuild
+, git
+, python3
+, pkg-config
+, makeWrapper
+, libpng
+, zlib
+, fuse3
 
-pkgs.buildNpmPackage {
+, xoSrc
+
+# Keep OFF by default; enable if you hit EPERM chmod during `yarn install`.
+, enableChmodSanitizer ? false
+, yarnChmodSanitize ? ./yarn-chmod-sanitize.js
+, ...
+}:
+
+stdenv.mkDerivation rec {
   pname = "xo-ce";
-  version = "unstable-${lib.substring 0 8 (xoSrc.rev or "unknown")}";
+  version = "unstable-${builtins.substring 0 8 xoSrc.rev}";
 
   src = xoSrc;
 
-  nativeBuildInputs = with pkgs; [
-    python3           # Required by node-gyp for native module compilation
-    pkg-config        # Find library headers/libs via .pc files
-    git               # Required by build tools
+  # Fixed-output offline mirror for Yarn.
+  # Update the hash with: nix build .#xo-ce (then replace with actual hash).
+  yarnOfflineCache = fetchYarnDeps {
+    yarnLock = "${src}/yarn.lock";
+    hash = "sha256-k20CwYluV6dkyPpk22j8b8D4AMIQD/DWyJry1DWyxIY=";
+  };
+
+  nativeBuildInputs = [
+    writableTmpDirAsHomeHook
+
+    # Yarn v1 hooks: install deps from offline cache + build
+    yarnConfigHook
+    yarnBuildHook
+
+    # Needed for executing package.json scripts
+    nodejs_20
+    esbuild
+
+    # Some scripts expect git to exist (and it's cheap)
+    git
+
+    # Native addons
+    python3
+    pkg-config
+
+    # Runtime entrypoint
+    makeWrapper
   ];
 
-  buildInputs = with pkgs; [
-    fuse3             # libfuse3 for FUSE native module
-    zlib              # Compression library
-    libpng            # Image processing
-    stdenv.cc.cc.lib  # C++ standard library
+  buildInputs = [
+    fuse3
+    zlib
+    libpng
+    stdenv.cc.cc.lib
   ];
 
-  # buildNpmPackage expects npmDepsHash (hash of all npm dependencies)
-  # Update this after first build with actual hash from error message
-  npmDepsHash = "sha256-c3aqGWyZZn3dAgTVf1B2ncrkox6AlU5NlwRLCzR4+3M=";
+  # Keep builds quiet/deterministic.
+  HUSKY = "0";
+  CI = "1";
 
-  # Environment variables for pkg-config and node-gyp
-  PKG_CONFIG_PATH = "${pkgs.fuse3.dev}/lib/pkgconfig";
-  npm_config_nodedir = "${pkgs.nodejs_20}";
+  # If you hit `EPERM: operation not permitted, chmod ...` in sandbox,
+  # enableChmodSanitizer will strip setuid/setgid bits during extraction.
+  NODE_OPTIONS = lib.optionalString enableChmodSanitizer "--require ${yarnChmodSanitize}";
 
-  # Disable npm postinstall scripts (husky hooks, etc.) during build
-  # Add legacy-peer-deps for monorepo compatibility
-  npmFlags = [ "--ignore-scripts" "--legacy-peer-deps" ];
+  # Flags passed to yarn install/build via nixpkgs yarn hooks.
+  yarnFlags = [
+    "--offline"
+    "--frozen-lockfile"
+    "--non-interactive"
+    "--ignore-engines"
+  ];
 
-  # Allow npm cache to be writable to avoid OOM issues
-  makeCacheWritable = true;
-
-  # Apply source patches before build
+  # Conditional patching: only patches if file exists and has expected pattern.
+  # This makes updates to xoSrc.rev survive upstream fixes without breaking the build.
   postPatch = ''
-    # SMB handler fix: prevent execa rejection on mount.cifs version check
-    sed -i "s/execa\.sync('mount\.cifs', \['-V'\])/execa.sync('mount.cifs', ['-V'], { reject: false })/" \
-      @xen-orchestra/fs/src/index.js || true
+    # Patch 1: SMB handler needs createReadStream
+    if [ -f packages/xo-server/src/xo-mixins/storage/smb.js ] \
+      && grep -q "const { join } = require('path')" packages/xo-server/src/xo-mixins/storage/smb.js; then
+      substituteInPlace packages/xo-server/src/xo-mixins/storage/smb.js \
+        --replace-fail "const { join } = require('path')" \
+                       "const { join } = require('path'); const { createReadStream } = require('fs')"
+    fi
 
-    # TypeScript generic fix for VtsSelect component
-    sed -i "s/h(VtsSelect, { accent: 'brand', id })/h(VtsSelect as any, { accent: 'brand', id })/" \
-      @xen-orchestra/web-core/lib/tables/column-definitions/select-column.ts || true
+    # Patch 2: Fix missing createReadStream import in FS module
+    if [ -f @xen-orchestra/fs/src/index.js ] \
+      && grep -q "const { asyncIterableToStream }" @xen-orchestra/fs/src/index.js \
+      && ! grep -q "createReadStream" @xen-orchestra/fs/src/index.js; then
+      substituteInPlace @xen-orchestra/fs/src/index.js \
+        --replace-fail "const { asyncIterableToStream } = require('./_asyncIterableToStream')" \
+                       "const { createReadStream } = require('node:fs');\nconst { asyncIterableToStream } = require('./_asyncIterableToStream')"
+    fi
   '';
 
-  # Build phase: Run Turbo-based build for xo-server, xo-web, and plugins
-  buildPhase = ''
-    runHook preBuild
+  # yarnConfigHook runs the yarn install using the offline cache.
+  # yarnBuildHook runs: yarn --offline build
+  # Both happen automatically, no manual phases needed!
 
-    export HOME=$TMPDIR
-    export TURBO_TELEMETRY_DISABLED=1
-    export TURBO_FORCE=true
-    export NODE_ENV=production
-    export TURBO_CACHE_DIR=$TMPDIR/.turbo
-
-    mkdir -p $TURBO_CACHE_DIR
-
-    # Run build with Turbo (node_modules already installed)
-    npm run build
-
-    runHook postBuild
-  '';
-
-  # Install phase: Copy built artifacts to $out
   installPhase = ''
     runHook preInstall
 
     mkdir -p $out/libexec/xen-orchestra
+    mkdir -p $out/bin
 
-    # Copy workspace packages
-    cp -r packages $out/libexec/xen-orchestra/ || true
-    cp -r @xen-orchestra $out/libexec/xen-orchestra/ || true
-    cp -r @vates $out/libexec/xen-orchestra/ || true
+    # Keep symlinks as symlinks (important for yarn workspaces).
+    cp -a packages node_modules package.json yarn.lock $out/libexec/xen-orchestra/
 
-    # Copy node_modules with compiled native modules
-    cp -r node_modules $out/libexec/xen-orchestra/
+    # Some revisions include these top-level workspace scopes.
+    if [ -d @xen-orchestra ]; then cp -a @xen-orchestra $out/libexec/xen-orchestra/; fi
+    if [ -d @vates ]; then cp -a @vates $out/libexec/xen-orchestra/; fi
 
-    # Copy metadata
-    cp package-lock.json $out/libexec/xen-orchestra/ || true
-    cp package.json $out/libexec/xen-orchestra/
+    # Optional docs
+    if [ -f README.md ]; then cp -a README.md $out/libexec/xen-orchestra/; fi
+    if [ -f LICENSE ]; then cp -a LICENSE $out/libexec/xen-orchestra/; fi
 
-    # Verify critical build artifacts exist
-    if [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.mjs" ] && \
-       [ ! -f "$out/libexec/xen-orchestra/packages/xo-server/dist/cli.js" ]; then
-      echo "ERROR: xo-server CLI not found!" >&2
-      exit 1
-    fi
-
-    if [ ! -f "$out/libexec/xen-orchestra/packages/xo-web/dist/index.html" ]; then
-      echo "ERROR: xo-web build output not found!" >&2
-      exit 1
-    fi
-
-    echo "XOA package build successful!"
+    # Runtime entrypoint (using upstream's bin wrapper)
+    makeWrapper ${nodejs_20}/bin/node $out/bin/xo-server \
+      --chdir $out/libexec/xen-orchestra \
+      --add-flags "packages/xo-server/bin/xo-server"
 
     runHook postInstall
   '';
 
-  doDist = false;
-
   meta = with lib; {
-    description = "Xen Orchestra Community Edition - Web interface for XCP-ng and XenServer";
-    homepage = "https://github.com/vatesfr/xen-orchestra";
-    license = licenses.agpl3Plus;
+    description = "Xen Orchestra Community Edition (built from source)";
+    homepage = "https://xen-orchestra.com";
+    license = licenses.agpl3Only;
     platforms = platforms.linux;
-    maintainers = [];
+    mainProgram = "xo-server";
   };
 }
