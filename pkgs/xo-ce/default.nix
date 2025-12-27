@@ -45,7 +45,7 @@ stdenv.mkDerivation rec {
   # Update the hash with: nix build .#xo-ce (then replace with actual hash).
   yarnOfflineCache = fetchYarnDeps {
     yarnLock = "${src}/yarn.lock";
-    hash = "sha256-k20CwYluV6dkyPpk22j8b8D4AMIQD/DWyJry1DWyxIY=";
+    hash = "sha256-3vt/oIJ3JF2+0lGftq1IKckKoWVA1qNZZsl/bhRQ4Eo=";
   };
 
   nativeBuildInputs = [
