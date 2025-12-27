@@ -29,8 +29,8 @@
 
 , xoSrc
 
-# Keep OFF by default; enable if you hit EPERM chmod during `yarn install`.
-, enableChmodSanitizer ? false
+# Enabled by default; disable if needed by passing `enableChmodSanitizer = false;`.
+, enableChmodSanitizer ? true
 , yarnChmodSanitize ? ./yarn-chmod-sanitize.js
 , ...
 }:
