@@ -91,6 +91,7 @@ stdenv.mkDerivation rec {
     "--frozen-lockfile"
     "--non-interactive"
     "--ignore-engines"
+    "--production=false"
   ];
 
   # Conditional patching: only patches if file exists and has expected pattern.
