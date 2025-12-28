@@ -117,9 +117,18 @@ stdenv.mkDerivation rec {
   preBuild = ''
     set -euo pipefail
 
-    # Resolve the actual entrypoints (works even if .bin shims are symlinks with bad shebangs)
-    vite_js="$(${nodejs_24}/bin/node -p "require('path').join(require('path').dirname(require.resolve('vite/package.json')), 'bin', 'vite.js')")"
-    vue_tsc_js="$(${nodejs_24}/bin/node -p "require('path').join(require('path').dirname(require.resolve('vue-tsc/package.json')), 'bin', 'vue-tsc.js')")"
+    # Find actual vite/vue-tsc entrypoints by following .bin shims (may be symlinks)
+    vite_target="$(readlink -f node_modules/.bin/vite || echo '')"
+    vue_tsc_target="$(readlink -f node_modules/.bin/vue-tsc || echo '')"
+
+    if [ -z "$vite_target" ]; then
+      echo "ERROR: Cannot find vite in node_modules/.bin" >&2
+      exit 1
+    fi
+    if [ -z "$vue_tsc_target" ]; then
+      echo "ERROR: Cannot find vue-tsc in node_modules/.bin" >&2
+      exit 1
+    fi
 
     # Create *real* executables inside the workspace package(s) so Turbo/Yarn scripts can always run them.
     mkToolWrappers() {
@@ -128,16 +137,18 @@ stdenv.mkDerivation rec {
 
       mkdir -p "$pkg/node_modules/.bin"
 
-      cat > "$pkg/node_modules/.bin/vite" <<EOF
+      cat > "$pkg/node_modules/.bin/vite" <<'WRAPPER'
 #!${stdenv.shell}
-exec ${nodejs_24}/bin/node "$vite_js" "\$@"
-EOF
+exec ${nodejs_24}/bin/node "VITE_TARGET" "$@"
+WRAPPER
+      sed -i 's|VITE_TARGET|'"$vite_target"'|g' "$pkg/node_modules/.bin/vite"
       chmod +x "$pkg/node_modules/.bin/vite"
 
-      cat > "$pkg/node_modules/.bin/vue-tsc" <<EOF
+      cat > "$pkg/node_modules/.bin/vue-tsc" <<'WRAPPER'
 #!${stdenv.shell}
-exec ${nodejs_24}/bin/node "$vue_tsc_js" "\$@"
-EOF
+exec ${nodejs_24}/bin/node "VUE_TSC_TARGET" "$@"
+WRAPPER
+      sed -i 's|VUE_TSC_TARGET|'"$vue_tsc_target"'|g' "$pkg/node_modules/.bin/vue-tsc"
       chmod +x "$pkg/node_modules/.bin/vue-tsc"
     }
 
@@ -146,18 +157,17 @@ EOF
     mkToolWrappers "packages/xo-web"
     mkToolWrappers "xo-web"
 
-    echo "Verifying build tools are now executable:"
-    ( cd "@xen-orchestra/web" 2>/dev/null || cd .
-      if [ -e "@xen-orchestra/web/node_modules/.bin/vite" ]; then
-        echo "vite wrapper:"
-        head -n2 "@xen-orchestra/web/node_modules/.bin/vite"
-      fi
-    ) || true
+    echo "Verifying build tools are now created:"
+    echo "vite target: $vite_target"
+    echo "vue-tsc target: $vue_tsc_target"
+    ls -la "@xen-orchestra/web/node_modules/.bin/vite" || echo "vite wrapper missing"
+    ls -la "@xen-orchestra/web/node_modules/.bin/vue-tsc" || echo "vue-tsc wrapper missing"
   '';
 
-  # Build phase: run yarn with wrappers in place
+  # Build phase: run yarn with wrappers in place.
+  # Use TURBO_CONCURRENCY=1 to prevent OOM during TypeScript compilation (serialize tasks).
   buildPhase = ''
-    yarn --offline run build
+    TURBO_CONCURRENCY=1 yarn --offline run build
   '';
 
   # Conditional patching: only patches if file exists and has expected pattern.
