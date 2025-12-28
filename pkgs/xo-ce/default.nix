@@ -18,7 +18,7 @@
 , yarnConfigHook
 , yarnBuildHook
 , writableTmpDirAsHomeHook
-, nodejs_20
+, nodejs_24
 , esbuild
 , git
 , python3
@@ -58,7 +58,7 @@ stdenv.mkDerivation rec {
     yarnBuildHook
 
     # Needed for executing package.json scripts
-    nodejs_20
+    nodejs_24
     esbuild
 
     # Some scripts expect git to exist (and it's cheap)
@@ -111,8 +111,26 @@ stdenv.mkDerivation rec {
     patchShebangs node_modules
   '';
 
-  # Fail early with a clearer error if the tools are missing.
+  # Ensure workspace root tools are visible in all Turbo/Yarn workspace tasks.
+  # Turbo runs builds from each package directory, and some build-time CLIs
+  # (vite/vue-tsc) are hoisted to the workspace root.
   preBuild = ''
+    # Export workspace root .bin onto PATH so Turbo tasks can find hoisted CLIs.
+    export PATH="$PWD/node_modules/.bin:$PATH"
+
+    # Make sure the web package can resolve its hoisted build tools even if the
+    # runner only prepends *package-local* node_modules/.bin.
+    for pkg in "@xen-orchestra/web" "xo-web"; do
+      if [ -d "$pkg" ]; then
+        mkdir -p "$pkg/node_modules/.bin"
+        for tool in vite vue-tsc; do
+          if [ -e "$PWD/node_modules/.bin/$tool" ] && [ ! -e "$pkg/node_modules/.bin/$tool" ]; then
+            ln -s "$PWD/node_modules/.bin/$tool" "$pkg/node_modules/.bin/$tool"
+          fi
+        done
+      fi
+    done
+
     echo "Checking build-time web tooling exists..."
     ls -l node_modules/.bin | grep -E '^(lrwx|-) .* (vite|vue-tsc)' || true
     test -e node_modules/.bin/vite || (echo "ERROR: vite not found in node_modules/.bin" && exit 1)
@@ -162,7 +180,7 @@ stdenv.mkDerivation rec {
     if [ -f LICENSE ]; then cp -a LICENSE $out/libexec/xen-orchestra/; fi
 
     # Runtime entrypoint (using upstream's bin wrapper)
-    makeWrapper ${nodejs_20}/bin/node $out/bin/xo-server \
+    makeWrapper ${nodejs_24}/bin/node $out/bin/xo-server \
       --chdir $out/libexec/xen-orchestra \
       --add-flags "packages/xo-server/bin/xo-server"
 

@@ -303,6 +303,7 @@ in
       
       # Sudo wrapper must be first in path to intercept sudo calls and handle env vars
       path = [ sudoWrapper ] ++ (with pkgs; [
+        nodejs_24
         util-linux git openssl xen lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
       ]);
