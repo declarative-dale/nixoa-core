@@ -111,32 +111,52 @@ stdenv.mkDerivation rec {
     patchShebangs node_modules
   '';
 
-  # Custom build phase: set up PATH and symlinks, then run yarn build.
-  # This ensures workspace root CLIs (vite/vue-tsc) are visible to Turbo tasks
-  # that run from package directories.
-  buildPhase = ''
-    # Export workspace root .bin onto PATH so Turbo tasks can find hoisted CLIs.
-    export PATH="$PWD/node_modules/.bin:$PATH"
+  # Create real wrapper scripts for vite/vue-tsc that bypass /usr/bin/env.
+  # In Nix sandboxes, node_modules/.bin shims with #!/usr/bin/env node fail (ENOENT)
+  # because /usr/bin/env doesn't exist. These wrappers call ${nodejs_24}/bin/node directly.
+  preBuild = ''
+    set -euo pipefail
 
-    # Make sure the web package can resolve its hoisted build tools even if the
-    # runner only prepends *package-local* node_modules/.bin.
-    for pkg in "@xen-orchestra/web" "xo-web"; do
-      if [ -d "$pkg" ]; then
-        mkdir -p "$pkg/node_modules/.bin"
-        for tool in vite vue-tsc; do
-          if [ -e "$PWD/node_modules/.bin/$tool" ] && [ ! -e "$pkg/node_modules/.bin/$tool" ]; then
-            ln -s "$PWD/node_modules/.bin/$tool" "$pkg/node_modules/.bin/$tool"
-          fi
-        done
+    # Resolve the actual entrypoints (works even if .bin shims are symlinks with bad shebangs)
+    vite_js="$(${nodejs_24}/bin/node -p "require('path').join(require('path').dirname(require.resolve('vite/package.json')), 'bin', 'vite.js')")"
+    vue_tsc_js="$(${nodejs_24}/bin/node -p "require('path').join(require('path').dirname(require.resolve('vue-tsc/package.json')), 'bin', 'vue-tsc.js')")"
+
+    # Create *real* executables inside the workspace package(s) so Turbo/Yarn scripts can always run them.
+    mkToolWrappers() {
+      local pkg="$1"
+      [ -d "$pkg" ] || return 0
+
+      mkdir -p "$pkg/node_modules/.bin"
+
+      cat > "$pkg/node_modules/.bin/vite" <<EOF
+#!${stdenv.shell}
+exec ${nodejs_24}/bin/node "$vite_js" "\$@"
+EOF
+      chmod +x "$pkg/node_modules/.bin/vite"
+
+      cat > "$pkg/node_modules/.bin/vue-tsc" <<EOF
+#!${stdenv.shell}
+exec ${nodejs_24}/bin/node "$vue_tsc_js" "\$@"
+EOF
+      chmod +x "$pkg/node_modules/.bin/vue-tsc"
+    }
+
+    # Create wrappers in all web packages
+    mkToolWrappers "@xen-orchestra/web"
+    mkToolWrappers "packages/xo-web"
+    mkToolWrappers "xo-web"
+
+    echo "Verifying build tools are now executable:"
+    ( cd "@xen-orchestra/web" 2>/dev/null || cd .
+      if [ -e "@xen-orchestra/web/node_modules/.bin/vite" ]; then
+        echo "vite wrapper:"
+        head -n2 "@xen-orchestra/web/node_modules/.bin/vite"
       fi
-    done
+    ) || true
+  '';
 
-    echo "Verifying build-time web tooling..."
-    ls -l node_modules/.bin | grep -E '^(lrwx|-) .* (vite|vue-tsc)' || true
-    test -e node_modules/.bin/vite || (echo "ERROR: vite not found in node_modules/.bin" && exit 1)
-    test -e node_modules/.bin/vue-tsc || (echo "ERROR: vue-tsc not found in node_modules/.bin" && exit 1)
-
-    # Run the actual build with PATH set
+  # Build phase: run yarn with wrappers in place
+  buildPhase = ''
     yarn --offline run build
   '';
 
