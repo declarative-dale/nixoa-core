@@ -241,13 +241,13 @@ in
     };
   };
 
-  # Determine effective config source (priority: configFile > settings > sample.config.toml)
-  effectiveConfigSource =
-    if cfg.configFile != null then cfg.configFile
-    else if cfg.settings != { } then tomlFormat.generate "xo-server-config.toml" cfg.settings
-    else "${xoaPackage}/libexec/xen-orchestra/packages/xo-server/sample.config.toml";
-
-  config = mkIf cfg.enable {
+  config = mkIf cfg.enable (let
+    # Determine effective config source (priority: configFile > settings > sample.config.toml)
+    effectiveConfigSource =
+      if cfg.configFile != null then cfg.configFile
+      else if cfg.settings != { } then tomlFormat.generate "xo-server-config.toml" cfg.settings
+      else "${xoaPackage}/libexec/xen-orchestra/packages/xo-server/sample.config.toml";
+  in {
     assertions = [
       {
         assertion = cfg.admin.sshAuthorizedKeys != [];
@@ -383,5 +383,5 @@ in
     ] ++ lib.optionals cfg.xo.ssl.enable [
       "d ${cfg.xo.ssl.dir}                       0755 root root - -"
     ];
-  };
+  });
 }
