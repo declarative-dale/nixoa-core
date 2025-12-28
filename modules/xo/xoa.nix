@@ -316,6 +316,13 @@ in
         XDG_CONFIG_HOME = "${cfg.xo.home}/.config";
         XDG_CACHE_HOME = cfg.xo.cacheDir;
         NODE_ENV = "production";
+        # Provide library paths for native modules (fuse-native, etc.)
+        LD_LIBRARY_PATH = lib.makeLibraryPath [
+          pkgs.fuse3
+          pkgs.fuse
+          pkgs.libguestfs
+          pkgs.stdenv.cc.cc.lib
+        ];
       };
 
       serviceConfig = {
