@@ -194,8 +194,9 @@ WRAPPER
 
     # Patch 3: Make .babelrc.cjs handle missing .git gracefully (Nix sandbox doesn't have git repo)
     if [ -f packages/xo-server/.babelrc.cjs ]; then
-      sed -i "s|git rev-parse --short HEAD|git rev-parse --short HEAD 2>/dev/null \|\| echo 'unknown'|g" \
-        packages/xo-server/.babelrc.cjs
+      substituteInPlace packages/xo-server/.babelrc.cjs \
+        --replace "execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()" \
+                  "'unknown'"
     fi
   '';
 
