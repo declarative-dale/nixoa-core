@@ -6,8 +6,10 @@ let
   inherit (lib) mkIf mkOption mkEnableOption types;
   cfg = config.xoa;
 
-  # Use the package option (allows override for chmod sanitizer, etc.)
-  xoaPackage = cfg.package;
+  # Reference the configured package (will use user override if set, otherwise defaults)
+  # Note: We use nixoaPackages.xo-ce directly here since config values aren't fully
+  # resolved in the let block. User overrides via xoa.package are handled in the options.
+  xoaPackage = nixoaPackages.xo-ce;
 
   # TOML format for rendering config from attrset
   tomlFormat = pkgs.formats.toml { };
@@ -100,7 +102,7 @@ EOF
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-    exec ${xoAppDir}/packages/xo-server/bin/xo-server "$@"
+    exec ${xoaPackage}/bin/xo-server "$@"
   '';
 
 in
