@@ -167,7 +167,9 @@ WRAPPER
   # Build phase: run yarn with wrappers in place.
   # Use TURBO_CONCURRENCY=1 to prevent OOM during TypeScript compilation (serialize tasks).
   buildPhase = ''
+    runHook preBuild
     TURBO_CONCURRENCY=1 yarn --offline run build
+    runHook postBuild
   '';
 
   # Conditional patching: only patches if file exists and has expected pattern.
