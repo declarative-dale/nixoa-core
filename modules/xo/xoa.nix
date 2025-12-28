@@ -100,7 +100,7 @@ EOF
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-    exec ${xoaPackage}/bin/xo-server "$@"
+    exec ${xoAppDir}/packages/xo-server/bin/xo-server "$@"
   '';
 
 in
