@@ -192,11 +192,25 @@ WRAPPER
                        "const { createReadStream } = require('node:fs');\nconst { asyncIterableToStream } = require('./_asyncIterableToStream')"
     fi
 
-    # Patch 3: Make .babelrc.cjs handle missing .git gracefully (Nix sandbox doesn't have git repo)
-    if [ -f packages/xo-server/.babelrc.cjs ]; then
-      substituteInPlace packages/xo-server/.babelrc.cjs \
-        --replace "execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim()" \
-                  "'unknown'"
+    # Patch 3: Create minimal .git directory so git rev-parse --short HEAD works.
+    # XO's xo-server Babel config calls git to get the commit hash.
+    # Flake sources are tarball checkouts without .git/, so create one with our pinned rev.
+    if [ ! -e .git ]; then
+      mkdir -p .git/objects .git/refs
+
+      cat > .git/config <<'GITCONFIG'
+[core]
+    repositoryformatversion = 0
+    filemode = true
+    bare = false
+    logallrefupdates = true
+GITCONFIG
+
+      # Detached HEAD with the pinned flake revision
+      echo "${xoSrc.rev}" > .git/HEAD
+
+      # Sanity check: verify git rev-parse works
+      git rev-parse --short HEAD
     fi
   '';
 
