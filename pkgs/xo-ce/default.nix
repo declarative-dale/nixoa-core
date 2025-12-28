@@ -231,6 +231,13 @@ GITCONFIG
     if [ -d @xen-orchestra ]; then cp -a @xen-orchestra $out/libexec/xen-orchestra/; fi
     if [ -d @vates ]; then cp -a @vates $out/libexec/xen-orchestra/; fi
 
+    # Needed because many workspace packages symlink dev files like:
+    #   .npmignore -> ../../scripts/npmignore
+    #   .eslintrc.js -> ../../scripts/babel-eslintrc.js
+    if [ -d scripts ]; then
+      cp -a scripts $out/libexec/xen-orchestra/
+    fi
+
     # Optional docs
     if [ -f README.md ]; then cp -a README.md $out/libexec/xen-orchestra/; fi
     if [ -f LICENSE ]; then cp -a LICENSE $out/libexec/xen-orchestra/; fi
@@ -241,6 +248,13 @@ GITCONFIG
       --add-flags "packages/xo-server/bin/xo-server"
 
     runHook postInstall
+  '';
+
+  # Remove any remaining dangling symlinks that point to dev-only files we don't ship.
+  # This ensures Nix's noBrokenSymlinks check passes.
+  # Note: -xtype l matches broken symlinks only (not valid workspace links).
+  preFixup = ''
+    find "$out/libexec/xen-orchestra" -xtype l -print -delete || true
   '';
 
   meta = with lib; {
