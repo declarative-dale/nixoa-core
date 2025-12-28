@@ -97,14 +97,15 @@ EOF
     chmod +x $out/bin/sudo
   '';
 
-  # Start script for xo-server (direct node invocation with absolute paths)
+  # Start script for xo-server (mimics the package's makeWrapper behavior)
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-    # Use the node wrapper from the package which handles monorepo paths correctly
-    # The wrapper sets working directory and node flags internally
-    exec ${pkgs.nodejs_24}/bin/node "${xoAppDir}/packages/xo-server/bin/xo-server" "$@"
+    # Change to xo app directory so relative requires work correctly
+    cd "${xoAppDir}"
+    # Now call node with a relative path (same as package's makeWrapper does)
+    exec ${pkgs.nodejs_24}/bin/node "packages/xo-server/bin/xo-server" "$@"
   '';
 
 in
@@ -322,7 +323,8 @@ in
         User = cfg.xo.user;
         Group = cfg.xo.group;
 
-        WorkingDirectory = xoAppDir;
+        # Don't set WorkingDirectory here - let the start script handle cd
+        # WorkingDirectory = xoAppDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
         LogsDirectory = "xo";
