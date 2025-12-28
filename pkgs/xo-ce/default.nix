@@ -111,10 +111,10 @@ stdenv.mkDerivation rec {
     patchShebangs node_modules
   '';
 
-  # Ensure workspace root tools are visible in all Turbo/Yarn workspace tasks.
-  # Turbo runs builds from each package directory, and some build-time CLIs
-  # (vite/vue-tsc) are hoisted to the workspace root.
-  preBuild = ''
+  # Custom build phase: set up PATH and symlinks, then run yarn build.
+  # This ensures workspace root CLIs (vite/vue-tsc) are visible to Turbo tasks
+  # that run from package directories.
+  buildPhase = ''
     # Export workspace root .bin onto PATH so Turbo tasks can find hoisted CLIs.
     export PATH="$PWD/node_modules/.bin:$PATH"
 
@@ -131,10 +131,13 @@ stdenv.mkDerivation rec {
       fi
     done
 
-    echo "Checking build-time web tooling exists..."
+    echo "Verifying build-time web tooling..."
     ls -l node_modules/.bin | grep -E '^(lrwx|-) .* (vite|vue-tsc)' || true
     test -e node_modules/.bin/vite || (echo "ERROR: vite not found in node_modules/.bin" && exit 1)
     test -e node_modules/.bin/vue-tsc || (echo "ERROR: vue-tsc not found in node_modules/.bin" && exit 1)
+
+    # Run the actual build with PATH set
+    yarn --offline run build
   '';
 
   # Conditional patching: only patches if file exists and has expected pattern.
