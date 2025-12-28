@@ -97,15 +97,14 @@ EOF
     chmod +x $out/bin/sudo
   '';
 
-  # Start script for xo-server (mimics the package's makeWrapper behavior)
+  # Start script for xo-server (use compiled entry point)
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-    # Change to xo app directory so relative requires work correctly
-    cd "${xoAppDir}"
-    # Now call node with a relative path (same as package's makeWrapper does)
-    exec ${pkgs.nodejs_24}/bin/node "packages/xo-server/bin/xo-server" "$@"
+    # Run the compiled xo-server entry point from the dist directory
+    # The xo-server package is compiled to dist/cli.mjs as the entry point
+    exec ${pkgs.nodejs_24}/bin/node "${xoAppDir}/packages/xo-server/dist/cli.mjs" "$@"
   '';
 
 in
@@ -323,8 +322,7 @@ in
         User = cfg.xo.user;
         Group = cfg.xo.group;
 
-        # Don't set WorkingDirectory here - let the start script handle cd
-        # WorkingDirectory = xoAppDir;
+        WorkingDirectory = xoAppDir;
         StateDirectory = "xo";
         CacheDirectory = "xo";
         LogsDirectory = "xo";
