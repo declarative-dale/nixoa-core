@@ -97,12 +97,14 @@ EOF
     chmod +x $out/bin/sudo
   '';
 
-  # Start script for xo-server (uses bin wrapper from xoaPackage)
+  # Start script for xo-server (direct node invocation with absolute paths)
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
     export HOME="${cfg.xo.home}"
     export NODE_ENV="production"
-    exec ${xoaPackage}/bin/xo-server "$@"
+    # Use the node wrapper from the package which handles monorepo paths correctly
+    # The wrapper sets working directory and node flags internally
+    exec ${pkgs.nodejs_24}/bin/node "${xoAppDir}/packages/xo-server/bin/xo-server" "$@"
   '';
 
 in
