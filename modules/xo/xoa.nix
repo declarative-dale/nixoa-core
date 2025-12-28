@@ -274,7 +274,7 @@ in
       rsync micro openssl
       fuse fuse3 xen lvm2
       libguestfs    # VM disk inspection and mounting
-      ntfs-3g       # NTFS filesystem support for VM backups
+      ntfs3g        # NTFS filesystem support for VM backups
     ];
 
     # Declarative config.toml linking
