@@ -118,8 +118,8 @@ stdenv.mkDerivation rec {
     set -euo pipefail
 
     # Find actual vite/vue-tsc entrypoints by following .bin shims (may be symlinks)
-    vite_target="$(readlink -f node_modules/.bin/vite || echo '')"
-    vue_tsc_target="$(readlink -f node_modules/.bin/vue-tsc || echo '')"
+    vite_target="$(readlink -f node_modules/.bin/vite 2>/dev/null || true)"
+    vue_tsc_target="$(readlink -f node_modules/.bin/vue-tsc 2>/dev/null || true)"
 
     if [ -z "$vite_target" ]; then
       echo "ERROR: Cannot find vite in node_modules/.bin" >&2
