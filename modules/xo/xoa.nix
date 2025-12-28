@@ -247,8 +247,6 @@ in
     else if cfg.settings != { } then tomlFormat.generate "xo-server-config.toml" cfg.settings
     else "${xoaPackage}/libexec/xen-orchestra/packages/xo-server/sample.config.toml";
 
-in
-{
   config = mkIf cfg.enable {
     assertions = [
       {
