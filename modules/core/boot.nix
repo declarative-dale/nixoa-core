@@ -42,13 +42,11 @@ in
     boot.loader.efi.canTouchEfiVariables = mkIf (config.nixoa.boot.loader == "systemd-boot") config.nixoa.boot.efi.canTouchEfiVariables;
 
     # GRUB configuration (alternative for BIOS/legacy boot)
+    # Only defined when loader is set to "grub"
     boot.loader.grub = mkIf (config.nixoa.boot.loader == "grub") {
       enable = true;
       device = config.nixoa.boot.grub.device;
     };
-
-    # Ensure GRUB is explicitly disabled when using systemd-boot
-    boot.loader.grub.enable = mkIf (config.nixoa.boot.loader == "systemd-boot") (mkDefault false);
 
     # ============================================================================
     # KERNEL & FILESYSTEM SUPPORT
