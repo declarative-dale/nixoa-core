@@ -1,6 +1,80 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v1.0.0 — Milestone Release
+
+Date: 2025-12-29
+
+This milestone release marks nixoa-vm reaching production-ready maturity with standardized option naming, modular architecture, and comprehensive feature completeness.
+
+### 🎉 Milestone Achievements
+
+- First stable 1.0.0 release
+- Standardized options namespace (`nixoa.*`)
+- Complete modular architecture
+- Production-ready configuration system
+
+### ⚠️ BREAKING CHANGES
+
+All options renamed from `xoa.*` to `nixoa.*` namespace:
+
+- `config.xoa.enable` → `config.nixoa.xo.enable`
+- `config.xoa.xo.*` → `config.nixoa.xo.*`
+- `config.xoa.storage.*` → `config.nixoa.storage.*`
+- `config.xoa.autocert.*` → `config.nixoa.autocert.*`
+- `config.xoa.extras` → `config.nixoa.extras`
+
+**Migration required** for all existing configurations.
+
+### ✨ Added
+
+- **Snitch network monitor** package for real-time connection monitoring
+- **configNixoaFile option** to link `config.nixoa.toml` to `/etc/xo-server/` for runtime config changes
+- **boot.nix module** with systemd-boot/GRUB support and flexible boot configuration toggle
+- **Modular updates system** - split `updates.nix` into `updates/` directory:
+  - `updates/common.nix` - shared update functionality
+  - `updates/auto-upgrade.nix` - system auto-upgrade scheduling
+  - `updates/gc.nix` - garbage collection
+  - `updates/xoa.nix` - Xen Orchestra updates
+  - `updates/nixpkgs.nix` - nixpkgs package updates
+  - `updates/libvhdi.nix` - libvhdi library updates
+- Made `config.nixoa.toml` readable by `xo` user for runtime configuration access
+- Added explicit module imports replacing dynamic discovery
+
+### 🔄 Changed
+
+- Replaced dynamic module bundling with explicit imports in `modules/default.nix`
+- Updated `autocert.nix` to use local variables (`httpCfg`, `xoUser`, `xoGroup`)
+- Simplified boot configuration logic (removed redundant conditionals)
+- Enhanced package references to use `nixoaPackages.xo-ce` directly
+- Updated all module option references to new `nixoa.*` namespace
+- Improved Node.js v20 → v24 migration in xen-orchestra package
+
+### 🗑️ Removed
+
+- `bundle.nix` (replaced with explicit imports)
+- `modules/home/home.nix` (migrated to user-config)
+- `integration.nix` module (functionality distributed)
+- Redundant permission checks
+
+### 🐛 Fixed
+
+- Service environment path configuration
+- Systemd working directory conflicts
+- Package reference scoping issues during module evaluation
+- Broken symlinks in xen-orchestra build process
+- Git repository handling in Nix sandbox
+- Dev dependencies installation in yarn build
+- Various syntax errors in configuration files
+
+### 📚 Documentation
+
+- Updated all option references throughout documentation
+- Updated CONFIGURATION.md with new option names
+- Updated troubleshooting guides with correct file paths
+
+---
+
 ## v0.9 — Architecture Refactoring (yarn2nix Packaging & Build System Separation)
 
 Date: 2025-12-24
