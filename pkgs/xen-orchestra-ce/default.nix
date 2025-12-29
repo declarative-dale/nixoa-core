@@ -37,13 +37,13 @@
 }:
 
 stdenv.mkDerivation rec {
-  pname = "xo-ce";
+  pname = "xen-orchestra-ce";
   version = "unstable-${builtins.substring 0 8 xoSrc.rev}";
 
   src = xoSrc;
 
   # Fixed-output offline mirror for Yarn.
-  # Update the hash with: nix build .#xo-ce (then replace with actual hash).
+  # Update the hash with: nix build .#xen-orchestra-ce (then replace with actual hash).
   yarnOfflineCache = fetchYarnDeps {
     yarnLock = "${src}/yarn.lock";
     hash = "sha256-3vt/oIJ3JF2+0lGftq1IKckKoWVA1qNZZsl/bhRQ4Eo=";

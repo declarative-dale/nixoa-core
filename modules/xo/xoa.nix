@@ -7,9 +7,9 @@ let
   cfg = config.xoa;
 
   # Reference the configured package (will use user override if set, otherwise defaults)
-  # Note: We use nixoaPackages.xo-ce directly here since config values aren't fully
+  # Note: We use nixoaPackages.xen-orchestra-ce directly here since config values aren't fully
   # resolved in the let block. User overrides via xoa.package are handled in the options.
-  xoaPackage = nixoaPackages.xo-ce;
+  xoaPackage = nixoaPackages.xen-orchestra-ce;
 
   # TOML format for rendering config from attrset
   tomlFormat = pkgs.formats.toml { };
@@ -114,14 +114,14 @@ in
 
     package = mkOption {
       type = types.package;
-      default = nixoaPackages.xo-ce;
-      defaultText = lib.literalExpression "nixoaPackages.xo-ce";
+      default = nixoaPackages.xen-orchestra-ce;
+      defaultText = lib.literalExpression "nixoaPackages.xen-orchestra-ce";
       description = ''
         The Xen Orchestra package to run.
 
         To enable the optional yarn chmod sanitizer build workaround:
 
-          xoa.package = nixoaPackages.xo-ce.override { enableChmodSanitizer = true; };
+          xoa.package = nixoaPackages.xen-orchestra-ce.override { enableChmodSanitizer = true; };
 
         (Keep it off unless you hit EPERM chmod failures during build.)
       '';

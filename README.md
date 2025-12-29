@@ -31,7 +31,7 @@ An experimental Xen Orchestra Community Edition flake for NixOS VMs in XCP-NG.
 
 ## Quick Start
 
-> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) that is the primary entry point. You will run system rebuilds from `~/user-config` (your home directory), while `nixoa-vm` remains immutable and git-managed in `/etc/nixos/nixoa/nixoa-vm`.
+> **Important:** NiXOA uses a **separate configuration flake** (`user-config`) that is the primary entry point. You will run system rebuilds from `~/user-config` (your home directory), while `nixoa-vm` remains immutable and git-managed in `/etc/nixos/nixoa-vm`.
 
 
 ### Automated Installation (Untested)
@@ -52,7 +52,7 @@ bash xoa-install.sh
 ```
 
 The installer will:
-1. Clone the nixoa-vm flake to `/etc/nixos/nixoa/nixoa-vm` (immutable module library)
+1. Clone the nixoa-vm flake to `/etc/nixos/nixoa-vm` (immutable module library)
 2. Clone user-config flake to `~/user-config` (your configuration entry point)
 3. Generate initial configuration files if missing (configuration.nix, config.nixoa.toml)
 4. Copy/generate your hardware configuration to `~/user-config`
@@ -77,7 +77,7 @@ sudo git clone https://codeberg.org/nixoa/nixoa-vm.git
 git clone https://codeberg.org/nixoa/user-config.git ~/user-config
 ```
 
-- **nixoa-vm** in `/etc/nixos/nixoa/nixoa-vm` - immutable module library, system-wide
+- **nixoa-vm** in `/etc/nixos/nixoa-vm` - immutable module library, system-wide
 - **user-config** in `~/user-config` - your personal configuration, entry point for rebuilds
 
 #### 2. Configure System
@@ -122,7 +122,7 @@ Alternatively, for more control:
 ./scripts/commit-config.sh "Initial configuration"
 
 # Later, rebuild manually
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 sudo nixos-rebuild switch --flake .#<hostname> -L
 ```
 
@@ -152,7 +152,7 @@ If you have an existing `/etc/nixos/flake.nix`, you can integrate NiXOA using bo
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # Reference both flakes
-    nixoa-vm.url = "path:/etc/nixos/nixoa/nixoa-vm";
+    nixoa-vm.url = "path:/etc/nixos/nixoa-vm";
     nixoa-config.url = "path:/etc/nixos/nixoa/user-config";
   };
 
@@ -317,7 +317,7 @@ systemSettings = {
 
 ```bash
 # From your repository directory
-cd /etc/nixos/nixoa/nixoa-vm  # or wherever you cloned it
+cd /etc/nixos/nixoa-vm  # or wherever you cloned it
 
 # Update XO to latest release
 nix run .#update-xo
@@ -372,7 +372,7 @@ sudo systemctl restart xo-server.service
 sudo systemctl restart xo-build.service xo-server.service
 
 # Full system rebuild (from repository directory)
-cd /etc/nixos/nixoa/nixoa-vm  # or wherever you cloned it
+cd /etc/nixos/nixoa-vm  # or wherever you cloned it
 sudo nixos-rebuild switch --flake .#xoa -L
 ```
 

@@ -17,11 +17,10 @@
     # XO-specific modules (alphabetically ordered)
     ./xo/autocert.nix
     ./xo/extras.nix
-    ./xo/integration.nix
     ./xo/libvhdi.nix
     ./xo/nixoa-cli.nix
     ./xo/storage.nix
-    ./xo/updates.nix
+    ./xo/updates
     ./xo/xo-config.nix
     ./xo/xoa.nix
   ];

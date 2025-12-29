@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Configuration Guide
 
-NiXOA uses a **dual-flake architecture** where configuration is managed separately from deployment. Your personal configuration lives in `~/user-config` (your home directory) and the deployment code lives in `/etc/nixos/nixoa/nixoa-vm` (system directory).
+NiXOA uses a **dual-flake architecture** where configuration is managed separately from deployment. Your personal configuration lives in `~/user-config` (your home directory) and the deployment code lives in `/etc/nixos/nixoa-vm` (system directory).
 
 This separation ensures:
 - ✅ Configuration stays in your home directory (user-owned)
@@ -63,7 +63,7 @@ cd ~/user-config
 ./scripts/commit-config.sh "Initial configuration"
 
 # Build and deploy
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 sudo nixos-rebuild switch --flake .#<hostname>
 ```
 
@@ -259,7 +259,7 @@ Configure automatic updates for your system components:
 
 ```toml
 [updates]
-repoDir = "/etc/nixos/nixoa/nixoa-vm"  # Path to nixoa-vm clone
+repoDir = "/etc/nixos/nixoa-vm"  # Path to nixoa-vm clone
 
 # Garbage collection
 [updates.gc]
@@ -383,7 +383,7 @@ If you prefer more control:
 ./scripts/commit-config.sh "Your message"
 
 # Later, rebuild separately
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 sudo nixos-rebuild switch --flake .#<hostname> -L
 ```
 
@@ -444,7 +444,7 @@ nix eval --impure --expr 'builtins.fromTOML (builtins.readFile ~/user-config/con
 
 3. Check flake can load:
    ```bash
-   cd /etc/nixos/nixoa/nixoa-vm
+   cd /etc/nixos/nixoa-vm
    nix flake show
    ```
 
@@ -497,7 +497,7 @@ chmod 644 ~/user-config/configuration.nix
 Check detailed error output:
 
 ```bash
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 sudo nixos-rebuild switch --flake .#<hostname> -L --show-trace 2>&1 | tail -100
 ```
 
@@ -515,7 +515,7 @@ Since your config is separate, you can safely update nixoa-vm:
 
 ```bash
 # Update the deployment flake
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 git pull origin main
 
 # Your ~/user-config is untouched!

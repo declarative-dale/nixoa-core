@@ -77,7 +77,7 @@ journalctl -u xoa-xo-update.timer -e
 sudo journalctl -u xoa-xo-update.service -e -p err
 
 # Verify repository location
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 git status
 
 # Check network connectivity
@@ -85,7 +85,7 @@ curl -I https://github.com
 curl -I https://ntfy.sh
 
 # Test rebuild manually
-cd /etc/nixos/nixoa/nixoa-vm
+cd /etc/nixos/nixoa-vm
 sudo nixos-rebuild switch --flake .#xoa -L
 ```
 
@@ -198,8 +198,8 @@ Add to `~/.bashrc` or `/etc/profile`:
 alias xoa-status='sudo xoa-update-status'
 alias xoa-logs='sudo journalctl -u xoa-xo-update.service -u xoa-nixpkgs-update.service -f'
 alias xoa-timers='systemctl list-timers "xoa-*"'
-alias xoa-update='cd /etc/nixos/nixoa/nixoa-vm && sudo systemctl start xoa-xo-update.service'
-alias xoa-rebuild='cd /etc/nixos/nixoa/nixoa-vm && sudo nixos-rebuild switch --flake .#xoa -L'
+alias xoa-update='cd /etc/nixos/nixoa-vm && sudo systemctl start xoa-xo-update.service'
+alias xoa-rebuild='cd /etc/nixos/nixoa-vm && sudo nixos-rebuild switch --flake .#xoa -L'
 ```
 
 ## Important Paths

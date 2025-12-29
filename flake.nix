@@ -40,9 +40,9 @@
   in {
     # Package outputs - XOA and libvhdi built from source
     packages.${system} = {
-      xo-ce = pkgs.callPackage ./pkgs/xo-ce { inherit xoSrc; };
+      xen-orchestra-ce = pkgs.callPackage ./pkgs/xen-orchestra-ce { inherit xoSrc; };
       libvhdi = pkgs.callPackage ./pkgs/libvhdi { inherit libvhdiSrc; };
-      default = self.packages.${system}.xo-ce;
+      default = self.packages.${system}.xen-orchestra-ce;
 
       # Package metadata for the project
       metadata = pkgs.stdenv.mkDerivation {
@@ -81,10 +81,10 @@
     };
 
     # Overlay for easy nixpkgs extension
-    # Usage: overlays.default (adds nixoa.xo-ce and nixoa.libvhdi to pkgs)
+    # Usage: overlays.default (adds nixoa.xen-orchestra-ce and nixoa.libvhdi to pkgs)
     overlays.default = final: prev: {
       nixoa = {
-        xo-ce = self.packages.${system}.xo-ce;
+        xen-orchestra-ce = self.packages.${system}.xen-orchestra-ce;
         libvhdi = self.packages.${system}.libvhdi;
       };
     };
@@ -151,7 +151,7 @@
 
       # Verify packages build successfully
       packages = pkgs.runCommand "nixoa-packages-check" {
-        buildInputs = [ self.packages.${system}.xo-ce self.packages.${system}.libvhdi ];
+        buildInputs = [ self.packages.${system}.xen-orchestra-ce self.packages.${system}.libvhdi ];
       } ''
         echo "Packages verified"
         touch $out
@@ -206,7 +206,7 @@
               packages.system.extra = [];
 
               updates = {
-                repoDir = "/etc/nixos/nixoa/nixoa-vm";
+                repoDir = "/etc/nixos/nixoa-vm";
                 monitoring.notifyOnSuccess = false;
                 gc.enable = false;
                 autoUpgrade.enable = false;

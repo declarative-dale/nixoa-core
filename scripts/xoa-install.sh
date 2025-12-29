@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Configuration
-BASE_DIR="/etc/nixos/nixoa"                          # Target location for base flake (nixoa-vm)
+BASE_DIR="/etc/nixos"                                # Target location for base flake (nixoa-vm)
 BASE_REPO="https://codeberg.org/nixoa/nixoa-vm.git"
 USER_REPO_DIR="$HOME/user-config"                   # Target location for user config flake (user home directory)
 USER_REPO_REMOTE="https://codeberg.org/nixoa/user-config.git"
@@ -38,7 +38,7 @@ fi
 echo "NiXOA Bootstrap Installer starting..."
 echo
 
-# 1. Clone base flake (nixoa-vm) to /etc/nixos/nixoa
+# 1. Clone base flake (nixoa-vm) to /etc/nixos/nixoa-vm
 if [[ -d "$BASE_DIR/nixoa-vm" ]]; then
   echo "Base flake directory $BASE_DIR/nixoa-vm already exists."
   if [[ -d "$BASE_DIR/nixoa-vm/.git" ]]; then
@@ -50,7 +50,6 @@ if [[ -d "$BASE_DIR/nixoa-vm" ]]; then
   fi
 else
   echo "Cloning base flake (nixoa-vm) to $BASE_DIR..."
-  run "sudo mkdir -p $BASE_DIR"
   run "sudo git clone $BASE_REPO $BASE_DIR/nixoa-vm"
 fi
 

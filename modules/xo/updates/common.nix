@@ -279,90 +279,11 @@ in
         };
       };
     };
-
-    gc = {
-      enable = mkEnableOption "Automatic garbage collection";
-      schedule = mkOption {
-        type = types.str;
-        default = "monthly";
-        description = "When to run GC (systemd calendar format, e.g., 'daily', 'weekly', 'monthly', 'Sun 04:00', '*-*-01 04:00')";
-      };
-      keepDays = mkOption {
-        type = types.int;
-        default = 30;
-        description = "Delete generations older than this many days";
-      };
-    };
-
-    autoUpgrade = {
-      enable = mkEnableOption "Automatic system upgrades using system.autoUpgrade";
-      schedule = mkOption {
-        type = types.str;
-        default = "Sun 04:00";
-        description = "When to check for updates (systemd calendar format)";
-      };
-      flake = mkOption {
-        type = types.str;
-        default = "";
-        description = "Flake URI for system configuration (e.g., 'github:yourusername/user-config')";
-      };
-    };
-
-    nixpkgs = {
-      enable = mkEnableOption "Automatic nixpkgs input updates";
-      schedule = mkOption {
-        type = types.str;
-        default = "Mon 04:00";
-        description = "When to update nixpkgs";
-      };
-    };
-
-    xoa = {
-      enable = mkEnableOption "Automatic Xen Orchestra upstream updates";
-      schedule = mkOption {
-        type = types.str;
-        default = "Tue 04:00";
-        description = "When to update XO";
-      };
-    };
-
-    libvhdi = {
-      enable = mkEnableOption "Automatic libvhdi source updates";
-      schedule = mkOption {
-        type = types.str;
-        default = "Wed 04:00";
-        description = "When to update libvhdi";
-      };
-    };
   };
 
   config = mkIf (cfg.gc.enable || cfg.autoUpgrade.enable || cfg.nixpkgs.enable || cfg.xoa.enable || cfg.libvhdi.enable) {
     # Enable nix-command and flakes
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
-
-    # Built-in garbage collection - deletes both old generations and unreachable paths
-    nix.gc = mkIf cfg.gc.enable {
-      automatic = true;
-      dates = cfg.gc.schedule;
-      # Empty options: collect all unreachable paths (includes cleanup from generations older than keepDays)
-      # The keepDays setting is kept in options for reference but full -d cleanup is more thorough
-      options = "";
-    };
-
-    nix.optimise.automatic = mkIf cfg.gc.enable true;
-    nix.optimise.dates = mkIf cfg.gc.enable [ cfg.gc.schedule ];
-
-    # System auto-upgrade
-    system.autoUpgrade = mkIf cfg.autoUpgrade.enable {
-      enable = true;
-      dates = cfg.autoUpgrade.schedule;
-      flake = cfg.autoUpgrade.flake;
-      flags = [
-        "--refresh"
-        "-L"
-      ];
-      allowReboot = false;
-    };
 
     # Email support if enabled
     programs.msmtp.enable = mkIf cfg.monitoring.email.enable true;
@@ -379,77 +300,5 @@ in
     systemd.tmpfiles.rules = [
       "d /var/lib/xoa-updates 0755 root root - -"
     ];
-
-    # --- NixOS (nixpkgs input) Update ---
-    systemd.services."xoa-nixpkgs-update" = mkIf cfg.nixpkgs.enable {
-      description = "XOA NixOS/nixpkgs Update and Rebuild";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        WorkingDirectory = expandedRepoDir;
-        ExecStart = "${updateAndRebuildScript "nixpkgs"}/bin/xoa-update-nixpkgs-rebuild";
-        User = "root";
-        TimeoutStartSec = "30min";
-      };
-    };
-
-    systemd.timers."xoa-nixpkgs-update" = mkIf cfg.nixpkgs.enable {
-      description = "XOA NixOS Update Timer";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnCalendar = cfg.nixpkgs.schedule;
-        Persistent = true;
-        RandomizedDelaySec = "15min";
-      };
-    };
-
-    # --- XO Upstream Update ---
-    systemd.services."xoa-xo-update" = mkIf cfg.xoa.enable {
-      description = "XOA Xen Orchestra Upstream Update and Rebuild";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        WorkingDirectory = expandedRepoDir;
-        ExecStart = "${updateAndRebuildScript "xoSrc"}/bin/xoa-update-xoSrc-rebuild";
-        User = "root";
-        TimeoutStartSec = "30min";
-      };
-    };
-
-    systemd.timers."xoa-xo-update" = mkIf cfg.xoa.enable {
-      description = "XOA XO Update Timer";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnCalendar = cfg.xoa.schedule;
-        Persistent = true;
-        RandomizedDelaySec = "15min";
-      };
-    };
-
-    # --- libvhdi Update ---
-    systemd.services."xoa-libvhdi-update" = mkIf cfg.libvhdi.enable {
-      description = "XOA libvhdi Update and Rebuild";
-      after = [ "network-online.target" ];
-      wants = [ "network-online.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        WorkingDirectory = expandedRepoDir;
-        ExecStart = "${updateAndRebuildScript "libvhdiSrc"}/bin/xoa-update-libvhdiSrc-rebuild";
-        User = "root";
-        TimeoutStartSec = "30min";
-      };
-    };
-
-    systemd.timers."xoa-libvhdi-update" = mkIf cfg.libvhdi.enable {
-      description = "XOA libvhdi Update Timer";
-      wantedBy = [ "timers.target" ];
-      timerConfig = {
-        OnCalendar = cfg.libvhdi.schedule;
-        Persistent = true;
-        RandomizedDelaySec = "15min";
-      };
-    };
   };
 }

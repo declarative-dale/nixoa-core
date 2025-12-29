@@ -4,44 +4,78 @@
 { config, pkgs, lib, systemSettings ? {}, userSettings ? {}, nixoaUtils, ... }:
 
 let
+  inherit (lib) mkOption types mkEnableOption;
   inherit (nixoaUtils) getOption;
 
   # Extract commonly used values
-  username = getOption systemSettings ["username"] "xoa";
-  sshKeys = getOption systemSettings ["sshKeys"] [];
-  extrasEnable = userSettings.extras.enable or false;
-  xoServiceUser = getOption systemSettings ["xo" "service" "user"] "xo";
-  xoServiceGroup = getOption systemSettings ["xo" "service" "group"] "xo";
+  username = config.nixoa.admin.username;
+  sshKeys = config.nixoa.admin.sshKeys;
+  shell = config.nixoa.admin.shell;
+  xoServiceUser = config.nixoa.xo.service.user;
+  xoServiceGroup = config.nixoa.xo.service.group;
 in
 {
-  # ============================================================================
-  # USER ACCOUNTS
-  # ============================================================================
-
-  # Primary group for XO service
-  users.groups.${xoServiceGroup} = {};
-  users.groups.fuse = {};
-
-  # XO service account (runs xo-server and related services)
-  users.users.${xoServiceUser} = {
-    isSystemUser = true;
-    description = "Xen Orchestra service account";
-    createHome = true;
-    group = xoServiceGroup;
-    home = "/var/lib/xo";
-    shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
-    extraGroups = [ "fuse" ];
+  options.nixoa = {
+    admin = {
+      username = mkOption {
+        type = types.str;
+        default = "xoa";
+        description = "Admin user username for SSH access and system administration";
+      };
+      sshKeys = mkOption {
+        type = types.listOf types.str;
+        default = [];
+        description = "SSH public keys authorized for admin user";
+        example = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@example.com" ];
+      };
+      shell = mkOption {
+        type = types.enum ["bash" "zsh"];
+        default = "bash";
+        description = "Login shell for admin user (bash or zsh)";
+      };
+    };
+    xo.service = {
+      user = mkOption {
+        type = types.str;
+        default = "xo";
+        description = "System user that runs xo-server";
+      };
+      group = mkOption {
+        type = types.str;
+        default = "xo";
+        description = "System group for xo-server";
+      };
+    };
   };
 
-  # XOA admin account: SSH-key login only, sudo-capable
-  users.users.${username} = {
-    isNormalUser = true;
-    description = "Xen Orchestra Administrator";
-    createHome = true;
-    home = "/home/${username}";
-    # Shell selection based on extras.enable in configuration.nix
-    # extras.enable=false → bash (default), extras.enable=true → zsh
-    shell = if extrasEnable then pkgs.zsh else pkgs.bashInteractive;
+  config = {
+    # ============================================================================
+    # USER ACCOUNTS
+    # ============================================================================
+
+    # Primary group for XO service
+    users.groups.${xoServiceGroup} = {};
+    users.groups.fuse = {};
+
+    # XO service account (runs xo-server and related services)
+    users.users.${xoServiceUser} = {
+      isSystemUser = true;
+      description = "Xen Orchestra service account";
+      createHome = true;
+      group = xoServiceGroup;
+      home = "/var/lib/xo";
+      shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
+      extraGroups = [ "fuse" ];
+    };
+
+    # XOA admin account: SSH-key login only, sudo-capable
+    users.users.${username} = {
+      isNormalUser = true;
+      description = "Xen Orchestra Administrator";
+      createHome = true;
+      home = "/home/${username}";
+      # Shell selection based on admin.shell option
+      shell = if shell == "zsh" then pkgs.zsh else pkgs.bashInteractive;
     extraGroups = [ "wheel" "systemd-journal" ];
 
     # Locked password - SSH key authentication only
