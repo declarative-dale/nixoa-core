@@ -133,6 +133,12 @@ in
       description = "Path to an xo-server config.toml file to be linked into /etc/xo-server/config.toml. Use this for secrets via agenix/sops.";
     };
 
+    configNixoaFile = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      description = "Path to a config.nixoa.toml file for NixOS-specific XO configuration overrides. Linked into /etc/xo-server/config.nixoa.toml.";
+    };
+
     settings = mkOption {
       type = types.attrsOf types.unspecified;
       default = { };
@@ -272,6 +278,14 @@ in
     # Priority: configFile > settings > sample.config.toml
     environment.etc."xo-server/config.toml" = {
       source = effectiveConfigSource;
+      mode = "0640";
+      user = "root";
+      group = xoGroup;
+    };
+
+    # Declarative config.nixoa.toml linking (NixOS-specific overrides)
+    environment.etc."xo-server/config.nixoa.toml" = mkIf (cfg.configNixoaFile != null) {
+      source = cfg.configNixoaFile;
       mode = "0640";
       user = "root";
       group = xoGroup;
