@@ -1,14 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Core system services: journald, monitoring, and custom service definitions
 
-{ config, pkgs, lib, systemSettings ? {}, nixoaUtils, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  inherit (nixoaUtils) getOption;
-
-  # Extract commonly used values
-  servicesDefinitions = getOption systemSettings ["services" "definitions"] {};
-in
 {
   # ============================================================================
   # SERVICES CONFIGURATION
@@ -63,10 +57,5 @@ in
         Compress=yes
       '';
     }
-    # Custom services from user-config services.definitions
-    # Users can define services with custom configurations
-    # Note: Service names are validated by NixOS module system at evaluation time
-    # Invalid service names will produce clear error messages
-    servicesDefinitions
   ];
 }

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # System identification, locale, bootloader, and kernel configuration
 
-{ config, pkgs, lib, systemSettings ? {}, nixoaUtils, ... }:
+{ config, pkgs, lib, nixoaUtils, ... }:
 
 let
   inherit (lib) mkOption mkDefault types;

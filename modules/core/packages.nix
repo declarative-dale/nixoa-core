@@ -1,15 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # System packages and Nix configuration
 
-{ config, pkgs, lib, systemSettings ? {}, nixoaUtils, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  inherit (nixoaUtils) getOption;
-
-  # Extract commonly used values
-  username = getOption systemSettings ["username"] "xoa";
-  systemPackagesExtra = getOption systemSettings ["packages" "system" "extra"] [];
-in
 {
   # ============================================================================
   # SYSTEM PACKAGES
@@ -56,14 +49,7 @@ in
 
     # Monitoring
     prometheus-node-exporter
-  ] ++ (map (name:
-    if pkgs ? ${name}
-    then pkgs.${name}
-    else throw ''
-      Package "${name}" not found in nixpkgs.
-      Check spelling or remove from configuration.nix systemSettings.packages.system.extra.
-    ''
-  ) systemPackagesExtra);
+  ];
 
   # ============================================================================
   # NIX CONFIGURATION
@@ -78,7 +64,7 @@ in
       auto-optimise-store = true;
 
       # Trusted users (can use binary caches)
-      trusted-users = [ "root" username ];
+      trusted-users = [ "root" config.nixoa.admin.username ];
 
       # Prevent disk space issues
       min-free = lib.mkDefault (1024 * 1024 * 1024); # 1GB

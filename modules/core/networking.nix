@@ -1,14 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Network configuration and firewall rules
 
-{ config, pkgs, lib, systemSettings ? {}, nixoaUtils, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  inherit (nixoaUtils) getOption;
-
-  # Extract commonly used values
-  allowedTCPPorts = getOption systemSettings ["networking" "firewall" "allowedTCPPorts"] [80 443 3389 5900 8012];
-in
 {
   # ============================================================================
   # NETWORKING
@@ -20,10 +14,10 @@ in
   networking.useNetworkd = lib.mkDefault true;
   networking.useDHCP = lib.mkDefault true;
 
-  # Firewall configuration
+  # Firewall configuration - defaults allow HTTP/HTTPS, can be overridden in configuration.nix
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = allowedTCPPorts;
+    allowedTCPPorts = lib.mkDefault [80 443];
 
     # Optional: Allow ping
     allowPing = true;

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # User and group management, SSH configuration, security, and sudo
 
-{ config, pkgs, lib, systemSettings ? {}, userSettings ? {}, nixoaUtils, ... }:
+{ config, pkgs, lib, nixoaUtils, ... }:
 
 let
   inherit (lib) mkOption types mkEnableOption;
