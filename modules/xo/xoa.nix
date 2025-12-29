@@ -309,6 +309,7 @@ in
         nodejs_24
         util-linux git openssl lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
+        xen                   # Xen hypervisor utilities (xenstore-read, xl, etc.)
       ]);
       
       # Environment for xo-server
