@@ -101,6 +101,7 @@
       _module.args = {
         nixoaPackages = self.packages.${system};
         nixoaUtils = utils;
+        xoTomlData = null;  # Only provided by user-config when available
       };
     };
 
