@@ -52,7 +52,7 @@ let
 
 in
 {
-  config = mkIf config.xoa.enable {
+  config = mkIf config.nixoa.xo.enable {
     # Install the nixoa CLI tool system-wide
     environment.systemPackages = [
       nixoa-cli

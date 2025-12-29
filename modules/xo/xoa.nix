@@ -4,7 +4,7 @@
 { config, lib, pkgs, nixoaPackages, nixoaUtils, ... }:
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
-  cfg = config.xoa;
+  cfg = config.nixoa.xo;
 
   # Reference the configured package (will use user override if set, otherwise defaults)
   # Note: We use nixoaPackages.xen-orchestra-ce directly here since config values aren't fully
@@ -17,7 +17,7 @@ let
   # XO app directory is now immutable in /nix/store
   xoAppDir = "${xoaPackage}/libexec/xen-orchestra";
 
-  # Default home directory for XO service (can be overridden via cfg.xo.home option)
+  # Default home directory for XO service (can be overridden via cfg.home option)
   xoHome = "/var/lib/xo";
 
   # Sudo wrapper for CIFS mounts - injects credentials as mount options
@@ -100,7 +100,7 @@ EOF
   # Start script for xo-server (use compiled entry point)
   startXO = pkgs.writeShellScript "xo-start.sh" ''
     set -euo pipefail
-    export HOME="${cfg.xo.home}"
+    export HOME="${cfg.home}"
     export NODE_ENV="production"
     # Run the compiled xo-server entry point from the dist directory
     # The xo-server package is compiled to dist/cli.mjs as the entry point
@@ -109,7 +109,7 @@ EOF
 
 in
 {
-  options.xoa = {
+  options.nixoa.xo = {
     enable = mkEnableOption "Xen Orchestra from source";
 
     package = mkOption {
@@ -121,7 +121,7 @@ in
 
         To enable the optional yarn chmod sanitizer build workaround:
 
-          xoa.package = nixoaPackages.xen-orchestra-ce.override { enableChmodSanitizer = true; };
+          nixoa.xo.package = nixoaPackages.xen-orchestra-ce.override { enableChmodSanitizer = true; };
 
         (Keep it off unless you hit EPERM chmod failures during build.)
       '';
@@ -139,113 +139,100 @@ in
       description = "xo-server configuration as a Nix attrset (rendered to TOML). Avoid putting secrets here; use configFile instead.";
     };
 
-    admin = {
-      user = mkOption {
-        type = types.str;
-        default = "xoa";
-        description = "Admin username for SSH access";
-      };
-      
-      sshAuthorizedKeys = mkOption {
-        type = types.listOf types.str;
-        default = [];
-        description = "SSH public keys for admin user";
-      };
-    };
+    # Service account (user and group are defined in users.nix under nixoa.xo.service)
+    # Reference them directly from config.nixoa.xo.service
 
-    xo = {
-      user = mkOption {
-        type = types.str;
-        default = "xo";
-        description = "System user for XO services";
-      };
-      
-      group = mkOption {
-        type = types.str;
-        default = "xo";
-        description = "System group for XO services";
-      };
-      
+    http = {
       host = mkOption {
         type = types.str;
         default = "0.0.0.0";
         description = "Bind address for XO server";
       };
-      
+
       port = mkOption {
         type = types.port;
         default = 80;
         description = "HTTP port";
       };
-      
+
       httpsPort = mkOption {
         type = types.port;
         default = 443;
         description = "HTTPS port";
       };
-      
-      ssl = {
-        enable = mkEnableOption "HTTPS with self-signed certificates";
+    };
 
-        redirectToHttps = mkOption {
-          type = types.bool;
-          default = true;
-          description = "Redirect HTTP traffic to HTTPS";
-        };
+    tls = {
+      enable = mkEnableOption "HTTPS with self-signed certificates";
 
-        dir = mkOption {
-          type = types.path;
-          default = "/etc/ssl/xo";
-          description = "Directory for SSL certificates";
-        };
-
-        cert = mkOption {
-          type = types.path;
-          default = "/etc/ssl/xo/certificate.pem";
-          description = "SSL certificate path";
-        };
-
-        key = mkOption {
-          type = types.path;
-          default = "/etc/ssl/xo/key.pem";
-          description = "SSL private key path";
-        };
+      redirectToHttps = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Redirect HTTP traffic to HTTPS";
       };
-      
-      # Directory paths
-      home = mkOption {
+
+      autoGenerate = mkOption {
+        type = types.bool;
+        default = true;
+        description = "Automatically generate self-signed certificates";
+      };
+
+      dir = mkOption {
         type = types.path;
-        default = xoHome;
-        description = "XO service home directory";
+        default = "/etc/ssl/xo";
+        description = "Directory for SSL certificates";
       };
 
-      cacheDir = mkOption {
+      cert = mkOption {
         type = types.path;
-        default = "${xoHome}/.cache";
-        description = "Cache directory for builds";
-      };
-      
-      dataDir = mkOption {
-        type = types.path;
-        default = "${xoHome}/data";
-        description = "Data directory for XO";
-      };
-      
-      tempDir = mkOption {
-        type = types.path;
-        default = "${xoHome}/tmp";
-        description = "Temporary directory for XO operations";
+        default = "/etc/ssl/xo/certificate.pem";
+        description = "SSL certificate path";
       };
 
-      extraServerEnv = mkOption {
-        type = types.attrsOf types.str;
-        default = {};
-        description = "Additional environment variables for xo-server";
+      key = mkOption {
+        type = types.path;
+        default = "/etc/ssl/xo/key.pem";
+        description = "SSL private key path";
       };
+    };
+
+    # Directory paths
+    home = mkOption {
+      type = types.path;
+      default = xoHome;
+      description = "XO service home directory";
+    };
+
+    cacheDir = mkOption {
+      type = types.path;
+      default = "${xoHome}/.cache";
+      description = "Cache directory for builds";
+    };
+
+    dataDir = mkOption {
+      type = types.path;
+      default = "${xoHome}/data";
+      description = "Data directory for XO";
+    };
+
+    tempDir = mkOption {
+      type = types.path;
+      default = "${xoHome}/tmp";
+      description = "Temporary directory for XO operations";
+    };
+
+    extraServerEnv = mkOption {
+      type = types.attrsOf types.str;
+      default = {};
+      description = "Additional environment variables for xo-server";
     };
   };
 
   config = mkIf cfg.enable (let
+    # Get XO service user/group (defined in users.nix)
+    xoUser = config.nixoa.xo.service.user;
+    xoGroup = config.nixoa.xo.service.group;
+
     # Determine effective config source (priority: configFile > settings > sample.config.toml)
     effectiveConfigSource =
       if cfg.configFile != null then cfg.configFile
@@ -254,15 +241,15 @@ in
   in {
     assertions = [
       {
-        assertion = cfg.admin.sshAuthorizedKeys != [];
-        message = "You must provide at least one SSH public key in xoa.admin.sshAuthorizedKeys";
+        assertion = cfg.home != null;
+        message = "XO home directory must be configured";
       }
     ];
 
     # Redis service for XO
     services.redis.servers.xo = {
       enable = true;
-      user = cfg.xo.user;
+      user = xoUser;
       unixSocket = "/run/redis-xo/redis.sock";
       unixSocketPerm = 770;
       settings = { 
@@ -287,7 +274,7 @@ in
       source = effectiveConfigSource;
       mode = "0640";
       user = "root";
-      group = cfg.xo.group;
+      group = xoGroup;
     };
 
     # XO Server service
@@ -297,7 +284,7 @@ in
         "systemd-tmpfiles-setup.service"
         "network-online.target"
         "redis-xo.service"
-      ] ++ lib.optional (config.xoa.autocert.enable && cfg.xo.ssl.enable) "xo-autocert.service";
+      ] ++ lib.optional (config.nixoa.autocert.enable && cfg.tls.enable) "xo-autocert.service";
 
       wants = [ "network-online.target" "redis-xo.service" ];
       wantedBy = [ "multi-user.target" ];
@@ -311,10 +298,10 @@ in
       ]);
       
       # Environment for xo-server
-      environment = cfg.xo.extraServerEnv // {
-        HOME = cfg.xo.home;
-        XDG_CONFIG_HOME = "${cfg.xo.home}/.config";
-        XDG_CACHE_HOME = cfg.xo.cacheDir;
+      environment = cfg.extraServerEnv // {
+        HOME = cfg.home;
+        XDG_CONFIG_HOME = "${cfg.home}/.config";
+        XDG_CACHE_HOME = cfg.cacheDir;
         NODE_ENV = "production";
         # Provide library paths for native modules (fuse-native, etc.)
         LD_LIBRARY_PATH = lib.makeLibraryPath [
@@ -326,8 +313,8 @@ in
       };
 
       serviceConfig = {
-        User = cfg.xo.user;
-        Group = cfg.xo.group;
+        User = xoUser;
+        Group = xoGroup;
 
         WorkingDirectory = xoAppDir;
         StateDirectory = "xo";
@@ -359,16 +346,16 @@ in
         CapabilityBoundingSet = [ "CAP_NET_BIND_SERVICE" "CAP_SETUID" "CAP_SETGID" "CAP_SETPCAP" "CAP_SYS_ADMIN" "CAP_DAC_OVERRIDE" ];
 
         # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
-        ReadOnlyPaths = lib.optionals cfg.xo.ssl.enable [ cfg.xo.ssl.dir ];
+        ReadOnlyPaths = lib.optionals cfg.tls.enable [ cfg.tls.dir ];
 
         ReadWritePaths = [
-          cfg.xo.home
-          cfg.xo.cacheDir
-          cfg.xo.dataDir
-          cfg.xo.tempDir
+          cfg.home
+          cfg.cacheDir
+          cfg.dataDir
+          cfg.tempDir
           "/etc/xo-server"
           "/var/lib/xo-server"  # XO server internal state directory
-          config.xoa.storage.mountsDir
+          config.nixoa.storage.mountsDir
           "/run/lock"           # LVM lock files
           "/run/redis-xo"       # Redis socket
           "/dev"                # Device access for LVM/storage operations
@@ -382,17 +369,17 @@ in
     
     # Create necessary directories
     systemd.tmpfiles.rules = [
-      "d ${cfg.xo.home}                          0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.cacheDir}                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.dataDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.tempDir}                       0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${config.xoa.storage.mountsDir}         0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.home}/.config                  0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-      "d ${cfg.xo.home}/.config/xo-server        0750 ${cfg.xo.user} ${cfg.xo.group} - -"
+      "d ${cfg.home}                          0750 ${xoUser} ${xoGroup} - -"
+      "d ${cfg.cacheDir}                      0750 ${xoUser} ${xoGroup} - -"
+      "d ${cfg.dataDir}                       0750 ${xoUser} ${xoGroup} - -"
+      "d ${cfg.tempDir}                       0750 ${xoUser} ${xoGroup} - -"
+      "d ${config.nixoa.storage.mountsDir}         0750 ${xoUser} ${xoGroup} - -"
+      "d ${cfg.home}/.config                  0750 ${xoUser} ${xoGroup} - -"
+      "d ${cfg.home}/.config/xo-server        0750 ${xoUser} ${xoGroup} - -"
       "d /etc/xo-server                          0755 root root - -"
-      "d /var/lib/xo-server                      0750 ${cfg.xo.user} ${cfg.xo.group} - -"
-    ] ++ lib.optionals cfg.xo.ssl.enable [
-      "d ${cfg.xo.ssl.dir}                       0755 root root - -"
+      "d /var/lib/xo-server                      0750 ${xoUser} ${xoGroup} - -"
+    ] ++ lib.optionals cfg.tls.enable [
+      "d ${cfg.tls.dir}                       0755 root root - -"
     ];
   });
 }

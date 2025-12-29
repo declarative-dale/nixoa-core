@@ -2,14 +2,14 @@
 { config, lib, pkgs, ... }:
 let
   inherit (lib) mkOption mkEnableOption types mkIf;
-  cfg = config.xoa.storage;
-  # Get XO service user/group from config (set by system.nix from config.nixoa.xo.service.*)
-  xoUser = config.xoa.xo.user;
-  xoGroup = config.xoa.xo.group;
+  cfg = config.nixoa.storage;
+  # Get XO service user/group from config (defined in users.nix)
+  xoUser = config.nixoa.xo.service.user;
+  xoGroup = config.nixoa.xo.service.group;
 
 in
 {
-  options.xoa.storage = {
+  options.nixoa.storage = {
     nfs.enable  = mkEnableOption "NFS client support for XO remote storage";
     cifs.enable = mkEnableOption "CIFS/SMB client support for XO remote storage";
     vhd.enable  = mkEnableOption "VHD mounting support via libvhdi" // { default = true; };

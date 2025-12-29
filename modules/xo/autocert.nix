@@ -20,7 +20,9 @@
 
 let
   inherit (lib) mkIf mkOption mkEnableOption types;
-  cfg = config.xoa;
+  cfg = config.nixoa.xo;
+  tlsCfg = config.nixoa.xo.tls;
+  autocertCfg = config.nixoa.autocert;
   openssl = pkgs.openssl;
 
   # Script to generate or renew certificates only when needed
@@ -28,13 +30,13 @@ let
     set -euo pipefail
     umask 077
 
-    cert="${cfg.xo.ssl.cert}"
-    key="${cfg.xo.ssl.key}"
+    cert="${tlsCfg.cert}"
+    key="${tlsCfg.key}"
     host="${config.networking.hostName}"
 
     # Ensure cert directory exists with proper permissions
-    mkdir -p "${cfg.xo.ssl.dir}"
-    chmod 0755 "${cfg.xo.ssl.dir}"
+    mkdir -p "${tlsCfg.dir}"
+    chmod 0755 "${tlsCfg.dir}"
 
     # Only generate if cert or key missing, or certificate expired
     if [ ! -s "$key" ] || [ ! -s "$cert" ]; then
@@ -61,7 +63,7 @@ let
   '';
 in
 {
-  options.xoa.autocert = {
+  options.nixoa.autocert = {
     enable = mkOption {
       type = types.bool;
       default = true;
@@ -77,7 +79,7 @@ in
     };
   };
 
-  config = mkIf (cfg.enable && cfg.autocert.enable && cfg.xo.ssl.enable) {
+  config = mkIf (cfg.enable && autocertCfg.enable && tlsCfg.enable) {
     # Systemd service to generate/renew certificates at boot
     systemd.services.xo-autocert = {
       description = "Generate XO TLS certificates if missing or expired";

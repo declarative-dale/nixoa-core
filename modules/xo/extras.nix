@@ -7,14 +7,15 @@
 
 let
   inherit (lib) mkOption mkEnableOption types mkIf;
-  cfg = config.xoa.extras;
+  cfg = config.nixoa.extras;
+  adminShell = config.nixoa.admin.shell;
 in
 {
-  options.xoa.extras = {
+  options.nixoa.extras = {
     enable = mkEnableOption "Enhanced terminal experience for admin user" // { default = false; };
   };
 
-  config = mkIf cfg.enable {
+  config = mkIf (adminShell == "zsh") {
     # Enable zsh system-wide (required for it to be a valid login shell)
     programs.zsh.enable = true;
 
