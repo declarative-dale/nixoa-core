@@ -281,7 +281,7 @@ in
     };
   };
 
-  config = mkIf (cfg.gc.enable || cfg.autoUpgrade.enable || cfg.nixpkgs.enable || cfg.xoa.enable || cfg.libvhdi.enable) {
+  config = mkIf (cfg.gc.enable || cfg.autoUpgrade.enable || cfg.nixpkgs.enable || config.nixoa.xo.enable || cfg.libvhdi.enable) {
     # Enable nix-command and flakes
     nix.settings.experimental-features = [ "nix-command" "flakes" ];
 
