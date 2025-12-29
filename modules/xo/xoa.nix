@@ -286,7 +286,7 @@ in
     # Declarative config.nixoa.toml linking (NixOS-specific overrides)
     environment.etc."xo-server/config.nixoa.toml" = mkIf (cfg.configNixoaFile != null) {
       source = cfg.configNixoaFile;
-      mode = "0640";
+      mode = "0644";
       user = "root";
       group = xoGroup;
     };
