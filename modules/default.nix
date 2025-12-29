@@ -9,6 +9,7 @@
   imports = [
     # Core system modules (alphabetically ordered)
     ./core/base.nix
+    ./core/boot.nix
     ./core/networking.nix
     ./core/packages.nix
     ./core/services.nix

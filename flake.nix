@@ -226,8 +226,10 @@
           };
 
           # Minimal hardware configuration for test build
-          boot.loader.grub.enable = true;
-          boot.loader.grub.device = "/dev/sda";
+          # Boot configuration now handled by boot.nix with systemd-boot as default
+          # To use GRUB instead, override:
+          # nixoa.boot.loader = "grub";
+          # nixoa.boot.grub.device = "/dev/sda";
 
           fileSystems."/" = {
             device = "/dev/disk/by-uuid/00000000-0000-0000-0000-000000000000";
