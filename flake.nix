@@ -137,26 +137,11 @@
     };
 
     # Validation checks - run with `nix flake check`
+    # The nixosConfigurations.nixoa below serves as the primary check,
+    # validating that all modules can be evaluated and instantiated correctly
     checks.${system} = {
-      # Verify all modules can be evaluated without errors
-      module-syntax = pkgs.runCommand "nixoa-modules-syntax" {} ''
-        set -e
-        cd ${self}
-        # Check all .nix files for syntax errors
-        for file in modules/core/*.nix modules/xo/*.nix; do
-          echo "Checking $file..."
-          ${pkgs.nix}/bin/nix-instantiate --parse "$file" > /dev/null
-        done
-        touch $out
-      '';
-
-      # Verify packages build successfully
-      packages = pkgs.runCommand "nixoa-packages-check" {
-        buildInputs = [ self.packages.${system}.xen-orchestra-ce self.packages.${system}.libvhdi ];
-      } ''
-        echo "Packages verified"
-        touch $out
-      '';
+      # Verify the nixosConfiguration can be built (validates all modules)
+      configuration = self.nixosConfigurations.nixoa.config.system.build.toplevel;
     };
 
     # Test configuration - validates that modules can be instantiated
