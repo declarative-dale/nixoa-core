@@ -25,14 +25,9 @@
       flake = false;
     };
 
-    # Snitch - network traffic monitoring tool
-    snitch = {
-      url = "github:karol-broda/snitch";
-      flake = true;
-    };
   };
 
-  outputs = { self, nixpkgs, home-manager, xoSrc, libvhdiSrc, snitch, ... }:
+  outputs = { self, nixpkgs, home-manager, xoSrc, libvhdiSrc, ... }:
   let
     # System architecture (cannot be overridden by modules)
     system = "x86_64-linux";
@@ -48,7 +43,6 @@
     packages.${system} = {
       xen-orchestra-ce = pkgs.callPackage ./pkgs/xen-orchestra-ce { inherit xoSrc; };
       libvhdi = pkgs.callPackage ./pkgs/libvhdi { inherit libvhdiSrc; };
-      snitch = snitch.packages.${system}.default;
       default = self.packages.${system}.xen-orchestra-ce;
 
       # Package metadata for the project
@@ -88,12 +82,11 @@
     };
 
     # Overlay for easy nixpkgs extension
-    # Usage: overlays.default (adds nixoa.xen-orchestra-ce, nixoa.libvhdi, and nixoa.snitch to pkgs)
+    # Usage: overlays.default (adds nixoa.xen-orchestra-ce and nixoa.libvhdi to pkgs)
     overlays.default = final: prev: {
       nixoa = {
         xen-orchestra-ce = self.packages.${system}.xen-orchestra-ce;
         libvhdi = self.packages.${system}.libvhdi;
-        snitch = self.packages.${system}.snitch;
       };
     };
 
@@ -150,9 +143,6 @@
     checks.${system} = {
       # Verify the nixosConfiguration can be built (validates all modules)
       configuration = self.nixosConfigurations.nixoa.config.system.build.toplevel;
-
-      # Verify snitch package builds successfully
-      snitch = self.packages.${system}.snitch;
     };
 
     # Test configuration - validates that modules can be instantiated
