@@ -135,6 +135,109 @@
       };
     };
 
+    # Validation checks - run with `nix flake check`
+    checks.${system} = {
+      # Verify all modules can be evaluated without errors
+      module-syntax = pkgs.runCommand "nixoa-modules-syntax" {} ''
+        set -e
+        cd ${self}
+        # Check all .nix files for syntax errors
+        for file in modules/core/*.nix modules/xo/*.nix; do
+          echo "Checking $file..."
+          ${pkgs.nix}/bin/nix-instantiate --parse "$file" > /dev/null
+        done
+        touch $out
+      '';
+
+      # Verify packages build successfully
+      packages = pkgs.runCommand "nixoa-packages-check" {
+        buildInputs = [ self.packages.${system}.xo-ce self.packages.${system}.libvhdi ];
+      } ''
+        echo "Packages verified"
+        touch $out
+      '';
+    };
+
+    # Test configuration - validates that modules can be instantiated
+    nixosConfigurations.nixoa = lib.nixosSystem {
+      inherit system;
+
+      modules = [
+        self.nixosModules.default
+
+        # Minimal test configuration
+        {
+          # Prevent infinite recursion by providing minimal required values
+          _module.args = {
+            systemSettings = {
+              hostname = "nixoa";
+              username = "xoa";
+              stateVersion = "25.11";
+              timezone = "UTC";
+              sshKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample test@example.com" ];
+
+              xo = {
+                port = 80;
+                httpsPort = 443;
+                host = "0.0.0.0";
+                service = {
+                  user = "xo";
+                  group = "xo";
+                };
+                tls = {
+                  enable = true;
+                  redirectToHttps = true;
+                  autoGenerate = true;
+                  dir = "/etc/ssl/xo";
+                  cert = "/etc/ssl/xo/certificate.pem";
+                  key = "/etc/ssl/xo/key.pem";
+                };
+              };
+
+              storage = {
+                nfs.enable = true;
+                cifs.enable = true;
+                vhd.enable = true;
+                mountsDir = "/var/lib/xo/mounts";
+              };
+
+              networking.firewall.allowedPorts = [ 80 443 ];
+
+              packages.system.extra = [];
+
+              updates = {
+                repoDir = "/etc/nixos/nixoa/nixoa-vm";
+                monitoring.notifyOnSuccess = false;
+                gc.enable = false;
+                autoUpgrade.enable = false;
+                nixpkgs.enable = false;
+                xoa.enable = false;
+                libvhdi.enable = false;
+              };
+
+              services.definitions = {};
+            };
+
+            userSettings = {
+              packages.extra = [];
+              extras.enable = false;
+            };
+          };
+
+          # Minimal hardware configuration for test build
+          boot.loader.grub.enable = true;
+          boot.loader.grub.device = "/dev/sda";
+
+          fileSystems."/" = {
+            device = "/dev/disk/by-uuid/00000000-0000-0000-0000-000000000000";
+            fsType = "ext4";
+          };
+
+          system.stateVersion = "25.11";
+        }
+      ];
+    };
+
     # Development shell
     devShells.${system}.default = pkgs.mkShell {
       packages = with pkgs; [
@@ -156,7 +259,7 @@
         echo "📁 Module organization:"
         echo "  ./modules/core/     - System modules (users, network, packages, services)"
         echo "  ./modules/xo/       - XO-specific modules (xoa, storage, autocert, etc.)"
-        echo "  ./modules/bundle.nix - Dynamic module discovery (excludes home/)"
+        echo "  ./modules/default.nix - Module entry point (explicit imports)"
         echo ""
         echo "📝 Available commands:"
         echo "  nix run .#update-xo                - Update XO source code"
