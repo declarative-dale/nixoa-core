@@ -37,6 +37,7 @@
     tcpdump
     dig
     traceroute
+    snitch
 
     # XO dependencies
     nodejs_20

@@ -262,8 +262,8 @@ in
 
     # System packages needed by XO (runtime only; build-time deps are in package derivation, not here)
     environment.systemPackages = with pkgs; [
-      rsync micro openssl
-      fuse fuse3 xen lvm2
+      rsync openssl
+      fuse fuse3 lvm2
       libguestfs    # VM disk inspection and mounting
       ntfs3g        # NTFS filesystem support for VM backups
     ];
@@ -293,7 +293,7 @@ in
       # Sudo wrapper must be first in path to intercept sudo calls and handle env vars
       path = [ sudoWrapper ] ++ (with pkgs; [
         nodejs_24
-        util-linux git openssl xen lvm2 coreutils
+        util-linux git openssl lvm2 coreutils
         nfs-utils cifs-utils  # For NFS and SMB remote storage handlers
       ]);
       
