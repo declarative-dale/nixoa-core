@@ -5,7 +5,7 @@
 
 Date: 2025-12-29
 
-This milestone release marks nixoa-vm reaching production-ready maturity with standardized option naming, modular architecture, and comprehensive feature completeness.
+This milestone release marks nixoa-vm reaching significant maturity with standardized option naming, modular architecture, and comprehensive feature completeness.
 
 ### 🎉 Milestone Achievements
 
@@ -137,7 +137,7 @@ This major release refactors NixOA-VM from a runtime build system to a pure Nix-
 
 **For Users**
 - 10-100x faster deploys: No 45-minute build on every `nixos-rebuild`
-- Binary cache eligible: XOA can be pre-built and cached
+- Binary cache eligible: XO-CE can be pre-built and cached
 - Reproducible builds: Same inputs → identical package hash
 - Atomic updates: Switch XO versions instantly via rollback
 
