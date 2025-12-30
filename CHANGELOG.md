@@ -11,8 +11,8 @@ This milestone release marks nixoa-vm reaching production-ready maturity with st
 
 - First stable 1.0.0 release
 - Standardized options namespace (`nixoa.*`)
-- Complete modular architecture
-- Production-ready configuration system
+- Highly modular architecture
+- Fully reproducible xen-orchestra build created as a nixpkg, pkg/xen-orchestra-ce/default.nix
 
 ### ⚠️ BREAKING CHANGES
 
@@ -29,8 +29,8 @@ All options renamed from `xoa.*` to `nixoa.*` namespace:
 ### ✨ Added
 
 - **Snitch network monitor** package for real-time connection monitoring
-- **configNixoaFile option** to link `config.nixoa.toml` to `/etc/xo-server/` for runtime config changes
-- **boot.nix module** with systemd-boot/GRUB support and flexible boot configuration toggle
+- **configNixoaFile option** to link `config.nixoa.toml` to `/etc/xo-server/` for runtime config changes, config.nixoa.toml is an override file that operates on top of the default /etc/xo-server/config.toml, which you should not edit directly.
+- **boot.nix module** with systemd-boot (endabled by default) + GRUB support with flexible boot configuration toggle
 - **Modular updates system** - split `updates.nix` into `updates/` directory:
   - `updates/common.nix` - shared update functionality
   - `updates/auto-upgrade.nix` - system auto-upgrade scheduling
