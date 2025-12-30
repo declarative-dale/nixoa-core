@@ -11,9 +11,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
-    # Xen Orchestra source (pinned to specific commit for stability)
+    # Xen Orchestra source - pinned to v6.0.2 (commit b89c26459cfd301bb92adf0a98a0b2dbab57e487)
+    # Uses fetchYarnDeps for offline, hash-pinned dependencies
+    # Explicit yarn install --offline --frozen-lockfile ensures deterministic builds
     xoSrc = {
-      url = "github:vatesfr/xen-orchestra";
+      url = "github:vatesfr/xen-orchestra/b89c26459cfd301bb92adf0a98a0b2dbab57e487";
       flake = false;
     };
 
@@ -22,6 +24,7 @@
       url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
       flake = false;
     };
+
   };
 
   outputs = { self, nixpkgs, home-manager, xoSrc, libvhdiSrc, ... }:
@@ -32,24 +35,19 @@
 
     # Only import pkgs where needed (for packages/apps/devShells)
     pkgs = nixpkgs.legacyPackages.${system};
+
+    # Import utility library for modules
+    utils = import ./lib/utils.nix { inherit lib; };
   in {
-    # Module library export - nixoa-vm is a module provider for user-config
-    # Usage in user-config: nixoa-vm.nixosModules.default
-    nixosModules.default = { config, lib, pkgs, ... }: {
-      imports = [
-        # Auto-import all modules EXCEPT home/ (handled separately in user-config)
-        ./modules
-      ];
+    # Package outputs - XOA and libvhdi built from source
+    packages.${system} = {
+      xen-orchestra-ce = pkgs.callPackage ./pkgs/xen-orchestra-ce { inherit xoSrc; };
+      libvhdi = pkgs.callPackage ./pkgs/libvhdi { inherit libvhdiSrc; };
+      default = self.packages.${system}.xen-orchestra-ce;
 
-      # Make flake sources available to modules
-      _module.args = {
-        inherit xoSrc libvhdiSrc;
-      };
-    };
-
-    # Package metadata for the project
-    packages.${system}.default = pkgs.stdenv.mkDerivation {
-      pname = "nixoa-vm";
+      # Package metadata for the project
+      metadata = pkgs.stdenv.mkDerivation {
+      pname = "nixoa-vm-metadata";
       version = "1.0.0";
       dontUnpack = true;
       dontBuild = true;
@@ -81,6 +79,32 @@
         homepage = "https://codeberg.org/nixoa/nixoa-vm";
       };
     };
+    };
+
+    # Overlay for easy nixpkgs extension
+    # Usage: overlays.default (adds nixoa.xen-orchestra-ce and nixoa.libvhdi to pkgs)
+    overlays.default = final: prev: {
+      nixoa = {
+        xen-orchestra-ce = self.packages.${system}.xen-orchestra-ce;
+        libvhdi = self.packages.${system}.libvhdi;
+      };
+    };
+
+    # Module library export - nixoa-vm is a module provider for user-config
+    # Usage in user-config: nixoa-vm.nixosModules.default
+    nixosModules.default = { config, lib, pkgs, ... }: {
+      imports = [
+        # Auto-import all modules EXCEPT home/ (handled separately in user-config)
+        ./modules
+      ];
+
+      # Make packages and utilities available to all modules
+      _module.args = {
+        nixoaPackages = self.packages.${system};
+        nixoaUtils = utils;
+        xoTomlData = null;  # Only provided by user-config when available
+      };
+    };
 
     # Runnable helper: nix run .#update-xo
     apps.${system}.update-xo = {
@@ -91,14 +115,14 @@
         text = ''
           #!/usr/bin/env bash
           set -euo pipefail
-          
+
           echo "🔄 Updating Xen Orchestra source..."
           nix flake lock --update-input xoSrc
-          
+
           echo "📋 Recent commits in xen-orchestra:"
           curl -s https://api.github.com/repos/vatesfr/xen-orchestra/commits?per_page=5 | \
             jq -r '.[] | "  • \(.sha[0:7]) - \(.commit.message | split("\n")[0]) (\(.commit.author.date))"'
-          
+
           echo ""
           echo "✅ Update complete! Review changes with: git diff flake.lock"
           echo ""
@@ -113,17 +137,107 @@
       };
     };
 
+    # Validation checks - run with `nix flake check`
+    # The nixosConfigurations.nixoa below serves as the primary check,
+    # validating that all modules can be evaluated and instantiated correctly
+    checks.${system} = {
+      # Verify the nixosConfiguration can be built (validates all modules)
+      configuration = self.nixosConfigurations.nixoa.config.system.build.toplevel;
+    };
+
+    # Test configuration - validates that modules can be instantiated
+    nixosConfigurations.nixoa = lib.nixosSystem {
+      inherit system;
+
+      modules = [
+        self.nixosModules.default
+
+        # Minimal test configuration
+        {
+          # Prevent infinite recursion by providing minimal required values
+          _module.args = {
+            systemSettings = {
+              hostname = "nixoa";
+              username = "xoa";
+              stateVersion = "25.11";
+              timezone = "UTC";
+              sshKeys = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample test@example.com" ];
+
+              xo = {
+                port = 80;
+                httpsPort = 443;
+                host = "0.0.0.0";
+                service = {
+                  user = "xo";
+                  group = "xo";
+                };
+                tls = {
+                  enable = true;
+                  redirectToHttps = true;
+                  autoGenerate = true;
+                  dir = "/etc/ssl/xo";
+                  cert = "/etc/ssl/xo/certificate.pem";
+                  key = "/etc/ssl/xo/key.pem";
+                };
+              };
+
+              storage = {
+                nfs.enable = true;
+                cifs.enable = true;
+                vhd.enable = true;
+                mountsDir = "/var/lib/xo/mounts";
+              };
+
+              networking.firewall.allowedPorts = [ 80 443 ];
+
+              packages.system.extra = [];
+
+              updates = {
+                repoDir = "/etc/nixos/nixoa-vm";
+                monitoring.notifyOnSuccess = false;
+                gc.enable = false;
+                autoUpgrade.enable = false;
+                nixpkgs.enable = false;
+                xoa.enable = false;
+                libvhdi.enable = false;
+              };
+
+              services.definitions = {};
+            };
+
+            userSettings = {
+              packages.extra = [];
+              extras.enable = false;
+            };
+          };
+
+          # Minimal hardware configuration for test build
+          # Boot configuration now handled by boot.nix with systemd-boot as default
+          # To use GRUB instead, override:
+          # nixoa.boot.loader = "grub";
+          # nixoa.boot.grub.device = "/dev/sda";
+
+          fileSystems."/" = {
+            device = "/dev/disk/by-uuid/00000000-0000-0000-0000-000000000000";
+            fsType = "ext4";
+          };
+
+          system.stateVersion = "25.11";
+        }
+      ];
+    };
+
     # Development shell
     devShells.${system}.default = pkgs.mkShell {
-      packages = with pkgs; [ 
-        jq 
-        git 
-        curl 
+      packages = with pkgs; [
+        jq
+        git
+        curl
         nixos-rebuild
         nix-tree
         nix-diff
       ];
-      
+
       shellHook = ''
         echo "╔══════════════════════════════════════════════════════════╗"
         echo "║     NixOA-VM Module Library Development Environment       ║"
@@ -134,7 +248,7 @@
         echo "📁 Module organization:"
         echo "  ./modules/core/     - System modules (users, network, packages, services)"
         echo "  ./modules/xo/       - XO-specific modules (xoa, storage, autocert, etc.)"
-        echo "  ./modules/bundle.nix - Dynamic module discovery (excludes home/)"
+        echo "  ./modules/default.nix - Module entry point (explicit imports)"
         echo ""
         echo "📝 Available commands:"
         echo "  nix run .#update-xo                - Update XO source code"

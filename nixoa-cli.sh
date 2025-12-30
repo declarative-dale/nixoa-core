@@ -5,7 +5,7 @@
 set -euo pipefail
 
 VERSION="1.0.0"
-NIXOA_DIR="/etc/nixos/nixoa/nixoa-vm"
+NIXOA_DIR="/etc/nixos/nixoa-vm"
 
 # Resolve config directory with proper sudo handling
 if [ -n "${SUDO_USER:-}" ]; then

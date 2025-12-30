@@ -1,238 +1,188 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
-## v0.8 - NiXOA-VM Appliance Mode
+## v1.0.0 — Milestone Release
 
-**Release Date:** December 24, 2025
+Date: 2025-12-29
 
-### 🎉 Major Architectural Change: Module Library Migration
+This milestone release marks nixoa-vm reaching production-ready maturity with standardized option naming, modular architecture, and comprehensive feature completeness.
 
-This release represents a fundamental restructuring of the NixOA project, inverting the dependency between `nixoa-vm` and `user-config` flakes for a cleaner, more maintainable architecture.
+### 🎉 Milestone Achievements
 
----
+- First stable 1.0.0 release
+- Standardized options namespace (`nixoa.*`)
+- Highly modular architecture
+- Fully reproducible xen-orchestra build created as a nixpkg, pkg/xen-orchestra-ce/default.nix
 
-### What Changed
+### ⚠️ BREAKING CHANGES
 
-#### Before (v0.x - Inverted Architecture)
-```
-nixoa-vm (entry point)
-├── Exports: nixosConfigurations
-├── Imports: user-config
-└── Rebuild location: /etc/nixos/nixoa/nixoa-vm
+All options renamed from `xoa.*` to `nixoa.*` namespace:
 
-user-config (data export)
-├── Exports: configuration data only
-├── Contains: configuration.nix, config.nixoa.toml
-└── Location: /etc/nixos/nixoa/user-config
-```
+- `config.xoa.enable` → `config.nixoa.xo.enable`
+- `config.xoa.xo.*` → `config.nixoa.xo.*`
+- `config.xoa.storage.*` → `config.nixoa.storage.*`
+- `config.xoa.autocert.*` → `config.nixoa.autocert.*`
+- `config.xoa.extras` → `config.nixoa.extras`
 
-#### After (v0.8 - Correct Architecture)
-```
-user-config (entry point) ✅
-├── Exports: nixosConfigurations
-├── Imports: nixoa-vm as module library
-├── Contains: modules/home.nix, configuration.nix
-└── Rebuild location: ~/user-config
+**Migration required** for all existing configurations.
 
-nixoa-vm (module library) ✅
-├── Exports: nixosModules.default
-├── Contains: core/, xo/ system modules (immutable)
-├── Location: /etc/nixos/nixoa/nixoa-vm (git-managed)
-└── Updated via: git pull only
-```
+### ✨ Added
 
----
+- **Snitch network monitor** package for real-time connection monitoring
+- **configNixoaFile option** to link `config.nixoa.toml` to `/etc/xo-server/` for runtime config changes, config.nixoa.toml is an override file that operates on top of the default /etc/xo-server/config.toml, which you should not edit directly.
+- **boot.nix module** with systemd-boot (endabled by default) + GRUB support with flexible boot configuration toggle
+- **Modular updates system** - split `updates.nix` into `updates/` directory:
+  - `updates/common.nix` - shared update functionality
+  - `updates/auto-upgrade.nix` - system auto-upgrade scheduling
+  - `updates/gc.nix` - garbage collection
+  - `updates/xoa.nix` - Xen Orchestra updates
+  - `updates/nixpkgs.nix` - nixpkgs package updates
+  - `updates/libvhdi.nix` - libvhdi library updates
+- Made `config.nixoa.toml` readable by `xo` user for runtime configuration access
+- Added explicit module imports replacing dynamic discovery
 
-### nixoa-vm Flake Changes
+### 🔄 Changed
 
-#### ✨ New: Module Library Exports
-- **`nixosModules.default`** - Primary export bundling all system modules (core/, xo/)
-- Automatically imports all modules except home/ (now in user-config)
-- Makes flake sources (xoSrc, libvhdiSrc) available to modules
-- Can be imported by user-config: `nixoa-vm.nixosModules.default`
+- Replaced dynamic module bundling with explicit imports in `modules/default.nix`
+- Updated `autocert.nix` to use local variables (`httpCfg`, `xoUser`, `xoGroup`)
+- Simplified boot configuration logic (removed redundant conditionals)
+- Enhanced package references to use `nixoaPackages.xo-ce` directly
+- Updated all module option references to new `nixoa.*` namespace
+- Improved Node.js v20 → v24 migration in xen-orchestra package
 
-#### 🔄 Removed: Configuration Entry Point
-- `nixosConfigurations.*` output removed (responsibility moved to user-config)
-- No longer consumes `nixoa-config` input
-- No longer imports hardware-configuration.nix directly
-- Simplified to pure module provider (no configuration logic)
+### 🗑️ Removed
 
-#### 📝 Updated: Development Shell
-- Updated devShell messages to reflect module library purpose
-- Clarified that configuration is in ~/user-config, not here
-- Added usage instructions for module imports
+- `bundle.nix` (replaced with explicit imports)
+- `modules/home/home.nix` (migrated to user-config)
+- `integration.nix` module (functionality distributed)
+- Redundant permission checks
 
-#### 📍 Updated: Installer Script
-- Changed user-config installation location from `/etc/nixos/nixoa/user-config` to `~/user-config`
-- Simplified installer to clone both flakes to their new locations
-- Updated rebuild command examples to reference new entry point
+### 🐛 Fixed
 
-#### 🔧 Updated: Update Module
-- Changed `updates.repoDir` default from `/etc/nixos/xoa-flake` to `~/user-config`
-- Rebuild commands now target correct entry point automatically
-- Tilde expansion works with admin user home directory
+- Service environment path configuration
+- Systemd working directory conflicts
+- Package reference scoping issues during module evaluation
+- Broken symlinks in xen-orchestra build process
+- Git repository handling in Nix sandbox
+- Dev dependencies installation in yarn build
+- Various syntax errors in configuration files
 
-#### 📚 Updated: Documentation
-- README.md updated with new installation flow
-- Installation steps now show correct directory structure
-- Examples reflect rebuilding from ~/user-config
-- Clarified that nixoa-vm is immutable module library
+### 📚 Documentation
+
+- Updated all option references throughout documentation
+- Updated CONFIGURATION.md with new option names
+- Updated troubleshooting guides with correct file paths
 
 ---
 
-### How This Affects You
+## v0.9 — Architecture Refactoring (yarn2nix Packaging & Build System Separation)
 
-#### Installation Workflow
-**Old (v0.x):**
-```bash
-sudo mkdir -p /etc/nixos/nixoa
-sudo git clone https://codeberg.org/nixoa/nixoa-vm.git /etc/nixos/nixoa/nixoa-vm
-sudo git clone https://codeberg.org/nixoa/user-config.git /etc/nixos/nixoa/user-config
-# Edit /etc/nixos/nixoa/user-config/configuration.nix
-cd /etc/nixos/nixoa/nixoa-vm
-sudo nixos-rebuild switch --flake .#hostname
-```
+Date: 2025-12-24
 
-**New (v0.8):**
-```bash
-bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
-# Installer clones both automatically:
-# - nixoa-vm → /etc/nixos/nixoa/nixoa-vm (immutable)
-# - user-config → ~/user-config (your home directory)
+This major release refactors NixOA-VM from a runtime build system to a pure Nix-packaged solution using yarn2nix. This transformation improves reproducibility, enables binary caching, and reduces deployment time from 45+ minutes to seconds.
 
-# Edit ~/user-config/configuration.nix
-cd ~/user-config
-sudo nixos-rebuild switch --flake .#hostname
-```
+### ✨ Added
 
-#### Rebuild Workflow
-**Old:**
-```bash
-cd /etc/nixos/nixoa/nixoa-vm
-sudo nixos-rebuild switch --flake .#<hostname>
-```
+**Phase 1: Package Definitions**
+- Xen Orchestra packaged via yarn2nix in `pkgs/xoa/default.nix` with full Yarn workspace support
+- libvhdi extracted as standalone package in `pkgs/libvhdi/default.nix`
+- Packages exposed via flake outputs with overlay support for easy integration
+- Package verification and artifact validation in build process
 
-**New:**
-```bash
-cd ~/user-config  # Your personal configuration
-sudo nixos-rebuild switch --flake .#<hostname>
-```
+**Phase 2: Centralized Utilities**
+- New `lib/utils.nix` with reusable helper functions for common patterns
+- `getOption` function for safe nested attribute access with defaults
+- Helper functions for common Nix patterns: `mkDefaultOption`, `mkEnableOpt`, `mkSystemdService`
+- Path and port validation helpers for improved type safety
 
-#### File Organization
+**Phase 4: Flake Integration**
+- Clean separation of build inputs (in nixoa-vm) from user configuration (in user-config)
+- Packages and utilities automatically available via nixoa-vm's `_module.args`
+- Simplified flake inheritance model with zero duplication
 
-##### nixoa-vm (Immutable)
-```
-/etc/nixos/nixoa/nixoa-vm/
-├── flake.nix              # Module library exports
-├── modules/
-│   ├── core/              # System modules
-│   ├── xo/                # XO service modules
-│   └── home/              # REMOVED (moved to user-config)
-├── scripts/               # Setup and helper scripts
-└── README.md              # Installation guide
-```
+### 🔄 Changed
 
-##### user-config (Your Configuration)
-```
-~/user-config/
-├── flake.nix              # Entry point (exports nixosConfigurations)
-├── configuration.nix      # Your settings
-├── modules/
-│   └── home.nix           # Home-manager config (NEW location)
-├── hardware-configuration.nix
-├── config.nixoa.toml
-└── scripts/               # Helper scripts
-```
+**Phase 3: Module Refactoring (268 lines removed)**
 
----
+1. **xoa.nix (43% reduction - 618 → 352 lines)**
+   - Removed 136-line buildXO script - build now happens at package time
+   - Removed 33-line checkXORebuildNeeded script - rebuild detection obsolete
+   - Removed nodeWithFuse wrapper - native modules pre-patched in package
+   - Removed xo-build.service systemd service - no runtime build needed
+   - Updated startXO to use packaged XOA from `/nix/store` (immutable)
+   - Removed 4 obsolete options: `appDir`, `webMountDir`, `webMountDirv6`, `buildIsolation`
+   - Updated xo-server.service to remove dependency on xo-build.service
+   - Updated WorkingDirectory to immutable /nix/store path
+   - Removed LD_LIBRARY_PATH (native modules pre-patched)
+   - Removed appDir from ReadWritePaths
 
-### Benefits of This Architecture
+2. **libvhdi.nix (64% reduction - 112 → 40 lines)**
+   - Removed 64-line inline derivation - now in pkgs/libvhdi/default.nix
+   - Removed fallback fetchurl logic - source provided by flake inputs
+   - Updated package default to reference nixoaPackages.libvhdi
 
-#### ✅ Clearer Separation of Concerns
-- **nixoa-vm**: Immutable system module definitions
-- **user-config**: User configuration and settings
+3. **Core Module Utility Refactoring (54 lines removed)**
+   - All 6 core modules now use centralized `getOption` from lib/utils.nix
+   - Eliminated 9-line `get` function duplication in each module
+   - Updated modules: base.nix, networking.nix, packages.nix, services.nix, users.nix, integration.nix
+   - Added nixoaUtils to function parameters across all affected modules
 
-#### ✅ Better Maintainability
-- nixoa-vm updates via git (controlled)
-- user-config changes are personal (isolated)
-- No circular dependencies
+**Documentation Updates**
+- Updated CONFIGURATION.md: system-settings.toml → configuration.nix, xo-server-settings.toml → config.nixoa.toml
+- Updated troubleshooting-cheatsheet.md with new file references
+- Updated xo-config.nix comment: "nixoa-config flake" → "user-config flake"
+- Updated all configuration examples to reflect new Nix-based configuration format
 
-#### ✅ Improved User Experience
-- All edits happen in one place: `~/user-config/`
-- Rebuild command runs from configuration directory (intuitive)
-- Home-manager config with your settings, not system-wide
+### ✨ Benefits
 
-#### ✅ Easier System Updates
-- Update nixoa-vm: `cd /etc/nixos/nixoa/nixoa-vm && sudo git pull`
-- Update user-config: `cd ~/user-config && git pull`
-- Rebuild from user-config: automatic module import from nixoa-vm
+**For Users**
+- 10-100x faster deploys: No 45-minute build on every `nixos-rebuild`
+- Binary cache eligible: XOA can be pre-built and cached
+- Reproducible builds: Same inputs → identical package hash
+- Atomic updates: Switch XO versions instantly via rollback
 
----
+**For Developers**
+- Cleaner architecture: Build (flake) vs. runtime (modules) separation
+- 322 lines of code removed (build scripts + duplicated functions)
+- Better testability: Packages can be tested independently
+- Maintainability: Single source of truth for utilities
 
-### Breaking Changes ⚠️
+**For the Project**
+- Nix best practices: Proper flake structure, pure derivations
+- Upstream-friendly: XOA package could be contributed to nixpkgs
+- CI/CD ready: Packages can be built and cached in CI
 
-This is a **major version release** with breaking changes. Existing installations will not work with v1.0 without updates.
+### 🔧 Implementation Details
 
-#### What Breaks
-- ❌ Old flake.lock files invalid (nixoa-config input removed)
-- ❌ Cannot rebuild from `/etc/nixos/nixoa/nixoa-vm` anymore
-- ❌ user-config cannot be at `/etc/nixos/nixoa/user-config` (must be ~/user-config)
-- ❌ home-manager config location changed (moved to user-config/modules/home.nix)
+**Phase 1 - Package Definitions**
+- Created XOA package with yarn2nix using workspace dependencies
+- Applied upstream patches (SMB handler, TypeScript generics) in preBuild
+- Native module patching with patchelf in postInstall
+- Build artifact verification with explicit error messages
+- libvhdi extracted with full autoconf configuration
 
-#### Migration Path
+**Phase 2 - Utils Library**
+- Nested attribute access with proper default handling
+- Helper utilities for option definitions and service templates
+- Path and port validation to catch configuration errors early
+- Imported and exported via flake as nixoaUtils
 
-For **fresh installations**, use the new installer (recommended):
-```bash
-bash <(curl -fsSL https://codeberg.org/nixoa/nixoa-vm/raw/main/scripts/xoa-install.sh)
-```
+**Phase 3 - Module Refactoring**
+- xoa.nix: Removed all runtime build logic, uses packaged XOA
+- libvhdi.nix: Package default references nixoaPackages.libvhdi
+- Core modules: Replace duplicated `get` function with `getOption` utility
+- integration.nix: Updated all `get` calls to `getOption systemSettings`
 
----
+**Phase 4 - Flake Integration**
+- user-config: Removed unnecessary xoSrc/libvhdiSrc from specialArgs
+- nixoa-vm: Provides nixoaPackages and nixoaUtils via _module.args
+- Clean separation: Flake inputs managed by nixoa-vm only
 
-### Module Library Usage
+**Phase 5 - Documentation Cleanup**
+- Systematic search and replace of stale file name references
+- Updated documentation to reflect new configuration format
+- Module comments updated to reflect new architecture
 
-If you want to extend NixOA with custom flakes, you can now import nixoa-vm as a module library:
-
-```nix
-# In your flake.nix
-inputs = {
-  nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
-  nixoa-vm = {
-    url = "path:/etc/nixos/nixoa/nixoa-vm";
-    inputs.nixpkgs.follows = "nixpkgs";
-  };
-};
-
-outputs = { self, nixpkgs, nixoa-vm }:
-{
-  nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
-    system = "x86_64-linux";
-    modules = [
-      nixoa-vm.nixosModules.default
-      # Your custom modules here
-    ];
-  };
-};
-```
-
----
-
-### Technical Details
-
-#### Flake Input Resolution
-- **nixoa-vm input path**: `path:/etc/nixos/nixoa/nixoa-vm`
-- **home-manager source**: Follows from nixoa-vm (`home-manager.follows = "nixoa-vm/home-manager"`)
-- **nixpkgs consistency**: Both flakes follow the same nixpkgs (25.11 release branch)
-
-### Module Bundling
-- **Bundle mechanism**: `modules/bundle.nix` dynamically discovers all .nix files
-- **Exclusions**: `bundle.nix`, `default.nix`, and `home/` directory
-- **Imports**: Automatic recursive import from subdirectories (core/, xo/)
-
-### Home-Manager Integration
-- **Location**: Moved from `nixoa-vm/modules/home/home.nix` to `user-config/modules/home.nix`
-- **Configuration**: Still integrated as NixOS module (single rebuild command)
-- **Specialization**: Receives userSettings and systemSettings via extraSpecialArgs
----
 ## v0.4 — Stability & Production Updates (Vates Camp 2025 Edition)
 
 Date: 2025-12-03

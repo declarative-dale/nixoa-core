@@ -1,25 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Core system services: journald, monitoring, and custom service definitions
 
-{ config, pkgs, lib, systemSettings ? {}, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  # Safe attribute access with defaults
-  get = path: default:
-    let
-      getValue = cfg: pathList:
-        if pathList == []
-        then cfg
-        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
-        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
-        else null;
-      result = getValue systemSettings path;
-    in
-      if result == null then default else result;
-
-  # Extract commonly used values
-  servicesDefinitions = get ["services" "definitions"] {};
-in
 {
   # ============================================================================
   # SERVICES CONFIGURATION
@@ -74,10 +57,5 @@ in
         Compress=yes
       '';
     }
-    # Custom services from user-config services.definitions
-    # Users can define services with custom configurations
-    # Note: Service names are validated by NixOS module system at evaluation time
-    # Invalid service names will produce clear error messages
-    servicesDefinitions
   ];
 }

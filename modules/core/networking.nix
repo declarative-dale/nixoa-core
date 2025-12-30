@@ -1,25 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Network configuration and firewall rules
 
-{ config, pkgs, lib, systemSettings ? {}, ... }:
+{ config, pkgs, lib, ... }:
 
-let
-  # Safe attribute access with defaults
-  get = path: default:
-    let
-      getValue = cfg: pathList:
-        if pathList == []
-        then cfg
-        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
-        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
-        else null;
-      result = getValue systemSettings path;
-    in
-      if result == null then default else result;
-
-  # Extract commonly used values
-  allowedTCPPorts = get ["networking" "firewall" "allowedTCPPorts"] [80 443 3389 5900 8012];
-in
 {
   # ============================================================================
   # NETWORKING
@@ -31,10 +14,10 @@ in
   networking.useNetworkd = lib.mkDefault true;
   networking.useDHCP = lib.mkDefault true;
 
-  # Firewall configuration
+  # Firewall configuration - defaults allow HTTP/HTTPS, can be overridden in configuration.nix
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = allowedTCPPorts;
+    allowedTCPPorts = lib.mkDefault [80 443];
 
     # Optional: Allow ping
     allowPing = true;
