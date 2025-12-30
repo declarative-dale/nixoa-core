@@ -1,6 +1,6 @@
 # NiXOA: Xen Orchestra on NixOS
 
-Run Xen Orchestra (an open-source hypervisor management platform) on NixOS with a declarative, version-controlled configuration.
+Xen Orchestra from sources on NixOS with a declarative, version-controlled configuration.
 
 ## What is NiXOA?
 
