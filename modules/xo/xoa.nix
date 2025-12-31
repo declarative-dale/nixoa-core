@@ -368,6 +368,7 @@ in
           cfg.cacheDir
           cfg.dataDir
           cfg.tempDir
+          "/tmp"                # Multiparty form parser needs this for large file uploads
           "/etc/xo-server"
           "/var/lib/xo-server"  # XO server internal state directory
           config.nixoa.storage.mountsDir
