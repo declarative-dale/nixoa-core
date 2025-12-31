@@ -350,7 +350,7 @@ in
         TimeoutStartSec = "5min";
 
         # Security hardening
-        PrivateTmp = true;
+        PrivateTmp = false;  # Disable isolated /tmp to allow multiparty large file uploads
         ProtectSystem = "full";  # Makes /usr, /boot, /efi read-only (strict is too restrictive)
         ProtectHome = true;
         PrivateDevices = false;  # Need device access for LVM and xenstore
@@ -368,7 +368,6 @@ in
           cfg.cacheDir
           cfg.dataDir
           cfg.tempDir
-          "/tmp"                # Multiparty form parser needs this for large file uploads
           "/etc/xo-server"
           "/var/lib/xo-server"  # XO server internal state directory
           config.nixoa.storage.mountsDir
