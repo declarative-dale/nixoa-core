@@ -350,7 +350,7 @@ in
         TimeoutStartSec = "5min";
 
         # Security hardening
-        PrivateTmp = false;  # Disable isolated /tmp to allow multiparty large file uploads
+        PrivateTmp = true;
         ProtectSystem = "full";  # Makes /usr, /boot, /efi read-only (strict is too restrictive)
         ProtectHome = true;
         PrivateDevices = false;  # Need device access for LVM and xenstore
@@ -370,7 +370,6 @@ in
           cfg.tempDir
           "/etc/xo-server"
           "/var/lib/xo-server"  # XO server internal state directory
-          "/var/run/sr-mount"   # SR mount points (for ISO imports and VDI operations)
           config.nixoa.storage.mountsDir
           "/run/lock"           # LVM lock files
           "/run/redis-xo"       # Redis socket
