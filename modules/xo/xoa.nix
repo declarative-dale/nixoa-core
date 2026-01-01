@@ -370,6 +370,7 @@ in
           cfg.tempDir
           "/etc/xo-server"
           "/var/lib/xo-server"  # XO server internal state directory
+          "/var/run/sr-mount"   # SR mount points (for ISO imports and VDI operations)
           config.nixoa.storage.mountsDir
           "/run/lock"           # LVM lock files
           "/run/redis-xo"       # Redis socket
