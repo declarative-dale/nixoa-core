@@ -165,7 +165,6 @@ Updates run on schedules if enabled in configuration:
 systemctl list-timers | grep xoa
 
 # View update status
-sudo systemctl status xoa-gc.timer
 sudo systemctl status xoa-nixpkgs-update.timer
 sudo systemctl status xoa-xoa-update.timer
 ```
@@ -173,9 +172,6 @@ sudo systemctl status xoa-xoa-update.timer
 ### Trigger Automatic Update Manually
 
 ```bash
-# Garbage collection
-sudo systemctl start xoa-gc.service
-
 # Update NixPkgs
 sudo systemctl start xoa-nixpkgs-update.service
 
@@ -299,15 +295,9 @@ sudo -u xo redis-cli -s /run/redis-xo/redis.sock ping
 
 ## Maintenance Tasks
 
-### Clean Unused Nix Store
+### Nix Store
 
-```bash
-# Remove unused packages
-sudo nix-collect-garbage
-
-# Remove old generations too (more aggressive)
-sudo nix-collect-garbage -d
-```
+Garbage collection and store optimization are automatically handled by Determinate Nix.
 
 ### Check Filesystem
 

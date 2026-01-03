@@ -69,7 +69,6 @@ modules/
     ├── libvhdi.nix   - VHD library
     ├── autocert.nix  - Auto TLS certificates
     ├── updates/      - Update system
-    │   ├── gc.nix
     │   ├── xoa.nix
     │   └── nixpkgs.nix
     ├── extras.nix    - Terminal enhancements
@@ -153,7 +152,7 @@ These implement Xen Orchestra functionality:
 - **storage.nix** - NFS mount support, CIFS mount support, VHD library setup
 - **libvhdi.nix** - VHD (Virtual Hard Disk) support
 - **autocert.nix** - Auto-generated TLS certificates
-- **updates/** - Automated update system (garbage collection, package updates, XO updates)
+- **updates/** - Automated update system (package updates, XO updates)
 - **extras.nix** - Optional terminal enhancements (zsh, oh-my-posh, tools)
 - **nixoa-cli.nix** - CLI utilities for NiXOA
 

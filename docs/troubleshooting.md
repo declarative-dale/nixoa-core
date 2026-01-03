@@ -63,8 +63,6 @@ sudo systemctl restart redis-xo.service
 **Disk full:**
 ```bash
 df -h
-# If /nix/store is full:
-sudo nix-collect-garbage -d
 ```
 
 **Memory issues:**
@@ -224,7 +222,6 @@ nix search nixpkgs packagename
 **Out of disk space:**
 ```bash
 df -h
-sudo nix-collect-garbage -d
 ```
 
 **Network timeout:**
@@ -323,18 +320,9 @@ du -sh /nix/store
 du -sh /var/lib/xo/
 ```
 
-### Clean Nix Store
+### Nix Store Cleanup
 
-```bash
-# Remove unused packages (safe)
-sudo nix-collect-garbage
-
-# More aggressive cleanup
-sudo nix-collect-garbage -d
-
-# Delete old generations
-sudo nix-env --delete-generations old
-```
+Garbage collection and store optimization are automatically handled by Determinate Nix.
 
 ### Clean XO Data
 
@@ -424,33 +412,22 @@ sudo journalctl --vacuum-time=7d
 systemctl list-timers
 
 # Check specific timer
-sudo systemctl status xoa-gc.timer
 sudo systemctl status xoa-nixpkgs-update.timer
 ```
 
 ### Manually Trigger Update
 
 ```bash
-# Test garbage collection
-sudo systemctl start xoa-gc.service
-
-# Check status
-sudo systemctl status xoa-gc.service
+# Check status of an update service
+sudo systemctl status xoa-nixpkgs-update.service
 
 # View logs
-sudo journalctl -u xoa-gc.service -e
+sudo journalctl -u xoa-nixpkgs-update.service -e
 ```
 
 ### Check Update Configuration
 
-Verify in `~/user-config/configuration.nix`:
-
-```nix
-systemSettings.updates = {
-  gc.enable = true;           # Enabled?
-  gc.schedule = "Sun 04:00";  # Valid time?
-};
-```
+Verify in `~/user-config/configuration.nix` that your desired updates are enabled (autoUpgrade, nixpkgs, xoa, etc.).
 
 ## Rollback to Previous Version
 

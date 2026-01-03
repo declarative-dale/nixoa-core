@@ -2,7 +2,6 @@
 {
   imports = [
     ./common.nix
-    ./gc.nix
     ./auto-upgrade.nix
     ./nixpkgs.nix
     ./xoa.nix

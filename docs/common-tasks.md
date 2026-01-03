@@ -145,18 +145,6 @@ systemSettings.boot.loader = "grub";
 
 ## Enable Automated Updates
 
-### Garbage Collection
-
-Runs weekly garbage collection:
-
-```nix
-systemSettings.updates.gc = {
-  enable = true;
-  schedule = "Sun 04:00";     # Sunday 4 AM
-  keepGenerations = 7;        # Keep 7 generations
-};
-```
-
 ### NixPkgs Updates
 
 Automatically update packages:

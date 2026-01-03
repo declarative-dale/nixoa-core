@@ -65,23 +65,9 @@
 
       # Trusted users (can use binary caches)
       trusted-users = [ "root" config.nixoa.admin.username ];
-
-      # Prevent disk space issues
-      min-free = lib.mkDefault (1024 * 1024 * 1024); # 1GB
-      max-free = lib.mkDefault (5 * 1024 * 1024 * 1024); # 5GB
     };
 
-    # Garbage collection
-    gc = {
-      automatic = lib.mkDefault false;
-      dates = lib.mkDefault "weekly";
-      options = lib.mkDefault "--delete-older-than 14d";
-    };
-
-    # Optimize store on a schedule
-    optimise = {
-      automatic = true;
-      dates = [ "weekly" ];
-    };
+    # Note: Garbage collection and store optimization are automatically handled by Determinate Nix
+    # which provides enhanced garbage collection and automatic cleanup
   };
 }

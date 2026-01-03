@@ -195,7 +195,6 @@
               updates = {
                 repoDir = "/etc/nixos/nixoa-vm";
                 monitoring.notifyOnSuccess = false;
-                gc.enable = false;
                 autoUpgrade.enable = false;
                 nixpkgs.enable = false;
                 xoa.enable = false;
