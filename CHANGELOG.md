@@ -1,6 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v1.1 - Determinate Nix
 ## v1.0.0 — Milestone Release
 
 Date: 2025-12-29
