@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Network configuration and firewall rules
 
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   # ============================================================================
@@ -17,7 +22,10 @@
   # Firewall configuration - defaults allow HTTP/HTTPS, can be overridden in configuration.nix
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = lib.mkDefault [80 443];
+    allowedTCPPorts = lib.mkDefault [
+      80
+      443
+    ];
 
     # Optional: Allow ping
     allowPing = true;
@@ -32,5 +40,5 @@
 
   # Enable rpcbind for NFSv3 support
   services.rpcbind.enable = true;
-  services.nfs.server.enable = false;  # We're a client, not a server
+  services.nfs.server.enable = false; # We're a client, not a server
 }

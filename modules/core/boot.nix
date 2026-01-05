@@ -1,15 +1,28 @@
 # SPDX-License-Identifier: Apache-2.0
 # Boot and bootloader configuration with systemd-boot as default
 
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
-  inherit (lib) mkOption mkDefault mkIf types;
+  inherit (lib)
+    mkOption
+    mkDefault
+    mkIf
+    types
+    ;
 in
 {
   options.nixoa.boot = {
     loader = mkOption {
-      type = types.enum [ "systemd-boot" "grub" ];
+      type = types.enum [
+        "systemd-boot"
+        "grub"
+      ];
       default = "systemd-boot";
       description = "Boot loader to use: systemd-boot (recommended for EFI) or grub (for BIOS/legacy boot)";
     };
@@ -39,7 +52,9 @@ in
 
     # Systemd-boot configuration (default)
     boot.loader.systemd-boot.enable = mkDefault (config.nixoa.boot.loader == "systemd-boot");
-    boot.loader.efi.canTouchEfiVariables = mkIf (config.nixoa.boot.loader == "systemd-boot") config.nixoa.boot.efi.canTouchEfiVariables;
+    boot.loader.efi.canTouchEfiVariables = mkIf (
+      config.nixoa.boot.loader == "systemd-boot"
+    ) config.nixoa.boot.efi.canTouchEfiVariables;
 
     # GRUB configuration (alternative for BIOS/legacy boot)
     # Only defined when loader is set to "grub"

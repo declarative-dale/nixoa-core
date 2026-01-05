@@ -3,16 +3,28 @@
 # NOTE: User-specific extras (zsh config, packages, dotfiles) are now managed by Home Manager
 # This module only handles system-level requirements
 
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
-  inherit (lib) mkOption mkEnableOption types mkIf;
+  inherit (lib)
+    mkOption
+    mkEnableOption
+    types
+    mkIf
+    ;
   cfg = config.nixoa.extras;
   adminShell = config.nixoa.admin.shell;
 in
 {
   options.nixoa.extras = {
-    enable = mkEnableOption "Enhanced terminal experience for admin user" // { default = false; };
+    enable = mkEnableOption "Enhanced terminal experience for admin user" // {
+      default = false;
+    };
   };
 
   config = lib.mkMerge [

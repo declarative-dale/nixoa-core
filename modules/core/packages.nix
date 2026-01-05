@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # System packages and Nix configuration
 
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   # ============================================================================
@@ -27,7 +32,7 @@
     lsof
     iotop
     sysstat
-    dool  # dstat replacement
+    dool # dstat replacement
 
     # Network tools
     nfs-utils
@@ -58,13 +63,19 @@
   nix = {
     # Enable flakes and new command interface
     settings = {
-      experimental-features = [ "nix-command" "flakes" ];
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
 
       # Build optimization
       auto-optimise-store = true;
 
       # Trusted users (can use binary caches)
-      trusted-users = [ "root" config.nixoa.admin.username ];
+      trusted-users = [
+        "root"
+        config.nixoa.admin.username
+      ];
     };
 
     # Note: Garbage collection and store optimization are automatically handled by Determinate Nix

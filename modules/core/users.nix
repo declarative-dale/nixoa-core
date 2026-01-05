@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # User and group management, SSH configuration, security, and sudo
 
-{ config, pkgs, lib, nixoaUtils, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  nixoaUtils,
+  ...
+}:
 
 let
   inherit (lib) mkOption types mkEnableOption;
@@ -24,12 +30,15 @@ in
       };
       sshKeys = mkOption {
         type = types.listOf types.str;
-        default = [];
+        default = [ ];
         description = "SSH public keys authorized for admin user";
         example = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@example.com" ];
       };
       shell = mkOption {
-        type = types.enum ["bash" "zsh"];
+        type = types.enum [
+          "bash"
+          "zsh"
+        ];
         default = "bash";
         description = "Login shell for admin user (bash or zsh)";
       };
@@ -54,8 +63,8 @@ in
     # ============================================================================
 
     # Primary group for XO service
-    users.groups.${xoServiceGroup} = {};
-    users.groups.fuse = {};
+    users.groups.${xoServiceGroup} = { };
+    users.groups.fuse = { };
 
     # XO service account (runs xo-server and related services)
     users.users.${xoServiceUser} = {
@@ -76,7 +85,10 @@ in
       home = "/home/${username}";
       # Shell selection based on admin.shell option
       shell = if shell == "zsh" then pkgs.zsh else pkgs.bashInteractive;
-      extraGroups = [ "wheel" "systemd-journal" ];
+      extraGroups = [
+        "wheel"
+        "systemd-journal"
+      ];
 
       # Locked password - SSH key authentication only
       hashedPassword = "!";
@@ -100,7 +112,10 @@ in
         {
           users = [ username ];
           commands = [
-            { command = "ALL"; options = [ "NOPASSWD" ]; }
+            {
+              command = "ALL";
+              options = [ "NOPASSWD" ];
+            }
           ];
         }
 

@@ -1,7 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # System identification, locale, bootloader, and kernel configuration
 
-{ config, pkgs, lib, nixoaUtils, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  nixoaUtils,
+  ...
+}:
 
 let
   inherit (lib) mkOption mkDefault types;
@@ -63,7 +69,10 @@ in
 
     # Ensure both bash and zsh are valid login shells for the system
     # Shell selection per-user is configured in users.users.<name>.shell
-    environment.shells = [ pkgs.bashInteractive pkgs.zsh ];
+    environment.shells = [
+      pkgs.bashInteractive
+      pkgs.zsh
+    ];
 
     # ============================================================================
     # STATE VERSION

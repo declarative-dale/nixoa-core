@@ -5,7 +5,12 @@
 # Only writes the file if the system flake provides config
 # ============================================================================
 
-{ config, lib, xoTomlData ? null, ... }:
+{
+  config,
+  lib,
+  xoTomlData ? null,
+  ...
+}:
 
 let
   inherit (lib) mkIf;

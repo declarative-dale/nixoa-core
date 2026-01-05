@@ -1,7 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
-  inherit (lib) mkOption mkEnableOption types mkIf;
+  inherit (lib)
+    mkOption
+    mkEnableOption
+    types
+    mkIf
+    ;
   cfg = config.nixoa.storage;
   # Get XO service user/group from config (defined in users.nix)
   xoUser = config.nixoa.xo.service.user;
@@ -10,16 +20,18 @@ let
 in
 {
   options.nixoa.storage = {
-    nfs.enable  = mkEnableOption "NFS client support for XO remote storage";
+    nfs.enable = mkEnableOption "NFS client support for XO remote storage";
     cifs.enable = mkEnableOption "CIFS/SMB client support for XO remote storage";
-    vhd.enable  = mkEnableOption "VHD mounting support via libvhdi" // { default = true; };
-    
-    mountsDir = mkOption { 
-      type = types.path; 
+    vhd.enable = mkEnableOption "VHD mounting support via libvhdi" // {
+      default = true;
+    };
+
+    mountsDir = mkOption {
+      type = types.path;
       default = "/var/lib/xo/mounts";
       description = "Base directory for XO remote storage mounts";
     };
-    
+
     # Advanced options
     sudoNoPassword = mkOption {
       type = types.bool;
@@ -54,23 +66,31 @@ in
 
     # Install required filesystem tools
     environment.systemPackages =
-      lib.optionals cfg.nfs.enable  [ pkgs.nfs-utils ] ++
-      lib.optionals cfg.cifs.enable [ pkgs.cifs-utils ] ++
-      lib.optionals cfg.vhd.enable  [ config.services.libvhdi.package ];
+      lib.optionals cfg.nfs.enable [ pkgs.nfs-utils ]
+      ++ lib.optionals cfg.cifs.enable [ pkgs.cifs-utils ]
+      ++ lib.optionals cfg.vhd.enable [ config.services.libvhdi.package ];
 
     # Enable libvhdi if VHD support is requested
     services.libvhdi.enable = cfg.vhd.enable;
 
     # FUSE support for user mounts
     programs.fuse.userAllowOther = true;
-    boot.kernelModules = [ "fuse" ]
-      ++ lib.optionals cfg.nfs.enable [ "nfs" "nfsv4" ]
-      ++ lib.optionals cfg.cifs.enable [ "cifs" ];
+    boot.kernelModules = [
+      "fuse"
+    ]
+    ++ lib.optionals cfg.nfs.enable [
+      "nfs"
+      "nfsv4"
+    ]
+    ++ lib.optionals cfg.cifs.enable [ "cifs" ];
 
     # Ensure filesystem support at boot
-    boot.supportedFilesystems = 
-      lib.optionals cfg.nfs.enable [ "nfs" "nfs4" ] ++
-      lib.optionals cfg.cifs.enable [ "cifs" ];
+    boot.supportedFilesystems =
+      lib.optionals cfg.nfs.enable [
+        "nfs"
+        "nfs4"
+      ]
+      ++ lib.optionals cfg.cifs.enable [ "cifs" ];
 
     # Restricted sudo rules using safe wrappers
     security.sudo = {
@@ -80,22 +100,56 @@ in
           users = [ xoUser ];
           commands = [
             # Core mount/umount commands - allow both symlinked and direct paths
-            { command = "/run/current-system/sw/bin/mount"; options = [ "NOPASSWD" ]; }
-            { command = "/run/current-system/sw/bin/umount"; options = [ "NOPASSWD" ]; }
-            { command = "/run/current-system/sw/bin/findmnt"; options = [ "NOPASSWD" ]; }
-            { command = "/run/wrappers/bin/mount"; options = [ "NOPASSWD" ]; }
-            { command = "/run/wrappers/bin/umount"; options = [ "NOPASSWD" ]; }
-            { command = "/run/wrappers/bin/findmnt"; options = [ "NOPASSWD" ]; }
+            {
+              command = "/run/current-system/sw/bin/mount";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/umount";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/current-system/sw/bin/findmnt";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/wrappers/bin/mount";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/wrappers/bin/umount";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/run/wrappers/bin/findmnt";
+              options = [ "NOPASSWD" ];
+            }
             # Allow nix store paths (util-linux can be at different store paths)
-            { command = "/nix/store/*/bin/mount"; options = [ "NOPASSWD" ]; }
-            { command = "/nix/store/*/bin/umount"; options = [ "NOPASSWD" ]; }
-            { command = "/nix/store/*/bin/findmnt"; options = [ "NOPASSWD" ]; }
-          ] ++
-          # VHD mount tools
-          lib.optionals cfg.vhd.enable [
-            { command = "/run/current-system/sw/bin/vhdimount"; options = [ "NOPASSWD" ]; }
-            { command = "/run/current-system/sw/bin/vhdiinfo"; options = [ "NOPASSWD" ]; }
-          ];
+            {
+              command = "/nix/store/*/bin/mount";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/nix/store/*/bin/umount";
+              options = [ "NOPASSWD" ];
+            }
+            {
+              command = "/nix/store/*/bin/findmnt";
+              options = [ "NOPASSWD" ];
+            }
+          ]
+          ++
+            # VHD mount tools
+            lib.optionals cfg.vhd.enable [
+              {
+                command = "/run/current-system/sw/bin/vhdimount";
+                options = [ "NOPASSWD" ];
+              }
+              {
+                command = "/run/current-system/sw/bin/vhdiinfo";
+                options = [ "NOPASSWD" ];
+              }
+            ];
         }
       ];
     };
@@ -125,12 +179,13 @@ in
         ''}";
       };
     };
-    
+
     # Ensure xo user is in fuse group
     assertions = [
       {
-        assertion = config.users.users.${xoUser}.extraGroups or [] != [] -> 
-                   builtins.elem "fuse" config.users.users.${xoUser}.extraGroups;
+        assertion =
+          config.users.users.${xoUser}.extraGroups or [ ] != [ ]
+          -> builtins.elem "fuse" config.users.users.${xoUser}.extraGroups;
         message = "XO user must be in 'fuse' group for remote storage mounting";
       }
       {

@@ -10,20 +10,25 @@ in
 {
   # Custom types for enhanced validation
   customTypes = {
-    systemdCalendar = types.strMatching "^([A-Za-z]+ [0-9]{2}:[0-9]{2}|daily|weekly|monthly)$"
-      // { description = "systemd calendar expression"; };
+    systemdCalendar = types.strMatching "^([A-Za-z]+ [0-9]{2}:[0-9]{2}|daily|weekly|monthly)$" // {
+      description = "systemd calendar expression";
+    };
 
-    email = types.strMatching "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
-      // { description = "valid email address"; };
+    email = types.strMatching "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$" // {
+      description = "valid email address";
+    };
 
-    url = types.strMatching "^https?://.*"
-      // { description = "HTTP or HTTPS URL"; };
+    url = types.strMatching "^https?://.*" // {
+      description = "HTTP or HTTPS URL";
+    };
 
-    nonEmptyStr = types.strMatching ".+"
-      // { description = "non-empty string"; };
+    nonEmptyStr = types.strMatching ".+" // {
+      description = "non-empty string";
+    };
 
-    sshPublicKey = types.strMatching "^(ssh-rsa|ssh-ed25519|ecdsa-sha2-).*"
-      // { description = "SSH public key"; };
+    sshPublicKey = types.strMatching "^(ssh-rsa|ssh-ed25519|ecdsa-sha2-).*" // {
+      description = "SSH public key";
+    };
   };
 
   # Safe nested attribute access with default fallback
@@ -31,77 +36,119 @@ in
   #
   # Usage: getOption systemSettings ["xo" "port"] 80
   # Returns: systemSettings.xo.port or 80 if not found
-  getOption = settings: path: default:
+  getOption =
+    settings: path: default:
     let
-      getValue = cfg: pathList:
-        if pathList == []
-        then cfg
-        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg
-        then getValue cfg.${builtins.head pathList} (builtins.tail pathList)
-        else null;
+      getValue =
+        cfg: pathList:
+        if pathList == [ ] then
+          cfg
+        else if builtins.isAttrs cfg && builtins.hasAttr (builtins.head pathList) cfg then
+          getValue cfg.${builtins.head pathList} (builtins.tail pathList)
+        else
+          null;
       result = getValue settings path;
     in
-      if result == null then default else result;
+    if result == null then default else result;
 
   # Helper to create a module option with common patterns
-  mkDefaultOption = type: default: description: lib.mkOption {
-    inherit type default description;
-  };
+  mkDefaultOption =
+    type: default: description:
+    lib.mkOption {
+      inherit type default description;
+    };
 
   # Helper for enable options
   mkEnableOpt = description: lib.mkEnableOption description;
 
   # Service template helper
-  mkSystemdService = { description, after ? [], requires ? [], wantedBy ? [ "multi-user.target" ], ... }@args:
-    lib.filterAttrs (n: v: n != "description" && n != "after" && n != "requires" && n != "wantedBy") args // {
-      inherit description after requires wantedBy;
+  mkSystemdService =
+    {
+      description,
+      after ? [ ],
+      requires ? [ ],
+      wantedBy ? [ "multi-user.target" ],
+      ...
+    }@args:
+    lib.filterAttrs (
+      n: v: n != "description" && n != "after" && n != "requires" && n != "wantedBy"
+    ) args
+    // {
+      inherit
+        description
+        after
+        requires
+        wantedBy
+        ;
     };
 
   # Path validation helper
-  validatePath = path:
+  validatePath =
+    path:
     assert lib.assertMsg (builtins.isString path && path != "") "Path must be a non-empty string";
     path;
 
   # Port validation helper
-  validatePort = port:
-    assert lib.assertMsg (builtins.isInt port && port > 0 && port < 65536) "Port must be between 1-65535";
+  validatePort =
+    port:
+    assert lib.assertMsg (
+      builtins.isInt port && port > 0 && port < 65536
+    ) "Port must be between 1-65535";
     port;
 
   # Common lib imports for modules (reduces repetitive inherit statements)
   moduleLib = {
-    inherit (lib) mkOption mkDefault mkEnableOption mkIf mkMerge mkForce types;
+    inherit (lib)
+      mkOption
+      mkDefault
+      mkEnableOption
+      mkIf
+      mkMerge
+      mkForce
+      types
+      ;
     inherit (lib.strings) concatStringsSep optionalString;
     inherit (lib.lists) optional optionals;
     inherit (lib.attrsets) mapAttrs' nameValuePair filterAttrs;
   };
 
   # Helper to create a string option with default
-  mkStrOption = default: description: lib.mkOption {
-    type = types.str;
-    inherit default description;
-  };
+  mkStrOption =
+    default: description:
+    lib.mkOption {
+      type = types.str;
+      inherit default description;
+    };
 
   # Helper to create a port option
-  mkPortOption = default: description: lib.mkOption {
-    type = types.port;
-    inherit default description;
-  };
+  mkPortOption =
+    default: description:
+    lib.mkOption {
+      type = types.port;
+      inherit default description;
+    };
 
   # Helper to create a path option
-  mkPathOption = default: description: lib.mkOption {
-    type = types.path;
-    inherit default description;
-  };
+  mkPathOption =
+    default: description:
+    lib.mkOption {
+      type = types.path;
+      inherit default description;
+    };
 
   # Helper to create a boolean option with default
-  mkBoolOption = default: description: lib.mkOption {
-    type = types.bool;
-    inherit default description;
-  };
+  mkBoolOption =
+    default: description:
+    lib.mkOption {
+      type = types.bool;
+      inherit default description;
+    };
 
   # Helper to create a listOf strings option
-  mkListOfStrOption = default: description: lib.mkOption {
-    type = types.listOf types.str;
-    inherit default description;
-  };
+  mkListOfStrOption =
+    default: description:
+    lib.mkOption {
+      type = types.listOf types.str;
+      inherit default description;
+    };
 }

@@ -2,7 +2,11 @@
 # libvhdi Package - Library and tools to access Virtual Hard Disk (VHD) image format
 # Provides vhdimount (FUSE-based VHD mounter), vhdiinfo, and vhdiexport utilities.
 
-{ pkgs, lib, libvhdiSrc }:
+{
+  pkgs,
+  lib,
+  libvhdiSrc,
+}:
 
 pkgs.stdenv.mkDerivation {
   pname = "libvhdi";
@@ -16,9 +20,9 @@ pkgs.stdenv.mkDerivation {
   ];
 
   buildInputs = with pkgs; [
-    fuse          # FUSE2 for vhdimount
-    fuse3         # FUSE3 support
-    zlib          # Compression support
+    fuse # FUSE2 for vhdimount
+    fuse3 # FUSE3 support
+    zlib # Compression support
   ];
 
   configureFlags = [
@@ -67,6 +71,6 @@ pkgs.stdenv.mkDerivation {
     homepage = "https://github.com/libyal/libvhdi";
     license = licenses.lgpl3Plus;
     platforms = platforms.linux;
-    maintainers = [];
+    maintainers = [ ];
   };
 }

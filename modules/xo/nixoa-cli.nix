@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # NiXOA CE CLI tool module
 
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 let
   inherit (lib) mkIf;
@@ -9,7 +14,14 @@ let
   # Create the nixoa CLI package
   nixoa-cli = pkgs.writeShellApplication {
     name = "nixoa";
-    runtimeInputs = with pkgs; [ git coreutils gnused gawk nixos-rebuild nix ];
+    runtimeInputs = with pkgs; [
+      git
+      coreutils
+      gnused
+      gawk
+      nixos-rebuild
+      nix
+    ];
     text = builtins.readFile ../../nixoa-cli.sh;
   };
 

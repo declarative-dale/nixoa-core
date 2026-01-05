@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Core system services: journald, monitoring, and custom service definitions
 
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 {
   # ============================================================================

@@ -16,10 +16,20 @@
 # Set to false to disable automatic cert generation (e.g., when using ACME)
 # ============================================================================
 
-{ config, pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 
 let
-  inherit (lib) mkIf mkOption mkEnableOption types;
+  inherit (lib)
+    mkIf
+    mkOption
+    mkEnableOption
+    types
+    ;
   cfg = config.nixoa.xo;
   tlsCfg = config.nixoa.xo.tls;
   httpCfg = config.nixoa.xo.http;
@@ -87,8 +97,14 @@ in
     systemd.services.xo-autocert = {
       description = "Generate XO TLS certificates if missing or expired";
       wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" "systemd-tmpfiles-setup.service" ];
-      before = [ "xo-build.service" "xo-server.service" ];
+      after = [
+        "local-fs.target"
+        "systemd-tmpfiles-setup.service"
+      ];
+      before = [
+        "xo-build.service"
+        "xo-server.service"
+      ];
 
       serviceConfig = {
         Type = "oneshot";
