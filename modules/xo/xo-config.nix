@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # xo-config.nix - Declarative XO server configuration
 # ============================================================================
-# Generates /etc/xo-server/config.nixoa.toml from user-config flake
-# Only writes the file if the user flake provides config
+# Generates /etc/xo-server/config.nixoa.toml from system flake
+# Only writes the file if the system flake provides config
 # ============================================================================
 
 { config, lib, xoTomlData ? null, ... }:

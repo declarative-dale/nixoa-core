@@ -235,9 +235,9 @@ in
   options.updates = {
     repoDir = mkOption {
       type = types.str;
-      default = "~/user-config";
-      example = "~/user-config";
-      description = "Path to the user-config flake repository directory (~ expands to admin user home)";
+      default = "~/projects/NiXOA/system";
+      example = "~/projects/NiXOA/system";
+      description = "Path to the system flake repository directory (~ expands to admin user home)";
     };
 
     monitoring = {

@@ -3,7 +3,7 @@
 # Explicitly imports all modules from subdirectories:
 # - core/: system-level modules (no XO-specific logic)
 # - xo/: XO-specific modules and integrations
-# Note: home/ directory modules are handled separately in user-config
+# Note: home/ directory modules are handled separately in system flake
 
 {
   imports = [

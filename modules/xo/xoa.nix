@@ -342,7 +342,7 @@ in
 
         # XO automatically loads all config files from /etc/xo-server/:
         # - config.toml (XO's built-in defaults, created by XO on first run)
-        # - config.nixoa.toml (nixoa overrides, placed by user-config via environment.etc)
+        # - config.nixoa.toml (nixoa overrides, placed by system flake via environment.etc)
         ExecStart = "${startXO}";
         
         Restart = "on-failure";

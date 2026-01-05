@@ -66,14 +66,6 @@ in
     environment.shells = [ pkgs.bashInteractive pkgs.zsh ];
 
     # ============================================================================
-    # XEN GUEST SUPPORT
-    # ============================================================================
-
-    # Xen guest agent for better VM integration
-    systemd.packages = [ pkgs.xen-guest-agent ];
-    systemd.services.xen-guest-agent.wantedBy = [ "multi-user.target" ];
-
-    # ============================================================================
     # STATE VERSION
     # ============================================================================
 

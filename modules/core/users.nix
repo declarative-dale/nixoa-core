@@ -84,7 +84,7 @@ in
       openssh.authorizedKeys.keys = sshKeys;
 
       # User packages are now managed by Home Manager
-      # (removed packages attribute - see nixoa-vm/modules/home/home.nix)
+      # (removed packages attribute - see system/modules/home.nix in user-config)
     };
 
     # ============================================================================

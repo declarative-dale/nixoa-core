@@ -66,4 +66,42 @@ in
   validatePort = port:
     assert lib.assertMsg (builtins.isInt port && port > 0 && port < 65536) "Port must be between 1-65535";
     port;
+
+  # Common lib imports for modules (reduces repetitive inherit statements)
+  moduleLib = {
+    inherit (lib) mkOption mkDefault mkEnableOption mkIf mkMerge mkForce types;
+    inherit (lib.strings) concatStringsSep optionalString;
+    inherit (lib.lists) optional optionals;
+    inherit (lib.attrsets) mapAttrs' nameValuePair filterAttrs;
+  };
+
+  # Helper to create a string option with default
+  mkStrOption = default: description: lib.mkOption {
+    type = types.str;
+    inherit default description;
+  };
+
+  # Helper to create a port option
+  mkPortOption = default: description: lib.mkOption {
+    type = types.port;
+    inherit default description;
+  };
+
+  # Helper to create a path option
+  mkPathOption = default: description: lib.mkOption {
+    type = types.path;
+    inherit default description;
+  };
+
+  # Helper to create a boolean option with default
+  mkBoolOption = default: description: lib.mkOption {
+    type = types.bool;
+    inherit default description;
+  };
+
+  # Helper to create a listOf strings option
+  mkListOfStrOption = default: description: lib.mkOption {
+    type = types.listOf types.str;
+    inherit default description;
+  };
 }

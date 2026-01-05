@@ -15,7 +15,7 @@ in
     flake = mkOption {
       type = types.str;
       default = "";
-      description = "Flake URI for system configuration (e.g., 'github:yourusername/user-config')";
+      description = "Flake URI for system configuration (e.g., 'github:yourusername/nixoa-system')";
     };
   };
 
