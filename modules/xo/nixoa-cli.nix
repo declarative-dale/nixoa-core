@@ -5,6 +5,7 @@
   config,
   lib,
   pkgs,
+  vars,
   ...
 }:
 
@@ -64,7 +65,7 @@ let
 
 in
 {
-  config = mkIf config.nixoa.xo.enable {
+  config = mkIf vars.enableXO {
     # Install the nixoa CLI tool system-wide
     environment.systemPackages = [
       nixoa-cli
