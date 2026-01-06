@@ -279,7 +279,7 @@ in
           "network-online.target"
           "redis-xo.service"
         ]
-        ++ lib.optional (vars.autoGenerateCerts && vars.enableTLS) "xo-autocert.service";
+        ++ lib.optional vars.enableAutoCert "xo-autocert.service";
 
         wants = [
           "network-online.target"

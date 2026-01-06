@@ -16,6 +16,7 @@
     ./core/users.nix
 
     # XO-specific modules (alphabetically ordered)
+    ./xo/autocert.nix
     ./xo/extras.nix
     ./xo/libvhdi.nix
     ./xo/nixoa-cli.nix
