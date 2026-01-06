@@ -5,10 +5,8 @@ let
   files = builtins.readDir ./.;
 
   # Filter to only .nix files, excluding default.nix itself
-  nixFiles = lib.filterAttrs (name: type:
-    type == "regular" &&
-    lib.hasSuffix ".nix" name &&
-    name != "default.nix"
+  nixFiles = lib.filterAttrs (
+    name: type: type == "regular" && lib.hasSuffix ".nix" name && name != "default.nix"
   ) files;
 
   # Convert to list of import paths

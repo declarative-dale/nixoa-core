@@ -2,7 +2,14 @@
 { self, inputs, ... }:
 {
   flake = {
-    nixosModules.default = { config, lib, pkgs, vars ? {}, ... }:
+    nixosModules.default =
+      {
+        config,
+        lib,
+        pkgs,
+        vars ? { },
+        ...
+      }:
       let
         utils = import ../lib/utils.nix { inherit lib; };
       in
