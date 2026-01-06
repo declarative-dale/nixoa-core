@@ -5,62 +5,33 @@
   config,
   pkgs,
   lib,
+  vars,
   ...
 }:
 
 let
   inherit (lib)
-    mkOption
     mkDefault
     mkIf
-    types
     ;
 in
 {
-  options.nixoa.boot = {
-    loader = mkOption {
-      type = types.enum [
-        "systemd-boot"
-        "grub"
-      ];
-      default = "systemd-boot";
-      description = "Boot loader to use: systemd-boot (recommended for EFI) or grub (for BIOS/legacy boot)";
-    };
-
-    grub = {
-      device = mkOption {
-        type = types.nullOr types.str;
-        default = null;
-        description = "GRUB device (e.g., /dev/sda or /dev/vda for Xen). Only used when loader is set to 'grub'.";
-        example = "/dev/sda";
-      };
-    };
-
-    efi = {
-      canTouchEfiVariables = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Allow modifying EFI variables (required for systemd-boot on EFI systems)";
-      };
-    };
-  };
-
   config = {
     # ============================================================================
     # BOOTLOADER CONFIGURATION
     # ============================================================================
 
     # Systemd-boot configuration (default)
-    boot.loader.systemd-boot.enable = mkDefault (config.nixoa.boot.loader == "systemd-boot");
+    boot.loader.systemd-boot.enable = mkDefault (vars.bootLoader == "systemd-boot");
     boot.loader.efi.canTouchEfiVariables = mkIf (
-      config.nixoa.boot.loader == "systemd-boot"
-    ) config.nixoa.boot.efi.canTouchEfiVariables;
+      vars.bootLoader == "systemd-boot"
+    ) vars.efiCanTouchVariables;
 
     # GRUB configuration (alternative for BIOS/legacy boot)
     # Only defined when loader is set to "grub"
-    boot.loader.grub = mkIf (config.nixoa.boot.loader == "grub") {
+    boot.loader.grub = mkIf (vars.bootLoader == "grub") {
       enable = true;
-      device = config.nixoa.boot.grub.device;
+      device = vars.grubDevice;
     };
 
     # ============================================================================

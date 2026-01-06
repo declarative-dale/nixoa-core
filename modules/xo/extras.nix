@@ -7,34 +7,24 @@
   config,
   lib,
   pkgs,
+  vars,
   ...
 }:
 
 let
   inherit (lib)
-    mkOption
-    mkEnableOption
-    types
     mkIf
     ;
-  cfg = config.nixoa.extras;
-  adminShell = config.nixoa.admin.shell;
 in
 {
-  options.nixoa.extras = {
-    enable = mkEnableOption "Enhanced terminal experience for admin user" // {
-      default = false;
-    };
-  };
-
   config = lib.mkMerge [
     # Enable zsh system-wide when zsh is selected (required for it to be a valid login shell)
-    (mkIf (adminShell == "zsh") {
+    (mkIf (vars.shell == "zsh") {
       programs.zsh.enable = true;
     })
 
     # Enable extras when explicitly enabled
-    (mkIf cfg.enable {
+    (mkIf vars.enableExtras {
       # Enable direnv system-wide (Home Manager will configure per-user)
       programs.direnv = {
         enable = true;

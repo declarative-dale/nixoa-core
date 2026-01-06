@@ -3,46 +3,22 @@
   config,
   lib,
   pkgs,
+  vars,
   ...
 }:
 let
   inherit (lib)
-    mkOption
-    mkEnableOption
-    types
     mkIf
     ;
-  cfg = config.nixoa.storage;
-  # Get XO service user/group from config (defined in users.nix)
-  xoUser = config.nixoa.xo.service.user;
-  xoGroup = config.nixoa.xo.service.group;
+  # Get XO service user/group from vars
+  xoUser = vars.xoUser;
+  xoGroup = vars.xoGroup;
 
 in
 {
-  options.nixoa.storage = {
-    nfs.enable = mkEnableOption "NFS client support for XO remote storage";
-    cifs.enable = mkEnableOption "CIFS/SMB client support for XO remote storage";
-    vhd.enable = mkEnableOption "VHD mounting support via libvhdi" // {
-      default = true;
-    };
-
-    mountsDir = mkOption {
-      type = types.path;
-      default = "/var/lib/xo/mounts";
-      description = "Base directory for XO remote storage mounts";
-    };
-
-    # Advanced options
-    sudoNoPassword = mkOption {
-      type = types.bool;
-      default = true;
-      description = "Allow XO user to mount/unmount without password";
-    };
-  };
-
-  config = mkIf (cfg.nfs.enable || cfg.cifs.enable || cfg.vhd.enable) {
+  config = mkIf (vars.enableNFS || vars.enableCIFS || vars.enableVHD) {
     # Setuid wrapper for mount.cifs (required for capability handling)
-    security.wrappers = lib.mkIf cfg.cifs.enable {
+    security.wrappers = lib.mkIf vars.enableCIFS {
       "mount.cifs" = {
         program = "mount.cifs";
         source = "${lib.getBin pkgs.cifs-utils}/bin/mount.cifs";
@@ -66,31 +42,31 @@ in
 
     # Install required filesystem tools
     environment.systemPackages =
-      lib.optionals cfg.nfs.enable [ pkgs.nfs-utils ]
-      ++ lib.optionals cfg.cifs.enable [ pkgs.cifs-utils ]
-      ++ lib.optionals cfg.vhd.enable [ config.services.libvhdi.package ];
+      lib.optionals vars.enableNFS [ pkgs.nfs-utils ]
+      ++ lib.optionals vars.enableCIFS [ pkgs.cifs-utils ]
+      ++ lib.optionals vars.enableVHD [ config.services.libvhdi.package ];
 
     # Enable libvhdi if VHD support is requested
-    services.libvhdi.enable = cfg.vhd.enable;
+    services.libvhdi.enable = vars.enableVHD;
 
     # FUSE support for user mounts
     programs.fuse.userAllowOther = true;
     boot.kernelModules = [
       "fuse"
     ]
-    ++ lib.optionals cfg.nfs.enable [
+    ++ lib.optionals vars.enableNFS [
       "nfs"
       "nfsv4"
     ]
-    ++ lib.optionals cfg.cifs.enable [ "cifs" ];
+    ++ lib.optionals vars.enableCIFS [ "cifs" ];
 
     # Ensure filesystem support at boot
     boot.supportedFilesystems =
-      lib.optionals cfg.nfs.enable [
+      lib.optionals vars.enableNFS [
         "nfs"
         "nfs4"
       ]
-      ++ lib.optionals cfg.cifs.enable [ "cifs" ];
+      ++ lib.optionals vars.enableCIFS [ "cifs" ];
 
     # Restricted sudo rules using safe wrappers
     security.sudo = {
@@ -140,7 +116,7 @@ in
           ]
           ++
             # VHD mount tools
-            lib.optionals cfg.vhd.enable [
+            lib.optionals vars.enableVHD [
               {
                 command = "/run/current-system/sw/bin/vhdimount";
                 options = [ "NOPASSWD" ];
@@ -156,7 +132,7 @@ in
 
     # Create mount directory
     systemd.tmpfiles.rules = [
-      "d ${cfg.mountsDir} 0750 ${xoUser} ${xoGroup} - -"
+      "d ${vars.mountsDir} 0750 ${xoUser} ${xoGroup} - -"
     ];
 
     # One-time service to initialize sudo for xo user (clears the lecture)
@@ -189,7 +165,7 @@ in
         message = "XO user must be in 'fuse' group for remote storage mounting";
       }
       {
-        assertion = cfg.nfs.enable || cfg.cifs.enable || cfg.vhd.enable;
+        assertion = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
         message = "At least one storage type must be enabled (NFS, CIFS, or VHD)";
       }
     ];

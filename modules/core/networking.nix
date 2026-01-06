@@ -19,13 +19,9 @@
   networking.useNetworkd = lib.mkDefault true;
   networking.useDHCP = lib.mkDefault true;
 
-  # Firewall configuration - defaults allow HTTP/HTTPS, can be overridden in configuration.nix
+  # Firewall configuration - ports are configured via vars in system flake
   networking.firewall = {
     enable = true;
-    allowedTCPPorts = lib.mkDefault [
-      80
-      443
-    ];
 
     # Optional: Allow ping
     allowPing = true;

@@ -6,49 +6,23 @@
   pkgs,
   lib,
   nixoaUtils,
+  vars,
   ...
 }:
 
-let
-  inherit (lib) mkOption mkDefault types;
-  inherit (nixoaUtils) getOption;
-
-  # Extract commonly used values (support both old systemSettings and new config.nixoa.* pattern)
-  hostname = config.nixoa.system.hostname;
-  timezone = config.nixoa.system.timezone;
-  stateVersion = config.nixoa.system.stateVersion;
-in
 {
-  options.nixoa.system = {
-    hostname = mkOption {
-      type = types.str;
-      default = "nixoa";
-      description = "System hostname";
-    };
-    timezone = mkOption {
-      type = types.str;
-      default = "UTC";
-      description = "System timezone (IANA timezone string)";
-    };
-    stateVersion = mkOption {
-      type = types.str;
-      default = "25.11";
-      description = "NixOS state version (set during first installation, do not change)";
-    };
-  };
-
   config = {
     # ============================================================================
     # SYSTEM IDENTIFICATION
     # ============================================================================
 
-    networking.hostName = hostname;
+    networking.hostName = vars.hostname;
 
     # ============================================================================
     # LOCALE & INTERNATIONALIZATION
     # ============================================================================
 
-    time.timeZone = lib.mkDefault timezone;
+    time.timeZone = lib.mkDefault vars.timezone;
 
     i18n.defaultLocale = "en_US.UTF-8";
     i18n.extraLocaleSettings = {
@@ -79,6 +53,6 @@ in
     # ============================================================================
 
     # DO NOT CHANGE after initial installation
-    system.stateVersion = stateVersion;
+    system.stateVersion = vars.stateVersion;
   };
 }

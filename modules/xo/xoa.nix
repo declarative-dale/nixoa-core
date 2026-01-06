@@ -7,6 +7,7 @@
   pkgs,
   nixoaPackages,
   nixoaUtils,
+  vars,
   ...
 }:
 let
@@ -122,8 +123,7 @@ let
 in
 {
   options.nixoa.xo = {
-    enable = mkEnableOption "Xen Orchestra from source";
-
+    # Advanced package override option
     package = mkOption {
       type = types.package;
       default = nixoaPackages.xen-orchestra-ce;
@@ -139,62 +139,22 @@ in
       '';
     };
 
+    # Advanced config override for secrets
     configFile = mkOption {
       type = types.nullOr types.path;
       default = null;
       description = "Path to an xo-server config.toml file to be linked into /etc/xo-server/config.toml. Use this for secrets via agenix/sops.";
     };
 
-    configNixoaFile = mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      description = "Path to a config.nixoa.toml file for NixOS-specific XO configuration overrides. Linked into /etc/xo-server/config.nixoa.toml.";
-    };
-
+    # Advanced settings override
     settings = mkOption {
       type = types.attrsOf types.unspecified;
       default = { };
       description = "xo-server configuration as a Nix attrset (rendered to TOML). Avoid putting secrets here; use configFile instead.";
     };
 
-    # Service account (user and group are defined in users.nix under nixoa.xo.service)
-    # Reference them directly from config.nixoa.xo.service
-
-    http = {
-      host = mkOption {
-        type = types.str;
-        default = "0.0.0.0";
-        description = "Bind address for XO server";
-      };
-
-      port = mkOption {
-        type = types.port;
-        default = 80;
-        description = "HTTP port";
-      };
-
-      httpsPort = mkOption {
-        type = types.port;
-        default = 443;
-        description = "HTTPS port";
-      };
-    };
-
+    # TLS certificate paths (advanced)
     tls = {
-      enable = mkEnableOption "HTTPS with self-signed certificates";
-
-      redirectToHttps = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Redirect HTTP traffic to HTTPS";
-      };
-
-      autoGenerate = mkOption {
-        type = types.bool;
-        default = true;
-        description = "Automatically generate self-signed certificates";
-      };
-
       dir = mkOption {
         type = types.path;
         default = "/etc/ssl/xo";
@@ -214,7 +174,7 @@ in
       };
     };
 
-    # Directory paths
+    # Directory paths (advanced customization)
     home = mkOption {
       type = types.path;
       default = xoHome;
@@ -239,6 +199,7 @@ in
       description = "Temporary directory for XO operations";
     };
 
+    # Advanced environment customization
     extraServerEnv = mkOption {
       type = types.attrsOf types.str;
       default = { };
@@ -246,11 +207,11 @@ in
     };
   };
 
-  config = mkIf cfg.enable (
+  config = mkIf vars.enableXO (
     let
-      # Get XO service user/group (defined in users.nix)
-      xoUser = config.nixoa.xo.service.user;
-      xoGroup = config.nixoa.xo.service.group;
+      # Get XO service user/group from vars
+      xoUser = vars.xoUser;
+      xoGroup = vars.xoGroup;
 
       # Determine effective config source (priority: configFile > settings > sample.config.toml)
       effectiveConfigSource =
@@ -304,8 +265,8 @@ in
       };
 
       # Declarative config.nixoa.toml linking (NixOS-specific overrides)
-      environment.etc."xo-server/config.nixoa.toml" = mkIf (cfg.configNixoaFile != null) {
-        source = cfg.configNixoaFile;
+      environment.etc."xo-server/config.nixoa.toml" = mkIf (vars.xoConfigFile != null) {
+        source = vars.xoConfigFile;
         mode = "0644";
         user = "root";
         group = xoGroup;
@@ -319,7 +280,7 @@ in
           "network-online.target"
           "redis-xo.service"
         ]
-        ++ lib.optional (config.nixoa.autocert.enable && cfg.tls.enable) "xo-autocert.service";
+        ++ lib.optional (vars.autoGenerateCerts && vars.enableTLS) "xo-autocert.service";
 
         wants = [
           "network-online.target"
@@ -407,7 +368,7 @@ in
           ];
 
           # Allow reading SSL certs (libraries accessible via ProtectSystem=full)
-          ReadOnlyPaths = lib.optionals cfg.tls.enable [ cfg.tls.dir ];
+          ReadOnlyPaths = lib.optionals vars.enableTLS [ cfg.tls.dir ];
 
           ReadWritePaths = [
             cfg.home
@@ -416,7 +377,7 @@ in
             cfg.tempDir
             "/etc/xo-server"
             "/var/lib/xo-server" # XO server internal state directory
-            config.nixoa.storage.mountsDir
+            vars.mountsDir
             "/run/lock" # LVM lock files
             "/run/redis-xo" # Redis socket
             "/dev" # Device access for LVM/storage operations
@@ -434,13 +395,13 @@ in
         "d ${cfg.cacheDir}                      0750 ${xoUser} ${xoGroup} - -"
         "d ${cfg.dataDir}                       0750 ${xoUser} ${xoGroup} - -"
         "d ${cfg.tempDir}                       0750 ${xoUser} ${xoGroup} - -"
-        "d ${config.nixoa.storage.mountsDir}         0750 ${xoUser} ${xoGroup} - -"
+        "d ${vars.mountsDir}                    0750 ${xoUser} ${xoGroup} - -"
         "d ${cfg.home}/.config                  0750 ${xoUser} ${xoGroup} - -"
         "d ${cfg.home}/.config/xo-server        0750 ${xoUser} ${xoGroup} - -"
         "d /etc/xo-server                          0755 root root - -"
         "d /var/lib/xo-server                      0750 ${xoUser} ${xoGroup} - -"
       ]
-      ++ lib.optionals cfg.tls.enable [
+      ++ lib.optionals vars.enableTLS [
         "d ${cfg.tls.dir}                       0755 root root - -"
       ];
     }

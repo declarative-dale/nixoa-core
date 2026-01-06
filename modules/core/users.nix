@@ -6,85 +6,39 @@
   pkgs,
   lib,
   nixoaUtils,
+  vars,
   ...
 }:
 
-let
-  inherit (lib) mkOption types mkEnableOption;
-  inherit (nixoaUtils) getOption;
-
-  # Extract commonly used values
-  username = config.nixoa.admin.username;
-  sshKeys = config.nixoa.admin.sshKeys;
-  shell = config.nixoa.admin.shell;
-  xoServiceUser = config.nixoa.xo.service.user;
-  xoServiceGroup = config.nixoa.xo.service.group;
-in
 {
-  options.nixoa = {
-    admin = {
-      username = mkOption {
-        type = types.str;
-        default = "xoa";
-        description = "Admin user username for SSH access and system administration";
-      };
-      sshKeys = mkOption {
-        type = types.listOf types.str;
-        default = [ ];
-        description = "SSH public keys authorized for admin user";
-        example = [ "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample user@example.com" ];
-      };
-      shell = mkOption {
-        type = types.enum [
-          "bash"
-          "zsh"
-        ];
-        default = "bash";
-        description = "Login shell for admin user (bash or zsh)";
-      };
-    };
-    xo.service = {
-      user = mkOption {
-        type = types.str;
-        default = "xo";
-        description = "System user that runs xo-server";
-      };
-      group = mkOption {
-        type = types.str;
-        default = "xo";
-        description = "System group for xo-server";
-      };
-    };
-  };
-
   config = {
     # ============================================================================
     # USER ACCOUNTS
     # ============================================================================
 
     # Primary group for XO service
-    users.groups.${xoServiceGroup} = { };
+    users.groups.${vars.xoGroup} = { };
     users.groups.fuse = { };
 
     # XO service account (runs xo-server and related services)
-    users.users.${xoServiceUser} = {
+    users.users.${vars.xoUser} = {
       isSystemUser = true;
       description = "Xen Orchestra service account";
       createHome = true;
-      group = xoServiceGroup;
+      group = vars.xoGroup;
       home = "/var/lib/xo";
       shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
       extraGroups = [ "fuse" ];
     };
 
     # XOA admin account: SSH-key login only, sudo-capable
-    users.users.${username} = {
+    users.users.${vars.username} = {
       isNormalUser = true;
       description = "Xen Orchestra Administrator";
       createHome = true;
-      home = "/home/${username}";
-      # Shell selection based on admin.shell option
-      shell = if shell == "zsh" then pkgs.zsh else pkgs.bashInteractive;
+      home = "/home/${vars.username}";
+      # Shell selection based on vars.shell
+      shell = if vars.shell == "zsh" then pkgs.zsh else pkgs.bashInteractive;
       extraGroups = [
         "wheel"
         "systemd-journal"
@@ -93,7 +47,7 @@ in
       # Locked password - SSH key authentication only
       hashedPassword = "!";
 
-      openssh.authorizedKeys.keys = sshKeys;
+      openssh.authorizedKeys.keys = vars.sshKeys;
 
       # User packages are now managed by Home Manager
       # (removed packages attribute - see system/modules/home.nix in user-config)
@@ -110,7 +64,7 @@ in
       extraRules = [
         # Admin user with full sudo access
         {
-          users = [ username ];
+          users = [ vars.username ];
           commands = [
             {
               command = "ALL";
@@ -127,13 +81,13 @@ in
     # System limits
     security.pam.loginLimits = [
       {
-        domain = xoServiceUser;
+        domain = vars.xoUser;
         type = "soft";
         item = "nofile";
         value = "65536";
       }
       {
-        domain = xoServiceUser;
+        domain = vars.xoUser;
         type = "hard";
         item = "nofile";
         value = "1048576";
@@ -153,7 +107,7 @@ in
         PasswordAuthentication = false;
         KbdInteractiveAuthentication = false;
         PubkeyAuthentication = true;
-        AllowUsers = [ username ];
+        AllowUsers = [ vars.username ];
 
         # Security hardening
         X11Forwarding = false;
