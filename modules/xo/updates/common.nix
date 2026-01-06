@@ -3,6 +3,7 @@
   config,
   lib,
   pkgs,
+  vars,
   ...
 }:
 let
@@ -312,7 +313,7 @@ in
   };
 
   config =
-    mkIf (cfg.autoUpgrade.enable || cfg.nixpkgs.enable || config.nixoa.xo.enable || cfg.libvhdi.enable)
+    mkIf (cfg.autoUpgrade.enable || cfg.nixpkgs.enable || vars.enableXO || cfg.libvhdi.enable)
       {
         # Enable nix-command and flakes
         nix.settings.experimental-features = [
