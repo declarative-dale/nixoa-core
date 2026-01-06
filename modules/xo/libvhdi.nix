@@ -3,7 +3,6 @@
   config,
   lib,
   pkgs,
-  nixoaPackages,
   ...
 }:
 let
@@ -15,8 +14,8 @@ let
     ;
   cfg = config.services.libvhdi;
 
-  # Reference the packaged libvhdi from flake
-  libvhdiPackage = nixoaPackages.libvhdi;
+  # Reference the packaged libvhdi from overlay
+  libvhdiPackage = pkgs.nixoa.libvhdi;
 in
 {
   options.services.libvhdi = {
@@ -25,7 +24,7 @@ in
     package = mkOption {
       type = types.package;
       default = libvhdiPackage;
-      defaultText = lib.literalExpression "nixoaPackages.libvhdi";
+      defaultText = lib.literalExpression "pkgs.nixoa.libvhdi";
       description = "libvhdi package to use";
     };
   };

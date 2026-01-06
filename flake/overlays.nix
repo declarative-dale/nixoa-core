@@ -1,11 +1,15 @@
 # Overlay exports
-{ self, ... }:
+{ self, inputs, ... }:
 {
   flake = {
     overlays.default = final: prev: {
       nixoa = {
-        xen-orchestra-ce = self.packages.${final.system}.xen-orchestra-ce;
-        libvhdi = self.packages.${final.system}.libvhdi;
+        xen-orchestra-ce = final.callPackage ../pkgs/xen-orchestra-ce {
+          inherit (inputs) xoSrc;
+        };
+        libvhdi = final.callPackage ../pkgs/libvhdi {
+          inherit (inputs) libvhdiSrc;
+        };
       };
     };
   };

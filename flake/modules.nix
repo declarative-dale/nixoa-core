@@ -10,7 +10,6 @@
         imports = [ ../modules ];
 
         _module.args = {
-          nixoaPackages = self.packages.${pkgs.system};
           nixoaUtils = utils;
           xoTomlData = null;
 
