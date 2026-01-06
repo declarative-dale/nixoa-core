@@ -5,6 +5,7 @@
   config,
   pkgs,
   lib,
+  vars,
   ...
 }:
 
@@ -74,7 +75,7 @@
       # Trusted users (can use binary caches)
       trusted-users = [
         "root"
-        config.nixoa.admin.username
+        vars.username
       ];
     };
 

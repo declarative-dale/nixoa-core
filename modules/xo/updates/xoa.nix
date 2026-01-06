@@ -3,6 +3,7 @@
   config,
   lib,
   pkgs,
+  vars,
   ...
 }:
 let
@@ -16,7 +17,7 @@ let
 
   # Import common utilities - these are defined in common.nix let block
   # We need to re-import and re-compute them here since they're needed for service config
-  adminUser = config.nixoa.admin.username or "xoa";
+  adminUser = vars.username;
   expandedRepoDir =
     if lib.hasPrefix "~/" config.updates.repoDir then
       "/home/${adminUser}/${lib.removePrefix "~/" config.updates.repoDir}"

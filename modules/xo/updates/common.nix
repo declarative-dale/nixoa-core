@@ -16,8 +16,8 @@ let
     ;
   cfg = config.updates;
 
-  # Get admin username from config (set by system.nix from config.nixoa.admin.username)
-  adminUser = config.nixoa.admin.username or "xoa";
+  # Get admin username from vars
+  adminUser = vars.username;
 
   # Expand tilde in repo directory path for systemd services
   expandedRepoDir =

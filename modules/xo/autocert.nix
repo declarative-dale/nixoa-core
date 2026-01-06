@@ -26,10 +26,8 @@
 let
   inherit (lib) mkIf;
 
-  # Reference core XO configuration
-  cfg = config.nixoa.xo;
+  # Reference TLS configuration from xoa module
   tlsCfg = config.nixoa.xo.tls;
-  httpCfg = config.nixoa.xo.http;
 
   xoUser = vars.xoUser;
   xoGroup = vars.xoGroup;
@@ -63,7 +61,7 @@ let
     ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
       -keyout "$key" -out "$cert" \
       -subj "/CN=$host" \
-      -addext "subjectAltName=DNS:$host,DNS:localhost,IP:${httpCfg.host}"
+      -addext "subjectAltName=DNS:$host,DNS:localhost,IP:${vars.xoHttpHost}"
 
     # Set proper ownership and permissions
     chown ${xoUser}:${xoGroup} "$key" "$cert"
