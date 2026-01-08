@@ -42,8 +42,8 @@
       description = "Xen Orchestra Administrator";
       createHome = true;
       home = "/home/${vars.username}";
-      # Shell selection based on vars.shell
-      shell = if vars.shell == "zsh" then pkgs.zsh else pkgs.bashInteractive;
+      # Shell selection: zsh when extras enabled, bash otherwise
+      shell = if vars.enableExtras then pkgs.zsh else pkgs.bashInteractive;
       extraGroups = [
         "wheel"
         "systemd-journal"
