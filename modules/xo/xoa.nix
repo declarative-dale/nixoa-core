@@ -389,7 +389,7 @@ in
         };
       };
 
-      # Create necessary directories
+      # Create necessary directories and symlinks
       systemd.tmpfiles.rules = [
         "d ${cfg.home}                          0750 ${xoUser} ${xoGroup} - -"
         "d ${cfg.cacheDir}                      0750 ${xoUser} ${xoGroup} - -"
@@ -400,6 +400,8 @@ in
         "d ${cfg.home}/.config/xo-server        0750 ${xoUser} ${xoGroup} - -"
         "d /etc/xo-server                          0755 root root - -"
         "d /var/lib/xo-server                      0750 ${xoUser} ${xoGroup} - -"
+        # Symlink xen-orchestra from Nix store to /var/lib/xo for web UI access
+        "L+ ${cfg.home}/xen-orchestra           -    -        -        - ${cfg.package}/libexec/xen-orchestra"
       ]
       ++ lib.optionals vars.enableTLS [
         "d ${cfg.tls.dir}                       0755 root root - -"
