@@ -50,6 +50,6 @@ in
     # PERFORMANCE TUNING
     # ============================================================================
     # Enable Partition Growth of root partition at boot
-    systemd.repart.enable = true;
+    boot.initrd.systemd.repart.enable = true;
   };
 }
