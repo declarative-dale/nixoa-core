@@ -230,9 +230,9 @@ in
       ];
 
       # Valkey service for XO (drop-in Redis replacement)
+      services.redis.package = pkgs.valkey;
       services.redis.servers.xo = {
         enable = true;
-        package = pkgs.valkey;
         user = xoUser;
         unixSocket = "/run/redis-xo/redis.sock";
         unixSocketPerm = 770;
