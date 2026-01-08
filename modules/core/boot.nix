@@ -49,6 +49,9 @@ in
     # ============================================================================
     # PERFORMANCE TUNING
     # ============================================================================
+    # Enable systemd in initrd (required for repart)
+    boot.initrd.systemd.enable = true;
+
     # Enable Partition Growth of root partition at boot
     boot.initrd.systemd.repart.enable = true;
   };
