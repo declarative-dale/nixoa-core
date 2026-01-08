@@ -49,19 +49,7 @@ in
     # ============================================================================
     # PERFORMANCE TUNING
     # ============================================================================
-
-    # Swappiness (lower = less swap usage, 10 is reasonable for VMs with adequate RAM)
-    boot.kernel.sysctl = {
-      "vm.swappiness" = lib.mkDefault 10;
-
-      # Network tuning for XO
-      "net.core.somaxconn" = 1024;
-      "net.ipv4.tcp_max_syn_backlog" = 2048;
-
-      # File handle limits
-      "fs.file-max" = 1000000;
-      "fs.inotify.max_user_instances" = 8192;
-      "fs.inotify.max_user_watches" = 524288;
-    };
+    # Enable Partition Growth of root partition at boot
+    boot.growPartition.enable = true;
   };
 }
