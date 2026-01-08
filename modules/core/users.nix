@@ -16,6 +16,11 @@
     # USER ACCOUNTS
     # ============================================================================
 
+    # Ensure .ssh directory exists with correct permissions before NixOS creates authorized_keys
+    systemd.tmpfiles.rules = [
+      "d /home/${vars.username}/.ssh 0700 ${vars.username} users -"
+    ];
+
     # Primary group for XO service
     users.groups.${vars.xoGroup} = { };
     users.groups.fuse = { };
@@ -47,8 +52,8 @@
       # Locked password - SSH key authentication only
       hashedPassword = "!";
 
-      # SSH keys are now managed by Home Manager
-      # (see system/modules/home.nix in user-config for authorized_keys)
+      # SSH keys managed at NixOS level (supports multiple keys as list)
+      openssh.authorizedKeys.keys = vars.sshKeys;
 
       # User packages are now managed by Home Manager
       # (removed packages attribute - see system/modules/home.nix in user-config)
