@@ -47,7 +47,8 @@
       # Locked password - SSH key authentication only
       hashedPassword = "!";
 
-      openssh.authorizedKeys.keys = vars.sshKeys;
+      # SSH keys are now managed by Home Manager
+      # (see system/modules/home.nix in user-config for authorized_keys)
 
       # User packages are now managed by Home Manager
       # (removed packages attribute - see system/modules/home.nix in user-config)
