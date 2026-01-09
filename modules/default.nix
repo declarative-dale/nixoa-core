@@ -22,7 +22,6 @@
     ./xo/libvhdi.nix
     ./xo/nixoa-cli.nix
     ./xo/storage.nix
-    ./xo/updates
     ./xo/xo-config.nix
     ./xo/xoa.nix
   ];

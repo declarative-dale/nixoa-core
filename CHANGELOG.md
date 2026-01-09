@@ -5,7 +5,7 @@
 
 Date: 2026-01-09
 
-This release migrates to Determinate Nix, improves Xen VM hardware support, and modernizes service configuration.
+This release migrates to Determinate Nix, improves Xen VM hardware support, modernizes service configuration, and removes automatic update infrastructure.
 
 ### ✨ Added
 
@@ -24,10 +24,20 @@ This release migrates to Determinate Nix, improves Xen VM hardware support, and 
 - **Shell configuration** - Now based on vars.enableExtras instead of deprecated vars.shell variable
 - **Swap disabled by default** - Improved performance for typical VM deployments
 
+### 🗑️ Removed
+
+- **Automatic updates infrastructure** - Removed all update modules and automation
+  - Deleted modules/xo/updates/ directory (auto-upgrade.nix, common.nix, gc.nix, libvhdi.nix, nixpkgs.nix, xoa.nix)
+  - Removed flake/apps.nix (only contained update-xo app)
+  - Updates now managed via core git releases (stable/beta branches)
+  - Future release will include TUI-based update management interface
+  - Users should follow core repository releases and rebuild system manually
+
 ### 📚 Documentation
 
 - Updated Xen VM hardware configuration documentation
 - Clarified shell selection mechanism based on enableExtras flag
+- Documented new update workflow via git releases
 
 ---
 
