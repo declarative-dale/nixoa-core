@@ -1,6 +1,36 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v0.5 — Determinate Nix Migration & Xen VM Enhancements
+
+Date: 2026-01-09
+
+This release migrates to Determinate Nix, improves Xen VM hardware support, and modernizes service configuration.
+
+### ✨ Added
+
+- **hardware-xen.nix module** - Xen VM hardware configuration with /dev/xvda* device paths instead of UUIDs
+  - Automatically maps Xen VM layout: xvda1 → /boot, xvda2 → /, xvda3 → swap
+  - Uses lib.mkForce to override UUID-based hardware-configuration.nix
+- **Systemd tmpfiles rules** for automatic directory creation:
+  - Xen Orchestra symlink from /var/lib/xo/xen-orchestra to Nix store package
+  - .ssh directory with proper permissions (0700) before authorized_keys creation
+
+### 🔄 Changed
+
+- **Migrated to Determinate Nix** - Removed obsolete configuration settings for cleaner deployment
+- **Cachix integration** - Moved cachix configuration to system flake for better organizational structure
+- **Redis → Valkey** - Updated services.redis.package = pkgs.valkey for Redis-compatible caching
+- **Shell configuration** - Now based on vars.enableExtras instead of deprecated vars.shell variable
+- **Swap disabled by default** - Improved performance for typical VM deployments
+
+### 📚 Documentation
+
+- Updated Xen VM hardware configuration documentation
+- Clarified shell selection mechanism based on enableExtras flag
+
+---
+
 ## v1.1 - Determinate Nix
 ## v1.0.0 — Milestone Release
 

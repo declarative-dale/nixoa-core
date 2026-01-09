@@ -56,24 +56,4 @@
     # Monitoring
     prometheus-node-exporter
   ];
-
-  # ============================================================================
-  # NIX CONFIGURATION
-  # ============================================================================
-
-  nix = {
-
-      # Build optimization
-      auto-optimise-store = true;
-
-      # Trusted users (can use binary caches)
-      trusted-users = [
-        "root"
-        vars.username
-      ];
-    };
-
-    # Note: Garbage collection and store optimization are automatically handled by Determinate Nix
-    # which provides enhanced garbage collection and automatic cleanup
-  };
 }

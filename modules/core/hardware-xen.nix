@@ -27,7 +27,7 @@
   };
 
   # Override swap devices to use xvda3
-#  swapDevices = lib.mkForce [
-#    { device = "/dev/xvda3"; }
-#  ];
+  #  swapDevices = lib.mkForce [
+  #    { device = "/dev/xvda3"; }
+  #  ];
 }
