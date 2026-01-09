@@ -62,18 +62,22 @@
   # ============================================================================
 
   nix.settings = {
-    # Binary cache configuration (system-wide, no need for trusted users)
-    substituters = [
-      "https://cache.nixos.org"
+    # Binary cache configuration (system-wide)
+    # Use extra-* to add to defaults rather than replace them
+    extra-substituters = [
       "https://install.determinate.systems"
       "https://nixoa.cachix.org"
     ];
 
-    trusted-public-keys = [
-      "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    extra-trusted-public-keys = [
       "cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
       "nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g="
     ];
 
+    # Trusted users (needed to use flake-level nixConfig substituters)
+    trusted-users = [
+      "root"
+      "@wheel"
+    ];
   };
 }
