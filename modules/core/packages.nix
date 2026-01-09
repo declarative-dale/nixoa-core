@@ -62,12 +62,6 @@
   # ============================================================================
 
   nix = {
-    # Enable flakes and new command interface
-    settings = {
-      experimental-features = [
-        "nix-command"
-        "flakes"
-      ];
 
       # Build optimization
       auto-optimise-store = true;
