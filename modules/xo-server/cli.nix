@@ -1,18 +1,14 @@
 # SPDX-License-Identifier: Apache-2.0
-# NiXOA CE CLI tool module
-
+# NiXOA CLI tool
 {
-  config,
   lib,
   pkgs,
   vars,
   ...
 }:
-
 let
   inherit (lib) mkIf;
 
-  # Create the nixoa CLI package
   nixoa-cli = pkgs.writeShellApplication {
     name = "nixoa";
     runtimeInputs = with pkgs; [
@@ -26,20 +22,15 @@ let
     text = builtins.readFile ../../nixoa-cli.sh;
   };
 
-  # Bash completion for nixoa command
   nixoa-completion = pkgs.writeTextFile {
     name = "nixoa-completion";
     destination = "/share/bash-completion/completions/nixoa";
     text = ''
-      # Bash completion for nixoa command
       _nixoa_completion() {
           local cur prev words cword
           _init_completion || return
 
-          # First level commands
           local commands="config rebuild update rollback list-generations status version help"
-
-          # Config subcommands
           local config_subcommands="commit apply show diff history edit status help"
 
           case $cword in
@@ -62,17 +53,14 @@ let
       complete -F _nixoa_completion nixoa
     '';
   };
-
 in
 {
   config = mkIf vars.enableXO {
-    # Install the nixoa CLI tool system-wide
     environment.systemPackages = [
       nixoa-cli
       nixoa-completion
     ];
 
-    # Ensure bash completion is enabled
     programs.bash.completion.enable = true;
   };
 }

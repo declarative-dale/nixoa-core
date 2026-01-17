@@ -1,8 +1,22 @@
-# Package definitions
+# SPDX-License-Identifier: Apache-2.0
+# Package definitions and overlay
 { inputs, ... }:
 {
+  # Overlay export
+  flake.overlays.default = final: prev: {
+    nixoa = {
+      xen-orchestra-ce = final.callPackage ../pkgs/xen-orchestra-ce {
+        inherit (inputs) xoSrc;
+      };
+      libvhdi = final.callPackage ../pkgs/libvhdi {
+        inherit (inputs) libvhdiSrc;
+      };
+    };
+  };
+
+  # Package exports for nix build
   perSystem =
-    { config, pkgs, ... }:
+    { pkgs, self', ... }:
     {
       packages = {
         xen-orchestra-ce = pkgs.callPackage ../pkgs/xen-orchestra-ce {
@@ -13,7 +27,7 @@
           inherit (inputs) libvhdiSrc;
         };
 
-        default = config.packages.xen-orchestra-ce;
+        default = self'.packages.xen-orchestra-ce;
 
         metadata = pkgs.stdenv.mkDerivation {
           pname = "nixoa-vm-metadata";

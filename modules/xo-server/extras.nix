@@ -1,12 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
+# Optional development tools
 {
-  config,
   lib,
-  pkgs,
   vars,
   ...
 }:
-
 let
   inherit (lib) mkIf;
 in
