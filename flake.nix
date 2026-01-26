@@ -35,4 +35,5 @@
       url = "github:vatesfr/xen-orchestra/9b6d1089f4b96ef07d7ddc25a943c466e8c7bb4b";
     };
   };
+
 }
