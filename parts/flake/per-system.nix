@@ -65,7 +65,7 @@
           echo "  ./modules/xo-server/ - XO-specific modules"
           echo ""
           echo "📝 Available commands:"
-          echo "  nix run .#update-xo                - Update XO source code"
+          echo "  scripts/xoa-update.sh              - Update XO source code"
           echo "  nix flake check                    - Validate flake"
           echo "  nix flake show                     - Show flake outputs"
           echo ""
