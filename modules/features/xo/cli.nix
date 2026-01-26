@@ -19,7 +19,7 @@ let
       nixos-rebuild
       nix
     ];
-    text = builtins.readFile ../../nixoa-cli.sh;
+    text = builtins.readFile ../../../nixoa-cli.sh;
   };
 
   nixoa-completion = pkgs.writeTextFile {

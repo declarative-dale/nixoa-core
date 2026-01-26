@@ -326,5 +326,5 @@ sudo nixos-rebuild switch --rollback
 
 For complete option reference, see the full documentation files in nixoa-vm:
 - `CONFIGURATION.md` - Complete options list
-- `modules/xo/xoa.nix` - XO service options
-- `modules/core/` - Core system modules
+- `modules/features/xo/options.nix` - XO service options
+- `modules/features/system/` - System features

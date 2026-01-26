@@ -1,14 +1,26 @@
 {
   inputs,
+  config,
+  lib,
   ...
 }:
+let
+  featureNames = config.flake.lib.featureNames;
+  stackNames = config.flake.lib.stackNames;
+  mkFeature = config.flake.lib.mkFeatureModule;
+  mkStack = config.flake.lib.mkStackModule;
+in
 {
   flake = {
-    nixosModules = {
-      nixoaCore = inputs.self.modules.nixos.nixoaCore;
-      appliance = inputs.self.modules.nixos.appliance;
-      default = inputs.self.modules.nixos.appliance;
-    };
+    registry = config.flake.registry;
+    lib = config.flake.lib;
+
+    nixosModules =
+      (lib.genAttrs featureNames mkFeature)
+      // (lib.genAttrs stackNames mkStack)
+      // {
+        default = mkStack "appliance";
+      };
 
     overlays = {
       nixoa = final: prev: {

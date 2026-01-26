@@ -36,7 +36,7 @@ NiXOA uses a clean separation between implementation and configuration:
 - `configuration.nix` - Your system settings
 - `hardware-configuration.nix` - Your hardware details (one-time)
 - `config.nixoa.toml` - Optional XO server overrides
-- `flake.nix` - Imports nixoa-vm modules + combines everything
+- `flake.nix` - Wires in `nixoaCore.nixosModules.appliance` and your settings
 - `scripts/` - Helper scripts (apply-config, commit-config, etc.)
 
 **Who edits it:** You (regularly)
@@ -51,28 +51,14 @@ NiXOA uses a clean separation between implementation and configuration:
 
 **What's inside:**
 
-#### modules/ - NixOS Modules
+#### modules/ - Feature Modules
 ```
 modules/
-├── core/              - System-level modules (no XO-specific logic)
-│   ├── base.nix       - System ID, locale, kernel
-│   ├── boot.nix       - Boot loader configuration
-│   ├── users.nix      - User accounts and SSH
-│   ├── networking.nix - Network and firewall
-│   ├── packages.nix   - System packages
-│   └── services.nix   - System services
-│
-└── xo/               - Xen Orchestra modules
-    ├── xoa.nix       - Core XO service
-    ├── xo-config.nix - Generate config file
-    ├── storage.nix   - NFS/CIFS/VHD support
-    ├── libvhdi.nix   - VHD library
-    ├── autocert.nix  - Auto TLS certificates
-    ├── updates/      - Update system
-    │   ├── xoa.nix
-    │   └── nixpkgs.nix
-    ├── extras.nix    - Terminal enhancements
-    └── nixoa-cli.nix - CLI tools
+└── features/
+    ├── system/           - System features (identity, boot, users, networking, packages, services)
+    ├── virtualization/   - VM hardware features (Xen overrides)
+    ├── xo/               - XO features (options, service, config, storage, tls, cli, extras)
+    └── shared/args.nix    - Shared module args (vars, nixoaUtils)
 ```
 
 #### pkgs/ - Package Definitions
@@ -88,12 +74,27 @@ lib/
 └── utils.nix - Shared helper functions (getOption, etc.)
 ```
 
-#### flake.nix - Flake Entry Point
+#### parts/ - Flake Composition (Dendritic)
+```
+parts/
+├── nix/inputs/         - Input declarations
+├── nix/flake-parts/    - flake-parts + flake-file wiring
+├── nix/registry/       - Feature registry + stacks
+├── features/           - Registry-driven module entrypoints
+└── flake/              - Exports + per-system outputs
+```
+
+#### flake.nix - Flake Entry Point (generated)
 ```
 Exports:
-- nixosModules.default   - All NiXOA modules
+- nixosModules.appliance - Full NiXOA appliance stack
+- nixosModules.system    - Base system stack
+- nixosModules.xo        - XO feature stack
+- nixosModules.*         - Individual feature modules
+- overlays.nixoa         - XO/libvhdi overlay
 - packages.x86_64-linux  - XO and libvhdi packages
-- lib - Utility functions
+- registry               - Feature registry (modules + stacks)
+- lib                    - Composition helpers
 ```
 
 **Who edits it:** NiXOA developers/contributors (rarely)
@@ -111,7 +112,7 @@ Exports:
    ↓
 4. nixos-rebuild reads ~/user-config/flake.nix
    ↓
-5. flake.nix imports /etc/nixos/nixoa-vm/flake.nix
+5. user-config flake imports the NiXOA core flake and selects nixosModules.appliance
    ↓
 6. NiXOA modules receive your settings via specialArgs
    ↓
@@ -130,31 +131,36 @@ Exports:
 
 ## Module Organization
 
-### Core Modules (No XO Logic)
+### System Features (No XO Logic)
 
-These modules are independent of Xen Orchestra:
+These modules live under `modules/features/system/`:
 
-- **base.nix** - System hostname, locale, kernel modules
-- **boot.nix** - Boot loader (systemd-boot or GRUB)
-- **users.nix** - User accounts, groups, SSH access, PAM
-- **networking.nix** - Network interfaces, firewall rules, NFS support
-- **packages.nix** - System packages, Nix configuration, garbage collection
-- **services.nix** - systemd services, monitoring, logging
+- **system/identity.nix** - Hostname, locale, shells, state version
+- **system/boot.nix** - Boot loader, initrd, kernel support
+- **system/users.nix** - User accounts, groups, SSH access, PAM
+- **system/networking.nix** - Network defaults, firewall, NFS client
+- **system/packages.nix** - System packages, Nix configuration, garbage collection
+- **system/services.nix** - systemd services, monitoring, logging
 
 Could be used for any NixOS system.
 
-### XO-Specific Modules
+### Virtualization Features
 
-These implement Xen Orchestra functionality:
+These modules live under `modules/features/virtualization/`:
 
-- **xoa.nix** - Core XO service (Node.js, packages, systemd service)
-- **xo-config.nix** - Generates `/etc/xo-server/config.nixoa.toml`
-- **storage.nix** - NFS mount support, CIFS mount support, VHD library setup
-- **libvhdi.nix** - VHD (Virtual Hard Disk) support
-- **autocert.nix** - Auto-generated TLS certificates
-- **updates/** - Automated update system (package updates, XO updates)
-- **extras.nix** - Optional terminal enhancements (zsh, oh-my-posh, tools)
-- **nixoa-cli.nix** - CLI utilities for NiXOA
+- **virtualization/xen-hardware.nix** - Xen guest hardware defaults
+
+### XO Features
+
+These modules live under `modules/features/xo/`:
+
+- **xo/options.nix** - XO option schema (nixoa.xo.*)
+- **xo/config.nix** - Generates `/etc/xo-server/config.nixoa.toml`
+- **xo/service.nix** - XO service (Node.js, packages, systemd service)
+- **xo/storage.nix** - NFS/CIFS mounts, VHD support
+- **xo/tls.nix** - Auto-generated TLS certificates
+- **xo/cli.nix** - CLI utilities for NiXOA
+- **xo/extras.nix** - Optional terminal enhancements (zsh, oh-my-posh, tools)
 
 ## Configuration Inheritance
 
@@ -168,13 +174,18 @@ Your configuration flows through the system:
 │     └─ Configures user environment (shell, packages, dotfiles)
 │
 └─ systemSettings
-   └─ Flows to all nixoa-vm modules
-      ├─ core/base.nix uses: hostname, stateVersion
-      ├─ core/users.nix uses: username, sshKeys
-      ├─ core/networking.nix uses: networking, firewall
-      ├─ xo/xoa.nix uses: xo.*, storage.*, updates.*
-      ├─ xo/extras.nix uses: extras.enable
-      └─ ... (other modules use relevant settings)
+   └─ Flows to all nixoa-vm features
+      ├─ system/identity.nix uses: hostname, timezone, stateVersion
+      ├─ system/boot.nix uses: boot loader and initrd settings
+      ├─ system/users.nix uses: username, sshKeys
+      ├─ system/networking.nix uses: firewall and network defaults
+      ├─ system/packages.nix uses: system packages
+      ├─ virtualization/xen-hardware.nix uses: Xen guest hardware defaults
+      ├─ xo/service.nix uses: xo.*, storage.*
+      ├─ xo/storage.nix uses: storage.* settings
+      ├─ xo/tls.nix uses: tls settings
+      ├─ xo/extras.nix uses: extras settings
+      └─ ... (other features use relevant settings)
 ```
 
 ## Build System (yarn2nix)
@@ -268,31 +279,44 @@ systemd (init system)
 How modules are discovered and loaded:
 
 ```
-nixoa-vm/flake.nix
-└─ nixosModules.default = {...modules...}
+nixoa-vm/flake.nix (generated)
+└─ nixosModules.appliance = {...modules...}
    │
-   ├─ modules/default.nix
-   │  └─ Imports all modules explicitly:
-   │     ├─ ./core/base.nix
-   │     ├─ ./core/boot.nix
-   │     ├─ ./core/users.nix
-   │     ├─ ./core/networking.nix
-   │     ├─ ./core/packages.nix
-   │     ├─ ./core/services.nix
-   │     ├─ ./xo/xoa.nix
-   │     ├─ ./xo/xo-config.nix
-   │     ├─ ./xo/storage.nix
-   │     ├─ ./xo/libvhdi.nix
-   │     ├─ ./xo/autocert.nix
-   │     ├─ ./xo/updates/common.nix
-   │     ├─ ./xo/updates/gc.nix
-   │     ├─ ./xo/updates/xoa.nix
-   │     ├─ ./xo/updates/nixpkgs.nix
-   │     ├─ ./xo/updates/libvhdi.nix
-   │     ├─ ./xo/extras.nix
-   │     └─ ./xo/nixoa-cli.nix
+   ├─ parts/nix/registry/features.nix
+   │  └─ stacks.appliance = [
+   │       "system-identity"
+   │       "system-boot"
+   │       "system-users"
+   │       "system-networking"
+   │       "system-packages"
+   │       "system-services"
+   │       "virtualization-xen-hardware"
+   │       "xo-options"
+   │       "xo-config"
+   │       "xo-service"
+   │       "xo-storage"
+   │       "xo-tls"
+   │       "xo-cli"
+   │       "xo-extras"
+   │     ]
    │
-   └─ Available to user-config/flake.nix as nixoa-vm.nixosModules.default
+   ├─ parts/nix/flake-parts/lib.nix
+   │  └─ mkFeatureModule/mkStackModule helpers
+   │
+   ├─ parts/flake/exports.nix
+   │  └─ Builds nixosModules.* from registry + helpers
+   │
+   └─ modules/features/
+      ├─ system/identity.nix
+      ├─ system/boot.nix
+      ├─ system/users.nix
+      ├─ system/networking.nix
+      ├─ system/packages.nix
+      ├─ system/services.nix
+      ├─ virtualization/xen-hardware.nix
+      └─ xo/{options,config,service,storage,tls,cli,extras}.nix
+   │
+   └─ Available to user-config/flake.nix as nixoaCore.nixosModules.appliance
 ```
 
 ## Options System
@@ -300,7 +324,7 @@ nixoa-vm/flake.nix
 NiXOA defines options in modules:
 
 ```
-nixoa-vm/modules/xo/xoa.nix
+nixoa-vm/modules/features/xo/options.nix
 │
 └─ options.nixoa.xo = {
    │  port = mkOption { ... };
