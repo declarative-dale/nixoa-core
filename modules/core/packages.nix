@@ -43,7 +43,8 @@
     tcpdump
     dig
     traceroute
-
+    codex
+    claude-code
     # XO dependencies
     nodejs_20
     yarn
