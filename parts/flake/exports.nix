@@ -12,9 +12,6 @@ let
 in
 {
   flake = {
-    registry = config.flake.registry;
-    lib = config.flake.lib;
-
     nixosModules =
       (lib.genAttrs featureNames mkFeature)
       // (lib.genAttrs stackNames mkStack)
