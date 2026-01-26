@@ -1,0 +1,8 @@
+{ lib, ... }:
+{
+  # Storage for future factory helpers (dendritic pattern).
+  options.flake.factory = lib.mkOption {
+    type = lib.types.attrsOf lib.types.unspecified;
+    default = { };
+  };
+}
