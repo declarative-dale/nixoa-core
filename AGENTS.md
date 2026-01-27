@@ -5,7 +5,7 @@ This repository is the NiXOA core module library. Feature modules live under `mo
 
 ## Build, Test, and Development Commands
 - `nix flake check .`: Validate flake inputs and basic evaluation.
-- `sudo nixos-rebuild switch --flake .#HOSTNAME -L`: Rebuild a system using this flake (typically from a user-config repo that imports it).
+- `sudo nixos-rebuild switch --flake .#HOSTNAME -L`: Rebuild a system using this flake (typically from a system repo that imports it).
 - `scripts/xoa-update.sh`: Update the XO source input in `flake.lock`.
 - `scripts/xoa-logs.sh`: Tail service logs for XO and related units.
 
@@ -23,5 +23,5 @@ This repository is the NiXOA core module library. Feature modules live under `mo
 - PRs should describe the module or package change, include config examples if behavior changes, and link relevant issues or docs updates.
 
 ## Security & Configuration Notes
-- This repo is an implementation library; user-specific values belong in the user-config repository.
+- This repo is an implementation library; user-specific values belong in the system repository.
 - Avoid editing generated files or machine-specific values here; keep modules reusable and declarative.

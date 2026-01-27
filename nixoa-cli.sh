@@ -9,9 +9,9 @@ VERSION="1.2.0"
 # Resolve config directory with proper sudo handling
 if [ -n "${SUDO_USER:-}" ]; then
     REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    CONFIG_DIR="${REAL_HOME}/user-config"
+    CONFIG_DIR="${REAL_HOME}/system"
 else
-    CONFIG_DIR="${HOME}/user-config"
+    CONFIG_DIR="${HOME}/system"
 fi
 CONFIG_FILES=(configuration.nix config config.nixoa.toml)
 IDENTITY_FILE="${CONFIG_DIR}/config/identity.nix"

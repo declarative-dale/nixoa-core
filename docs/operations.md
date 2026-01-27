@@ -20,7 +20,7 @@ sudo journalctl -u xo-server -n 200
 ## Configuration Changes
 
 ```bash
-cd ~/user-config
+cd ~/system
 ./scripts/show-diff.sh
 ./scripts/apply-config.sh "Describe change"
 ```
@@ -30,7 +30,7 @@ Edit settings under `config/` in the system repo.
 ## Manual Rebuild
 
 ```bash
-cd ~/user-config
+cd ~/system
 sudo nixos-rebuild switch --flake .#HOSTNAME -L
 ```
 

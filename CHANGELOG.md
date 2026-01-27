@@ -139,7 +139,7 @@ All options renamed from `xoa.*` to `nixoa.*` namespace:
 ### 🗑️ Removed
 
 - `bundle.nix` (replaced with explicit imports)
-- `modules/home/home.nix` (migrated to user-config)
+- `modules/home/home.nix` (migrated to system)
 - `integration.nix` module (functionality distributed)
 - Redundant permission checks
 
@@ -182,7 +182,7 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 - Path and port validation helpers for improved type safety
 
 **Phase 4: Flake Integration**
-- Clean separation of build inputs (in nixoa-core) from user configuration (in user-config)
+- Clean separation of build inputs (in nixoa-core) from user configuration (in system)
 - Packages and utilities automatically available via nixoa-core's `_module.args`
 - Simplified flake inheritance model with zero duplication
 
@@ -216,7 +216,7 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 **Documentation Updates**
 - Updated CONFIGURATION.md: system-settings.toml → configuration.nix, xo-server-settings.toml → config.nixoa.toml
 - Updated troubleshooting-cheatsheet.md with new file references
-- Updated xo-config.nix comment: "nixoa-config flake" → "user-config flake"
+- Updated xo-config.nix comment: "nixoa-config flake" → "system flake"
 - Updated all configuration examples to reflect new Nix-based configuration format
 
 ### ✨ Benefits

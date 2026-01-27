@@ -38,9 +38,9 @@ echo "Done. Rebuild with:"
 # Resolve config directory with proper sudo handling
 if [ -n "${SUDO_USER:-}" ]; then
     REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    CONFIG_DIR="${REAL_HOME}/user-config"
+    CONFIG_DIR="${REAL_HOME}/system"
 else
-    CONFIG_DIR="${HOME}/user-config"
+    CONFIG_DIR="${HOME}/system"
 fi
 
 # Get configured hostname for the rebuild command

@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # Configuration
-USER_REPO_DIR="$HOME/user-config"                   # Target location for system config flake (user home directory)
+USER_REPO_DIR="$HOME/system"                   # Target location for system config flake (user home directory)
 USER_REPO_REMOTE="https://codeberg.org/NiXOA/system.git"
 DRY_RUN=false
 
@@ -158,7 +158,7 @@ echo "  1. Review changes: git log -1 -p"
 # Get configured hostname for rebuild command
 CONFIG_HOST=$(grep "hostname = " config/identity.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 CONFIG_HOST="${CONFIG_HOST:-nixoa}"
-echo "  2. Rebuild NiXOA: cd ~/user-config && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
+echo "  2. Rebuild NiXOA: cd ~/system && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
 echo ""
 echo "To undo this commit: git reset HEAD~1
 '
@@ -251,7 +251,7 @@ echo "   cd $USER_REPO_DIR"
 echo "   ./scripts/apply-config.sh \"Initial deployment\""
 echo ""
 echo "Or manually:"
-echo "   cd ~/user-config"
+echo "   cd ~/system"
 echo "   sudo nixos-rebuild switch --flake .#<hostname>"
 echo ""
 echo "For more information, see:"
