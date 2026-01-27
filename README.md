@@ -17,6 +17,23 @@ It walks through cloning the system repo and applying your first configuration.
 - `overlays.nixoa` exposing `pkgs.nixoa.*`
 - shared helpers under `lib/`
 
+## Quick Links
+
+- [Getting Started](./docs/getting-started.md)
+- [Installation](./docs/installation.md)
+- [Configuration](./docs/configuration.md)
+- [Architecture](./docs/architecture.md)
+- [Operations](./docs/operations.md)
+- [Troubleshooting](./docs/troubleshooting.md)
+
+## Highlights
+
+- Declarative Xen Orchestra service configuration
+- HTTPS/TLS support with auto-generated certificates
+- NFS/CIFS storage helpers and VHD support
+- Xen guest agent and hardware defaults for VMs
+- Flake-parts + dendritic feature registry for composition
+
 ## Feature Stacks
 
 Defined in `parts/nix/registry/features.nix`:
@@ -143,6 +160,16 @@ core/
 
 - Core is **version controlled** and **not** host-specific.
 - User settings belong in the `system/` repo (`config/` files).
+
+## Important Notice
+
+This project is designed for homelab/testing environments. For production use,\nconsider the official Xen Orchestra Appliance from Vates.
+
+## Resources
+
+- Xen Orchestra docs: https://xen-orchestra.com/docs/
+- NixOS learn: https://nixos.org/learn.html
+- Core issues: https://codeberg.org/NiXOA/core/issues
 
 ## License
 
