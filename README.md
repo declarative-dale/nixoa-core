@@ -1,63 +1,90 @@
-# NiXOA: Xen Orchestra on NixOS
+# NiXOA Core
 
-Xen Orchestra from sources on NixOS with a declarative, version-controlled configuration.
+NiXOA core is the **immutable module library** and package layer for NiXOA. It
+ships reusable NixOS modules, Xen Orchestra CE packages, and a dendritic
+flake-parts layout meant to be consumed by a host-specific flake (the `system/`
+repo).
 
-## What is NiXOA?
+- **Who edits this?** Contributors and maintainers.
+- **Who uses this?** Host configuration repos that import it as a flake input.
 
-NiXOA combines three powerful tools:
-- **NixOS** - A reproducible Linux distribution
-- **Xen Orchestra** - Open-source management for XCP-NG virtualization
-- **Declarative configuration** - Define your entire system in code
+## Relationship to `system/`
 
-The result is a system that's reproducible, auditable, and easy to version control.
+`system/` is the user-editable, host-specific flake. It pulls in this repo and
+imports the `appliance` stack (or individual features) from `nixosModules`.
 
-## Quick Links
+Core provides:
+- `nixosModules.*` feature modules and stacks
+- `overlays.nixoa` overlay exposing `pkgs.nixoa.*`
+- helper utilities under `lib/`
 
-- **Getting Started**: [Installation & First Deployment](./docs/getting-started.md)
-- **Installation**: [Detailed Installation Guide](./docs/installation.md)
-- **Configuration**: [How to Configure NiXOA](./docs/configuration.md)
-- **Daily Operations**: [Managing Your System](./docs/operations.md)
-- **Common Tasks**: [Configuration Examples](./docs/common-tasks.md)
-- **Troubleshooting**: [Problem Solving Guide](./docs/troubleshooting.md)
-- **Architecture**: [How NiXOA is Structured](./docs/architecture.md)
+## Layout (Dendritic)
 
-## Features
+```
+core/
+├── flake.nix                 ← generated entrypoint (flake-parts + import-tree)
+├── parts/                    ← dendritic flake-parts modules
+│   ├── flake/                ← outputs (nixosModules, overlays)
+│   └── nix/                  ← inputs + registry helpers
+├── modules/
+│   └── features/
+│       ├── foundation/       ← shared module args
+│       ├── platform/         ← base system features (identity/boot/network/etc.)
+│       ├── virtualization/   ← Xen VM and guest integration
+│       └── xo/               ← Xen Orchestra services & tooling
+├── pkgs/                     ← package definitions (xen-orchestra-ce, libvhdi)
+├── lib/                      ← shared utilities
+├── scripts/                  ← maintenance scripts
+└── docs/                     ← architecture and ops docs
+```
 
-- ✅ Automated Xen Orchestra installation and management
-- ✅ HTTPS with auto-generated certificates
-- ✅ NFS and CIFS remote storage support
-- ✅ Redis caching (Unix socket)
-- ✅ SSH-only admin access (no password login)
-- ✅ Automated system updates with rollback capability
-- ✅ Real-time network monitoring (Snitch)
-- ✅ Systemd-boot or GRUB boot loader options
+## Feature Sets (Stacks)
 
-## First Time Here?
+Core exposes feature modules and stacks via `nixosModules`:
 
-**Start with:** [Getting Started Guide](./docs/getting-started.md)
+- **system**: platform features only
+- **xo**: Xen Orchestra features only
+- **appliance**: platform + virtualization + xo
 
-It walks you through installation and first deployment in about 5 minutes.
+Stacks are defined in `parts/nix/registry/features.nix`.
 
-## Already Installed?
+## Examples
 
-**Check:** [Daily Operations](./docs/operations.md) for how to manage your system
+Import the full appliance stack:
 
-## Need Specific Help?
+```nix
+{
+  inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core?ref=beta";
 
-- **Configuration examples**: [Common Tasks](./docs/common-tasks.md)
-- **Something broken?**: [Troubleshooting](./docs/troubleshooting.md)
-- **Understand the architecture**: [Architecture Guide](./docs/architecture.md)
+  outputs = { nixoaCore, nixpkgs, ... }: {
+    nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
+      modules = [ nixoaCore.nixosModules.appliance ];
+    };
+  };
+}
+```
 
-## Important Notes
+Or import a single feature:
 
-This is **not production-ready** software. It's designed for homelab and testing environments. For production use, purchase the official [Xen Orchestra Appliance](https://xen-orchestra.com/) from Vates.
+```nix
+{
+  modules = [
+    inputs.nixoaCore.nixosModules.xo-service
+  ];
+}
+```
 
-## Resources
+## Notes
 
-- **Xen Orchestra docs**: [https://xen-orchestra.com/docs/](https://xen-orchestra.com/docs/)
-- **NixOS learn**: [https://nixos.org/learn.html](https://nixos.org/learn.html)
-- **Get help**: [https://codeberg.org/nixoa/nixoa-vm/issues](https://codeberg.org/nixoa/nixoa-vm/issues)
+- Core is **version controlled** and **not** host-specific.
+- User-specific settings belong in the `system/` repo (`config/` files).
+- The dendritic layout keeps features discoverable and composable.
+
+## Commands
+
+- `nix flake check .`
+- `scripts/xoa-update.sh`
 
 ## License
 
-Apache 2.0
+Apache-2.0

@@ -34,8 +34,8 @@ in
   # Safe nested attribute access with default fallback
   # Replaces the duplicated 'get' pattern in 6 modules
   #
-  # Usage: getOption systemSettings ["xo" "port"] 80
-  # Returns: systemSettings.xo.port or 80 if not found
+  # Usage: getOption vars ["xo" "port"] 80
+  # Returns: vars.xo.port or 80 if not found
   getOption =
     settings: path: default:
     let

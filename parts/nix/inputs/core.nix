@@ -3,7 +3,7 @@
 }:
 {
   # Base inputs for the NiXOA core flake.
-  flake-file.description = "NixOA-VM - Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
+  flake-file.description = "NiXOA Core - Xen Orchestra Community Edition deployment for NixOS homelabs";
 
   flake-file.nixConfig = {
     extra-substituters = [

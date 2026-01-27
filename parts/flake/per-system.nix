@@ -14,15 +14,15 @@
         default = self'.packages.xen-orchestra-ce;
 
         metadata = pkgs.stdenv.mkDerivation {
-          pname = "nixoa-vm-metadata";
-          version = "1.0.0";
+          pname = "nixoa-core-metadata";
+          version = "1.2.0";
           dontUnpack = true;
           dontBuild = true;
           installPhase = ''
-            mkdir -p $out/share/doc/nixoa-vm
-            echo "NixOA-VM - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa-vm/README
-            echo "This is a NixOS configuration flake." >> $out/share/doc/nixoa-vm/README
-            echo "See https://codeberg.org/nixoa/nixoa-vm for details." >> $out/share/doc/nixoa-vm/README
+            mkdir -p $out/share/doc/nixoa-core
+            echo "NiXOA Core - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa-core/README
+            echo "This is a NixOS module library flake." >> $out/share/doc/nixoa-core/README
+            echo "See https://codeberg.org/NiXOA/core for details." >> $out/share/doc/nixoa-core/README
           '';
           meta = with pkgs.lib; {
             description = "Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
@@ -34,7 +34,7 @@
               }
             ];
             platforms = platforms.linux;
-            homepage = "https://codeberg.org/nixoa/nixoa-vm";
+            homepage = "https://codeberg.org/NiXOA/core";
           };
         };
       };
@@ -57,7 +57,8 @@
           echo "📋 This is the core module library (immutable, git-managed)"
           echo ""
           echo "📁 Module organization:"
-          echo "  ./modules/features/system/        - System features"
+          echo "  ./modules/features/foundation/    - Shared module args"
+          echo "  ./modules/features/platform/      - Base system features"
           echo "  ./modules/features/xo/            - XO features"
           echo "  ./modules/features/virtualization/ - VM hardware features"
           echo ""

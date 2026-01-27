@@ -4,8 +4,7 @@
 
 set -euo pipefail
 
-VERSION="1.0.0"
-NIXOA_DIR="/etc/nixos/nixoa-vm"
+VERSION="1.2.0"
 
 # Resolve config directory with proper sudo handling
 if [ -n "${SUDO_USER:-}" ]; then
@@ -14,6 +13,8 @@ if [ -n "${SUDO_USER:-}" ]; then
 else
     CONFIG_DIR="${HOME}/user-config"
 fi
+CONFIG_FILES=(configuration.nix config config.nixoa.toml)
+IDENTITY_FILE="${CONFIG_DIR}/config/identity.nix"
 
 # Colors for output
 RED='\033[0;31m'
@@ -64,7 +65,7 @@ EXAMPLES:
     nixoa rebuild                          # Rebuild system
     nixoa update                           # Update all inputs
 
-For more information, visit: https://codeberg.org/nixoa/nixoa-vm
+For more information, visit: https://codeberg.org/NiXOA/core
 EOF
 }
 
@@ -92,14 +93,14 @@ config_commit() {
     fi
 
     # Show what's changed
-    if ! git diff --quiet system-settings.toml xo-server-settings.toml 2>/dev/null; then
+    if ! git diff --quiet "${CONFIG_FILES[@]}" 2>/dev/null; then
         print_info "Configuration changes:"
-        git diff --stat system-settings.toml xo-server-settings.toml 2>/dev/null || true
+        git diff --stat "${CONFIG_FILES[@]}" 2>/dev/null || true
         echo ""
     fi
 
-    # Stage the TOML files
-    git add system-settings.toml xo-server-settings.toml
+    # Stage the configuration files
+    git add "${CONFIG_FILES[@]}"
 
     # Check if there are changes to commit
     if git diff --staged --quiet; then
@@ -143,10 +144,10 @@ config_show() {
     print_info "Uncommitted configuration changes:"
     echo ""
 
-    if git diff --quiet system-settings.toml xo-server-settings.toml; then
+    if git diff --quiet "${CONFIG_FILES[@]}"; then
         print_success "No uncommitted changes"
     else
-        git diff system-settings.toml xo-server-settings.toml
+        git diff "${CONFIG_FILES[@]}"
     fi
 }
 
@@ -164,11 +165,11 @@ config_history() {
 
     print_info "Configuration change history:"
     echo ""
-    git log --oneline --decorate --graph -10 -- system-settings.toml xo-server-settings.toml
+    git log --oneline --decorate --graph -10 -- "${CONFIG_FILES[@]}"
 
     echo ""
     print_info "To see full diff: git show <commit-hash>"
-    print_info "To revert: cd $CONFIG_DIR && git checkout <commit-hash> -- system-settings.toml xo-server-settings.toml"
+    print_info "To revert: cd $CONFIG_DIR && git checkout <commit-hash> -- ${CONFIG_FILES[*]}"
 }
 
 # Config: Edit files
@@ -183,21 +184,25 @@ config_edit() {
     print_info "Opening configuration files in $editor..."
     echo ""
     echo "Files:"
-    echo "  1. system-settings.toml"
-    echo "  2. xo-server-settings.toml"
+    echo "  1. config/ (all config/*.nix)"
+    echo "  2. config.nixoa.toml"
+    echo "  3. configuration.nix"
     echo ""
 
-    read -r -p "Which file to edit? [1/2/both] (default: 1): " choice
+    read -r -p "Which file to edit? [1/2/3/all] (default: 1): " choice
 
     case "${choice:-1}" in
         1)
-            $editor system-settings.toml
+            $editor config/*.nix
             ;;
         2)
-            $editor xo-server-settings.toml
+            $editor config.nixoa.toml
             ;;
-        both|b)
-            $editor system-settings.toml xo-server-settings.toml
+        3)
+            $editor configuration.nix
+            ;;
+        all|a)
+            $editor config/*.nix config.nixoa.toml
             ;;
         *)
             print_error "Invalid choice"
@@ -238,13 +243,13 @@ rebuild_system() {
         exit 1
     fi
 
-    cd "$NIXOA_DIR" || {
-        print_error "NiXOA CE directory not found: $NIXOA_DIR"
+    cd "$CONFIG_DIR" || {
+        print_error "System config directory not found: $CONFIG_DIR"
         exit 1
     }
 
-    # Read hostname from user-config (defaults to "nixoa" if not set)
-    CONFIG_HOSTNAME=$(grep "^hostname" "$CONFIG_DIR/system-settings.toml" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
+    # Read hostname from config/identity.nix (defaults to "nixoa" if not set)
+    CONFIG_HOSTNAME=$(grep -E "^[[:space:]]*hostname[[:space:]]*=" "$IDENTITY_FILE" 2>/dev/null | sed 's/.*= *\"\\(.*\\)\".*/\\1/' | head -1)
     CONFIG_HOSTNAME="${CONFIG_HOSTNAME:-nixoa}"
 
     print_info "Running: sudo nixos-rebuild $mode --flake .#${CONFIG_HOSTNAME}"
@@ -267,8 +272,8 @@ rebuild_system() {
 
 # Update flake inputs
 update_flake() {
-    cd "$NIXOA_DIR" || {
-        print_error "NiXOA CE directory not found: $NIXOA_DIR"
+    cd "$CONFIG_DIR" || {
+        print_error "System config directory not found: $CONFIG_DIR"
         exit 1
     }
 
@@ -335,13 +340,12 @@ show_status() {
     echo ""
 
     echo "Configuration:"
-    echo "  NiXOA CE: $NIXOA_DIR"
     echo "  Config:   $CONFIG_DIR"
 
     if [ -d "$CONFIG_DIR/.git" ]; then
         cd "$CONFIG_DIR"
         local last_commit
-        last_commit=$(git log -1 --oneline -- system-settings.toml xo-server-settings.toml 2>/dev/null | head -1)
+        last_commit=$(git log -1 --oneline -- "${CONFIG_FILES[@]}" 2>/dev/null | head -1)
         if [ -n "$last_commit" ]; then
             echo "  Last config change: $last_commit"
         fi

@@ -1,7 +1,7 @@
 # DO-NOT-EDIT. This file was auto-generated using github:vic/flake-file.
 # Use `nix run .#write-flake` to regenerate it.
 {
-  description = "NixOA-VM - Experimental Xen Orchestra Community Edition deployment for NixOS homelabs";
+  description = "NiXOA Core - Xen Orchestra Community Edition deployment for NixOS homelabs";
 
   outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./parts);
 
