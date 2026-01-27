@@ -44,6 +44,6 @@ else
 fi
 
 # Get configured hostname for the rebuild command
-CONFIG_HOST=$(grep "hostname = " "${CONFIG_DIR}/config/identity.nix" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
+CONFIG_HOST=$(grep "hostname = " "${CONFIG_DIR}/config/host.nix" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
 CONFIG_HOST="${CONFIG_HOST:-nixoa}"
 echo "  sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"

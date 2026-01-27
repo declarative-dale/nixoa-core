@@ -156,7 +156,7 @@ echo ""
 echo "Next steps:"
 echo "  1. Review changes: git log -1 -p"
 # Get configured hostname for rebuild command
-CONFIG_HOST=$(grep "hostname = " config/identity.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
+CONFIG_HOST=$(grep "hostname = " config/host.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 CONFIG_HOST="${CONFIG_HOST:-nixoa}"
 echo "  2. Rebuild NiXOA: cd ~/system && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
 echo ""
@@ -195,7 +195,7 @@ echo "=== Applying configuration to NiXOA ==="
 cd "$CONFIG_DIR"
 
 # Read hostname from system config (defaults to "nixoa" if not set)
-HOSTNAME=$(grep "hostname = " "$CONFIG_DIR/config/identity.nix" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
+HOSTNAME=$(grep "hostname = " "$CONFIG_DIR/config/host.nix" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 HOSTNAME="${HOSTNAME:-nixoa}"
 
 echo "Running: sudo nixos-rebuild switch --flake .#${HOSTNAME}"
@@ -238,7 +238,7 @@ echo "================================"
 echo ""
 echo "Next steps:"
 echo "1. Edit your configuration:"
-echo "   nano $USER_REPO_DIR/config/identity.nix"
+echo "   nano $USER_REPO_DIR/config/host.nix"
 echo ""
 echo "2. Add your SSH public key(s) to sshKeys (REQUIRED)"
 echo ""

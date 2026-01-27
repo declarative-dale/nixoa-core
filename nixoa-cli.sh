@@ -14,7 +14,7 @@ else
     CONFIG_DIR="${HOME}/system"
 fi
 CONFIG_FILES=(configuration.nix config config.nixoa.toml)
-IDENTITY_FILE="${CONFIG_DIR}/config/identity.nix"
+IDENTITY_FILE="${CONFIG_DIR}/config/host.nix"
 
 # Colors for output
 RED='\033[0;31m'
@@ -248,7 +248,7 @@ rebuild_system() {
         exit 1
     }
 
-    # Read hostname from config/identity.nix (defaults to "nixoa" if not set)
+    # Read hostname from config/host.nix (defaults to "nixoa" if not set)
     CONFIG_HOSTNAME=$(grep -E "^[[:space:]]*hostname[[:space:]]*=" "$IDENTITY_FILE" 2>/dev/null | sed 's/.*= *\"\\(.*\\)\".*/\\1/' | head -1)
     CONFIG_HOSTNAME="${CONFIG_HOSTNAME:-nixoa}"
 

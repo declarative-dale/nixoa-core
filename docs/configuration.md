@@ -8,7 +8,7 @@ Core does **not** hold user configuration. Settings are defined in the
 Use the files under `system/config/`:
 
 ```
-config/identity.nix
+config/host.nix
 config/users.nix
 config/features.nix
 config/packages.nix
@@ -62,7 +62,7 @@ config/storage.nix
 - `mountsDir`
 - `sudoNoPassword`
 
-## Example (system/config/identity.nix)
+## Example (system/config/host.nix)
 
 ```nix
 {
