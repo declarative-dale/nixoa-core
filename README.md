@@ -2,55 +2,49 @@
 
 NiXOA core is the **immutable module library** and package layer for NiXOA. It
 ships reusable NixOS modules, Xen Orchestra CE packages, and a dendritic
-flake-parts layout meant to be consumed by a host-specific flake (the `system/`
-repo).
+flake-parts layout meant to be consumed by a host-specific flake.
 
-- **Who edits this?** Contributors and maintainers.
-- **Who uses this?** Host configuration repos that import it as a flake input.
+## Getting Started
 
-## Relationship to `system/`
+Start with the ecosystem guide:
+- `../.profile/README.md`
 
-`system/` is the user-editable, host-specific flake. It pulls in this repo and
-imports the `appliance` stack (or individual features) from `nixosModules`.
+It walks through cloning the system repo and applying your first configuration.
 
-Core provides:
+## What Core Provides
+
 - `nixosModules.*` feature modules and stacks
-- `overlays.nixoa` overlay exposing `pkgs.nixoa.*`
-- helper utilities under `lib/`
+- `overlays.nixoa` exposing `pkgs.nixoa.*`
+- shared helpers under `lib/`
 
 ## Layout (Dendritic)
 
 ```
 core/
-├── flake.nix                 ← generated entrypoint (flake-parts + import-tree)
-├── parts/                    ← dendritic flake-parts modules
+├── flake.nix                 ← generated entrypoint
+├── parts/                    ← flake-parts modules
 │   ├── flake/                ← outputs (nixosModules, overlays)
 │   └── nix/                  ← inputs + registry helpers
 ├── modules/
 │   └── features/
 │       ├── foundation/       ← shared module args
-│       ├── platform/         ← base system features (identity/boot/network/etc.)
+│       ├── platform/         ← base system features
 │       ├── virtualization/   ← Xen VM and guest integration
 │       └── xo/               ← Xen Orchestra services & tooling
-├── pkgs/                     ← package definitions (xen-orchestra-ce, libvhdi)
+├── pkgs/                     ← package definitions
 ├── lib/                      ← shared utilities
-├── scripts/                  ← maintenance scripts
-└── docs/                     ← architecture and ops docs
+└── scripts/                  ← maintenance scripts
 ```
 
-## Feature Sets (Stacks)
+## Feature Stacks
 
-Core exposes feature modules and stacks via `nixosModules`:
+Defined in `parts/nix/registry/features.nix`:
 
-- **system**: platform features only
-- **xo**: Xen Orchestra features only
+- **system**: platform only
+- **xo**: XO services only
 - **appliance**: platform + virtualization + xo
 
-Stacks are defined in `parts/nix/registry/features.nix`.
-
-## Examples
-
-Import the full appliance stack:
+## Example (Direct Import)
 
 ```nix
 {
@@ -64,26 +58,10 @@ Import the full appliance stack:
 }
 ```
 
-Or import a single feature:
-
-```nix
-{
-  modules = [
-    inputs.nixoaCore.nixosModules.xo-service
-  ];
-}
-```
-
 ## Notes
 
 - Core is **version controlled** and **not** host-specific.
-- User-specific settings belong in the `system/` repo (`config/` files).
-- The dendritic layout keeps features discoverable and composable.
-
-## Commands
-
-- `nix flake check .`
-- `scripts/xoa-update.sh`
+- User settings belong in the `system/` repo (`config/` files).
 
 ## License
 
