@@ -4,6 +4,5 @@
 {
   imports = [
     ./system.nix
-    ./nix-settings.nix
   ];
 }
