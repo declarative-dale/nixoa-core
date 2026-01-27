@@ -7,13 +7,9 @@
     { pkgs, self', ... }:
     {
       packages = {
-        xen-orchestra-ce = pkgs.callPackage ../../pkgs/xen-orchestra-ce {
-          inherit (inputs) xoSrc;
-        };
+        xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
 
-        libvhdi = pkgs.callPackage ../../pkgs/libvhdi {
-          inherit (inputs) libvhdiSrc;
-        };
+        libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;
 
         default = self'.packages.xen-orchestra-ce;
 

@@ -22,12 +22,8 @@ in
     overlays = {
       nixoa = final: prev: {
         nixoa = {
-          xen-orchestra-ce = final.callPackage ../../pkgs/xen-orchestra-ce {
-            inherit (inputs) xoSrc;
-          };
-          libvhdi = final.callPackage ../../pkgs/libvhdi {
-            inherit (inputs) libvhdiSrc;
-          };
+          xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${final.system}.xen-orchestra-ce;
+          libvhdi = inputs.xen-orchestra-ce.packages.${final.system}.libvhdi;
         };
       };
 

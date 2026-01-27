@@ -6,28 +6,28 @@ if ! command -v jq >/dev/null; then
   echo "jq is required"; exit 1
 fi
 
-OLD=$(jq -r '.nodes.xoSrc.locked.rev // empty' flake.lock 2>/dev/null || true)
+OLD=$(jq -r '.nodes."xen-orchestra-ce".locked.rev // empty' flake.lock 2>/dev/null || true)
 
-echo "Updating xoSrc input..."
-nix flake lock --update-input xoSrc --commit-lock-file
+echo "Updating xen-orchestra-ce input..."
+nix flake lock --update-input xen-orchestra-ce --commit-lock-file
 
-NEW=$(jq -r '.nodes.xoSrc.locked.rev // empty' flake.lock)
+NEW=$(jq -r '.nodes."xen-orchestra-ce".locked.rev // empty' flake.lock)
 if [[ -z "$NEW" ]]; then
   echo "Could not read new rev from flake.lock"; exit 1
 fi
 
-echo "xoSrc: ${OLD:-<none>} -> ${NEW}"
+echo "xen-orchestra-ce: ${OLD:-<none>} -> ${NEW}"
 
 # Show commit messages if possible
 if [[ -n "${OLD}" && "${OLD}" != "${NEW}" ]]; then
   echo
   echo "Attempting to show commit messages between ${OLD}..${NEW} (best effort):"
   TMP=$(mktemp -d)
-  git clone --depth 1 https://github.com/vatesfr/xen-orchestra.git "$TMP" >/dev/null 2>&1 || true
+  git clone --depth 1 https://codeberg.org/NiXOA/xen-orchestra-ce.git "$TMP" >/dev/null 2>&1 || true
   if git -C "$TMP" fetch --depth 100 origin "${NEW}" >/dev/null 2>&1 && git -C "$TMP" fetch --depth 100 origin "${OLD}" >/dev/null 2>&1; then
     git -C "$TMP" log --oneline "${OLD}..${NEW}" || true
   else
-    echo "(Tip: set GITHUB_TOKEN and use: curl -H \"Authorization: token \$GITHUB_TOKEN\" https://api.github.com/repos/vatesfr/xen-orchestra/compare/${OLD}...${NEW})"
+    echo "(Tip: ensure you can reach codeberg.org and that the refs exist.)"
   fi
   rm -rf "$TMP"
 fi

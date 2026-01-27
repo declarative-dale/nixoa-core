@@ -25,14 +25,10 @@
       url = "https://flakehub.com/f/nix-community/home-manager/0";
     };
     import-tree.url = "github:vic/import-tree";
-    libvhdiSrc = {
-      flake = false;
-      url = "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz";
-    };
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
-    xoSrc = {
-      flake = false;
-      url = "github:vatesfr/xen-orchestra/9b6d1089f4b96ef07d7ddc25a943c466e8c7bb4b";
+    xen-orchestra-ce = {
+      inputs.nixpkgs.follows = "nixpkgs";
+      url = "git+ssh://git@codeberg.org/NiXOA/xen-orchestra-ce.git?ref=refs/tags/v1.0";
     };
   };
 
