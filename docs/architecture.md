@@ -10,12 +10,14 @@ cleanly while keeping modules small.
 core/
 ├── flake.nix
 ├── parts/
-│   ├── flake/                 # outputs (nixosModules, overlays)
-│   └── nix/                   # inputs + feature registry helpers
+│   ├── flake/                 # outputs (nixosModules, overlays, per-system)
+│   ├── inputs/                # flake input wiring
+│   ├── per-system/            # per-system package outputs
+│   └── registry/              # feature registry + composition helpers
 ├── modules/
 │   └── features/
 │       ├── foundation/        # shared module args + helpers
-│       ├── platform/          # base system features
+│       ├── platform/          # base platform features
 │       │   ├── boot/           # loader + initrd
 │       │   ├── identity/       # hostname/locale/shells/state
 │       │   ├── networking/     # network defaults, firewall, NFS client
@@ -30,12 +32,15 @@ core/
 
 ## Feature Registry
 
-`parts/nix/registry/features.nix` defines:
+`parts/registry/features.nix` defines:
 
 - **features**: small modules mapped to names
-- **stacks**: named sets of features (e.g., `system`, `xo`, `appliance`)
+- **stacks**: named sets of features (e.g., `platform`, `xo`, `appliance`)
 
-`parts/nix/flake-parts/lib.nix` then builds `nixosModules.*` from the registry.
+Feature definitions are grouped by domain in `parts/registry/features/` and
+merged by `parts/registry/features.nix`.
+
+`parts/registry/composition.nix` then builds `nixosModules.*` from the registry.
 
 ## How Settings Flow In
 

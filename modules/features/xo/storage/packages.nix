@@ -14,11 +14,7 @@ let
 in
 {
   config = mkIf storageEnabled {
-    environment.systemPackages =
-      optionals vars.enableNFS [ pkgs.nfs-utils ]
-      ++ optionals vars.enableCIFS [ pkgs.cifs-utils ]
-      ++ optionals vars.enableVHD [ cfg.package ];
-
+    environment.systemPackages = optionals vars.enableVHD [ cfg.package ];
     services.libvhdi.enable = vars.enableVHD;
   };
 }

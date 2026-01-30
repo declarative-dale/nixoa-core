@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Base system packages
+# Base platform packages
 {
   pkgs,
   ...
@@ -25,6 +25,7 @@
     iotop
     sysstat
     dool
+    openssl
 
     # Network tools
     nfs-utils
@@ -34,15 +35,6 @@
     tcpdump
     dig
     traceroute
-
-    # XO dependencies
-    nodejs_20
-    yarn
-    python3
-    gcc
-    gnumake
-    pkg-config
-    openssl
 
     # Monitoring
     prometheus-node-exporter

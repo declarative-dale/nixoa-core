@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# Base networking configuration
+# Networking defaults
 {
   lib,
   ...

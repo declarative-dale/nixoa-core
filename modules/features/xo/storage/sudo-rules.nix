@@ -1,9 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-# XO storage sudo rules and init service
+# XO storage sudo rules
 {
-  config,
   lib,
-  pkgs,
   vars,
   ...
 }:
@@ -70,25 +68,6 @@ in
             ];
         }
       ];
-    };
-
-    systemd.services.xo-sudo-init = {
-      description = "Initialize sudo for XO user";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" ];
-      serviceConfig = {
-        Type = "oneshot";
-        User = "root";
-        RemainAfterExit = true;
-        ExecStart = "${pkgs.writeShellScript "xo-sudo-init" ''
-          if [ ! -f /var/db/sudo/lectured/${xoUser} ]; then
-            mkdir -p /var/db/sudo/lectured
-            touch /var/db/sudo/lectured/${xoUser}
-            chown root:root /var/db/sudo/lectured/${xoUser}
-            chmod 0600 /var/db/sudo/lectured/${xoUser}
-          fi
-        ''}";
-      };
     };
   };
 }

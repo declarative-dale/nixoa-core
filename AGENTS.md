@@ -10,7 +10,7 @@ This repository is the NiXOA core module library. Feature modules live under `mo
 - `scripts/xoa-logs.sh`: Tail service logs for XO and related units.
 
 ## Coding Style & Naming Conventions
-- Nix files use 2-space indentation and snake/short filenames (for example, `modules/features/xo/service/systemd.nix`).
+- Nix files use 2-space indentation and snake/short filenames (for example, `modules/features/xo/service/unit.nix`).
 - Keep options in the `nixoa.*` namespace and group related settings under feature modules.
 - Shell scripts are POSIX-ish `bash` with `.sh` extensions; keep them executable and minimal.
 

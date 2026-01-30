@@ -70,10 +70,5 @@ in
         Group = "root";
       };
     };
-
-    # TLS directory tmpfiles
-    systemd.tmpfiles.rules = [
-      "d ${tlsCfg.dir} 0755 root root - -"
-    ];
   };
 }

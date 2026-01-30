@@ -11,17 +11,9 @@ let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
 
-  xoaPackage = cfg.package;
-  xoAppDir = "${xoaPackage}/libexec/xen-orchestra";
   xoUser = vars.xoUser;
   xoGroup = vars.xoGroup;
-
-  startXO = pkgs.writeShellScript "xo-start.sh" ''
-    set -euo pipefail
-    export HOME="${cfg.home}"
-    export NODE_ENV="production"
-    exec ${pkgs.nodejs_24}/bin/node "${xoAppDir}/packages/xo-server/dist/cli.mjs" "$@"
-  '';
+  startScript = config.nixoa.xo.internal.startScript;
 in
 {
   config = mkIf vars.enableXO {
@@ -43,7 +35,7 @@ in
       requires = [ "redis-xo.service" ];
 
       # Sudo wrapper must be first in path to intercept sudo calls
-      # (defined in storage/wrapper.nix via nixoa.xo.internal.sudoWrapper)
+      # (defined in storage/wrapper-script.nix via nixoa.xo.internal.sudoWrapper)
       path =
         lib.optional (config.nixoa.xo.internal.sudoWrapper != null) config.nixoa.xo.internal.sudoWrapper
         ++ (with pkgs; [
@@ -75,13 +67,13 @@ in
         User = xoUser;
         Group = xoGroup;
 
-        WorkingDirectory = xoAppDir;
+        WorkingDirectory = "${cfg.package}/libexec/xen-orchestra";
         StateDirectory = "xo";
         CacheDirectory = "xo";
         LogsDirectory = "xo";
         RuntimeDirectory = "xo xo-server";
 
-        ExecStart = "${startXO}";
+        ExecStart = "${startScript}";
 
         Restart = "on-failure";
         RestartSec = "10s";

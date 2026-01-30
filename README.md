@@ -36,9 +36,9 @@ It walks through cloning the system repo and applying your first configuration.
 
 ## Feature Stacks
 
-Defined in `parts/nix/registry/features.nix`:
+Defined in `parts/registry/features.nix`:
 
-- **system**: platform only
+- **platform**: base platform only
 - **xo**: XO services only
 - **appliance**: platform + virtualization + xo
 
@@ -66,37 +66,32 @@ core/
 │   ├── NOTICE
 │   └── headers/
 ├── lib/                              # shared helpers
-│   └── utils.nix
+│   ├── utils.nix
+│   └── utils/
 ├── modules/
 │   └── features/
 │       ├── foundation/
 │       │   └── args.nix
 │       ├── platform/
 │       │   ├── boot/
-│       │   │   ├── default.nix
 │       │   │   ├── initrd.nix
 │       │   │   └── loader.nix
 │       │   ├── identity/
-│       │   │   ├── default.nix
 │       │   │   ├── hostname.nix
 │       │   │   ├── locale.nix
 │       │   │   ├── shells.nix
-│       │   │   └── state.nix
+│       │   │   └── state-version.nix
 │       │   ├── networking/
-│       │   │   ├── base.nix
-│       │   │   ├── default.nix
+│       │   │   ├── defaults.nix
 │       │   │   ├── firewall.nix
 │       │   │   └── nfs.nix
 │       │   ├── packages/
-│       │   │   ├── default.nix
-│       │   │   └── system.nix
+│       │   │   └── base-packages.nix
 │       │   ├── services/
-│       │   │   ├── default.nix
 │       │   │   ├── journald.nix
 │       │   │   └── prometheus.nix
 │       │   └── users/
 │       │       ├── accounts.nix
-│       │       ├── default.nix
 │       │       ├── ssh.nix
 │       │       └── sudo.nix
 │       ├── virtualization/
@@ -104,37 +99,48 @@ core/
 │       │   └── xen-hardware.nix
 │       └── xo/
 │           ├── cli.nix
-│           ├── config.nix
-│           ├── extras.nix
-│           ├── options.nix
-│           ├── tls.nix
+│           ├── config-link.nix
+│           ├── dev-tools.nix
+│           ├── options-base.nix
+│           ├── options-paths.nix
+│           ├── options-tls.nix
+│           ├── tls-service.nix
+│           ├── tls-tmpfiles.nix
 │           ├── service/
 │           │   ├── assertions.nix
-│           │   ├── default.nix
 │           │   ├── packages.nix
 │           │   ├── redis.nix
-│           │   ├── systemd.nix
-│           │   └── tmpfiles.nix
+│           │   ├── start-script.nix
+│           │   ├── tmpfiles.nix
+│           │   └── unit.nix
 │           └── storage/
 │               ├── assertions.nix
-│               ├── default.nix
 │               ├── filesystems.nix
+│               ├── libvhdi-options.nix
 │               ├── packages.nix
-│               ├── sudo.nix
+│               ├── sudo-config.nix
+│               ├── sudo-init.nix
+│               ├── sudo-rules.nix
 │               ├── tmpfiles.nix
-│               └── wrapper.nix
+│               └── wrapper-script.nix
 ├── parts/                            # flake-parts wiring
 │   ├── flake/
-│   │   ├── exports.nix
-│   │   └── per-system.nix
-│   └── nix/
-│       ├── flake-parts/
-│       │   ├── dendritic-tools.nix
-│       │   └── lib.nix
-│       ├── inputs/
-│       │   └── core.nix
-│       └── registry/
-│           └── features.nix
+│   │   ├── nixos-modules.nix
+│   │   ├── outputs.nix
+│   │   ├── overlays.nix
+│   │   ├── per-system.nix
+│   │   └── wiring.nix
+│   ├── inputs/
+│   │   └── base.nix
+│   ├── per-system/
+│   │   └── packages.nix
+│   └── registry/
+│       ├── composition.nix
+│       ├── features.nix
+│       └── features/
+│           ├── platform.nix
+│           ├── virtualization.nix
+│           └── xo.nix
 └── scripts/                          # maintenance utilities
     ├── migrate-redis-to-valkey.sh
     ├── xoa-install.sh

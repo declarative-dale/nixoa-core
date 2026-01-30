@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-# System state version
+# System state version (pinned after install)
 {
   vars,
   ...

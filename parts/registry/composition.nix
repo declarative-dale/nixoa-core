@@ -10,7 +10,12 @@ let
   stackNames = builtins.attrNames (registry.stacks or { });
   resolveFeature = name: registry.features.${name};
 
-  featureModules = names: commonModules ++ map (name: (resolveFeature name).module) names;
+  featureModules =
+    names:
+    let
+      getModules = feature: if feature ? modules then feature.modules else [ feature.module ];
+    in
+    commonModules ++ lib.concatMap (name: getModules (resolveFeature name)) names;
   stackModules = name: featureModules registry.stacks.${name};
 
   mkFeatureModule = name: { imports = featureModules [ name ]; };

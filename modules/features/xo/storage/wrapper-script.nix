@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
-# XO storage sudo wrapper and CIFS helpers
+# XO storage sudo wrapper script
 {
-  config,
   lib,
   pkgs,
   vars,
@@ -84,21 +83,5 @@ in
 {
   config = mkIf storageEnabled {
     nixoa.xo.internal.sudoWrapper = sudoWrapper;
-
-    security.wrappers = lib.mkIf vars.enableCIFS {
-      "mount.cifs" = {
-        program = "mount.cifs";
-        source = "${lib.getBin pkgs.cifs-utils}/bin/mount.cifs";
-        owner = "root";
-        group = "root";
-        setuid = true;
-      };
-    };
-
-    security.sudo.extraConfig = ''
-      Defaults !use_pty
-      Defaults !log_subcmds
-      Defaults:${vars.xoUser} !use_pty,!syslog
-    '';
   };
 }
