@@ -75,11 +75,11 @@
     },
     "flake-file": {
       "locked": {
-        "lastModified": 1769416693,
-        "narHash": "sha256-pPNc9y+Vhgf5qw9Qvb+8L7iWedX7dQ/7oRH0QWzwJkg=",
+        "lastModified": 1770413673,
+        "narHash": "sha256-JYX/J8vyb8GGV3HSl5AkDpct5eUGkDKP0HWjONYcZ+U=",
         "owner": "vic",
         "repo": "flake-file",
-        "rev": "c09729628983ed1e35c8dd43aa3df91a06f80e65",
+        "rev": "3911266a6536c155864c8e4d26588170ac33f468",
         "type": "github"
       },
       "original": {
@@ -114,11 +114,11 @@
         "nixpkgs-lib": "nixpkgs-lib"
       },
       "locked": {
-        "lastModified": 1768135262,
-        "narHash": "sha256-PVvu7OqHBGWN16zSi6tEmPwwHQ4rLPU9Plvs8/1TUBY=",
+        "lastModified": 1769996383,
+        "narHash": "sha256-AnYjnFWgS49RlqX7LrC4uA+sCCDBj0Ry/WOJ5XWAsa0=",
         "owner": "hercules-ci",
         "repo": "flake-parts",
-        "rev": "80daad04eddbbf5a4d883996a73f3f542fa437ac",
+        "rev": "57928607ea566b5db3ad13af0e57e921e6b12381",
         "type": "github"
       },
       "original": {
@@ -160,12 +160,12 @@
         ]
       },
       "locked": {
-        "lastModified": 1768949235,
-        "narHash": "sha256-TtjKgXyg1lMfh374w5uxutd6Vx2P/hU81aEhTxrO2cg=",
-        "rev": "75ed713570ca17427119e7e204ab3590cc3bf2a5",
-        "revCount": 5854,
+        "lastModified": 1770260404,
+        "narHash": "sha256-3iVX1+7YUIt23hBx1WZsUllhbmP2EnXrV8tCRbLxHc8=",
+        "rev": "0d782ee42c86b196acff08acfbf41bb7d13eed5b",
+        "revCount": 5858,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/nix-community/home-manager/0.2511.5854%2Brev-75ed713570ca17427119e7e204ab3590cc3bf2a5/019bdd98-c10e-7a70-b114-e076ca100f2c/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/nix-community/home-manager/0.2511.5858%2Brev-0d782ee42c86b196acff08acfbf41bb7d13eed5b/019c2bbe-fad2-7b9f-9842-49f15da2e77b/source.tar.gz"
       },
       "original": {
         "type": "tarball",
@@ -185,19 +185,6 @@
         "owner": "vic",
         "repo": "import-tree",
         "type": "github"
-      }
-    },
-    "libvhdiSrc": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1715232204,
-        "narHash": "sha256-V/dJlDJixLPGMZvB5UkLicq9yzXexukqPPhCtgcKiGM=",
-        "type": "tarball",
-        "url": "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://github.com/libyal/libvhdi/releases/download/20240509/libvhdi-alpha-20240509.tar.gz"
       }
     },
     "nix": {
@@ -253,11 +240,11 @@
     },
     "nixpkgs-lib": {
       "locked": {
-        "lastModified": 1765674936,
-        "narHash": "sha256-k00uTP4JNfmejrCLJOwdObYC9jHRrr/5M/a/8L2EIdo=",
+        "lastModified": 1769909678,
+        "narHash": "sha256-cBEymOf4/o3FD5AZnzC3J9hLbiZ+QDT/KDuyHXVJOpM=",
         "owner": "nix-community",
         "repo": "nixpkgs.lib",
-        "rev": "2075416fcb47225d9b68ac469a5c4801a9c4dd85",
+        "rev": "72716169fe93074c333e8d0173151350670b824c",
         "type": "github"
       },
       "original": {
@@ -298,12 +285,12 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1769089682,
-        "narHash": "sha256-9yA/LIuAVQq0lXelrZPjLuLVuZdm03p8tfmHhnDIkms=",
-        "rev": "078d69f03934859a181e81ba987c2bb033eebfc5",
-        "revCount": 906333,
+        "lastModified": 1770464364,
+        "narHash": "sha256-z5NJPSBwsLf/OfD8WTmh79tlSU8XgIbwmk6qB1/TFzY=",
+        "rev": "23d72dabcb3b12469f57b37170fcbc1789bd7457",
+        "revCount": 907408,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2511.906333%2Brev-078d69f03934859a181e81ba987c2bb033eebfc5/019bebf2-031c-7119-8fdc-ce9d29d005fa/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2511.907408%2Brev-23d72dabcb3b12469f57b37170fcbc1789bd7457/019c3bd0-8a76-71e4-8c0e-ad25a770ebdf/source.tar.gz"
       },
       "original": {
         "type": "tarball",
@@ -317,26 +304,29 @@
         "flake-parts": "flake-parts_2",
         "home-manager": "home-manager",
         "import-tree": "import-tree",
-        "libvhdiSrc": "libvhdiSrc",
         "nixpkgs": "nixpkgs_3",
-        "xoSrc": "xoSrc"
+        "xen-orchestra-ce": "xen-orchestra-ce"
       }
     },
-    "xoSrc": {
-      "flake": false,
+    "xen-orchestra-ce": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
       "locked": {
-        "lastModified": 1767711694,
-        "narHash": "sha256-JF1X2900gg6ZjKNflEddG5XucUa+P5ExD3fki+BEPR8=",
-        "owner": "vatesfr",
-        "repo": "xen-orchestra",
-        "rev": "9b6d1089f4b96ef07d7ddc25a943c466e8c7bb4b",
-        "type": "github"
+        "lastModified": 1770545176,
+        "narHash": "sha256-dNOy9XGLSR6KV5rzXJbHdti2fn1Jr/YwJpEkPetuTEU=",
+        "ref": "refs/tags/v6.1.1",
+        "rev": "91c0b7995d70c065b01bc610b6b26f2618feccb7",
+        "revCount": 10,
+        "type": "git",
+        "url": "ssh://git@codeberg.org/NiXOA/xen-orchestra-ce.git"
       },
       "original": {
-        "owner": "vatesfr",
-        "repo": "xen-orchestra",
-        "rev": "9b6d1089f4b96ef07d7ddc25a943c466e8c7bb4b",
-        "type": "github"
+        "ref": "refs/tags/v6.1.1",
+        "type": "git",
+        "url": "ssh://git@codeberg.org/NiXOA/xen-orchestra-ce.git"
       }
     }
   },
