@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
 # NiXOA Bootstrap Installer
-# This script bootstraps the NiXOA base flake and user configuration flake.
+# This script bootstraps the NiXOA system configuration flake.
 # It is idempotent and can be run multiple times safely.
 
 set -euo pipefail
 
 # Configuration
-BASE_DIR="/etc/nixos"                                # Target location for base flake (nixoa-vm)
-BASE_REPO="https://codeberg.org/nixoa/nixoa-vm.git"
-USER_REPO_DIR="$HOME/user-config"                   # Target location for user config flake (user home directory)
-USER_REPO_REMOTE="https://codeberg.org/nixoa/user-config.git"
+USER_REPO_DIR="$HOME/system"                   # Target location for system config flake (user home directory)
+USER_REPO_REMOTE="https://codeberg.org/NiXOA/system.git"
 DRY_RUN=false
 
 # Parse arguments
@@ -38,22 +36,7 @@ fi
 echo "NiXOA Bootstrap Installer starting..."
 echo
 
-# 1. Clone base flake (nixoa-vm) to /etc/nixos/nixoa-vm
-if [[ -d "$BASE_DIR/nixoa-vm" ]]; then
-  echo "Base flake directory $BASE_DIR/nixoa-vm already exists."
-  if [[ -d "$BASE_DIR/nixoa-vm/.git" ]]; then
-    echo " - Git repository detected for base flake."
-    # Optionally, you could pull latest changes:
-    # run "sudo git -C $BASE_DIR/nixoa-vm pull"
-  else
-    echo " - Note: $BASE_DIR/nixoa-vm exists but is not a git repo."
-  fi
-else
-  echo "Cloning base flake (nixoa-vm) to $BASE_DIR..."
-  run "sudo git clone $BASE_REPO $BASE_DIR/nixoa-vm"
-fi
-
-# 2. Prompt for git user info if not set
+# 1. Prompt for git user info if not set
 GIT_NAME=$(git config --global user.name || true)
 GIT_EMAIL=$(git config --global user.email || true)
 if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" ]]; then
@@ -72,118 +55,25 @@ if [[ -z "$GIT_NAME" || -z "$GIT_EMAIL" ]]; then
   fi
 fi
 
-# 3. Set up user config flake repository
+# 2. Set up system config flake repository
 if [[ -d "$USER_REPO_DIR" ]]; then
   echo "User config directory $USER_REPO_DIR already exists."
   if [[ -d "$USER_REPO_DIR/.git" ]]; then
-    echo " - Git repository detected for user config."
+    echo " - Git repository detected for system config."
   else
     echo " - Note: $USER_REPO_DIR exists but is not a git repo."
   fi
 else
-  echo "Cloning user config flake to $USER_REPO_DIR ..."
-  run "sudo git clone $USER_REPO_REMOTE $USER_REPO_DIR"
+  echo "Cloning system config flake to $USER_REPO_DIR ..."
+  run "git clone $USER_REPO_REMOTE $USER_REPO_DIR"
 fi
 
-# 4. Populate user config flake with initial files (if not already present from git)
-# User-config is now a full flake in git, but we'll populate missing config files
+# 3. Populate system config flake with initial files (if not already present from git)
+# System config is now a full flake in git, but we'll populate missing config files
 
-# a) configuration.nix (pure Nix configuration)
+# a) configuration.nix (should already exist in the system repo)
 if [[ ! -f "$USER_REPO_DIR/configuration.nix" ]]; then
-  echo "Writing configuration.nix..."
-  CONFIG_NIX_CONTENT='# SPDX-License-Identifier: Apache-2.0
-# NiXOA User Configuration
-# Pure Nix configuration with userSettings and systemSettings
-
-{ lib, pkgs, ... }:
-
-{
-  # ========================================================================
-  # USER SETTINGS (Home Manager, extra packages, etc.)
-  # ========================================================================
-
-  userSettings = {
-    # User-specific packages managed by Home Manager
-    packages.extra = [
-      # Add your user packages here, e.g.:
-      # "neovim"
-      # "tmux"
-      # "lazygit"
-    ];
-
-    # Enable terminal enhancements (zsh, oh-my-posh, enhanced tools, etc.)
-    extras.enable = false;
-  };
-
-  # ========================================================================
-  # SYSTEM SETTINGS (XO configuration, networking, storage, etc.)
-  # ========================================================================
-
-  systemSettings = {
-    # Basic system identification
-    hostname = "nixoa";
-    username = "xoa";
-    stateVersion = "25.11";
-    timezone = "UTC";
-
-    # SSH access (REQUIRED)
-    sshKeys = [
-      # Add your SSH public keys here, e.g.:
-      # "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... user@laptop"
-    ];
-
-    # Xen Orchestra service account
-    xo = {
-      service = {
-        user = "xo";
-        group = "xo";
-      };
-      host = "0.0.0.0";
-      port = 80;
-      httpsPort = 443;
-
-      # TLS/HTTPS configuration
-      tls = {
-        enable = true;
-        redirectToHttps = true;
-        autoGenerate = true;  # Auto-generate self-signed certificates
-        dir = "/etc/ssl/xo";
-        cert = "/etc/ssl/xo/certificate.pem";
-        key = "/etc/ssl/xo/key.pem";
-      };
-    };
-
-    # Remote storage support
-    storage = {
-      nfs.enable = true;
-      cifs.enable = true;
-      vhd.enable = true;
-      mountsDir = "/var/lib/xo/mounts";
-    };
-
-    # Networking and firewall
-    networking.firewall.allowedTCPPorts = [ 80 443 3389 5900 8012 ];
-
-    # System packages to install globally
-    packages.system.extra = [
-      # Add system packages here, e.g.:
-      # "neovim"
-      # "htop"
-    ];
-
-    # Automated updates configuration
-    updates = {
-      # Configure automatic updates here if desired
-    };
-
-    # Custom services
-    services.definitions = {};
-  };
-}
-'
-  run "cat > \"$USER_REPO_DIR/configuration.nix\" <<'EOF'
-$CONFIG_NIX_CONTENT
-EOF"
+  echo "configuration.nix is missing. Please restore it from the system repo."
 fi
 
 # c) config.nixoa.toml (XO server configuration)
@@ -246,26 +136,29 @@ COMMIT_MSG="$1"
 
 # Show what'"'"'s changed
 echo "=== Configuration Changes ==="
-git diff --stat configuration.nix config.nixoa.toml 2>/dev/null || true
+git diff --stat configuration.nix config config.nixoa.toml 2>/dev/null || true
 echo ""
 
 # Check if there are changes to commit
-if git diff --quiet configuration.nix config.nixoa.toml 2>/dev/null; then
+if git diff --quiet configuration.nix config config.nixoa.toml 2>/dev/null; then
     echo "No changes to commit."
     exit 0
 fi
 
-# Commit the changes (auto-stages tracked files)
-git commit -a -m "$COMMIT_MSG"
+# Stage configuration files (including config fragments)
+git add configuration.nix config config.nixoa.toml
+
+# Commit the changes
+git commit -m "$COMMIT_MSG"
 
 echo "✓ Configuration committed successfully!"
 echo ""
 echo "Next steps:"
 echo "  1. Review changes: git log -1 -p"
 # Get configured hostname for rebuild command
-CONFIG_HOST=$(grep "hostname = " configuration.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
+CONFIG_HOST=$(grep "hostname = " config/host.nix 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 CONFIG_HOST="${CONFIG_HOST:-nixoa}"
-echo "  2. Rebuild NiXOA: cd ~/user-config && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
+echo "  2. Rebuild NiXOA: cd ~/system && sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
 echo ""
 echo "To undo this commit: git reset HEAD~1
 '
@@ -296,13 +189,13 @@ fi
 echo "=== Committing configuration changes ==="
 "$SCRIPT_DIR/commit-config.sh" "$COMMIT_MSG"
 
-# Apply the configuration from user-config directory
+# Apply the configuration from system config directory
 echo ""
 echo "=== Applying configuration to NiXOA ==="
 cd "$CONFIG_DIR"
 
-# Read hostname from user-config (defaults to "nixoa" if not set)
-HOSTNAME=$(grep "hostname = " "$CONFIG_DIR/configuration.nix" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
+# Read hostname from system config (defaults to "nixoa" if not set)
+HOSTNAME=$(grep "hostname = " "$CONFIG_DIR/config/host.nix" 2>/dev/null | sed '"'"'s/.*= *"\\(.*\\)".*/\\1/'"'"' | head -1)
 HOSTNAME="${HOSTNAME:-nixoa}"
 
 echo "Running: sudo nixos-rebuild switch --flake .#${HOSTNAME}"
@@ -319,11 +212,11 @@ fi
 # Make sure scripts are executable
 run "chmod +x \"$SCRIPTS_DIR\"/*.sh || true"
 
-# 5. Copy hardware-configuration.nix into user config
+# 4. Copy hardware-configuration.nix into system config
 SRC_HW="/etc/nixos/hardware-configuration.nix"
 DEST_HW="$USER_REPO_DIR/hardware-configuration.nix"
 if [[ -f "$SRC_HW" ]]; then
-  echo "Copying hardware-configuration.nix to user config..."
+  echo "Copying hardware-configuration.nix to system config..."
   run "sudo cp \"$SRC_HW\" \"$DEST_HW\""
   run "sudo chown $USER:$USER \"$DEST_HW\""
 else
@@ -332,24 +225,24 @@ else
   run "sudo chown $USER:$USER \"$DEST_HW\""
 fi
 
-# 6. Git commit initial user config
-echo "Committing initial files in user-config repo..."
+# 5. Git commit initial system config
+echo "Committing initial files in system config repo..."
 run "git -C \"$USER_REPO_DIR\" add -A"
 run "git -C \"$USER_REPO_DIR\" commit -m \"Initial NiXOA configuration\" || true"
 
-# 7. Prompt user to edit configuration before first rebuild
+# 6. Prompt user to edit configuration before first rebuild
 echo ""
 echo "================================"
 echo "Initial Setup Complete!"
 echo "================================"
 echo ""
 echo "Next steps:"
-echo "1. Edit your configuration in your user-config:"
-echo "   nano $USER_REPO_DIR/configuration.nix"
+echo "1. Edit your configuration:"
+echo "   nano $USER_REPO_DIR/config/host.nix"
 echo ""
-echo "2. Add your SSH public key(s) to systemSettings.sshKeys (REQUIRED)"
+echo "2. Add your SSH public key(s) to sshKeys (REQUIRED)"
 echo ""
-echo "3. Set hostname, username, and other settings in systemSettings"
+echo "3. Set hostname, username, and other settings in config/"
 echo ""
 echo "4. (Optional) Customize XO server settings in config.nixoa.toml"
 echo ""
@@ -358,10 +251,9 @@ echo "   cd $USER_REPO_DIR"
 echo "   ./scripts/apply-config.sh \"Initial deployment\""
 echo ""
 echo "Or manually:"
-echo "   cd ~/user-config"
+echo "   cd ~/system"
 echo "   sudo nixos-rebuild switch --flake .#<hostname>"
 echo ""
 echo "For more information, see:"
 echo "  - $USER_REPO_DIR/README.md"
-echo "  - $BASE_DIR/nixoa-vm/README.md"
 echo ""

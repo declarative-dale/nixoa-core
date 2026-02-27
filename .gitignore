@@ -27,3 +27,4 @@ result-*
 
 # Logs
 *.log
+.claude/
