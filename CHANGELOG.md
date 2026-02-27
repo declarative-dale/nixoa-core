@@ -3,22 +3,46 @@
 
 ## v1.2.0 — Platform Dendritic Split
 
-Date: 2026-01-27
+Date: 2026-02-27
 
-This release refines the dendritic layout by splitting the platform feature
-set into discrete submodules and aligning documentation with the new config
-composition model.
+This release includes a dendritic refactor,
+XO module decomposition, and input compatibility updates.
 
 ### ✨ Added
 
-- **platform/** subdirectories for boot, identity, networking, packages, and services
-- Collector `default.nix` modules for platform feature bundles
+- **Modular utility library** under `lib/utils/` (`get-option`, `options`, `module-lib`, `systemd`, `types`, `validators`)
+- **XO module split** into focused files:
+  - `options-base.nix`, `options-paths.nix`, `options-tls.nix`
+  - `service/start-script.nix`
+  - `storage/libvhdi-options.nix`, `storage/sudo-config.nix`, `storage/sudo-init.nix`
+  - `tls-tmpfiles.nix`
+- **Flake output split** into dedicated parts:
+  - `parts/flake/nixos-modules.nix`
+  - `parts/flake/outputs.nix`
+  - `parts/flake/overlays.nix`
+  - `parts/per-system/packages.nix`
 
 ### 🔄 Changed
 
-- **Registry wiring** now points to platform feature directories
-- **Platform services** focus on journald + monitoring defaults (storage helpers live in XO storage)
-- **Docs/README** refreshed for config/ composition and dendritic layout
+- **Stack and feature key naming**: `system-*` → `platform-*`; appliance composition updated
+- **parts/ layout flattened** from `parts/nix/*` into `parts/flake`, `parts/inputs`, `parts/registry`, and `parts/per-system`
+- **Registry feature definitions** consolidated into `parts/registry/features.nix` (group sub-files removed)
+- **XO/platform filenames normalized** (for example `state-version.nix`, `defaults.nix`, `config-link.nix`, `dev-tools.nix`, `tls-service.nix`)
+- **Input sourcing and locks refreshed**:
+  - `xen-orchestra-ce` moved from tagged source to beta tracking over HTTPS
+  - lock updates include the 6.2.0 update cycle and nixpkgs/tooling refreshes
+- **Docs/README/architecture** refreshed for the new structure and composition model
+
+### 🗑️ Removed
+
+- **Bundle-only collector modules** (`default.nix`) in platform and XO service/storage slices
+- **Legacy monolithic XO options file** (`modules/features/xo/options.nix`)
+
+### 🐛 Fixed
+
+- **Deprecated Nix attr usage** replaced:
+  - `final.system` → `final.stdenv.hostPlatform.system`
+  - `pkgs.system` → `pkgs.stdenv.hostPlatform.system`
 
 ## v1.1.0 — Dendritic Feature Reorg
 
