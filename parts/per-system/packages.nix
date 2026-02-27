@@ -7,10 +7,13 @@
 {
   perSystem =
     { pkgs, self', ... }:
+    let
+      system = pkgs.stdenv.hostPlatform.system;
+    in
     {
       packages = {
-        xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${pkgs.system}.xen-orchestra-ce;
-        libvhdi = inputs.xen-orchestra-ce.packages.${pkgs.system}.libvhdi;
+        xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
+        libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;
         default = self'.packages.xen-orchestra-ce;
 
         metadata = pkgs.stdenv.mkDerivation {
