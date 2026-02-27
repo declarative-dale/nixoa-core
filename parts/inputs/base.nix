@@ -13,7 +13,7 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     xen-orchestra-ce = {
-      url = "git+ssh://git@codeberg.org/NiXOA/xen-orchestra-ce.git?ref=refs/tags/v6.1.1";
+      url = "git+https://codeberg.org/NiXOA/xen-orchestra-ce.git?ref=beta";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };

@@ -344,12 +344,12 @@
         "rev": "099da0e0c85a1a9e6ac6ce07ddfb7facdcd02f66",
         "revCount": 22,
         "type": "git",
-        "url": "ssh://git@codeberg.org/NiXOA/xen-orchestra-ce.git"
+        "url": "https://codeberg.org/NiXOA/xen-orchestra-ce.git"
       },
       "original": {
         "ref": "beta",
         "type": "git",
-        "url": "ssh://git@codeberg.org/NiXOA/xen-orchestra-ce.git"
+        "url": "https://codeberg.org/NiXOA/xen-orchestra-ce.git"
       }
     }
   },
