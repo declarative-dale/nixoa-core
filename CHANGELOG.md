@@ -1,6 +1,44 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v2.0.0 — Explicit Output Surface And System Boundary Cleanup
+
+Date: 2026-03-24
+
+This release finalizes the dendritic core refactor around explicit flake
+entrypoints, curated stack exports, and a cleaner separation between the core
+appliance library and the system host flake.
+
+### ⚠️ Breaking Changes
+
+- **Public output layout changed** from the old top-level output files to `modules/outputs/`
+- **Granular stack exports are now part of the public API** through `virtualization` and `xenOrchestra`
+- **Bootstrap/install responsibilities were removed from core** and now live in `system/`
+
+### ✨ Added
+
+- **Explicit output entrypoints** in `modules/outputs.nix` and `modules/outputs/default.nix`
+- **Granular public stack exports**: `virtualization` and `xenOrchestra`
+- **Condensed architecture/docs pass** aligned with the new output surface
+
+### 🔄 Changed
+
+- **Public flake loading** now uses explicit dendritic entrypoints from `flake.nix`
+- **Curated module exports** now live under `modules/outputs/`
+- **Packaged `nixoa` CLI** now targets the current `system/` repository layout
+- **README and docs** now describe core as an immutable appliance library rather than a host bootstrap repo
+
+### 🗑️ Removed
+
+- **Unused `home-manager` flake input**
+- **Obsolete `scripts/xoa-install.sh`** bootstrap script
+- **Legacy top-level output module paths** in favor of `modules/outputs/`
+
+### 🐛 Fixed
+
+- **Output discoverability** after the dendritic refactor by switching from implicit tree loading to explicit module entrypoints
+- **System-facing update guidance** in `xoa-update.sh` and the packaged CLI
+
 ## v1.2.0 — Platform Dendritic Split
 
 Date: 2026-02-27

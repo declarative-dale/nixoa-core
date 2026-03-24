@@ -3,6 +3,8 @@
 NiXOA core is not installed directly. It is a flake library consumed by a host
 flake such as `system/`.
 
+Current release series: `v2.0.0`
+
 ```nix
 inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 ```
