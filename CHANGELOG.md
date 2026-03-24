@@ -70,11 +70,11 @@ and moves Xen guest integration into the core virtualization set.
 
 ---
 
-## v0.5 — Determinate Nix Migration & Xen VM Enhancements
+## v0.5 — Runtime Cleanup & Xen VM Enhancements
 
 Date: 2026-01-09
 
-This release migrates to Determinate Nix, improves Xen VM hardware support, modernizes service configuration, and removes automatic update infrastructure.
+This release streamlines the runtime configuration, improves Xen VM hardware support, modernizes service configuration, and removes automatic update infrastructure.
 
 ### ✨ Added
 
@@ -87,7 +87,7 @@ This release migrates to Determinate Nix, improves Xen VM hardware support, mode
 
 ### 🔄 Changed
 
-- **Migrated to Determinate Nix** - Removed obsolete configuration settings for cleaner deployment
+- **Runtime configuration cleanup** - Removed obsolete configuration settings for cleaner deployment
 - **Cachix integration** - Moved cachix configuration to system flake for better organizational structure
 - **Redis → Valkey** - Updated services.redis.package = pkgs.valkey for Redis-compatible caching
 - **Shell configuration** - Now based on vars.enableExtras instead of deprecated vars.shell variable
@@ -110,7 +110,6 @@ This release migrates to Determinate Nix, improves Xen VM hardware support, mode
 
 ---
 
-## v1.1 - Determinate Nix
 ## v1.0.0 — Milestone Release
 
 Date: 2025-12-29

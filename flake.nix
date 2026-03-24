@@ -3,14 +3,17 @@
 
   outputs =
     inputs:
-    (inputs.nixpkgs.lib.evalModules {
-      modules = [ (inputs.import-tree ./modules) ];
-      specialArgs = { inherit inputs; };
-    }).config.flake;
+    builtins.removeAttrs
+      (
+        (inputs.nixpkgs.lib.evalModules {
+          modules = [ (inputs.import-tree ./modules) ];
+          specialArgs = { inherit inputs; };
+        }).config.flake
+      )
+      [ "denful" ];
 
   inputs = {
     den.url = "github:vic/den";
-    determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
     flake-aspects.url = "github:vic/flake-aspects";
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
