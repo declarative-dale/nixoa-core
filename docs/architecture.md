@@ -1,21 +1,21 @@
 # Core Architecture
 
-NiXOA core is an immutable **module library** and package layer. It uses
-flake-parts and a dendritic feature registry so hosts can compose features
-cleanly while keeping modules small.
+NiXOA core is an immutable **module library** and package layer. It uses a
+den-style dendritic module tree so hosts can consume curated module stacks,
+overlays, and packages without the old bespoke registry layer.
 
 ## Repository Shape
 
 ```
 core/
 ├── flake.nix
-├── parts/
-│   ├── flake/                 # outputs (nixosModules, overlays, per-system)
-│   ├── inputs/                # flake input wiring
-│   ├── per-system/            # per-system package outputs
-│   └── registry/              # feature registry + composition helpers
 ├── modules/
-│   └── features/
+│   ├── dendritic.nix          # loads den framework modules
+│   ├── nixos-modules.nix      # exported stack modules
+│   ├── overlays.nix           # flake overlays
+│   ├── packages.nix           # flake package outputs
+│   └── _nixos/
+│       └── features/
 │       ├── foundation/        # shared module args + helpers
 │       ├── platform/          # base platform features
 │       │   ├── boot/           # loader + initrd
@@ -30,22 +30,22 @@ core/
 └── scripts/                   # maintenance utilities
 ```
 
-## Feature Registry
+## Curated Exports
 
-`parts/registry/features.nix` defines:
+[`modules/nixos-modules.nix`](../../modules/nixos-modules.nix) defines the
+curated stack outputs:
 
-- **features**: small modules mapped to names
-- **stacks**: named sets of features (e.g., `platform`, `xo`, `appliance`)
+- **platform**: base platform only
+- **xo**: XO services only
+- **appliance**: platform + virtualization + xo
 
-Feature definitions are grouped by domain in `parts/registry/features/` and
-merged by `parts/registry/features.nix`.
-
-`parts/registry/composition.nix` then builds `nixosModules.*` from the registry.
+The raw NixOS modules live under `modules/_nixos/` so `import-tree` only loads
+the dendritic top-level modules.
 
 ## How Settings Flow In
 
 System configuration lives in the host repo (the `system/` flake). It produces
-`vars` from `configuration.nix` (which aggregates `config/`). Those values are
+`vars` from `config/default.nix` (which aggregates `config/`). Those values are
 injected via `specialArgs` and `_module.args` into core modules.
 
 ```
@@ -54,5 +54,5 @@ config/* → configuration.nix → vars → specialArgs → core modules → Nix
 
 ## Relationship to System
 
-`system/` imports core as a flake input and selects the `appliance` stack (or
-individual features) from `nixoaCore.nixosModules`.
+`system/` imports core as a flake input and selects the exported stack modules
+from `nixoaCore.nixosModules`.

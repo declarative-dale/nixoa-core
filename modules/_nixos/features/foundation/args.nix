@@ -6,7 +6,7 @@
   ...
 }:
 let
-  utils = import ../../../lib/utils.nix { inherit lib; };
+  utils = import ../../../../lib/utils.nix { inherit lib; };
 in
 {
   _module.args = {

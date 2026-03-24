@@ -1,8 +1,8 @@
 # NiXOA Core
 
 NiXOA core is the **immutable module library** and package layer for NiXOA. It
-ships reusable NixOS modules, Xen Orchestra CE packages, and a dendritic
-flake-parts layout meant to be consumed by a host-specific flake.
+ships reusable NixOS modules, Xen Orchestra CE packages, and a den-style
+dendritic layout meant to be consumed by a host-specific flake.
 
 ## Getting Started
 
@@ -32,11 +32,11 @@ It walks through cloning the system repo and applying your first configuration.
 - HTTPS/TLS support with auto-generated certificates
 - NFS/CIFS storage helpers and VHD support
 - Xen guest agent and hardware defaults for VMs
-- Flake-parts + dendritic feature registry for composition
+- Den-style dendritic exports with curated `nixosModules`, overlays, and packages
 
 ## Feature Stacks
 
-Defined in `parts/registry/features.nix`:
+Defined in [`modules/nixos-modules.nix`](./modules/nixos-modules.nix):
 
 - **platform**: base platform only
 - **xo**: XO services only
@@ -50,7 +50,7 @@ core/
 ├── CHANGELOG.md                      # release history
 ├── LICENSE                           # Apache-2.0
 ├── README.md                         # this file
-├── flake.nix                         # generated entrypoint (flake-parts)
+├── flake.nix                         # flake entrypoint (evalModules)
 ├── flake.lock                        # pinned inputs
 ├── nixoa-cli.sh                      # helper CLI
 ├── docs/                             # library docs
@@ -69,10 +69,15 @@ core/
 │   ├── utils.nix
 │   └── utils/
 ├── modules/
-│   └── features/
-│       ├── foundation/
+│   ├── dendritic.nix                # loads den module support
+│   ├── nixos-modules.nix            # curated exported stacks
+│   ├── overlays.nix                 # flake overlay outputs
+│   ├── packages.nix                 # flake package outputs
+│   └── _nixos/
+│       └── features/
+│           ├── foundation/
 │       │   └── args.nix
-│       ├── platform/
+│           ├── platform/
 │       │   ├── boot/
 │       │   │   ├── initrd.nix
 │       │   │   └── loader.nix
@@ -94,10 +99,10 @@ core/
 │       │       ├── accounts.nix
 │       │       ├── ssh.nix
 │       │       └── sudo.nix
-│       ├── virtualization/
+│           ├── virtualization/
 │       │   ├── xen-guest.nix
 │       │   └── xen-hardware.nix
-│       └── xo/
+│           └── xo/
 │           ├── cli.nix
 │           ├── config-link.nix
 │           ├── dev-tools.nix
@@ -123,24 +128,6 @@ core/
 │               ├── sudo-rules.nix
 │               ├── tmpfiles.nix
 │               └── wrapper-script.nix
-├── parts/                            # flake-parts wiring
-│   ├── flake/
-│   │   ├── nixos-modules.nix
-│   │   ├── outputs.nix
-│   │   ├── overlays.nix
-│   │   ├── per-system.nix
-│   │   └── wiring.nix
-│   ├── inputs/
-│   │   └── base.nix
-│   ├── per-system/
-│   │   └── packages.nix
-│   └── registry/
-│       ├── composition.nix
-│       ├── features.nix
-│       └── features/
-│           ├── platform.nix
-│           ├── virtualization.nix
-│           └── xo.nix
 └── scripts/                          # maintenance utilities
     ├── migrate-redis-to-valkey.sh
     ├── xoa-install.sh

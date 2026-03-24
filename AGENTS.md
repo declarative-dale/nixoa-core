@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is the NiXOA core module library. Feature modules live under `modules/features/` with foundation, platform, virtualization, and XO slices. Nix packages are defined under `pkgs/` (for example, `pkgs/xen-orchestra-ce/`). Shared helpers sit in `lib/`, and operational scripts are in `scripts/`.
+This repository is the NiXOA core module library. The dendritic entrypoints live under `modules/*.nix`, while the plain NixOS implementation modules live under `modules/_nixos/features/` with foundation, platform, virtualization, and XO slices. Shared helpers sit in `lib/`, and operational scripts are in `scripts/`.
 
 ## Build, Test, and Development Commands
 - `nix flake check .`: Validate flake inputs and basic evaluation.
@@ -10,7 +10,7 @@ This repository is the NiXOA core module library. Feature modules live under `mo
 - `scripts/xoa-logs.sh`: Tail service logs for XO and related units.
 
 ## Coding Style & Naming Conventions
-- Nix files use 2-space indentation and snake/short filenames (for example, `modules/features/xo/service/unit.nix`).
+- Nix files use 2-space indentation and snake/short filenames (for example, `modules/_nixos/features/xo/service/unit.nix`).
 - Keep options in the `nixoa.*` namespace and group related settings under feature modules.
 - Shell scripts are POSIX-ish `bash` with `.sh` extensions; keep them executable and minimal.
 
