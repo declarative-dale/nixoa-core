@@ -30,25 +30,6 @@
         "type": "github"
       }
     },
-    "home-manager": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1772020340,
-        "narHash": "sha256-aqBl3GNpCadMoJ/hVkWTijM1Aeilc278MjM+LA3jK6g=",
-        "rev": "36e38ca0d9afe4c55405fdf22179a5212243eecc",
-        "revCount": 5860,
-        "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/nix-community/home-manager/0.2511.5860%2Brev-36e38ca0d9afe4c55405fdf22179a5212243eecc/019c94a6-4b17-795d-8dac-2a8824805555/source.tar.gz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://flakehub.com/f/nix-community/home-manager/0"
-      }
-    },
     "import-tree": {
       "locked": {
         "lastModified": 1772159371,
@@ -104,7 +85,6 @@
       "inputs": {
         "den": "den",
         "flake-aspects": "flake-aspects",
-        "home-manager": "home-manager",
         "import-tree": "import-tree",
         "nixpkgs": "nixpkgs",
         "xen-orchestra-ce": "xen-orchestra-ce"

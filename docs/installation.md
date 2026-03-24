@@ -1,17 +1,24 @@
 # Installation (Core)
 
-NiXOA core is a module library and package layer. You typically **do not**
-install it directly. Use the `system/` repo (host configuration) which pulls
-core as a flake input.
-
-If you want to consume core in a custom flake, add it as an input:
+NiXOA core is not installed directly. It is a flake library consumed by a host
+flake such as `system/`.
 
 ```nix
-inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core?ref=beta";
+inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 ```
 
-Then import the stack you want:
+Then import either the full appliance:
 
 ```nix
 modules = [ nixoaCore.nixosModules.appliance ];
+```
+
+or the more granular stacks:
+
+```nix
+modules = [
+  nixoaCore.nixosModules.platform
+  nixoaCore.nixosModules.virtualization
+  nixoaCore.nixosModules.xenOrchestra
+];
 ```

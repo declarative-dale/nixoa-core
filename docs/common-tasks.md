@@ -1,7 +1,6 @@
 # Common Tasks (Core Consumers)
 
-These examples are applied in the **system** repo (host config) and consumed by
-core modules via `vars`.
+These edits happen in the downstream `system/` repo and are consumed by core.
 
 ## Enable XO
 
@@ -11,19 +10,7 @@ Edit `config/features.nix`:
 { enableXO = true; }
 ```
 
-## Enable storage backends
-
-Edit `config/storage.nix`:
-
-```nix
-{
-  enableNFS = true;
-  enableCIFS = true;
-  enableVHD = true;
-}
-```
-
-## Configure XO TLS
+## Configure TLS
 
 Edit `config/xo.nix`:
 
@@ -34,29 +21,18 @@ Edit `config/xo.nix`:
 }
 ```
 
-## Open firewall ports
+## Open Firewall Ports
 
-Edit `config/networking.nix`:
+Edit `config/platform.nix`:
 
 ```nix
 { allowedTCPPorts = [ 80 443 ]; }
 ```
 
-## Switch boot loader
+## Switch Boot Loader
 
-Edit `config/boot.nix`:
+Edit `config/platform.nix`:
 
 ```nix
 { bootLoader = "grub"; }
-```
-
-## Add system packages
-
-Edit `config/packages.nix`:
-
-```nix
-{ pkgs, ... }:
-{
-  systemPackages = with pkgs; [ htop git ];
-}
 ```

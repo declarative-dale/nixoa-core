@@ -1,28 +1,21 @@
 # Getting Started (Core)
 
-Core is a module library. The recommended entrypoint is the `system/` repo, but
-you can also consume core directly in your own flake.
-
-## Use Core From a Host Flake
+The recommended way to use core is through the separate `system/` host flake.
+If you want to consume core directly, add it as an input and import one or more
+of the curated stacks.
 
 ```nix
 {
-  inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core?ref=beta";
+  inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 
   outputs = { nixoaCore, nixpkgs, ... }: {
     nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
-      modules = [ nixoaCore.nixosModules.appliance ];
+      modules = [
+        nixoaCore.nixosModules.platform
+        nixoaCore.nixosModules.virtualization
+        nixoaCore.nixosModules.xenOrchestra
+      ];
     };
   };
 }
 ```
-
-## Update Core
-
-From your host repo:
-
-```bash
-nix flake update
-```
-
-Core is fetched via flake inputs; no local clone is required.

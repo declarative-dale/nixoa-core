@@ -33,17 +33,6 @@ if [[ -n "${OLD}" && "${OLD}" != "${NEW}" ]]; then
 fi
 
 echo
+HOSTNAME="$(hostname -s 2>/dev/null || printf '%s\n' nixoa)"
 echo "Done. Rebuild with:"
-
-# Resolve config directory with proper sudo handling
-if [ -n "${SUDO_USER:-}" ]; then
-    REAL_HOME=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    CONFIG_DIR="${REAL_HOME}/system"
-else
-    CONFIG_DIR="${HOME}/system"
-fi
-
-# Get configured hostname for the rebuild command
-CONFIG_HOST=$(grep "hostname = " "${CONFIG_DIR}/config/host.nix" 2>/dev/null | sed 's/.*= *"\(.*\)".*/\1/' | head -1)
-CONFIG_HOST="${CONFIG_HOST:-nixoa}"
-echo "  sudo nixos-rebuild switch --flake .#${CONFIG_HOST}"
+echo "  ~/system/scripts/apply-config.sh --hostname ${HOSTNAME}"

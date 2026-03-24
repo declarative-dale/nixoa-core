@@ -1,30 +1,25 @@
 # Troubleshooting (Core)
 
-Issues are typically resolved in the **system** repo configuration.
+Most runtime issues are resolved in the downstream `system/` repository.
 
-## XO not starting
+## XO Not Starting
 
-Check that `enableXO = true;` is set in `config/features.nix` and review logs:
+Check:
+
+- `enableXO = true` in `config/features.nix`
+- XO runtime and TLS settings in `config/xo.nix`
+
+Then inspect:
 
 ```bash
 systemctl status xo-server
 journalctl -u xo-server -n 200
 ```
 
-## SSH access missing
+## SSH Access Missing
 
-Ensure `sshKeys` is populated in `config/users.nix` and rebuild.
+Ensure `sshKeys` is populated in `config/site.nix` or `config/overrides.nix`.
 
-## Firewall ports blocked
+## Firewall Ports Blocked
 
-Update `config/networking.nix` to add required TCP/UDP ports.
-
-## TLS issues
-
-Verify `config/xo.nix`:
-
-```nix
-{ enableTLS = true; enableAutoCert = true; }
-```
-
-Or provide your own certs under `nixoa.xo.tls.*` in a custom module.
+Update `config/platform.nix` in the host repository.

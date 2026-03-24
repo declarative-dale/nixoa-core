@@ -1,149 +1,64 @@
 # NiXOA Core
 
-NiXOA core is the **immutable module library** and package layer for NiXOA. It
-ships reusable NixOS modules, Xen Orchestra CE packages, and a den-style
-dendritic layout meant to be consumed by a host-specific flake.
-
-## Getting Started
-
-Start with the ecosystem guide:
-- `../.profile/README.md`
-
-It walks through cloning the system repo and applying your first configuration.
+NiXOA core is the **immutable appliance library** for NiXOA. It exports curated
+NixOS module stacks, overlays, and packages for Xen Orchestra CE hosts while
+leaving host policy to the separate `system/` flake.
 
 ## What Core Provides
 
-- `nixosModules.*` feature modules and stacks
-- `overlays.nixoa` exposing `pkgs.nixoa.*`
-- shared helpers under `lib/`
+- `nixosModules.platform`
+- `nixosModules.virtualization`
+- `nixosModules.xo`
+- `nixosModules.xenOrchestra`
+- `nixosModules.appliance`
+- `overlays.nixoa`
+- `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,metadata}`
 
-## Quick Links
+## Repository Shape
 
-- [Getting Started](./docs/getting-started.md)
-- [Installation](./docs/installation.md)
-- [Configuration](./docs/configuration.md)
-- [Architecture](./docs/architecture.md)
-- [Operations](./docs/operations.md)
-- [Troubleshooting](./docs/troubleshooting.md)
-
-## Highlights
-
-- Declarative Xen Orchestra service configuration
-- HTTPS/TLS support with auto-generated certificates
-- NFS/CIFS storage helpers and VHD support
-- Xen guest agent and hardware defaults for VMs
-- Den-style dendritic exports with curated `nixosModules`, overlays, and packages
-
-## Feature Stacks
-
-Defined in [`modules/nixos-modules.nix`](./modules/nixos-modules.nix):
-
-- **platform**: base platform only
-- **xo**: XO services only
-- **appliance**: platform + virtualization + xo
-
-## Full Tree (Core)
-
-```
+```text
 core/
-├── AGENTS.md                         # repo-specific guidance
-├── CHANGELOG.md                      # release history
-├── LICENSE                           # Apache-2.0
-├── README.md                         # this file
-├── flake.nix                         # flake entrypoint (evalModules)
-├── flake.lock                        # pinned inputs
-├── nixoa-cli.sh                      # helper CLI
-├── docs/                             # library docs
-│   ├── architecture.md
-│   ├── common-tasks.md
-│   ├── configuration.md
-│   ├── getting-started.md
-│   ├── installation.md
-│   ├── operations.md
-│   └── troubleshooting.md
-├── legal/                            # legal and contribution docs
-│   ├── CONTRIBUTING.md
-│   ├── NOTICE
-│   └── headers/
-├── lib/                              # shared helpers
-│   ├── utils.nix
-│   └── utils/
+├── docs/
+├── lib/
 ├── modules/
-│   ├── dendritic.nix                # loads den module support
-│   ├── nixos-modules.nix            # curated exported stacks
-│   ├── overlays.nix                 # flake overlay outputs
-│   ├── packages.nix                 # flake package outputs
+│   ├── dendritic.nix
+│   ├── outputs/
+│   │   ├── nixos-modules.nix
+│   │   ├── overlays.nix
+│   │   └── packages.nix
 │   └── _nixos/
 │       └── features/
 │           ├── foundation/
-│       │   └── args.nix
 │           ├── platform/
-│       │   ├── boot/
-│       │   │   ├── initrd.nix
-│       │   │   └── loader.nix
-│       │   ├── identity/
-│       │   │   ├── hostname.nix
-│       │   │   ├── locale.nix
-│       │   │   ├── shells.nix
-│       │   │   └── state-version.nix
-│       │   ├── networking/
-│       │   │   ├── defaults.nix
-│       │   │   ├── firewall.nix
-│       │   │   └── nfs.nix
-│       │   ├── packages/
-│       │   │   └── base-packages.nix
-│       │   ├── services/
-│       │   │   ├── journald.nix
-│       │   │   └── prometheus.nix
-│       │   └── users/
-│       │       ├── accounts.nix
-│       │       ├── ssh.nix
-│       │       └── sudo.nix
 │           ├── virtualization/
-│       │   ├── xen-guest.nix
-│       │   └── xen-hardware.nix
 │           └── xo/
-│           ├── cli.nix
-│           ├── config-link.nix
-│           ├── dev-tools.nix
-│           ├── options-base.nix
-│           ├── options-paths.nix
-│           ├── options-tls.nix
-│           ├── tls-service.nix
-│           ├── tls-tmpfiles.nix
-│           ├── service/
-│           │   ├── assertions.nix
-│           │   ├── packages.nix
-│           │   ├── redis.nix
-│           │   ├── start-script.nix
-│           │   ├── tmpfiles.nix
-│           │   └── unit.nix
-│           └── storage/
-│               ├── assertions.nix
-│               ├── filesystems.nix
-│               ├── libvhdi-options.nix
-│               ├── packages.nix
-│               ├── sudo-config.nix
-│               ├── sudo-init.nix
-│               ├── sudo-rules.nix
-│               ├── tmpfiles.nix
-│               └── wrapper-script.nix
-└── scripts/                          # maintenance utilities
-    ├── migrate-redis-to-valkey.sh
-    ├── xoa-install.sh
-    ├── xoa-logs.sh
-    └── xoa-update.sh
+├── scripts/
+│   ├── migrate-redis-to-valkey.sh
+│   ├── xoa-logs.sh
+│   └── xoa-update.sh
+├── flake.lock
+└── flake.nix
 ```
 
-## Example (Direct Import)
+## Design Notes
+
+- Core does not own host bootstrap or installation scripts. Those now belong in `system/`.
+- Core does not export a `denful` namespace. It publishes curated flake outputs instead because the current system/core relationship does not need cross-flake aspect exchange.
+- User-editable values like hostname, username, SSH keys, and firewall policy belong in `system/config/`.
+
+## Example
 
 ```nix
 {
-  inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core?ref=beta";
+  inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 
   outputs = { nixoaCore, nixpkgs, ... }: {
     nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
-      modules = [ nixoaCore.nixosModules.appliance ];
+      modules = [
+        nixoaCore.nixosModules.platform
+        nixoaCore.nixosModules.virtualization
+        nixoaCore.nixosModules.xenOrchestra
+      ];
     };
   };
 }
@@ -151,19 +66,5 @@ core/
 
 ## Notes
 
-- Core is **version controlled** and **not** host-specific.
-- User settings belong in the `system/` repo (`config/` files).
-
-## Important Notice
-
-This project is designed for homelab/testing environments. For production use,\nconsider the official Xen Orchestra Appliance from Vates.
-
-## Resources
-
-- Xen Orchestra docs: https://xen-orchestra.com/docs/
-- NixOS learn: https://nixos.org/learn.html
-- Core issues: https://codeberg.org/NiXOA/core/issues
-
-## License
-
-Apache-2.0
+- `nixosModules.appliance` remains the default full stack.
+- `system/` is the recommended entrypoint for actual NiXOA hosts.

@@ -22,10 +22,10 @@ sudo journalctl -u xo-server -n 200
 ```bash
 cd ~/system
 ./scripts/show-diff.sh
-./scripts/apply-config.sh "Describe change"
+./scripts/apply-config.sh --hostname HOSTNAME
 ```
 
-Edit settings under `config/` in the system repo.
+Edit host policy under `config/` in the system repo.
 
 ## Manual Rebuild
 

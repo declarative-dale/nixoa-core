@@ -1,58 +1,54 @@
 # Core Architecture
 
-NiXOA core is an immutable **module library** and package layer. It uses a
-den-style dendritic module tree so hosts can consume curated module stacks,
-overlays, and packages without the old bespoke registry layer.
+NiXOA core is a reusable appliance library. It keeps plain NixOS feature
+modules under `modules/_nixos/` and publishes only a small curated output
+surface from `modules/outputs/`.
 
 ## Repository Shape
 
-```
-core/
-├── flake.nix
-├── modules/
-│   ├── dendritic.nix          # loads den framework modules
-│   ├── nixos-modules.nix      # exported stack modules
-│   ├── overlays.nix           # flake overlays
-│   ├── packages.nix           # flake package outputs
-│   └── _nixos/
-│       └── features/
-│       ├── foundation/        # shared module args + helpers
-│       ├── platform/          # base platform features
-│       │   ├── boot/           # loader + initrd
-│       │   ├── identity/       # hostname/locale/shells/state
-│       │   ├── networking/     # network defaults, firewall, NFS client
-│       │   ├── packages/       # base packages + Nix settings
-│       │   ├── services/       # journald + monitoring defaults
-│       │   └── users/          # accounts, sudo, SSH
-│       ├── virtualization/    # Xen hardware + guest agent
-│       └── xo/                # XO service, storage, TLS, CLI
-├── lib/                       # shared helpers
-└── scripts/                   # maintenance utilities
+```text
+modules/
+├── dendritic.nix
+├── outputs/
+│   ├── nixos-modules.nix
+│   ├── overlays.nix
+│   └── packages.nix
+└── _nixos/
+    └── features/
+        ├── foundation/
+        ├── platform/
+        ├── virtualization/
+        └── xo/
 ```
 
 ## Curated Exports
 
-[`modules/nixos-modules.nix`](../../modules/nixos-modules.nix) defines the
-curated stack outputs:
+`modules/outputs/nixos-modules.nix` defines the public module stacks:
 
-- **platform**: base platform only
-- **xo**: XO services only
-- **appliance**: platform + virtualization + xo
+- `platform`
+- `virtualization`
+- `xo`
+- `xenOrchestra`
+- `appliance`
 
-The raw NixOS modules live under `modules/_nixos/` so `import-tree` only loads
-the dendritic top-level modules.
+The overlay and package outputs live in:
 
-## How Settings Flow In
+- `modules/outputs/overlays.nix`
+- `modules/outputs/packages.nix`
 
-System configuration lives in the host repo (the `system/` flake). It produces
-`vars` from `config/default.nix` (which aggregates `config/`). Those values are
-injected via `specialArgs` and `_module.args` into core modules.
+## Relationship To System
 
-```
-config/* → configuration.nix → vars → specialArgs → core modules → NixOS config
-```
+`system/` imports core as a flake input and applies:
 
-## Relationship to System
+- `nixoaCore.nixosModules.appliance`
+- `nixoaCore.overlays.nixoa`
 
-`system/` imports core as a flake input and selects the exported stack modules
-from `nixoaCore.nixosModules`.
+Host policy stays in `system/config/*`, which composes into `vars` and is passed
+to core modules through NixOS `specialArgs`.
+
+## Why No Namespace
+
+Den namespaces are useful when a flake is intentionally exporting reusable
+aspects to other den flakes through `flake.denful`. Core currently exports
+curated NixOS stacks instead, so a namespace would add a custom flake output
+without improving the present core/system composition model.

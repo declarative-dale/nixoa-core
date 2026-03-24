@@ -1,73 +1,45 @@
 # Configuration Reference (Core)
 
-Core does **not** hold user configuration. Settings are defined in the
-`system/` repo and passed into core modules as `vars`.
+Core does not store host policy. It consumes values provided by the downstream
+host flake through `vars`.
 
-## Where to Edit
+## Expected Host Configuration Shape
 
-Use the files under `system/config/`:
+Core is designed around the current `system/` layout:
 
-```
-config/host.nix
-config/users.nix
-config/features.nix
-config/packages.nix
-config/networking.nix
-config/xo.nix
-config/boot.nix
-config/storage.nix
-```
+- `config/site.nix`
+- `config/platform.nix`
+- `config/features.nix`
+- `config/packages.nix`
+- `config/xo.nix`
+- `config/storage.nix`
+- optional `config/overrides.nix`
 
-## Key Vars Consumed by Core
+## Key Vars Consumed By Core
 
-### Identity
 - `hostname`
 - `timezone`
 - `stateVersion`
-
-### Users
 - `username`
 - `sshKeys`
-- `xoUser`
-- `xoGroup`
-
-### Feature Toggles
+- `enableExtras`
 - `enableXO`
 - `enableXenGuest`
-- `enableExtras`
-
-### Packages
 - `systemPackages`
 - `userPackages`
-
-### Networking
+- `bootLoader`
+- `efiCanTouchVariables`
+- `grubDevice`
 - `allowedTCPPorts`
 - `allowedUDPPorts`
-
-### XO Settings
+- `xoUser`
+- `xoGroup`
 - `xoConfigFile`
 - `xoHttpHost`
 - `enableTLS`
 - `enableAutoCert`
-
-### Boot
-- `bootLoader`
-- `efiCanTouchVariables`
-- `grubDevice`
-
-### Storage
 - `enableNFS`
 - `enableCIFS`
 - `enableVHD`
 - `mountsDir`
 - `sudoNoPassword`
-
-## Example (system/config/host.nix)
-
-```nix
-{
-  hostname = "nixoa";
-  timezone = "UTC";
-  stateVersion = "25.11";
-}
-```

@@ -6,7 +6,10 @@
     builtins.removeAttrs
       (
         (inputs.nixpkgs.lib.evalModules {
-          modules = [ (inputs.import-tree ./modules) ];
+          modules = [
+            ./modules/dendritic.nix
+            ./modules/outputs.nix
+          ];
           specialArgs = { inherit inputs; };
         }).config.flake
       )
@@ -15,10 +18,6 @@
   inputs = {
     den.url = "github:vic/den";
     flake-aspects.url = "github:vic/flake-aspects";
-    home-manager = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "https://flakehub.com/f/nix-community/home-manager/0";
-    };
     import-tree.url = "github:vic/import-tree";
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
     xen-orchestra-ce = {
