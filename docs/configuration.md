@@ -17,23 +17,8 @@ Core is designed around the current `system/` layout:
 
 ## Key Vars Consumed By Core
 
-- `hostname`
-- `timezone`
-- `stateVersion`
-- `username`
-- `sshKeys`
-- `enableExtras`
 - `enableXO`
 - `enableXenGuest`
-- `systemPackages`
-- `userPackages`
-- `bootLoader`
-- `efiCanTouchVariables`
-- `grubDevice`
-- `allowedTCPPorts`
-- `allowedUDPPorts`
-- `xoUser`
-- `xoGroup`
 - `xoConfigFile`
 - `xoHttpHost`
 - `enableTLS`
@@ -42,4 +27,6 @@ Core is designed around the current `system/` layout:
 - `enableCIFS`
 - `enableVHD`
 - `mountsDir`
-- `sudoNoPassword`
+
+XO service identity now defaults inside core through `nixoa.xo.user` and
+`nixoa.xo.group`, rather than being configured through downstream `vars`.

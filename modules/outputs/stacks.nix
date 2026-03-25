@@ -7,10 +7,8 @@ let
   platformModules =
     commonModules
     ++ [
-      ../nixos/features/platform/identity/locale.nix
-      ../nixos/features/platform/identity/state-version.nix
-      ../nixos/features/platform/boot/loader.nix
       ../nixos/features/platform/boot/initrd.nix
+      ../nixos/features/platform/identity/locale.nix
       ../nixos/features/platform/networking/defaults.nix
       ../nixos/features/platform/networking/firewall.nix
       ../nixos/features/platform/networking/nfs.nix
@@ -53,7 +51,6 @@ let
       ../nixos/features/xen-orchestra/tls-service.nix
       ../nixos/features/xen-orchestra/tls-tmpfiles.nix
       ../nixos/features/xen-orchestra/cli.nix
-      ../nixos/features/xen-orchestra/dev-tools.nix
     ];
 
   applianceModules = platformModules ++ virtualizationModules ++ xenOrchestraModules;

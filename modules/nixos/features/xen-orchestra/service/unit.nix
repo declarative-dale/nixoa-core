@@ -11,8 +11,6 @@ let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
 
-  xoUser = vars.xoUser;
-  xoGroup = vars.xoGroup;
   startScript = config.nixoa.xo.internal.startScript;
 in
 {
@@ -64,8 +62,8 @@ in
       };
 
       serviceConfig = {
-        User = xoUser;
-        Group = xoGroup;
+        User = cfg.user;
+        Group = cfg.group;
 
         WorkingDirectory = "${cfg.package}/libexec/xen-orchestra";
         StateDirectory = "xo";

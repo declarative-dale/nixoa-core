@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO storage sudo init service
 {
+  config,
   lib,
   pkgs,
   vars,
@@ -8,8 +9,8 @@
 }:
 let
   inherit (lib) mkIf;
+  cfg = config.nixoa.xo;
   storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
-  xoUser = vars.xoUser;
 in
 {
   config = mkIf storageEnabled {
@@ -22,11 +23,11 @@ in
         User = "root";
         RemainAfterExit = true;
         ExecStart = "${pkgs.writeShellScript "xo-sudo-init" ''
-          if [ ! -f /var/db/sudo/lectured/${xoUser} ]; then
+          if [ ! -f /var/db/sudo/lectured/${cfg.user} ]; then
             mkdir -p /var/db/sudo/lectured
-            touch /var/db/sudo/lectured/${xoUser}
-            chown root:root /var/db/sudo/lectured/${xoUser}
-            chmod 0600 /var/db/sudo/lectured/${xoUser}
+            touch /var/db/sudo/lectured/${cfg.user}
+            chown root:root /var/db/sudo/lectured/${cfg.user}
+            chmod 0600 /var/db/sudo/lectured/${cfg.user}
           fi
         ''}";
       };

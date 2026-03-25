@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO storage sudo wrappers and config
 {
+  config,
   lib,
   pkgs,
   vars,
@@ -8,6 +9,7 @@
 }:
 let
   inherit (lib) mkIf;
+  cfg = config.nixoa.xo;
   storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
 in
 {
@@ -25,7 +27,7 @@ in
     security.sudo.extraConfig = ''
       Defaults !use_pty
       Defaults !log_subcmds
-      Defaults:${vars.xoUser} !use_pty,!syslog
+      Defaults:${cfg.user} !use_pty,!syslog
     '';
   };
 }

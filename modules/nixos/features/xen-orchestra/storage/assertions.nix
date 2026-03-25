@@ -8,16 +8,16 @@
 }:
 let
   inherit (lib) mkIf;
+  cfg = config.nixoa.xo;
   storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
-  xoUser = vars.xoUser;
 in
 {
   config = mkIf storageEnabled {
     assertions = [
       {
         assertion =
-          config.users.users.${xoUser}.extraGroups or [ ] != [ ]
-          -> builtins.elem "fuse" config.users.users.${xoUser}.extraGroups;
+          config.users.users.${cfg.user}.extraGroups or [ ] != [ ]
+          -> builtins.elem "fuse" config.users.users.${cfg.user}.extraGroups;
         message = "XO user must be in 'fuse' group for remote storage mounting";
       }
       {

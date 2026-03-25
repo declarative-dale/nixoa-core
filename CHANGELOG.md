@@ -1,6 +1,32 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v3.1.0 — Boundary Completion And XO Runtime Defaults
+
+Date: 2026-03-25
+
+This release finishes the remaining core/system split by removing host
+lifecycle policy from core, moving Xen Orchestra service identity into typed
+core options, and aligning the docs with the simplified host workflow.
+
+### ✨ Added
+
+- **Typed XO service identity options** through `nixoa.xo.user` and `nixoa.xo.group`
+
+### 🔄 Changed
+
+- **XO service/storage modules** now consume `config.nixoa.xo.*` defaults for service identity
+- **Consumer docs** now describe core as a runtime library with host policy delegated to `system/`
+- **Operational examples** now use the simplified `system` apply flow without requiring an explicit hostname argument
+
+### 🗑️ Removed
+
+- **Remaining host-owned platform modules** for boot loader policy, system state version, and extras tooling
+
+### 🐛 Fixed
+
+- **Last core/system boundary leaks** around boot policy, timezone/state ownership, and XO service-account defaults
+
 ## v3.0.0 — Den-Native Naming And Boundary Cleanup
 
 Date: 2026-03-25

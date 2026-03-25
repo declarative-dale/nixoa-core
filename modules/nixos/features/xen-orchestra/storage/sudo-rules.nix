@@ -1,14 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO storage sudo rules
 {
+  config,
   lib,
   vars,
   ...
 }:
 let
   inherit (lib) mkIf optionals;
+  cfg = config.nixoa.xo;
   storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
-  xoUser = vars.xoUser;
 in
 {
   config = mkIf storageEnabled {
@@ -16,7 +17,7 @@ in
       enable = true;
       extraRules = [
         {
-          users = [ xoUser ];
+          users = [ cfg.user ];
           commands =
             [
               {

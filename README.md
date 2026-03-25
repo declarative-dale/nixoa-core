@@ -4,7 +4,7 @@ NiXOA core is the **immutable appliance library** for NiXOA. It exports curated
 NixOS module stacks, overlays, and packages for Xen Orchestra CE hosts while
 leaving host policy to the separate `system/` flake.
 
-Current release series: `v3.0.0`
+Current release series: `v3.1.0`
 
 ## What Core Provides
 
@@ -53,5 +53,6 @@ core/
 
 - `nixosModules.appliance` remains the default full stack.
 - Host bootstrap and install workflow belong in `system/`, not in `core`.
+- XO service identity defaults live in core as `nixoa.xo.user` and `nixoa.xo.group`.
 - `denful` is intentionally not exported here; curated flake outputs are the public interface.
 - `system/` is the recommended entrypoint for actual NiXOA hosts.

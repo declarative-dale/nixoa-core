@@ -10,9 +10,8 @@
 let
   inherit (lib) mkIf;
 
+  cfg = config.nixoa.xo;
   tlsCfg = config.nixoa.xo.tls;
-  xoUser = vars.xoUser;
-  xoGroup = vars.xoGroup;
   openssl = pkgs.openssl;
 
   # Script to generate or renew certificates only when needed
@@ -44,7 +43,7 @@ let
       -subj "/CN=$host" \
       -addext "subjectAltName=DNS:$host,DNS:localhost,IP:${vars.xoHttpHost}"
 
-    chown ${xoUser}:${xoGroup} "$key" "$cert"
+    chown ${cfg.user}:${cfg.group} "$key" "$cert"
     chmod 0640 "$key" "$cert"
 
     echo "Certificate generation complete."

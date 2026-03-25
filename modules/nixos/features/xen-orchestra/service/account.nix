@@ -1,21 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 # Xen Orchestra service account
 {
+  config,
   lib,
   pkgs,
-  vars,
   ...
 }:
+let
+  cfg = config.nixoa.xo;
+in
 {
-  users.groups.${vars.xoGroup} = { };
+  users.groups.${cfg.group} = { };
   users.groups.fuse = { };
 
-  users.users.${vars.xoUser} = {
+  users.users.${cfg.user} = {
     isSystemUser = true;
     description = "Xen Orchestra service account";
     createHome = true;
-    group = vars.xoGroup;
-    home = "/var/lib/xo";
+    group = cfg.group;
+    home = cfg.home;
     shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
     extraGroups = [ "fuse" ];
   };

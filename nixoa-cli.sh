@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-VERSION="3.0.0"
+VERSION="3.1.0"
 
 if [ -n "${SUDO_USER:-}" ]; then
   REAL_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
@@ -38,7 +38,22 @@ print_success() { printf '%b\n' "${GREEN}ok:${NC} $1"; }
 print_warning() { printf '%b\n' "${YELLOW}warn:${NC} $1"; }
 
 default_hostname() {
-  hostname -s 2>/dev/null || printf '%s\n' "nixoa"
+  local file
+  local value
+
+  for file in \
+    "$CONFIG_DIR/config/overrides.nix" \
+    "$CONFIG_DIR/config/site.nix"
+  do
+    [ -f "$file" ] || continue
+    value="$(sed -nE 's/^[[:space:]]*hostname[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*;.*$/\1/p' "$file" | tail -n 1)"
+    if [ -n "$value" ]; then
+      printf '%s\n' "$value"
+      return 0
+    fi
+  done
+
+  printf '%s\n' "nixoa"
 }
 
 ensure_config_dir() {
@@ -99,7 +114,7 @@ config_commit() {
 
 config_apply() {
   ensure_config_dir
-  "$CONFIG_DIR/scripts/apply-config.sh" --hostname "$(default_hostname)" "$@"
+  "$CONFIG_DIR/scripts/apply-config.sh" "$@"
 }
 
 config_show() {
@@ -163,7 +178,7 @@ update_flake() {
     nix flake update
   )
   print_success "Flake inputs updated"
-  print_info "Apply with: $CONFIG_DIR/scripts/apply-config.sh --hostname $(default_hostname)"
+  print_info "Apply with: $CONFIG_DIR/scripts/apply-config.sh"
 }
 
 rollback_system() {

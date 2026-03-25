@@ -22,7 +22,7 @@ sudo journalctl -u xo-server -n 200
 ```bash
 cd ~/system
 ./scripts/show-diff.sh
-./scripts/apply-config.sh --hostname HOSTNAME
+./scripts/apply-config.sh
 ```
 
 Edit host policy under `config/` in the system repo.
@@ -31,7 +31,7 @@ Edit host policy under `config/` in the system repo.
 
 ```bash
 cd ~/system
-sudo nixos-rebuild switch --flake .#HOSTNAME -L
+sudo nixos-rebuild switch --flake .#<configured-hostname> -L
 ```
 
 ## Rollback

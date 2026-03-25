@@ -1,13 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
-# Locale and timezone settings
+# Locale defaults
 {
-  lib,
-  vars,
   ...
 }:
 {
-  time.timeZone = lib.mkDefault vars.timezone;
-
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
     LC_TIME = "en_US.UTF-8";

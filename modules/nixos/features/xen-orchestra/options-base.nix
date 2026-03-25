@@ -13,6 +13,18 @@ let
 in
 {
   options.nixoa.xo = {
+    user = mkOption {
+      type = types.str;
+      default = "xo";
+      description = "System user that runs the Xen Orchestra services.";
+    };
+
+    group = mkOption {
+      type = types.str;
+      default = "xo";
+      description = "Primary group for the Xen Orchestra service user.";
+    };
+
     # Advanced package override option
     package = mkOption {
       type = types.package;
