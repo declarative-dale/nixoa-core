@@ -4,13 +4,12 @@ NiXOA core is the **immutable appliance library** for NiXOA. It exports curated
 NixOS module stacks, overlays, and packages for Xen Orchestra CE hosts while
 leaving host policy to the separate `system/` flake.
 
-Current release series: `v2.0.0`
+Current release series: `v3.0.0`
 
 ## What Core Provides
 
 - `nixosModules.platform`
 - `nixosModules.virtualization`
-- `nixosModules.xo`
 - `nixosModules.xenOrchestra`
 - `nixosModules.appliance`
 - `overlays.nixoa`
@@ -43,7 +42,7 @@ appliance stacks without the NiXOA host workflow.
 core/
 ├── modules/
 │   ├── outputs/        # public flake surface
-│   └── _nixos/         # plain implementation modules
+│   └── nixos/          # plain implementation modules
 ├── lib/                # shared helpers
 ├── docs/               # consumer-facing docs
 ├── scripts/            # XO maintenance helpers

@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is the NiXOA core appliance library. Public flake outputs are defined under `modules/outputs/`, while plain NixOS implementation modules live under `modules/_nixos/features/` with `foundation`, `platform`, `virtualization`, and `xo` slices. Shared helpers live in `lib/`, and operational XO maintenance scripts live in `scripts/`.
+This repository is the NiXOA core appliance library. Public flake outputs are defined under `modules/outputs/`, while plain NixOS implementation modules live under `modules/nixos/features/` with `shared`, `platform`, `virtualization`, and `xen-orchestra` slices. Shared helpers live in `lib/`, and operational XO maintenance scripts live in `scripts/`.
 
 ## Build, Test, and Development Commands
 - `nix flake check --no-write-lock-file`: Validate flake evaluation.

@@ -1,7 +1,7 @@
 # Core Architecture
 
 NiXOA core is a reusable appliance library. It keeps plain NixOS feature
-modules under `modules/_nixos/` and publishes only a small curated output
+modules under `modules/nixos/` and publishes only a small curated output
 surface from `modules/outputs/`.
 
 ## Repository Shape
@@ -10,24 +10,23 @@ surface from `modules/outputs/`.
 modules/
 ├── dendritic.nix
 ├── outputs/
-│   ├── nixos-modules.nix
+│   ├── stacks.nix
 │   ├── overlays.nix
 │   └── packages.nix
-└── _nixos/
+└── nixos/
     └── features/
-        ├── foundation/
+        ├── shared/
         ├── platform/
         ├── virtualization/
-        └── xo/
+        └── xen-orchestra/
 ```
 
 ## Curated Exports
 
-`modules/outputs/nixos-modules.nix` defines the public module stacks:
+`modules/outputs/stacks.nix` defines the public module stacks:
 
 - `platform`
 - `virtualization`
-- `xo`
 - `xenOrchestra`
 - `appliance`
 

@@ -1,7 +1,7 @@
 { ... }:
 {
   imports = [
-    ./nixos-modules.nix
+    ./stacks.nix
     ./overlays.nix
     ./packages.nix
   ];

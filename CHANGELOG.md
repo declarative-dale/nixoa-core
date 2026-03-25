@@ -1,6 +1,35 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v3.0.0 — Den-Native Naming And Boundary Cleanup
+
+Date: 2026-03-25
+
+This release tightens the boundary between the immutable appliance library and
+the host flake, removes redundant naming layers, and renames the live module
+tree to match the current dendritic structure more closely.
+
+### ⚠️ Breaking Changes
+
+- **`nixosModules.xo` was removed**; the explicit `xenOrchestra` stack is now the only XO export
+- **Plain module paths moved** from `modules/_nixos/` to `modules/nixos/`
+- **Host identity and admin-user policy moved out of core**; hostname, SSH, sudo, and admin account policy now belong to `system`
+
+### ✨ Added
+
+- **Dedicated Xen Orchestra service modules** for the service account and runtime limits
+- **Explicit `stacks.nix` entrypoint** for public stack composition
+
+### 🔄 Changed
+
+- **Feature slice naming** from `foundation` to `shared` and from `xo` to `xen-orchestra`
+- **Platform package module name** from `base-packages.nix` to `packages.nix`
+- **README and architecture docs** to reflect the current output surface and implementation tree
+
+### 🐛 Fixed
+
+- **Core/system responsibility drift** by removing host-owned identity policy from the core appliance library
+
 ## v2.0.0 — Explicit Output Surface And System Boundary Cleanup
 
 Date: 2026-03-24
