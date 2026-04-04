@@ -26,7 +26,7 @@
         "lastModified": 1772165901,
         "narHash": "sha256-loQh3kK9QTFzfDDlGqYxrfproI9gDbogbrRzfI//9Z8=",
         "ref": "refs/tags/latest",
-        "rev": "05427308ad8416fe3edb20e6f9681ba031bec1c0",
+        "rev": "1ff75c6e494b403f43c421280d0bd25a53322cfa",
         "revCount": 7,
         "type": "git",
         "url": "https://codeberg.org/NiXOA/libvhdi.git"
@@ -66,18 +66,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1772169602,
-        "narHash": "sha256-+WDMziKHv3gtrqM6F9K0JKOeyH+EW2CGMwfPaRhRwaM=",
-        "ref": "beta",
-        "rev": "d700deb52205ec415cc82dc5fcdde13b3b3969a5",
-        "revCount": 23,
+        "lastModified": 1775294109,
+        "narHash": "sha256-lQI4Y7yGpVLOg/abHwJcJvoZb9X1L1j5r3rqid+/nOk=",
+        "ref": "refs/tags/latest",
+        "rev": "8beb42578b8c6f58b93e7a62e40127e820366848",
+        "revCount": 45,
         "type": "git",
-        "url": "https://codeberg.org/NiXOA/xen-orchestra-ce.git"
+        "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       },
       "original": {
-        "ref": "beta",
+        "ref": "refs/tags/latest",
         "type": "git",
-        "url": "https://codeberg.org/NiXOA/xen-orchestra-ce.git"
+        "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       }
     }
   },
