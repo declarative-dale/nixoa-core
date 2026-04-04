@@ -18,9 +18,6 @@
   inputs = {
     den.url = "github:vic/den";
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
-    xen-orchestra-ce = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "git+https://github.com/declarative-dale/xo-nixpkg.git?ref=refs/tags/latest";
-    };
+    xen-orchestra-ce.url = "git+https://github.com/declarative-dale/xo-nixpkg.git?ref=refs/tags/latest";
   };
 }

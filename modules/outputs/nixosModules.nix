@@ -1,4 +1,4 @@
-{ ... }:
+{ inputs, ... }:
 let
   commonModules = [
     ../nixos/features/shared/args.nix
@@ -55,7 +55,12 @@ let
 
   applianceModules = platformModules ++ virtualizationModules ++ xenOrchestraModules;
 
-  mkModule = imports: { inherit imports; };
+  mkModule = imports: {
+    inherit imports;
+    _module.args = {
+      nixoaInputs = inputs;
+    };
+  };
 in
 {
   flake.nixosModules = {

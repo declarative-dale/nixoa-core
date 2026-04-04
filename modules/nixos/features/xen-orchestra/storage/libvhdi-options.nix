@@ -2,6 +2,7 @@
 # libvhdi service options
 {
   lib,
+  nixoaInputs,
   pkgs,
   ...
 }:
@@ -17,8 +18,9 @@ in
 
     package = mkOption {
       type = types.package;
-      default = pkgs.nixoa.libvhdi;
-      defaultText = lib.literalExpression "pkgs.nixoa.libvhdi";
+      default = nixoaInputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi;
+      defaultText = lib.literalExpression
+        "nixoaInputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi";
       description = "libvhdi package to use";
     };
   };

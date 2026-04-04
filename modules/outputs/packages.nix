@@ -11,12 +11,16 @@ in
     system:
     let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
+      nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix { };
     in
     {
       xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
-      libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;
       default = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
-
+    }
+    // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      nixoa-menu = nixoaMenu;
+    }
+    // {
       metadata = pkgs.stdenv.mkDerivation {
         pname = "nixoa-core-metadata";
         version = "3.1.0";
