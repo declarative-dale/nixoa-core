@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
-## v3.5.0 — Den Alignment And Output Naming Cleanup
+## v1.6.0 — Den Alignment And Output Naming Cleanup
 
 Date: 2026-04-04
 
@@ -30,7 +30,7 @@ packages, and overlays.
 
 - **Repository drift against current Den docs** by removing stale dependency patterns and adopting the current output module layout
 
-## v3.1.0 — Boundary Completion And XO Runtime Defaults
+## v1.5.0 — Boundary Completion And XO Runtime Defaults
 
 Date: 2026-03-25
 
@@ -56,7 +56,7 @@ core options, and aligning the docs with the simplified host workflow.
 
 - **Last core/system boundary leaks** around boot policy, timezone/state ownership, and XO service-account defaults
 
-## v3.0.0 — Den-Native Naming And Boundary Cleanup
+## v1.4.0 — Den-Native Naming And Boundary Cleanup
 
 Date: 2026-03-25
 
@@ -85,7 +85,7 @@ tree to match the current dendritic structure more closely.
 
 - **Core/system responsibility drift** by removing host-owned identity policy from the core appliance library
 
-## v2.0.0 — Explicit Output Surface And System Boundary Cleanup
+## v1.3.0 — Explicit Output Surface And System Boundary Cleanup
 
 Date: 2026-03-24
 
