@@ -7,7 +7,7 @@
       (
         (inputs.nixpkgs.lib.evalModules {
           modules = [
-            ./modules/dendritic.nix
+            ./modules/den.nix
             ./modules/outputs
           ];
           specialArgs = { inherit inputs; };
@@ -17,8 +17,6 @@
 
   inputs = {
     den.url = "github:vic/den";
-    flake-aspects.url = "github:vic/flake-aspects";
-    import-tree.url = "github:vic/import-tree";
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
     xen-orchestra-ce = {
       inputs.nixpkgs.follows = "nixpkgs";

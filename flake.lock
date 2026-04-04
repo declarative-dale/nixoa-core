@@ -2,46 +2,16 @@
   "nodes": {
     "den": {
       "locked": {
-        "lastModified": 1774303016,
-        "narHash": "sha256-uv/Mzsh80XNtvZWaDDbo33w6M18CPLLPp+3bF1tn9Cc=",
+        "lastModified": 1775237241,
+        "narHash": "sha256-2FpIpdiD1kgErn1GhsOcyVTE0HToPvjuxYtyo3De4oQ=",
         "owner": "vic",
         "repo": "den",
-        "rev": "ece9f9ec1647e82c96e4c21bb9c7060678e21d43",
+        "rev": "6d6ff64642ee4f891b5635ce0b34a8e5cf52bdb2",
         "type": "github"
       },
       "original": {
         "owner": "vic",
         "repo": "den",
-        "type": "github"
-      }
-    },
-    "flake-aspects": {
-      "locked": {
-        "lastModified": 1773552804,
-        "narHash": "sha256-a0kjpCZGnD5lt7yW6C3hzPhSf5KjnTyvX6XZ2NuhGs4=",
-        "owner": "vic",
-        "repo": "flake-aspects",
-        "rev": "56fa8d4d4772d58eb7f9d66c28c1cd2762b60423",
-        "type": "github"
-      },
-      "original": {
-        "owner": "vic",
-        "repo": "flake-aspects",
-        "type": "github"
-      }
-    },
-    "import-tree": {
-      "locked": {
-        "lastModified": 1772159371,
-        "narHash": "sha256-AkfVgWWxt1pa1SlfKzcL1oQpMzgP70U3fBtzXqEGOms=",
-        "owner": "vic",
-        "repo": "import-tree",
-        "rev": "78c35e32f2b499c25e0671e41662537a6b1edbf0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "vic",
-        "repo": "import-tree",
         "type": "github"
       }
     },
@@ -84,8 +54,6 @@
     "root": {
       "inputs": {
         "den": "den",
-        "flake-aspects": "flake-aspects",
-        "import-tree": "import-tree",
         "nixpkgs": "nixpkgs",
         "xen-orchestra-ce": "xen-orchestra-ce"
       }

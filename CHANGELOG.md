@@ -1,6 +1,35 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v3.5.0 — Den Alignment And Output Naming Cleanup
+
+Date: 2026-04-04
+
+This release aligns `core` with the current Den patterns, removes obsolete
+inputs that Den no longer needs, and renames the public output wiring so the
+repository is easier to follow for maintainers consuming `nixosModules`,
+packages, and overlays.
+
+### ✨ Added
+
+- **Den flake output module support for packages** in the non-`flake-parts` output path
+
+### 🔄 Changed
+
+- **Den input updated** to the current `6d6ff64` release line
+- **Bootstrap module renamed** from `modules/dendritic.nix` to `modules/den.nix`
+- **Public module export entrypoint renamed** from `stacks.nix` to `nixosModules.nix`
+- **Output wiring** now reads more directly from `den` bootstrap to named public outputs
+
+### 🗑️ Removed
+
+- **Obsolete `flake-aspects` input** now that Den bundles its own aspect support
+- **Unused `import-tree` input** from the root `core` flake
+
+### 🐛 Fixed
+
+- **Repository drift against current Den docs** by removing stale dependency patterns and adopting the current output module layout
+
 ## v3.1.0 — Boundary Completion And XO Runtime Defaults
 
 Date: 2026-03-25
