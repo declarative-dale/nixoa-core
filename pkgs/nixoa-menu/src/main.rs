@@ -158,6 +158,7 @@ enum ActionKind {
     RunGarbageCollection,
     RebootSystem,
     ShutdownSystem,
+    CleanupUnmanagedUsers,
     FilterLogs,
     ClearLogFilter,
 }
@@ -171,6 +172,7 @@ enum InputAction {
     AddSystemPackage,
     AddUserPackage,
     AddService,
+    ConfirmCleanupUnmanagedUsers,
     SetLogFilter,
 }
 
@@ -312,7 +314,7 @@ const SOFTWARE_ACTIONS: [ActionItem; 3] = [
     },
 ];
 
-const MAINTENANCE_ACTIONS: [ActionItem; 6] = [
+const MAINTENANCE_ACTIONS: [ActionItem; 7] = [
     ActionItem {
         kind: ActionKind::CheckForUpdates,
         title: "Check for Updates",
@@ -348,6 +350,12 @@ const MAINTENANCE_ACTIONS: [ActionItem; 6] = [
         title: "Shut Down System",
         detail: "Run systemctl poweroff through wrapper sudo for a clean systemd-managed shutdown.",
         shortcut: Some('s'),
+    },
+    ActionItem {
+        kind: ActionKind::CleanupUnmanagedUsers,
+        title: "Cleanup Unmanaged Users",
+        detail: "Remove non-system users outside the flake-managed admin account and delete their home data after confirmation.",
+        shortcut: Some('x'),
     },
 ];
 
@@ -1523,7 +1531,8 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
         | ActionKind::RollbackGeneration
         | ActionKind::RunGarbageCollection
         | ActionKind::RebootSystem
-        | ActionKind::ShutdownSystem => {
+        | ActionKind::ShutdownSystem
+        | ActionKind::CleanupUnmanagedUsers => {
             app.set_page(Page::Maintenance);
         }
         ActionKind::FilterLogs => {
@@ -1608,6 +1617,13 @@ fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Resu
             ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
             ActionKind::RebootSystem => run_reboot_system(terminal, app)?,
             ActionKind::ShutdownSystem => run_shutdown_system(terminal, app)?,
+            ActionKind::CleanupUnmanagedUsers => open_modal(
+                app,
+                InputAction::ConfirmCleanupUnmanagedUsers,
+                "Cleanup unmanaged users",
+                "Type WIPE to remove unmanaged users under /home and delete their home data.",
+                "",
+            ),
             ActionKind::FilterLogs => {
                 let current = app.log_filter.clone();
                 open_modal(
@@ -1691,6 +1707,15 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 run_action_capture(app, &["add-service", value.as_str()])?;
                 app.set_page(Page::Software);
                 *app.current_selection_mut() = 2;
+            }
+        }
+        InputAction::ConfirmCleanupUnmanagedUsers => {
+            if value == "WIPE" {
+                run_action_capture(app, &["cleanup-unmanaged-users"])?;
+                app.set_page(Page::Maintenance);
+                *app.current_selection_mut() = 6;
+            } else {
+                app.push_log("Cleanup canceled. Type WIPE to confirm unmanaged-user removal.");
             }
         }
         InputAction::SetLogFilter => {
@@ -2717,6 +2742,20 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             app.focus == FocusZone::Content,
             PanelTone::Danger,
         ),
+        ActionKind::CleanupUnmanagedUsers => render_simple_detail(
+            frame,
+            area,
+            "Cleanup Unmanaged Users",
+            &[
+                "Press Enter to open a confirmation prompt.".to_string(),
+                "Typing WIPE removes non-system users outside the flake-managed admin account."
+                    .to_string(),
+                "The cleanup also deletes their home directories and orphaned /home entries."
+                    .to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Danger,
+        ),
         _ => {}
     }
 }
@@ -3022,7 +3061,7 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
         Line::from("  Dashboard: summary, alerts, recent activity."),
         Line::from("  Configure: hostname, username, extras, SSH keys."),
         Line::from("  Software: system packages, user packages, services."),
-        Line::from("  Maintenance: Flake Inputs, apply, rollback, garbage collection, reboot, shutdown."),
+        Line::from("  Maintenance: Flake Inputs, apply, rollback, garbage collection, reboot, shutdown, cleanup."),
         Line::from("  Logs: scrollable and filterable Recent Activity view."),
         Line::from(""),
         Line::from("Current page"),
