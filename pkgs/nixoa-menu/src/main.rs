@@ -236,6 +236,7 @@ struct App {
     update_rx: Option<Receiver<UpdateStatus>>,
     page: Page,
     focus: FocusZone,
+    content_pane: usize,
     page_selection: [usize; 5],
     selected_update: usize,
     selected_key: usize,
@@ -416,6 +417,7 @@ impl App {
             update_rx: None,
             page: Page::Dashboard,
             focus: FocusZone::Sidebar,
+            content_pane: 0,
             page_selection: [0; 5],
             selected_update: 0,
             selected_key: 0,
@@ -499,6 +501,7 @@ impl App {
     fn set_page(&mut self, page: Page) {
         self.page = page;
         self.focus = FocusZone::Sidebar;
+        self.content_pane = 0;
         self.clamp_selection_state();
     }
 
@@ -528,6 +531,9 @@ impl App {
             FocusZone::Sidebar => FocusZone::Content,
             FocusZone::Content => FocusZone::Tabs,
         };
+        if self.focus != FocusZone::Content {
+            self.content_pane = 0;
+        }
     }
 
     fn cycle_focus_backward(&mut self) {
@@ -536,20 +542,61 @@ impl App {
             FocusZone::Sidebar => FocusZone::Tabs,
             FocusZone::Content => FocusZone::Sidebar,
         };
-    }
-
-    fn move_sidebar_up(&mut self) {
-        let len = self.sidebar_len();
-        if self.current_selection() == 0 {
-            *self.current_selection_mut() = len - 1;
-        } else {
-            *self.current_selection_mut() -= 1;
+        if self.focus != FocusZone::Content {
+            self.content_pane = 0;
         }
     }
 
-    fn move_sidebar_down(&mut self) {
-        let next = (self.current_selection() + 1) % self.sidebar_len();
-        *self.current_selection_mut() = next;
+    fn move_sidebar_up(&mut self) -> bool {
+        if self.current_selection() == 0 {
+            false
+        } else {
+            *self.current_selection_mut() -= 1;
+            true
+        }
+    }
+
+    fn move_sidebar_down(&mut self) -> bool {
+        let next = self.current_selection() + 1;
+        if next >= self.sidebar_len() {
+            false
+        } else {
+            *self.current_selection_mut() = next;
+            true
+        }
+    }
+
+    fn content_has_secondary_pane(&self) -> bool {
+        if self.current_selection() >= self.current_page_actions().len() {
+            return false;
+        }
+
+        match self.page {
+            Page::Dashboard => true,
+            Page::Configure => matches!(
+                self.selected_page_action().map(|item| item.kind),
+                Some(ActionKind::ManageSshKeys)
+            ),
+            Page::Software => true,
+            Page::Maintenance => matches!(
+                self.selected_page_action().map(|item| item.kind),
+                Some(ActionKind::CheckForUpdates)
+            ),
+            Page::Logs => false,
+        }
+    }
+
+    fn content_primary_focused(&self) -> bool {
+        self.focus == FocusZone::Content && self.content_pane == 0
+    }
+
+    fn content_secondary_focused(&self) -> bool {
+        self.focus == FocusZone::Content && self.content_pane > 0 && self.content_has_secondary_pane()
+    }
+
+    fn focus_content_primary(&mut self) {
+        self.focus = FocusZone::Content;
+        self.content_pane = 0;
     }
 
     fn start_update_check(&mut self) {
@@ -1080,6 +1127,9 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
                 FocusZone::Sidebar => FocusZone::Tabs,
                 FocusZone::Tabs => FocusZone::Tabs,
             };
+            if app.focus != FocusZone::Content {
+                app.content_pane = 0;
+            }
             return Ok(());
         }
         KeyCode::Char('r') => {
@@ -1099,14 +1149,6 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
         }
         KeyCode::BackTab => {
             app.cycle_focus_backward();
-            return Ok(());
-        }
-        KeyCode::Left => {
-            app.previous_page();
-            return Ok(());
-        }
-        KeyCode::Right => {
-            app.next_page();
             return Ok(());
         }
         KeyCode::Char('[') => {
@@ -1131,7 +1173,10 @@ fn handle_tabs_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Left | KeyCode::Char('h') => app.previous_page(),
         KeyCode::Right | KeyCode::Char('l') => app.next_page(),
-        KeyCode::Enter | KeyCode::Down | KeyCode::Char('j') => app.focus = FocusZone::Sidebar,
+        KeyCode::Enter | KeyCode::Down | KeyCode::Char('j') => {
+            app.focus = FocusZone::Sidebar;
+            app.content_pane = 0;
+        }
         _ => {}
     }
     Ok(())
@@ -1157,13 +1202,19 @@ fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
 
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => {
-            app.move_sidebar_up();
+            if !app.move_sidebar_up() {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            app.move_sidebar_down();
+            let _ = app.move_sidebar_down();
         }
-        KeyCode::Char('l') => app.focus = FocusZone::Content,
-        KeyCode::Char('h') => app.focus = FocusZone::Tabs,
+        KeyCode::Right | KeyCode::Char('l') => app.focus_content_primary(),
+        KeyCode::Left | KeyCode::Char('h') => {
+            app.focus = FocusZone::Tabs;
+            app.content_pane = 0;
+        }
         KeyCode::Enter => activate_sidebar_selection(terminal, app)?,
         _ => {}
     }
@@ -1172,6 +1223,34 @@ fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
 }
 
 fn handle_content_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Left | KeyCode::Char('h') => {
+            if app.content_pane > 0 {
+                app.content_pane = 0;
+            } else {
+                app.focus = FocusZone::Sidebar;
+            }
+            return Ok(());
+        }
+        KeyCode::Right | KeyCode::Char('l') => {
+            if app.content_has_secondary_pane() {
+                app.content_pane = 1;
+            }
+            return Ok(());
+        }
+        _ => {}
+    }
+
+    if app.current_selection() >= app.current_page_actions().len() {
+        if matches!(key.code, KeyCode::Enter) {
+            app.should_open_shell = true;
+        } else if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
+            app.focus = FocusZone::Tabs;
+            app.content_pane = 0;
+        }
+        return Ok(());
+    }
+
     match app.page {
         Page::Dashboard => handle_dashboard_content_key(terminal, app, key),
         Page::Configure => handle_configure_content_key(app, key),
@@ -1191,7 +1270,8 @@ fn handle_dashboard_content_key(
         KeyCode::Up | KeyCode::Char('k') => {
             if !alerts.is_empty() {
                 if app.selected_alert == 0 {
-                    app.selected_alert = alerts.len() - 1;
+                    app.focus = FocusZone::Tabs;
+                    app.content_pane = 0;
                 } else {
                     app.selected_alert -= 1;
                 }
@@ -1199,10 +1279,9 @@ fn handle_dashboard_content_key(
         }
         KeyCode::Down | KeyCode::Char('j') => {
             if !alerts.is_empty() {
-                app.selected_alert = (app.selected_alert + 1) % alerts.len();
+                app.selected_alert = min(app.selected_alert + 1, alerts.len() - 1);
             }
         }
-        KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
         KeyCode::Enter => {
             if let Some(alert) = alerts.get(app.selected_alert) {
                 if let Some(action) = alert.action {
@@ -1218,7 +1297,10 @@ fn handle_dashboard_content_key(
 fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match app.selected_page_action().map(|item| item.kind) {
         Some(ActionKind::EditHostname) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => {
                 let current = app.snapshot.hostname.clone();
                 open_modal(
@@ -1232,7 +1314,10 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             _ => {}
         },
         Some(ActionKind::EditUsername) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => {
                 let current = app.snapshot.username.clone();
                 open_modal(
@@ -1246,24 +1331,30 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             _ => {}
         },
         Some(ActionKind::ToggleExtras) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => run_action_capture(app, &["toggle-extras"])?,
             _ => {}
         },
         Some(ActionKind::ManageSshKeys) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
             KeyCode::Up | KeyCode::Char('k') => {
                 if !app.snapshot.ssh_keys.is_empty() {
                     if app.selected_key == 0 {
-                        app.selected_key = app.snapshot.ssh_keys.len() - 1;
+                        app.focus = FocusZone::Tabs;
+                        app.content_pane = 0;
                     } else {
                         app.selected_key -= 1;
                     }
+                } else {
+                    app.focus = FocusZone::Tabs;
+                    app.content_pane = 0;
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
                 if !app.snapshot.ssh_keys.is_empty() {
-                    app.selected_key = (app.selected_key + 1) % app.snapshot.ssh_keys.len();
+                    app.selected_key = min(app.selected_key + 1, app.snapshot.ssh_keys.len() - 1);
                 }
             }
             KeyCode::Char('a') => open_modal(
@@ -1287,11 +1378,7 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             }
             _ => {}
         },
-        _ => {
-            if matches!(key.code, KeyCode::Char('h')) {
-                app.focus = FocusZone::Sidebar;
-            }
-        }
+        _ => {}
     }
     Ok(())
 }
@@ -1299,7 +1386,10 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
 fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match app.selected_page_action().map(|item| item.kind) {
         Some(ActionKind::AddSystemPackage) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => open_modal(
                 app,
                 InputAction::AddSystemPackage,
@@ -1310,7 +1400,10 @@ fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             _ => {}
         },
         Some(ActionKind::AddUserPackage) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => open_modal(
                 app,
                 InputAction::AddUserPackage,
@@ -1321,7 +1414,10 @@ fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             _ => {}
         },
         Some(ActionKind::AddService) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => open_modal(
                 app,
                 InputAction::AddService,
@@ -1331,11 +1427,7 @@ fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             ),
             _ => {}
         },
-        _ => {
-            if matches!(key.code, KeyCode::Char('h')) {
-                app.focus = FocusZone::Sidebar;
-            }
-        }
+        _ => {}
     }
     Ok(())
 }
@@ -1347,16 +1439,16 @@ fn handle_maintenance_content_key(
 ) -> Result<()> {
     match app.selected_page_action().map(|item| item.kind) {
         Some(ActionKind::CheckForUpdates) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
             KeyCode::Up | KeyCode::Char('k') => {
                 if app.selected_update == 0 {
-                    app.selected_update = UPDATE_ACTIONS.len() - 1;
+                    app.focus = FocusZone::Tabs;
+                    app.content_pane = 0;
                 } else {
                     app.selected_update -= 1;
                 }
             }
             KeyCode::Down | KeyCode::Char('j') => {
-                app.selected_update = (app.selected_update + 1) % UPDATE_ACTIONS.len();
+                app.selected_update = min(app.selected_update + 1, UPDATE_ACTIONS.len() - 1);
             }
             KeyCode::Enter => activate_selected_update(terminal, app)?,
             KeyCode::Char(ch) => {
@@ -1368,32 +1460,50 @@ fn handle_maintenance_content_key(
             _ => {}
         },
         Some(ActionKind::ApplyConfiguration) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => run_apply_configuration(terminal, app)?,
             _ => {}
         },
         Some(ActionKind::RollbackGeneration) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => run_rollback_generation(terminal, app)?,
             _ => {}
         },
         Some(ActionKind::RunGarbageCollection) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => run_garbage_collection(terminal, app)?,
             _ => {}
         },
         Some(ActionKind::RebootSystem) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => run_reboot_system(terminal, app)?,
             _ => {}
         },
         Some(ActionKind::ShutdownSystem) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => run_shutdown_system(terminal, app)?,
             _ => {}
         },
         Some(ActionKind::CleanupUnmanagedUsers) => match key.code {
-            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            }
             KeyCode::Enter => open_modal(
                 app,
                 InputAction::ConfirmCleanupUnmanagedUsers,
@@ -1403,11 +1513,7 @@ fn handle_maintenance_content_key(
             ),
             _ => {}
         },
-        _ => {
-            if matches!(key.code, KeyCode::Char('h')) {
-                app.focus = FocusZone::Sidebar;
-            }
-        }
+        _ => {}
     }
     Ok(())
 }
@@ -1415,9 +1521,11 @@ fn handle_maintenance_content_key(
 fn handle_logs_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
     let total = app.filtered_logs().len();
     match key.code {
-        KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
         KeyCode::Up | KeyCode::Char('k') => {
-            if total > 0 {
+            if total == 0 || app.log_scroll >= total.saturating_sub(1) {
+                app.focus = FocusZone::Tabs;
+                app.content_pane = 0;
+            } else {
                 app.log_scroll = min(app.log_scroll + 1, total.saturating_sub(1));
             }
         }
@@ -1557,12 +1665,12 @@ fn run_alert_action(terminal: &mut AppTerminal, app: &mut App, action: AlertComm
         AlertCommand::OpenMaintenance => {
             app.set_page(Page::Maintenance);
             *app.current_selection_mut() = 0;
-            app.focus = FocusZone::Content;
+            app.focus_content_primary();
         }
         AlertCommand::CheckForUpdates => {
             app.set_page(Page::Maintenance);
             *app.current_selection_mut() = 0;
-            app.focus = FocusZone::Content;
+            app.focus_content_primary();
             app.start_update_check();
         }
         AlertCommand::ApplyConfiguration => {
@@ -1572,7 +1680,7 @@ fn run_alert_action(terminal: &mut AppTerminal, app: &mut App, action: AlertComm
         }
         AlertCommand::OpenLogs => {
             app.set_page(Page::Logs);
-            app.focus = FocusZone::Content;
+            app.focus_content_primary();
         }
     }
     Ok(())
@@ -1588,7 +1696,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
         ActionKind::CheckForUpdates => {
             app.set_page(Page::Maintenance);
             *app.current_selection_mut() = 0;
-            app.focus = FocusZone::Content;
+            app.focus_content_primary();
             app.start_update_check();
             app.push_log("Opened Flake Inputs update view.");
         }
@@ -1616,7 +1724,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
         ActionKind::ManageSshKeys => {
             app.set_page(Page::Configure);
             *app.current_selection_mut() = 3;
-            app.focus = FocusZone::Content;
+            app.focus_content_primary();
         }
         ActionKind::AddSystemPackage => open_modal(
             app,
@@ -1677,23 +1785,23 @@ fn activate_sidebar_selection(_terminal: &mut AppTerminal, app: &mut App) -> Res
             }
             ActionKind::CheckForUpdates => {
                 app.start_update_check();
-                app.focus = FocusZone::Content;
                 app.set_page(Page::Maintenance);
                 *app.current_selection_mut() = 0;
+                app.focus_content_primary();
             }
-            ActionKind::EditHostname => app.focus = FocusZone::Content,
-            ActionKind::EditUsername => app.focus = FocusZone::Content,
-            ActionKind::ToggleExtras => app.focus = FocusZone::Content,
-            ActionKind::ManageSshKeys => app.focus = FocusZone::Content,
-            ActionKind::AddSystemPackage => app.focus = FocusZone::Content,
-            ActionKind::AddUserPackage => app.focus = FocusZone::Content,
-            ActionKind::AddService => app.focus = FocusZone::Content,
-            ActionKind::ApplyConfiguration => app.focus = FocusZone::Content,
-            ActionKind::RollbackGeneration => app.focus = FocusZone::Content,
-            ActionKind::RunGarbageCollection => app.focus = FocusZone::Content,
-            ActionKind::RebootSystem => app.focus = FocusZone::Content,
-            ActionKind::ShutdownSystem => app.focus = FocusZone::Content,
-            ActionKind::CleanupUnmanagedUsers => app.focus = FocusZone::Content,
+            ActionKind::EditHostname => app.focus_content_primary(),
+            ActionKind::EditUsername => app.focus_content_primary(),
+            ActionKind::ToggleExtras => app.focus_content_primary(),
+            ActionKind::ManageSshKeys => app.focus_content_primary(),
+            ActionKind::AddSystemPackage => app.focus_content_primary(),
+            ActionKind::AddUserPackage => app.focus_content_primary(),
+            ActionKind::AddService => app.focus_content_primary(),
+            ActionKind::ApplyConfiguration => app.focus_content_primary(),
+            ActionKind::RollbackGeneration => app.focus_content_primary(),
+            ActionKind::RunGarbageCollection => app.focus_content_primary(),
+            ActionKind::RebootSystem => app.focus_content_primary(),
+            ActionKind::ShutdownSystem => app.focus_content_primary(),
+            ActionKind::CleanupUnmanagedUsers => app.focus_content_primary(),
             ActionKind::FilterLogs => {
                 let current = app.log_filter.clone();
                 open_modal(
@@ -1792,7 +1900,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
             app.log_filter = value;
             app.log_scroll = 0;
             app.set_page(Page::Logs);
-            app.focus = FocusZone::Content;
+            app.focus_content_primary();
             if app.log_filter.is_empty() {
                 app.push_log("Cleared log filter.");
             } else {
@@ -2352,7 +2460,7 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
 
     spans.push(Span::raw("   "));
     spans.push(Span::styled(
-        "Tab focus  [ ] pages  : palette  ? help  q shell",
+        "Tab focus  arrows navigate panes  [ ] pages  : palette  ? help  q shell",
         Style::default().fg(COLOR_MUTED),
     ));
 
@@ -2443,6 +2551,23 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_page(frame: &mut Frame, area: Rect, app: &App) {
+    if app.current_selection() >= app.current_page_actions().len() {
+        render_simple_detail(
+            frame,
+            area,
+            "Open Shell",
+            &[
+                "Leave the NiXOA console and exec the configured login shell.".to_string(),
+                "Use this to drop into a normal shell session with the TUI bypass enabled."
+                    .to_string(),
+                "Press Enter, q, or 9 to open the shell.".to_string(),
+            ],
+            app.content_primary_focused(),
+            PanelTone::Info,
+        );
+        return;
+    }
+
     match app.page {
         Page::Dashboard => render_dashboard(frame, area, app),
         Page::Configure => render_configure(frame, area, app),
@@ -2490,7 +2615,7 @@ fn render_system_summary(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         area,
         "System Summary",
-        app.focus == FocusZone::Content && app.page == Page::Dashboard,
+        false,
         PanelTone::Info,
     );
 
@@ -2569,7 +2694,7 @@ fn render_alerts(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         area,
         "Alerts",
-        app.focus == FocusZone::Content && app.page == Page::Dashboard,
+        app.content_primary_focused() && app.page == Page::Dashboard,
         PanelTone::Warning,
     );
 
@@ -2618,7 +2743,13 @@ fn render_alerts(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_recent_activity(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(frame, area, "Recent Activity", false, PanelTone::Neutral);
+    let inner = draw_panel(
+        frame,
+        area,
+        "Recent Activity",
+        app.content_secondary_focused() && app.page == Page::Dashboard,
+        PanelTone::Neutral,
+    );
     let lines: Vec<Line> = app
         .recent_logs()
         .into_iter()
@@ -2645,7 +2776,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
                 "Press Enter to open an edit modal and commit the new hostname.".to_string(),
                 "The change is written into config/menu.nix immediately.".to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Info,
         ),
         ActionKind::EditUsername => render_simple_detail(
@@ -2657,7 +2788,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
                 "Press Enter to open an edit modal and commit the new username.".to_string(),
                 "The change is written into config/menu.nix immediately.".to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Info,
         ),
         ActionKind::ToggleExtras => render_simple_detail(
@@ -2671,7 +2802,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
                 ),
                 "Press Enter to toggle the extras feature set and commit the override.".to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Info,
         ),
         _ => {}
@@ -2688,7 +2819,7 @@ fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         split[0],
         "SSH Keys",
-        app.focus == FocusZone::Content,
+        app.content_primary_focused(),
         PanelTone::Info,
     );
 
@@ -2718,7 +2849,13 @@ fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
     );
     frame.render_stateful_widget(list, list_inner, &mut state);
 
-    let help_inner = draw_panel(frame, split[1], "Shortcuts", false, PanelTone::Neutral);
+    let help_inner = draw_panel(
+        frame,
+        split[1],
+        "Shortcuts",
+        app.content_secondary_focused(),
+        PanelTone::Neutral,
+    );
     let help = Paragraph::new(vec![
         Line::from("a add a key"),
         Line::from("e replace all keys"),
@@ -2744,7 +2881,8 @@ fn render_software(frame: &mut Frame, area: Rect, app: &App) {
             "System Packages",
             &app.snapshot.system_packages,
             "Press Enter to add a new nixpkgs attribute path to the system package list.",
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
+            app.content_secondary_focused(),
         ),
         ActionKind::AddUserPackage => render_item_list_page(
             frame,
@@ -2752,7 +2890,8 @@ fn render_software(frame: &mut Frame, area: Rect, app: &App) {
             "User Packages",
             &app.snapshot.user_packages,
             "Press Enter to add a new nixpkgs attribute path to the user package list.",
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
+            app.content_secondary_focused(),
         ),
         ActionKind::AddService => render_item_list_page(
             frame,
@@ -2760,7 +2899,8 @@ fn render_software(frame: &mut Frame, area: Rect, app: &App) {
             "Services",
             &app.snapshot.services,
             "Press Enter to enable a service by dotted NixOS option path.",
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
+            app.content_secondary_focused(),
         ),
         _ => {}
     }
@@ -2783,7 +2923,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "The console refreshes state and alerts after the interactive command exits."
                     .to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Info,
         ),
         ActionKind::RollbackGeneration => render_simple_detail(
@@ -2795,7 +2935,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "Use this after a bad switch when the previous generation should be restored."
                     .to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Danger,
         ),
         ActionKind::RunGarbageCollection => render_simple_detail(
@@ -2807,7 +2947,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "This is a destructive cleanup operation and uses wrapper sudo on NixOS."
                     .to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Danger,
         ),
         ActionKind::RebootSystem => render_simple_detail(
@@ -2819,7 +2959,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "This uses wrapper sudo and asks systemd to perform a clean reboot."
                     .to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Danger,
         ),
         ActionKind::ShutdownSystem => render_simple_detail(
@@ -2831,7 +2971,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "This uses wrapper sudo and asks systemd to perform a clean shutdown."
                     .to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Danger,
         ),
         ActionKind::CleanupUnmanagedUsers => render_simple_detail(
@@ -2845,7 +2985,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "The cleanup also deletes their home directories and orphaned /home entries."
                     .to_string(),
             ],
-            app.focus == FocusZone::Content,
+            app.content_primary_focused(),
             PanelTone::Danger,
         ),
         _ => {}
@@ -2867,7 +3007,7 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         split[0],
         "Flake Inputs",
-        app.focus == FocusZone::Content,
+        app.content_primary_focused(),
         PanelTone::Warning,
     );
 
@@ -2893,7 +3033,13 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
     );
     frame.render_stateful_widget(list, list_inner, &mut state);
 
-    let detail_inner = draw_panel(frame, split[2], "Update Details", false, PanelTone::Neutral);
+    let detail_inner = draw_panel(
+        frame,
+        split[2],
+        "Update Details",
+        app.content_secondary_focused(),
+        PanelTone::Neutral,
+    );
     let update = &UPDATE_ACTIONS[app.selected_update];
     let content = Paragraph::new(vec![
         Line::from(update.detail),
@@ -2961,7 +3107,7 @@ fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         rows[1],
         "Logs",
-        app.focus == FocusZone::Content,
+        app.content_primary_focused(),
         PanelTone::Info,
     );
     if filtered_logs.is_empty() {
@@ -2992,6 +3138,9 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![
             Span::styled("Tab ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("focus", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("Arrows ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("move panes / lists", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("[ ] ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("pages", Style::default().fg(COLOR_MUTED)),
@@ -3037,14 +3186,15 @@ fn render_item_list_page(
     title: &str,
     items: &[String],
     help: &str,
-    focused: bool,
+    list_focused: bool,
+    details_focused: bool,
 ) {
     let rows = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(6), Constraint::Length(5)])
         .split(area);
 
-    let list_inner = draw_panel(frame, rows[0], title, focused, PanelTone::Info);
+    let list_inner = draw_panel(frame, rows[0], title, list_focused, PanelTone::Info);
     let list_items: Vec<ListItem> = if items.is_empty() {
         vec![ListItem::new("No entries are currently configured.")]
     } else {
@@ -3054,7 +3204,7 @@ fn render_item_list_page(
     };
     frame.render_widget(List::new(list_items), list_inner);
 
-    let help_inner = draw_panel(frame, rows[1], "Details", false, PanelTone::Neutral);
+    let help_inner = draw_panel(frame, rows[1], "Details", details_focused, PanelTone::Neutral);
     frame.render_widget(
         Paragraph::new(help).wrap(Wrap { trim: true }),
         help_inner,
@@ -3151,7 +3301,8 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     let help = Paragraph::new(vec![
         Line::from("Global navigation"),
         Line::from("  Tab / Shift-Tab move focus between tabs, actions, and page content."),
-        Line::from("  Left/Right or [ and ] change pages quickly. : or Ctrl+p opens the command palette."),
+        Line::from("  Left/Right switch pages when tabs are focused. [ and ] always switch pages."),
+        Line::from("  Arrow keys move between panes and through list content. Up at the top of a list returns to tabs."),
         Line::from("  ? opens this help modal. q or 9 drops into the shell."),
         Line::from(""),
         Line::from("Page model"),
