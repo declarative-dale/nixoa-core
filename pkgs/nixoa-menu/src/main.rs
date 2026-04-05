@@ -1931,12 +1931,7 @@ fn format_storage_capacity(used_bytes: u64, total_bytes: u64) -> String {
     if total_bytes == 0 || used_bytes > total_bytes {
         "unavailable".to_string()
     } else {
-        let available_bytes = total_bytes - used_bytes;
-        format!(
-            "{:.1} used / {:.1} avail",
-            format_gib(used_bytes),
-            format_gib(available_bytes)
-        )
+        format!("{:.1} / {:.1}", format_gib(used_bytes), format_gib(total_bytes))
     }
 }
 
