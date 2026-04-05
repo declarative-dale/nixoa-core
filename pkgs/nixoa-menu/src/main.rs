@@ -792,7 +792,7 @@ fn activate_selected_action(terminal: &mut AppTerminal, app: &mut App) -> Result
             command
         })?,
         10 => run_command_interactive(terminal, app, "Collect garbage", {
-            let mut command = Command::new("sudo");
+            let mut command = sudo_command();
             command.args(["nix-collect-garbage", "-d"]);
             command
         })?,
@@ -1083,6 +1083,14 @@ fn action_index_for_shortcut(shortcut: char) -> Option<usize> {
     ACTIONS
         .iter()
         .position(|action| action.shortcut == shortcut)
+}
+
+fn sudo_command() -> Command {
+    if Path::new("/run/wrappers/bin/sudo").exists() {
+        Command::new("/run/wrappers/bin/sudo")
+    } else {
+        Command::new("sudo")
+    }
 }
 
 fn update_index_for_shortcut(shortcut: char) -> Option<usize> {
