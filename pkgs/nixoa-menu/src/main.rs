@@ -1073,6 +1073,14 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
             app.cycle_focus_backward();
             return Ok(());
         }
+        KeyCode::Left => {
+            app.previous_page();
+            return Ok(());
+        }
+        KeyCode::Right => {
+            app.next_page();
+            return Ok(());
+        }
         KeyCode::Char('[') => {
             app.previous_page();
             return Ok(());
@@ -1126,8 +1134,8 @@ fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
         KeyCode::Down | KeyCode::Char('j') => {
             app.move_sidebar_down();
         }
-        KeyCode::Right | KeyCode::Char('l') => app.focus = FocusZone::Content,
-        KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Tabs,
+        KeyCode::Char('l') => app.focus = FocusZone::Content,
+        KeyCode::Char('h') => app.focus = FocusZone::Tabs,
         KeyCode::Enter => activate_sidebar_selection(terminal, app)?,
         _ => {}
     }
@@ -1166,7 +1174,7 @@ fn handle_dashboard_content_key(
                 app.selected_alert = (app.selected_alert + 1) % alerts.len();
             }
         }
-        KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+        KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
         KeyCode::Enter => {
             if let Some(alert) = alerts.get(app.selected_alert) {
                 if let Some(action) = alert.action {
@@ -1182,7 +1190,7 @@ fn handle_dashboard_content_key(
 fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match app.selected_page_action().map(|item| item.kind) {
         Some(ActionKind::ManageSshKeys) => match key.code {
-            KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
             KeyCode::Up | KeyCode::Char('k') => {
                 if !app.snapshot.ssh_keys.is_empty() {
                     if app.selected_key == 0 {
@@ -1219,7 +1227,7 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
             _ => {}
         },
         _ => {
-            if matches!(key.code, KeyCode::Left | KeyCode::Char('h')) {
+            if matches!(key.code, KeyCode::Char('h')) {
                 app.focus = FocusZone::Sidebar;
             }
         }
@@ -1228,7 +1236,7 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
 }
 
 fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    if matches!(key.code, KeyCode::Left | KeyCode::Char('h')) {
+    if matches!(key.code, KeyCode::Char('h')) {
         app.focus = FocusZone::Sidebar;
     }
     Ok(())
@@ -1241,7 +1249,7 @@ fn handle_maintenance_content_key(
 ) -> Result<()> {
     match app.selected_page_action().map(|item| item.kind) {
         Some(ActionKind::CheckForUpdates) => match key.code {
-            KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
             KeyCode::Up | KeyCode::Char('k') => {
                 if app.selected_update == 0 {
                     app.selected_update = UPDATE_ACTIONS.len() - 1;
@@ -1262,7 +1270,7 @@ fn handle_maintenance_content_key(
             _ => {}
         },
         _ => {
-            if matches!(key.code, KeyCode::Left | KeyCode::Char('h')) {
+            if matches!(key.code, KeyCode::Char('h')) {
                 app.focus = FocusZone::Sidebar;
             }
         }
@@ -1273,7 +1281,7 @@ fn handle_maintenance_content_key(
 fn handle_logs_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
     let total = app.filtered_logs().len();
     match key.code {
-        KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+        KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
         KeyCode::Up | KeyCode::Char('k') => {
             if total > 0 {
                 app.log_scroll = min(app.log_scroll + 1, total.saturating_sub(1));
