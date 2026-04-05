@@ -510,6 +510,20 @@ impl App {
         };
     }
 
+    fn move_sidebar_up(&mut self) {
+        let len = self.sidebar_len();
+        if self.current_selection() == 0 {
+            *self.current_selection_mut() = len - 1;
+        } else {
+            *self.current_selection_mut() -= 1;
+        }
+    }
+
+    fn move_sidebar_down(&mut self) {
+        let next = (self.current_selection() + 1) % self.sidebar_len();
+        *self.current_selection_mut() = next;
+    }
+
     fn start_update_check(&mut self) {
         if matches!(self.update_status, UpdateStatus::Checking) {
             return;
@@ -1032,6 +1046,14 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
             app.should_open_shell = true;
             return Ok(());
         }
+        KeyCode::Esc => {
+            app.focus = match app.focus {
+                FocusZone::Content => FocusZone::Sidebar,
+                FocusZone::Sidebar => FocusZone::Tabs,
+                FocusZone::Tabs => FocusZone::Tabs,
+            };
+            return Ok(());
+        }
         KeyCode::Char('r') => {
             app.refresh_snapshot()?;
             app.start_update_check();
@@ -1099,16 +1121,10 @@ fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
 
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => {
-            let len = app.sidebar_len();
-            if app.current_selection() == 0 {
-                *app.current_selection_mut() = len - 1;
-            } else {
-                *app.current_selection_mut() -= 1;
-            }
+            app.move_sidebar_up();
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            let next = (app.current_selection() + 1) % app.sidebar_len();
-            *app.current_selection_mut() = next;
+            app.move_sidebar_down();
         }
         KeyCode::Right | KeyCode::Char('l') => app.focus = FocusZone::Content,
         KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Tabs,
@@ -2076,25 +2092,25 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
-            " _   _ _ __   __ ___    _   ",
+            " _   _ _ __  __  ___    _   ",
             Style::default()
                 .fg(COLOR_ACCENT)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            "| \\ | | |\\ \\ / // _ \\  /_\\  ",
+            "| \\ | | |\\ \\/ / / _ \\  /_\\  ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|  \\| | | \\ V /| | | |/ _ \\ ",
+            "|  \\| | | >  < | | | |/ _ \\ ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "| |\\  | |__| | | |_| / ___ \\",
+            "| |\\  | |/ /\\ \\| |_| / ___ \\",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|_| \\_|____|_|  \\___/_/   \\_\\",
+            "|_| \\_|_/_/  \\_\\\\___/_/   \\_\\",
             Style::default().fg(COLOR_DANGER),
         )),
     ]);
