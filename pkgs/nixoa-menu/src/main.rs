@@ -2101,6 +2101,15 @@ fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Bloc
         .style(Style::default().bg(COLOR_BG_INNER))
 }
 
+fn action_row_width(actions: &[ActionItem]) -> u16 {
+    let max_label = actions
+        .iter()
+        .map(|action| action.title.chars().count() + 6)
+        .max()
+        .unwrap_or(16);
+    (max_label as u16).saturating_add(6)
+}
+
 fn inset_rect(area: Rect, x: u16, y: u16) -> Rect {
     let width = area.width.saturating_sub(x.saturating_mul(2));
     let height = area.height.saturating_sub(y.saturating_mul(2));
@@ -2157,7 +2166,17 @@ fn render(frame: &mut Frame, app: &App) {
     render_header(frame, vertical[0], app);
     render_tabs(frame, vertical[1], app);
 
-    let body = if outer.width >= 120 {
+    let body = if app.page == Page::Maintenance {
+        let sidebar_width = action_row_width(&MAINTENANCE_ACTIONS);
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(sidebar_width),
+                Constraint::Length(1),
+                Constraint::Min(40),
+            ])
+            .split(vertical[2])
+    } else if outer.width >= 120 {
         Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Length(33), Constraint::Min(40)])
@@ -2169,8 +2188,11 @@ fn render(frame: &mut Frame, app: &App) {
             .split(vertical[2])
     };
 
-    render_sidebar(frame, inset_rect(body[0], 0, 0), app);
-    render_page(frame, inset_rect(body[1], 0, 0), app);
+    let sidebar_area = body[0];
+    let page_area = if app.page == Page::Maintenance { body[2] } else { body[1] };
+
+    render_sidebar(frame, inset_rect(sidebar_area, 0, 0), app);
+    render_page(frame, inset_rect(page_area, 0, 0), app);
     render_footer(frame, vertical[3], app);
 
     if let Some(modal) = &app.modal {
@@ -2831,9 +2853,14 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
+    let input_width = if area.width >= 72 { 24 } else { 20 };
     let split = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(42), Constraint::Percentage(58)])
+        .constraints([
+            Constraint::Length(input_width),
+            Constraint::Length(1),
+            Constraint::Min(40),
+        ])
         .split(area);
 
     let list_inner = draw_panel(
@@ -2866,7 +2893,7 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
     );
     frame.render_stateful_widget(list, list_inner, &mut state);
 
-    let detail_inner = draw_panel(frame, split[1], "Update Details", false, PanelTone::Neutral);
+    let detail_inner = draw_panel(frame, split[2], "Update Details", false, PanelTone::Neutral);
     let update = &UPDATE_ACTIONS[app.selected_update];
     let content = Paragraph::new(vec![
         Line::from(update.detail),
