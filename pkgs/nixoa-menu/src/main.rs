@@ -20,7 +20,7 @@ use ratatui::prelude::{Color, Line, Modifier, Span, Style};
 use ratatui::symbols::border;
 use ratatui::text::Text;
 use ratatui::widgets::{
-    Block, BorderType, Borders, Clear, Gauge, List, ListItem, ListState, Paragraph, Wrap,
+    Block, BorderType, Borders, Clear, List, ListItem, ListState, Paragraph, Wrap,
 };
 use ratatui::{Frame, Terminal};
 use serde::Deserialize;
@@ -30,21 +30,20 @@ type Backend = CrosstermBackend<Stdout>;
 type AppTerminal = Terminal<Backend>;
 
 const UPDATE_TIMEOUT_SECS: u64 = 120;
-const COLOR_BG: Color = Color::Rgb(12, 13, 20);
-const COLOR_PANEL: Color = Color::Rgb(20, 23, 34);
-const COLOR_PANEL_ALT: Color = Color::Rgb(27, 31, 45);
-const COLOR_PANEL_STRONG: Color = Color::Rgb(34, 38, 56);
-const COLOR_TEXT: Color = Color::Rgb(236, 226, 208);
-const COLOR_MUTED: Color = Color::Rgb(159, 164, 184);
-const COLOR_BEIGE: Color = Color::Rgb(214, 198, 173);
-const COLOR_RED: Color = Color::Rgb(183, 67, 84);
-const COLOR_RED_SOFT: Color = Color::Rgb(119, 45, 57);
-const COLOR_BLUE: Color = Color::Rgb(65, 94, 146);
-const COLOR_BLUE_SOFT: Color = Color::Rgb(35, 48, 73);
-const COLOR_SUCCESS: Color = Color::Rgb(98, 171, 126);
-const COLOR_WARNING: Color = Color::Rgb(214, 167, 81);
-const COLOR_DANGER: Color = Color::Rgb(202, 87, 104);
-const COLOR_INFO: Color = Color::Rgb(112, 133, 190);
+const COLOR_BG: Color = Color::Rgb(0x1C, 0x1B, 0x34);
+const COLOR_PANEL: Color = Color::Rgb(0x1A, 0x1A, 0x22);
+const COLOR_PANEL_STRONG: Color = Color::Rgb(0x1A, 0x1A, 0x22);
+const COLOR_TEXT: Color = Color::Rgb(0xF7, 0xF7, 0xF9);
+const COLOR_MUTED: Color = Color::Rgb(0xD4, 0xD4, 0xD7);
+const COLOR_MUTED_2: Color = Color::Rgb(0xAD, 0xAD, 0xB1);
+const COLOR_ACCENT: Color = Color::Rgb(0x87, 0x7C, 0xFC);
+const COLOR_ACCENT_SOFT: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
+const COLOR_RED: Color = Color::Rgb(0xFF, 0x00, 0x25);
+const COLOR_RED_SOFT: Color = Color::Rgb(0x4D, 0x4C, 0x60);
+const COLOR_SUCCESS: Color = Color::Rgb(0x87, 0x7C, 0xFC);
+const COLOR_WARNING: Color = Color::Rgb(0xC1, 0xC1, 0xC7);
+const COLOR_DANGER: Color = Color::Rgb(0xFF, 0x00, 0x25);
+const COLOR_INFO: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
 
 #[derive(Clone, Debug)]
 struct ActionItem {
@@ -170,6 +169,8 @@ struct Snapshot {
     storage_used_bytes: u64,
     storage_used_percent: u32,
     primary_ip: Option<String>,
+    xen_orchestra_version: Option<String>,
+    web_ui_url: Option<String>,
     rebuild_queued: bool,
     rebuild_needed: bool,
     last_apply: Option<ApplyState>,
@@ -939,6 +940,95 @@ fn usage_color(percent: u32) -> Color {
     }
 }
 
+fn repo_status(snapshot: &Snapshot) -> (String, Color) {
+    if snapshot.dirty_count == 0 {
+        ("clean".to_string(), COLOR_SUCCESS)
+    } else {
+        (format!("{} dirty", snapshot.dirty_count), COLOR_WARNING)
+    }
+}
+
+fn apply_status(snapshot: &Snapshot) -> (String, Color) {
+    if snapshot.rebuild_queued {
+        ("queued for reboot".to_string(), COLOR_INFO)
+    } else {
+        match &snapshot.last_apply {
+            Some(last_apply)
+                if last_apply.result == "success"
+                    && last_apply.action == "switch"
+                    && !snapshot.rebuild_needed =>
+            {
+                (format!("synced {}", last_apply.timestamp), COLOR_SUCCESS)
+            }
+            Some(last_apply) if last_apply.result != "success" => {
+                (format!("failed {}", last_apply.timestamp), COLOR_DANGER)
+            }
+            Some(last_apply) => (
+                format!("{} {}", last_apply.action, last_apply.timestamp),
+                COLOR_WARNING,
+            ),
+            None => ("not applied".to_string(), COLOR_WARNING),
+        }
+    }
+}
+
+fn upstream_status(snapshot: &Snapshot) -> (String, Color) {
+    if snapshot.behind > 0 {
+        (
+            format!("behind {} / ahead {}", snapshot.behind, snapshot.ahead),
+            COLOR_WARNING,
+        )
+    } else if snapshot.ahead > 0 {
+        (format!("ahead {}", snapshot.ahead), COLOR_INFO)
+    } else {
+        ("aligned".to_string(), COLOR_SUCCESS)
+    }
+}
+
+fn inputs_status(update_status: &UpdateStatus, tick: usize) -> (String, Color) {
+    match update_status {
+        UpdateStatus::Idle => ("idle".to_string(), COLOR_MUTED_2),
+        UpdateStatus::Checking => {
+            let frames = ["-", "\\", "|", "/"];
+            (
+                format!("checking {}", frames[tick % frames.len()]),
+                COLOR_INFO,
+            )
+        }
+        UpdateStatus::UpToDate => ("up to date".to_string(), COLOR_SUCCESS),
+        UpdateStatus::Available(count) => (format!("{count} updates"), COLOR_WARNING),
+        UpdateStatus::Error(_) => ("check failed".to_string(), COLOR_DANGER),
+    }
+}
+
+fn xoa_version(snapshot: &Snapshot) -> String {
+    snapshot
+        .xen_orchestra_version
+        .clone()
+        .unwrap_or_else(|| "unavailable".to_string())
+}
+
+fn web_ui(snapshot: &Snapshot) -> String {
+    snapshot
+        .web_ui_url
+        .clone()
+        .or_else(|| snapshot.primary_ip.clone())
+        .unwrap_or_else(|| "unavailable".to_string())
+}
+
+fn format_storage_capacity(used_bytes: u64, total_bytes: u64) -> String {
+    if total_bytes == 0 || used_bytes > total_bytes {
+        "unavailable".to_string()
+    } else {
+        let available_bytes = total_bytes - used_bytes;
+        format!(
+            "{:.1} used / {:.1} avail",
+            format_gib(used_bytes),
+            format_gib(available_bytes)
+        )
+    }
+}
+
 fn screen_label(screen: Screen) -> &'static str {
     match screen {
         Screen::Main => "Overview",
@@ -962,53 +1052,66 @@ fn branded_block(title: impl Into<Line<'static>>, accent: Color) -> Block<'stati
 }
 
 fn render_header(frame: &mut Frame, area: Rect, app: &App) {
-    let sections = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-        .split(area);
-
-    let title = Paragraph::new(vec![
-        Line::from(vec![
-            Span::styled(" VATES ", Style::default().fg(COLOR_BEIGE).bg(COLOR_RED)),
-            Span::styled(
-                "  NiXOA XS Console",
-                Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled(
-                "Appliance view ",
-                Style::default()
-                    .fg(COLOR_MUTED)
-                    .add_modifier(Modifier::ITALIC),
-            ),
-            Span::styled("for ", Style::default().fg(COLOR_MUTED)),
-            Span::styled(
-                format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
-                Style::default().fg(COLOR_BEIGE),
-            ),
-        ]),
-    ])
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_set(border::ROUNDED)
-            .border_style(Style::default().fg(COLOR_RED))
-            .style(Style::default().bg(COLOR_PANEL_STRONG)),
-    );
-
     let upstream = app
         .snapshot
         .upstream
         .clone()
         .unwrap_or_else(|| "no upstream".to_string());
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_set(border::ROUNDED)
+        .border_style(Style::default().fg(COLOR_RED))
+        .border_type(BorderType::Rounded)
+        .style(Style::default().bg(COLOR_PANEL_STRONG));
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
+
+    let sections = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
+        .split(inner);
+
+    let title = Paragraph::new(vec![
+        Line::from(Span::styled(
+            " _   _ _ __   __ ___    _   ",
+            Style::default()
+                .fg(COLOR_ACCENT)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            "| \\ | | |\\ \\ / // _ \\  /_\\  ",
+            Style::default().fg(COLOR_TEXT),
+        )),
+        Line::from(Span::styled(
+            "|  \\| | | \\ V /| | | |/ _ \\ ",
+            Style::default().fg(COLOR_TEXT),
+        )),
+        Line::from(Span::styled(
+            "| |\\  | |__| | | |_| / ___ \\",
+            Style::default().fg(COLOR_TEXT),
+        )),
+        Line::from(Span::styled(
+            "|_| \\_|____|_|  \\___/_/   \\_\\",
+            Style::default().fg(COLOR_RED),
+        )),
+    ])
+    .alignment(Alignment::Left);
+
     let status = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("Screen: ", Style::default().fg(COLOR_MUTED)),
-            Span::styled(screen_label(app.screen), Style::default().fg(COLOR_BEIGE)),
+            Span::styled("Console ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("appliance view", Style::default().fg(COLOR_TEXT)),
         ]),
         Line::from(vec![
-            Span::styled("Branch: ", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Host: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
+                Style::default().fg(COLOR_ACCENT),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Branch: ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 format!(
                     "{} [{}]",
@@ -1019,18 +1122,26 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
             ),
         ]),
         Line::from(vec![
-            Span::styled("Upstream: ", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Screen: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(screen_label(app.screen), Style::default().fg(COLOR_MUTED)),
+        ]),
+        Line::from(vec![
+            Span::styled("Upstream: ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(upstream, Style::default().fg(COLOR_INFO)),
         ]),
+        Line::from(vec![
+            Span::styled("Last log: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                app.logs
+                    .last()
+                    .cloned()
+                    .unwrap_or_else(|| "NiXOA console ready.".to_string()),
+                Style::default().fg(COLOR_MUTED),
+            ),
+        ]),
     ])
-    .alignment(Alignment::Right)
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_set(border::ROUNDED)
-            .border_style(Style::default().fg(COLOR_BLUE))
-            .style(Style::default().bg(COLOR_PANEL_STRONG)),
-    );
+    .alignment(Alignment::Left)
+    .wrap(Wrap { trim: true });
 
     frame.render_widget(title, sections[0]);
     frame.render_widget(status, sections[1]);
@@ -1045,17 +1156,17 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
 
     let mut spans = vec![Span::styled(
         " Views ",
-        Style::default().fg(COLOR_BEIGE).bg(COLOR_RED_SOFT),
+        Style::default().fg(COLOR_BG).bg(COLOR_RED),
     )];
     for (screen, label) in items {
         spans.push(Span::raw("  "));
         let style = if app.screen == screen {
             Style::default()
                 .fg(COLOR_TEXT)
-                .bg(COLOR_BLUE)
+                .bg(COLOR_ACCENT)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(COLOR_MUTED).bg(COLOR_PANEL_ALT)
+            Style::default().fg(COLOR_MUTED).bg(COLOR_RED_SOFT)
         };
         spans.push(Span::styled(format!(" {label} "), style));
     }
@@ -1067,13 +1178,7 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
     ));
 
     let tabs = Paragraph::new(Line::from(spans))
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_set(border::ROUNDED)
-                .border_style(Style::default().fg(COLOR_BLUE_SOFT))
-                .style(Style::default().bg(COLOR_PANEL)),
-        )
+        .style(Style::default().bg(COLOR_BG))
         .alignment(Alignment::Left);
 
     frame.render_widget(tabs, area);
@@ -1180,21 +1285,21 @@ fn render(frame: &mut Frame, app: &App) {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(4),
-            Constraint::Length(3),
             Constraint::Length(8),
-            Constraint::Min(16),
+            Constraint::Length(2),
+            Constraint::Length(5),
+            Constraint::Min(18),
             Constraint::Length(8),
         ])
         .split(area);
 
     render_header(frame, vertical[0], app);
     render_tabs(frame, vertical[1], app);
-    render_status_grid(frame, vertical[2], app);
+    render_status_bar(frame, vertical[2], app);
 
     let middle = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(38), Constraint::Percentage(62)])
+        .constraints([Constraint::Percentage(34), Constraint::Percentage(66)])
         .split(vertical[3]);
 
     render_actions(frame, middle[0], app);
@@ -1218,164 +1323,83 @@ fn render(frame: &mut Frame, app: &App) {
     }
 }
 
-fn render_status_grid(frame: &mut Frame, area: Rect, app: &App) {
-    let rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(4), Constraint::Length(4)])
-        .split(area);
+fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
+    let (repo_text, repo_color) = repo_status(&app.snapshot);
+    let (apply_text, apply_color) = apply_status(&app.snapshot);
+    let (upstream_text, upstream_color) = upstream_status(&app.snapshot);
+    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
 
-    let top_boxes = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-        ])
-        .split(rows[0]);
-
-    let bottom_boxes = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(34),
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-        ])
-        .split(rows[1]);
-
-    let (repo_text, repo_color) = if app.snapshot.dirty_count == 0 {
-        ("clean".to_string(), COLOR_SUCCESS)
-    } else {
-        (format!("{} dirty", app.snapshot.dirty_count), COLOR_WARNING)
-    };
-
-    let (apply_text, apply_color) = if app.snapshot.rebuild_queued {
-        ("queued for reboot".to_string(), COLOR_INFO)
-    } else {
-        match &app.snapshot.last_apply {
-            Some(last_apply)
-                if last_apply.result == "success"
-                    && last_apply.action == "switch"
-                    && !app.snapshot.rebuild_needed =>
-            {
-                (format!("synced {}", last_apply.timestamp), COLOR_SUCCESS)
-            }
-            Some(last_apply) if last_apply.result != "success" => {
-                (format!("failed {}", last_apply.timestamp), COLOR_DANGER)
-            }
-            Some(last_apply) => (
-                format!("{} {}", last_apply.action, last_apply.timestamp),
-                COLOR_WARNING,
-            ),
-            None => ("not applied".to_string(), COLOR_WARNING),
-        }
-    };
-
-    let (upstream_text, upstream_color) = if app.snapshot.behind > 0 {
-        (
+    let top_line = Line::from(vec![
+        Span::styled(" HOST ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT)),
+        Span::styled(
+            format!(" {} ", app.snapshot.hostname),
+            Style::default().fg(COLOR_TEXT),
+        ),
+        Span::styled(" XO ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT)),
+        Span::styled(
+            format!(" {} ", xoa_version(&app.snapshot)),
+            Style::default().fg(COLOR_TEXT),
+        ),
+        Span::styled(" RAM ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT)),
+        Span::styled(
             format!(
-                "behind {} / ahead {}",
-                app.snapshot.behind, app.snapshot.ahead
+                " {} ",
+                format_usage(
+                    app.snapshot.memory_used_bytes,
+                    app.snapshot.memory_total_bytes,
+                    app.snapshot.memory_used_percent
+                )
             ),
-            COLOR_WARNING,
-        )
-    } else if app.snapshot.ahead > 0 {
-        (format!("ahead {}", app.snapshot.ahead), COLOR_INFO)
-    } else {
-        ("aligned".to_string(), COLOR_SUCCESS)
-    };
+            Style::default().fg(usage_color(app.snapshot.memory_used_percent)),
+        ),
+        Span::styled(" STORAGE ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT)),
+        Span::styled(
+            format!(
+                " {} ",
+                format_storage_capacity(
+                    app.snapshot.storage_used_bytes,
+                    app.snapshot.storage_total_bytes
+                )
+            ),
+            Style::default().fg(usage_color(app.snapshot.storage_used_percent)),
+        ),
+    ]);
 
-    let (update_text, update_color) = match &app.update_status {
-        UpdateStatus::Idle => ("idle".to_string(), COLOR_MUTED),
-        UpdateStatus::Checking => {
-            let frames = ["-", "\\", "|", "/"];
-            (
-                format!("checking {}", frames[app.tick % frames.len()]),
-                COLOR_INFO,
-            )
-        }
-        UpdateStatus::UpToDate => ("up to date".to_string(), COLOR_SUCCESS),
-        UpdateStatus::Available(count) => (format!("{count} updates"), COLOR_WARNING),
-        UpdateStatus::Error(_) => ("check failed".to_string(), COLOR_DANGER),
-    };
+    let bottom_line = Line::from(vec![
+        Span::styled(
+            " WEB UI ",
+            Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT),
+        ),
+        Span::styled(
+            format!(" {} ", web_ui(&app.snapshot)),
+            Style::default().fg(COLOR_TEXT),
+        ),
+        Span::styled(" APPLY ", Style::default().fg(COLOR_BG).bg(COLOR_RED)),
+        Span::styled(
+            format!(" {} ", apply_text),
+            Style::default().fg(apply_color),
+        ),
+        Span::styled(" REPO ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT)),
+        Span::styled(format!(" {} ", repo_text), Style::default().fg(repo_color)),
+        Span::styled(
+            " UPSTREAM ",
+            Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT),
+        ),
+        Span::styled(
+            format!(" {} ", upstream_text),
+            Style::default().fg(upstream_color),
+        ),
+        Span::styled(" INPUTS ", Style::default().fg(COLOR_BG).bg(COLOR_RED_SOFT)),
+        Span::styled(
+            format!(" {} ", inputs_text),
+            Style::default().fg(inputs_color),
+        ),
+    ]);
 
-    let ip_text = app
-        .snapshot
-        .primary_ip
-        .clone()
-        .unwrap_or_else(|| "unavailable".to_string());
-    let ip_color = if app.snapshot.primary_ip.is_some() {
-        COLOR_SUCCESS
-    } else {
-        COLOR_WARNING
-    };
-
-    render_status_box(frame, top_boxes[0], "Repo", &repo_text, repo_color);
-    render_status_box(frame, top_boxes[1], "Apply", &apply_text, apply_color);
-    render_status_box(
-        frame,
-        top_boxes[2],
-        "Upstream",
-        &upstream_text,
-        upstream_color,
-    );
-    render_status_box(frame, top_boxes[3], "Inputs", &update_text, update_color);
-    render_usage_gauge(
-        frame,
-        bottom_boxes[0],
-        "RAM",
-        app.snapshot.memory_used_bytes,
-        app.snapshot.memory_total_bytes,
-        app.snapshot.memory_used_percent,
-    );
-    render_usage_gauge(
-        frame,
-        bottom_boxes[1],
-        "Storage",
-        app.snapshot.storage_used_bytes,
-        app.snapshot.storage_total_bytes,
-        app.snapshot.storage_used_percent,
-    );
-    render_status_box(frame, bottom_boxes[2], "IP", &ip_text, ip_color);
-}
-
-fn render_status_box(frame: &mut Frame, area: Rect, title: &str, body: &str, color: Color) {
-    let text = Paragraph::new(vec![
-        Line::from(Span::styled(
-            title.to_string(),
-            Style::default().fg(COLOR_MUTED),
-        )),
-        Line::from(Span::styled(
-            body.to_string(),
-            Style::default().fg(color).add_modifier(Modifier::BOLD),
-        )),
-    ])
-    .alignment(Alignment::Center)
-    .block(branded_block(Line::from(""), color))
-    .wrap(Wrap { trim: true });
-    frame.render_widget(text, area);
-}
-
-fn render_usage_gauge(
-    frame: &mut Frame,
-    area: Rect,
-    title: &str,
-    used_bytes: u64,
-    total_bytes: u64,
-    percent: u32,
-) {
-    let label = format_usage(used_bytes, total_bytes, percent);
-    let gauge = Gauge::default()
-        .block(branded_block(title.to_string(), usage_color(percent)))
-        .gauge_style(
-            Style::default()
-                .fg(usage_color(percent))
-                .bg(COLOR_PANEL_ALT)
-                .add_modifier(Modifier::BOLD),
-        )
-        .label(Span::styled(label, Style::default().fg(COLOR_TEXT)))
-        .percent(percent as u16);
-    frame.render_widget(gauge, area);
+    let paragraph = Paragraph::new(vec![top_line, Line::from(""), bottom_line])
+        .block(branded_block("Primary status", COLOR_ACCENT))
+        .wrap(Wrap { trim: false });
+    frame.render_widget(paragraph, area);
 }
 
 fn render_actions(frame: &mut Frame, area: Rect, app: &App) {
@@ -1427,61 +1451,75 @@ fn render_actions(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
+    let (repo_text, repo_color) = repo_status(&app.snapshot);
+    let (apply_text, apply_color) = apply_status(&app.snapshot);
+    let (upstream_text, upstream_color) = upstream_status(&app.snapshot);
+    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(8), Constraint::Min(8)])
+        .constraints([Constraint::Length(12), Constraint::Min(8)])
         .split(area);
-
-    let top = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(55), Constraint::Percentage(45)])
-        .split(sections[0]);
 
     let summary = vec![
         Line::from(vec![
-            Span::styled("Hostname  ", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Host        ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
-                app.snapshot.hostname.clone(),
-                Style::default().fg(COLOR_TEXT),
-            ),
-            Span::raw("    "),
-            Span::styled("User  ", Style::default().fg(COLOR_MUTED)),
-            Span::styled(
-                app.snapshot.username.clone(),
-                Style::default().fg(COLOR_TEXT),
+                format!("{} @ {}", app.snapshot.username, app.snapshot.hostname),
+                Style::default()
+                    .fg(COLOR_ACCENT)
+                    .add_modifier(Modifier::BOLD),
             ),
         ]),
         Line::from(vec![
-            Span::styled("Time zone  ", Style::default().fg(COLOR_MUTED)),
+            Span::styled("XO build    ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(xoa_version(&app.snapshot), Style::default().fg(COLOR_TEXT)),
+        ]),
+        Line::from(vec![
+            Span::styled("Web UI      ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(web_ui(&app.snapshot), Style::default().fg(COLOR_TEXT)),
+        ]),
+        Line::from(vec![
+            Span::styled("RAM         ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                format_usage(
+                    app.snapshot.memory_used_bytes,
+                    app.snapshot.memory_total_bytes,
+                    app.snapshot.memory_used_percent,
+                ),
+                Style::default().fg(usage_color(app.snapshot.memory_used_percent)),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Storage     ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                format_storage_capacity(
+                    app.snapshot.storage_used_bytes,
+                    app.snapshot.storage_total_bytes,
+                ),
+                Style::default().fg(usage_color(app.snapshot.storage_used_percent)),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Apply       ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(apply_text, Style::default().fg(apply_color)),
+        ]),
+        Line::from(vec![
+            Span::styled("Repo        ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(repo_text, Style::default().fg(repo_color)),
+            Span::styled("    Upstream  ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(upstream_text, Style::default().fg(upstream_color)),
+        ]),
+        Line::from(vec![
+            Span::styled("Inputs      ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(inputs_text, Style::default().fg(inputs_color)),
+        ]),
+        Line::from(vec![
+            Span::styled("Time zone   ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 app.snapshot.timezone.clone(),
                 Style::default().fg(COLOR_TEXT),
             ),
-        ]),
-        Line::from(vec![
-            Span::styled("Packages  ", Style::default().fg(COLOR_MUTED)),
-            Span::styled(
-                format!(
-                    "{} system / {} user",
-                    app.snapshot.system_packages.len(),
-                    app.snapshot.user_packages.len()
-                ),
-                Style::default().fg(COLOR_TEXT),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Services  ", Style::default().fg(COLOR_MUTED)),
-            Span::styled(
-                format!(
-                    "{} enabled  |  SSH keys {}",
-                    app.snapshot.services.len(),
-                    app.snapshot.ssh_keys.len()
-                ),
-                Style::default().fg(COLOR_TEXT),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Extras  ", Style::default().fg(COLOR_MUTED)),
+            Span::styled("    Extras  ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 if app.snapshot.extras {
                     "enabled"
@@ -1495,41 +1533,36 @@ fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
                 }),
             ),
         ]),
+        Line::from(vec![
+            Span::styled("Packages    ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                format!(
+                    "{} system / {} user / {} services / {} keys",
+                    app.snapshot.system_packages.len(),
+                    app.snapshot.user_packages.len(),
+                    app.snapshot.services.len(),
+                    app.snapshot.ssh_keys.len()
+                ),
+                Style::default().fg(COLOR_TEXT),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Focused     ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                app.selected_item().title,
+                Style::default().fg(COLOR_RED).add_modifier(Modifier::BOLD),
+            ),
+        ]),
+        Line::from(Span::styled(
+            app.selected_item().detail,
+            Style::default().fg(COLOR_MUTED),
+        )),
     ];
 
     let summary_block = Paragraph::new(summary)
-        .block(branded_block("Host state", COLOR_BLUE))
+        .block(branded_block("System status", COLOR_ACCENT))
         .wrap(Wrap { trim: true });
-    frame.render_widget(summary_block, top[0]);
-
-    let selected = Paragraph::new(vec![
-        Line::from(Span::styled(
-            app.selected_item().title,
-            Style::default()
-                .fg(COLOR_BEIGE)
-                .add_modifier(Modifier::BOLD),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            app.selected_item().detail,
-            Style::default().fg(COLOR_TEXT),
-        )),
-        Line::from(""),
-        Line::from(Span::styled(
-            format!(
-                "Queued rebuild: {}",
-                if app.snapshot.rebuild_queued {
-                    "next boot"
-                } else {
-                    "no"
-                }
-            ),
-            Style::default().fg(COLOR_MUTED),
-        )),
-    ])
-    .block(branded_block("Focused action", COLOR_RED))
-    .wrap(Wrap { trim: true });
-    frame.render_widget(selected, top[1]);
+    frame.render_widget(summary_block, sections[0]);
 
     let alerts: Vec<ListItem> = app
         .alerts()
@@ -1579,7 +1612,7 @@ fn render_keys(frame: &mut Frame, area: Rect, app: &App) {
 
     let keys_list = List::new(items)
         .block(
-            branded_block("SSH key manager", COLOR_BLUE).title_bottom(Line::from(Span::styled(
+            branded_block("SSH key manager", COLOR_ACCENT).title_bottom(Line::from(Span::styled(
                 "a add  e replace  d delete  Esc back",
                 Style::default().fg(COLOR_MUTED),
             ))),
@@ -1587,7 +1620,7 @@ fn render_keys(frame: &mut Frame, area: Rect, app: &App) {
         .highlight_style(
             Style::default()
                 .fg(COLOR_TEXT)
-                .bg(COLOR_BLUE_SOFT)
+                .bg(COLOR_ACCENT_SOFT)
                 .add_modifier(Modifier::BOLD),
         );
 
@@ -1696,7 +1729,7 @@ fn render_logs(frame: &mut Frame, area: Rect, app: &App) {
         .collect();
 
     let logs = Paragraph::new(Text::from(lines))
-        .block(branded_block("Activity", COLOR_BLUE))
+        .block(branded_block("Activity", COLOR_ACCENT))
         .wrap(Wrap { trim: false });
     frame.render_widget(logs, area);
 }
