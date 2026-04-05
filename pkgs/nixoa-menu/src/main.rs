@@ -374,7 +374,7 @@ const LOG_ACTIONS: [ActionItem; 2] = [
     },
 ];
 
-const UPDATE_ACTIONS: [UpdateItem; 4] = [
+const UPDATE_ACTIONS: [UpdateItem; 5] = [
     UpdateItem {
         title: "Update nixpkgs",
         detail: "Refresh only the nixpkgs lock entry and then choose whether to rebuild now or on reboot.",
@@ -388,16 +388,22 @@ const UPDATE_ACTIONS: [UpdateItem; 4] = [
         shortcut: '2',
     },
     UpdateItem {
+        title: "Update Determinate",
+        detail: "Refresh only the determinate lock entry and then choose whether to rebuild now or on reboot.",
+        backend: "update-determinate",
+        shortcut: '3',
+    },
+    UpdateItem {
         title: "Update XOA",
         detail: "Check the latest xen-orchestra-ce tag, refresh that input lock, and then choose whether to rebuild now or on reboot.",
         backend: "update-xoa",
-        shortcut: '3',
+        shortcut: '4',
     },
     UpdateItem {
         title: "Update all",
         detail: "Run a full nix flake update and then choose whether to rebuild now or on reboot.",
         backend: "update-all",
-        shortcut: '4',
+        shortcut: '5',
     },
 ];
 

@@ -24,7 +24,7 @@ navigation, better layout behavior, and lower bootstrap build overhead.
 - **`libvhdi` defaults** now come directly from the `xo-nixpkg` input graph rather than a separate `core`-owned package export
 - **Console layout hierarchy** now uses stable domain tabs, grouped action menus, footer shortcuts, and consistent gutters/padding
 - **Console labels and maintenance terminology** now use clearer task names such as `System Summary`, `Recent Activity`, `Flake Inputs`, `Rollback Generation`, and `Run Garbage Collection`
-- **Console package version** advanced to `0.3.0`
+- **Console package version** advanced to `0.3.1`
 
 ### 🗑️ Removed
 
@@ -36,6 +36,7 @@ navigation, better layout behavior, and lower bootstrap build overhead.
 - **Border collisions and clipped panes** in the Ratatui console layout by rebuilding the screen around gutters and adaptive panel sizing
 - **TUI/backend drift** by moving the shared console binary into `core` while keeping host-mutating repo actions in `system`
 - **Cache misses for Xen Orchestra builds** caused by `core` resolving a different derivation than the one published by `xo-nixpkg`
+- **Update coverage for Determinate Nix** by exposing `determinate` as a first-class `Check for Updates` flake input in the console
 
 ## v1.6.0 — Den Alignment And Output Naming Cleanup
 
