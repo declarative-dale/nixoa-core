@@ -1,3 +1,4 @@
+use std::cmp::{max, min};
 use std::collections::{BTreeSet, HashMap};
 use std::env;
 use std::fs;
@@ -30,120 +31,38 @@ type Backend = CrosstermBackend<Stdout>;
 type AppTerminal = Terminal<Backend>;
 
 const UPDATE_TIMEOUT_SECS: u64 = 120;
-const COLOR_BG: Color = Color::Rgb(0x1C, 0x1B, 0x34);
-const COLOR_PANEL: Color = Color::Rgb(0x1A, 0x1A, 0x22);
-const COLOR_PANEL_STRONG: Color = Color::Rgb(0x1A, 0x1A, 0x22);
-const COLOR_TEXT: Color = Color::Rgb(0xF7, 0xF7, 0xF9);
-const COLOR_MUTED: Color = Color::Rgb(0xD4, 0xD4, 0xD7);
-const COLOR_MUTED_2: Color = Color::Rgb(0xAD, 0xAD, 0xB1);
+const MAX_LOG_ENTRIES: usize = 160;
+const DASHBOARD_LOG_LINES: usize = 5;
+
+const COLOR_BG_OUTER: Color = Color::Rgb(0x1C, 0x1B, 0x34);
+const COLOR_BG_INNER: Color = Color::Rgb(0x1A, 0x1A, 0x22);
+const COLOR_FG_MAIN: Color = Color::Rgb(0xF7, 0xF7, 0xF9);
 const COLOR_ACCENT: Color = Color::Rgb(0x87, 0x7C, 0xFC);
 const COLOR_ACCENT_SOFT: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
-const COLOR_RED: Color = Color::Rgb(0xFF, 0x00, 0x25);
-const COLOR_RED_SOFT: Color = Color::Rgb(0x4D, 0x4C, 0x60);
-const COLOR_SUCCESS: Color = Color::Rgb(0x87, 0x7C, 0xFC);
-const COLOR_WARNING: Color = Color::Rgb(0xC1, 0xC1, 0xC7);
 const COLOR_DANGER: Color = Color::Rgb(0xFF, 0x00, 0x25);
+const COLOR_MUTED: Color = Color::Rgb(0xD4, 0xD4, 0xD7);
+const COLOR_MUTED_2: Color = Color::Rgb(0xAD, 0xAD, 0xB1);
+const COLOR_BORDER_DIM: Color = Color::Rgb(0x4A, 0x4A, 0x52);
+const COLOR_BORDER_MID: Color = Color::Rgb(0x73, 0x73, 0x7A);
+const COLOR_WARNING: Color = Color::Rgb(0xC1, 0xC1, 0xC7);
+const COLOR_SUCCESS: Color = Color::Rgb(0x87, 0x7C, 0xFC);
 const COLOR_INFO: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
 
 #[derive(Clone, Debug)]
 struct ActionItem {
-    shortcut: char,
+    kind: ActionKind,
     title: &'static str,
     detail: &'static str,
+    shortcut: Option<char>,
 }
 
 #[derive(Clone, Debug)]
 struct UpdateItem {
-    shortcut: char,
     title: &'static str,
     detail: &'static str,
     backend: &'static str,
+    shortcut: char,
 }
-
-const ACTIONS: [ActionItem; 11] = [
-    ActionItem {
-        shortcut: '1',
-        title: "Edit hostname",
-        detail: "Write a new hostname into config/menu.nix and commit that override immediately.",
-    },
-    ActionItem {
-        shortcut: '2',
-        title: "Edit username",
-        detail: "Write a new primary username into config/menu.nix and commit that override immediately.",
-    },
-    ActionItem {
-        shortcut: '3',
-        title: "Manage SSH keys",
-        detail: "Review, replace, add, or remove the authorized SSH public keys managed by the console.",
-    },
-    ActionItem {
-        shortcut: '4',
-        title: "Toggle extras",
-        detail: "Enable or disable the extras feature set and commit the resulting menu override.",
-    },
-    ActionItem {
-        shortcut: '5',
-        title: "Add system package",
-        detail: "Append a nixpkgs attribute path to extraSystemPackages in config/menu.nix.",
-    },
-    ActionItem {
-        shortcut: '6',
-        title: "Add user package",
-        detail: "Append a nixpkgs attribute path to extraUserPackages in config/menu.nix.",
-    },
-    ActionItem {
-        shortcut: '7',
-        title: "Add service",
-        detail: "Enable a service by dotted NixOS option path in config/menu.nix.",
-    },
-    ActionItem {
-        shortcut: '8',
-        title: "Updates",
-        detail: "Open the update menu for nixpkgs, Home Manager, Xen Orchestra, or a full flake update.",
-    },
-    ActionItem {
-        shortcut: '9',
-        title: "Open shell",
-        detail: "Leave the TUI and exec the configured login shell with TUI bypass enabled.",
-    },
-    ActionItem {
-        shortcut: '0',
-        title: "Rollback system",
-        detail: "Run nixos-rebuild switch --rollback interactively and record the rollback in console state.",
-    },
-    ActionItem {
-        shortcut: 'g',
-        title: "Collect garbage",
-        detail: "Run nix-collect-garbage -d interactively for a full manual store cleanup.",
-    },
-];
-
-const UPDATE_ACTIONS: [UpdateItem; 4] = [
-    UpdateItem {
-        shortcut: '1',
-        title: "Update nixpkgs",
-        detail: "Refresh only the nixpkgs input lock and then choose whether to rebuild now or on reboot.",
-        backend: "update-nixpkgs",
-    },
-    UpdateItem {
-        shortcut: '2',
-        title: "Update Home Manager",
-        detail: "Refresh only the home-manager input lock and then choose whether to rebuild now or on reboot.",
-        backend: "update-home-manager",
-    },
-    UpdateItem {
-        shortcut: '3',
-        title: "Update XOA",
-        detail: "Check the latest xen-orchestra-ce tag, refresh that input lock, and then choose whether to rebuild now or on reboot.",
-        backend: "update-xoa",
-    },
-    UpdateItem {
-        shortcut: '4',
-        title: "Update all",
-        detail: "Run a full nix flake update across every direct input and then choose whether to rebuild now or on reboot.",
-        backend: "update-all",
-    },
-];
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -208,10 +127,37 @@ enum UpdateStatus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Screen {
-    Main,
-    Keys,
-    Updates,
+enum Page {
+    Dashboard,
+    Configure,
+    Software,
+    Maintenance,
+    Logs,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FocusZone {
+    Tabs,
+    Sidebar,
+    Content,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ActionKind {
+    RefreshSnapshot,
+    CheckForUpdates,
+    EditHostname,
+    EditUsername,
+    ToggleExtras,
+    ManageSshKeys,
+    AddSystemPackage,
+    AddUserPackage,
+    AddService,
+    ApplyConfiguration,
+    RollbackGeneration,
+    RunGarbageCollection,
+    FilterLogs,
+    ClearLogFilter,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -223,6 +169,30 @@ enum InputAction {
     AddSystemPackage,
     AddUserPackage,
     AddService,
+    SetLogFilter,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Severity {
+    Info,
+    Warning,
+    Error,
+}
+
+#[derive(Debug, Clone, Copy)]
+enum AlertCommand {
+    OpenMaintenance,
+    CheckForUpdates,
+    ApplyConfiguration,
+    OpenLogs,
+}
+
+#[derive(Debug, Clone)]
+struct AlertItem {
+    severity: Severity,
+    message: String,
+    action_label: Option<&'static str>,
+    action: Option<AlertCommand>,
 }
 
 #[derive(Debug, Clone)]
@@ -233,22 +203,181 @@ struct InputModal {
     value: String,
 }
 
+#[derive(Debug, Clone)]
+struct CommandPalette {
+    query: String,
+    selected: usize,
+}
+
+#[derive(Debug, Clone)]
+struct PaletteEntry {
+    title: String,
+    detail: String,
+    action: PaletteAction,
+}
+
+#[derive(Debug, Clone)]
+enum PaletteAction {
+    SwitchPage(Page),
+    RunAction(ActionKind),
+    OpenShell,
+    OpenHelp,
+}
+
 #[derive(Debug)]
 struct App {
     repo_root: PathBuf,
     snapshot: Snapshot,
     update_status: UpdateStatus,
     update_rx: Option<Receiver<UpdateStatus>>,
-    selected_action: usize,
+    page: Page,
+    focus: FocusZone,
+    page_selection: [usize; 5],
     selected_update: usize,
     selected_key: usize,
-    screen: Screen,
+    selected_alert: usize,
     modal: Option<InputModal>,
+    command_palette: Option<CommandPalette>,
+    help_open: bool,
     logs: Vec<String>,
+    log_filter: String,
+    log_scroll: usize,
     should_quit: bool,
     should_open_shell: bool,
     tick: usize,
 }
+
+const DASHBOARD_ACTIONS: [ActionItem; 2] = [
+    ActionItem {
+        kind: ActionKind::RefreshSnapshot,
+        title: "Refresh Snapshot",
+        detail: "Reload host state, repository status, and current appliance health.",
+        shortcut: Some('r'),
+    },
+    ActionItem {
+        kind: ActionKind::CheckForUpdates,
+        title: "Check for Updates",
+        detail: "Open the Flake Inputs update submenu in Maintenance and re-run the lock check.",
+        shortcut: Some('u'),
+    },
+];
+
+const CONFIGURE_ACTIONS: [ActionItem; 4] = [
+    ActionItem {
+        kind: ActionKind::EditHostname,
+        title: "Hostname",
+        detail: "Write a new hostname into config/menu.nix and commit the change immediately.",
+        shortcut: Some('1'),
+    },
+    ActionItem {
+        kind: ActionKind::EditUsername,
+        title: "Username",
+        detail: "Write a new primary username into config/menu.nix and commit the change immediately.",
+        shortcut: Some('2'),
+    },
+    ActionItem {
+        kind: ActionKind::ToggleExtras,
+        title: "Extras",
+        detail: "Enable or disable the extras feature set and commit the resulting menu override.",
+        shortcut: Some('3'),
+    },
+    ActionItem {
+        kind: ActionKind::ManageSshKeys,
+        title: "SSH Keys",
+        detail: "Manage the authorized SSH public keys tracked by the console override layer.",
+        shortcut: Some('4'),
+    },
+];
+
+const SOFTWARE_ACTIONS: [ActionItem; 3] = [
+    ActionItem {
+        kind: ActionKind::AddSystemPackage,
+        title: "System Packages",
+        detail: "Append a nixpkgs attribute path to extraSystemPackages in config/menu.nix.",
+        shortcut: Some('5'),
+    },
+    ActionItem {
+        kind: ActionKind::AddUserPackage,
+        title: "User Packages",
+        detail: "Append a nixpkgs attribute path to extraUserPackages in config/menu.nix.",
+        shortcut: Some('6'),
+    },
+    ActionItem {
+        kind: ActionKind::AddService,
+        title: "Services",
+        detail: "Enable a service by dotted NixOS option path in config/menu.nix.",
+        shortcut: Some('7'),
+    },
+];
+
+const MAINTENANCE_ACTIONS: [ActionItem; 4] = [
+    ActionItem {
+        kind: ActionKind::CheckForUpdates,
+        title: "Check for Updates",
+        detail: "Inspect flake input updates for nixpkgs, Home Manager, XOA, or the full system.",
+        shortcut: Some('8'),
+    },
+    ActionItem {
+        kind: ActionKind::ApplyConfiguration,
+        title: "Apply Configuration",
+        detail: "Run apply-config.sh for the current host and refresh console state after completion.",
+        shortcut: Some('a'),
+    },
+    ActionItem {
+        kind: ActionKind::RollbackGeneration,
+        title: "Rollback Generation",
+        detail: "Run nixos-rebuild switch --rollback interactively for the current host.",
+        shortcut: Some('0'),
+    },
+    ActionItem {
+        kind: ActionKind::RunGarbageCollection,
+        title: "Run Garbage Collection",
+        detail: "Run nix-collect-garbage -d interactively for a full manual store cleanup.",
+        shortcut: Some('g'),
+    },
+];
+
+const LOG_ACTIONS: [ActionItem; 2] = [
+    ActionItem {
+        kind: ActionKind::FilterLogs,
+        title: "Filter Logs",
+        detail: "Set a substring filter for Recent Activity and the dedicated Logs page.",
+        shortcut: Some('/'),
+    },
+    ActionItem {
+        kind: ActionKind::ClearLogFilter,
+        title: "Clear Log Filter",
+        detail: "Clear the current activity log filter and reset log scrolling to the newest entries.",
+        shortcut: Some('c'),
+    },
+];
+
+const UPDATE_ACTIONS: [UpdateItem; 4] = [
+    UpdateItem {
+        title: "Update nixpkgs",
+        detail: "Refresh only the nixpkgs lock entry and then choose whether to rebuild now or on reboot.",
+        backend: "update-nixpkgs",
+        shortcut: '1',
+    },
+    UpdateItem {
+        title: "Update Home Manager",
+        detail: "Refresh only the home-manager lock entry and then choose whether to rebuild now or on reboot.",
+        backend: "update-home-manager",
+        shortcut: '2',
+    },
+    UpdateItem {
+        title: "Update XOA",
+        detail: "Check the latest xen-orchestra-ce tag, refresh that input lock, and then choose whether to rebuild now or on reboot.",
+        backend: "update-xoa",
+        shortcut: '3',
+    },
+    UpdateItem {
+        title: "Update all",
+        detail: "Run a full nix flake update and then choose whether to rebuild now or on reboot.",
+        backend: "update-all",
+        shortcut: '4',
+    },
+];
 
 impl App {
     fn new(repo_root: PathBuf, snapshot: Snapshot) -> Self {
@@ -257,21 +386,128 @@ impl App {
             snapshot,
             update_status: UpdateStatus::Idle,
             update_rx: None,
-            selected_action: 0,
+            page: Page::Dashboard,
+            focus: FocusZone::Sidebar,
+            page_selection: [0; 5],
             selected_update: 0,
             selected_key: 0,
-            screen: Screen::Main,
+            selected_alert: 0,
             modal: None,
+            command_palette: None,
+            help_open: false,
             logs: vec![
                 "NiXOA console ready.".to_string(),
-                "Press r to refresh status or u to recheck flake updates.".to_string(),
+                "Press Tab to move focus, ? for help, : for the command palette.".to_string(),
             ],
+            log_filter: String::new(),
+            log_scroll: 0,
             should_quit: false,
             should_open_shell: false,
             tick: 0,
         };
-        app.clamp_key_selection();
+        app.clamp_selection_state();
         app
+    }
+
+    fn page_index(page: Page) -> usize {
+        match page {
+            Page::Dashboard => 0,
+            Page::Configure => 1,
+            Page::Software => 2,
+            Page::Maintenance => 3,
+            Page::Logs => 4,
+        }
+    }
+
+    fn current_page_actions(&self) -> &'static [ActionItem] {
+        match self.page {
+            Page::Dashboard => &DASHBOARD_ACTIONS,
+            Page::Configure => &CONFIGURE_ACTIONS,
+            Page::Software => &SOFTWARE_ACTIONS,
+            Page::Maintenance => &MAINTENANCE_ACTIONS,
+            Page::Logs => &LOG_ACTIONS,
+        }
+    }
+
+    fn current_selection(&self) -> usize {
+        self.page_selection[Self::page_index(self.page)]
+    }
+
+    fn current_selection_mut(&mut self) -> &mut usize {
+        &mut self.page_selection[Self::page_index(self.page)]
+    }
+
+    fn sidebar_len(&self) -> usize {
+        self.current_page_actions().len() + 1
+    }
+
+    fn selected_page_action(&self) -> Option<&'static ActionItem> {
+        let actions = self.current_page_actions();
+        actions.get(self.current_selection())
+    }
+
+    fn selected_sidebar_title(&self) -> &'static str {
+        self.selected_page_action()
+            .map(|item| item.title)
+            .unwrap_or("Open Shell")
+    }
+
+    fn selected_sidebar_detail(&self) -> &'static str {
+        self.selected_page_action()
+            .map(|item| item.detail)
+            .unwrap_or("Leave the TUI and exec the configured login shell with TUI bypass enabled.")
+    }
+
+    fn page_title(&self) -> &'static str {
+        match self.page {
+            Page::Dashboard => "Dashboard",
+            Page::Configure => "Configure",
+            Page::Software => "Software",
+            Page::Maintenance => "Maintenance",
+            Page::Logs => "Logs",
+        }
+    }
+
+    fn set_page(&mut self, page: Page) {
+        self.page = page;
+        self.focus = FocusZone::Sidebar;
+        self.clamp_selection_state();
+    }
+
+    fn next_page(&mut self) {
+        self.set_page(match self.page {
+            Page::Dashboard => Page::Configure,
+            Page::Configure => Page::Software,
+            Page::Software => Page::Maintenance,
+            Page::Maintenance => Page::Logs,
+            Page::Logs => Page::Dashboard,
+        });
+    }
+
+    fn previous_page(&mut self) {
+        self.set_page(match self.page {
+            Page::Dashboard => Page::Logs,
+            Page::Configure => Page::Dashboard,
+            Page::Software => Page::Configure,
+            Page::Maintenance => Page::Software,
+            Page::Logs => Page::Maintenance,
+        });
+    }
+
+    fn cycle_focus_forward(&mut self) {
+        self.focus = match self.focus {
+            FocusZone::Tabs => FocusZone::Sidebar,
+            FocusZone::Sidebar => FocusZone::Content,
+            FocusZone::Content => FocusZone::Tabs,
+        };
+    }
+
+    fn cycle_focus_backward(&mut self) {
+        self.focus = match self.focus {
+            FocusZone::Tabs => FocusZone::Content,
+            FocusZone::Sidebar => FocusZone::Tabs,
+            FocusZone::Content => FocusZone::Sidebar,
+        };
     }
 
     fn start_update_check(&mut self) {
@@ -314,123 +550,335 @@ impl App {
 
     fn refresh_snapshot(&mut self) -> Result<()> {
         self.snapshot = load_snapshot(&self.repo_root)?;
-        self.clamp_key_selection();
+        self.clamp_selection_state();
         Ok(())
     }
 
-    fn clamp_key_selection(&mut self) {
+    fn clamp_selection_state(&mut self) {
+        let sidebar_len = self.sidebar_len();
+        if self.current_selection() >= sidebar_len {
+            *self.current_selection_mut() = sidebar_len.saturating_sub(1);
+        }
+
         if self.snapshot.ssh_keys.is_empty() {
             self.selected_key = 0;
         } else if self.selected_key >= self.snapshot.ssh_keys.len() {
             self.selected_key = self.snapshot.ssh_keys.len() - 1;
         }
+
+        let alert_count = self.alerts().len();
+        if alert_count == 0 {
+            self.selected_alert = 0;
+        } else if self.selected_alert >= alert_count {
+            self.selected_alert = alert_count - 1;
+        }
+
+        let filtered_count = self.filtered_logs().len();
+        if filtered_count == 0 {
+            self.log_scroll = 0;
+        } else {
+            self.log_scroll = min(self.log_scroll, filtered_count.saturating_sub(1));
+        }
     }
 
     fn push_log(&mut self, message: impl Into<String>) {
         self.logs.push(message.into());
-        if self.logs.len() > 120 {
-            let drain_count = self.logs.len() - 120;
-            self.logs.drain(0..drain_count);
+        if self.logs.len() > MAX_LOG_ENTRIES {
+            let drain = self.logs.len() - MAX_LOG_ENTRIES;
+            self.logs.drain(0..drain);
         }
+        self.clamp_selection_state();
     }
 
-    fn selected_item(&self) -> &'static ActionItem {
-        &ACTIONS[self.selected_action]
-    }
-
-    fn selected_update_item(&self) -> &'static UpdateItem {
-        &UPDATE_ACTIONS[self.selected_update]
-    }
-
-    fn alerts(&self) -> Vec<String> {
+    fn alerts(&self) -> Vec<AlertItem> {
         let mut alerts = Vec::new();
 
         if self.snapshot.dirty_count > 0 {
-            alerts.push(format!(
-                "{} tracked repo changes are still uncommitted.",
-                self.snapshot.dirty_count
-            ));
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: format!(
+                    "{} tracked repository changes are still uncommitted.",
+                    self.snapshot.dirty_count
+                ),
+                action_label: Some("Open Logs"),
+                action: Some(AlertCommand::OpenLogs),
+            });
         }
 
         if self.snapshot.rebuild_needed {
-            alerts
-                .push("Current repository state has not been switched onto the host.".to_string());
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: "Current repository state has not been switched onto the host.".to_string(),
+                action_label: Some("Apply now"),
+                action: Some(AlertCommand::ApplyConfiguration),
+            });
         }
 
         if self.snapshot.rebuild_queued {
-            alerts.push("A rebuild has been queued for the next boot.".to_string());
+            alerts.push(AlertItem {
+                severity: Severity::Info,
+                message: "A rebuild has been queued for the next boot.".to_string(),
+                action_label: Some("Maintenance"),
+                action: Some(AlertCommand::OpenMaintenance),
+            });
         }
 
         if self.snapshot.behind > 0 {
-            alerts.push(format!(
-                "Local branch is behind {} by {} commits.",
-                self.snapshot
-                    .upstream
-                    .clone()
-                    .unwrap_or_else(|| "its upstream".to_string()),
-                self.snapshot.behind
-            ));
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: format!(
+                    "Local branch is behind {} by {} commits.",
+                    self.snapshot
+                        .upstream
+                        .clone()
+                        .unwrap_or_else(|| "its upstream".to_string()),
+                    self.snapshot.behind
+                ),
+                action_label: Some("Check updates"),
+                action: Some(AlertCommand::CheckForUpdates),
+            });
         }
 
         if self.snapshot.ahead > 0 {
-            alerts.push(format!(
-                "Local branch is ahead of upstream by {} commits.",
-                self.snapshot.ahead
-            ));
+            alerts.push(AlertItem {
+                severity: Severity::Info,
+                message: format!(
+                    "Local branch is ahead of upstream by {} commits.",
+                    self.snapshot.ahead
+                ),
+                action_label: Some("Open Logs"),
+                action: Some(AlertCommand::OpenLogs),
+            });
         }
 
         if self.snapshot.memory_used_percent >= 90 {
-            alerts.push(format!(
-                "RAM usage is high: {}.",
-                format_usage(
-                    self.snapshot.memory_used_bytes,
-                    self.snapshot.memory_total_bytes,
-                    self.snapshot.memory_used_percent
-                )
-            ));
+            alerts.push(AlertItem {
+                severity: Severity::Error,
+                message: format!(
+                    "RAM usage is high: {}.",
+                    format_usage(
+                        self.snapshot.memory_used_bytes,
+                        self.snapshot.memory_total_bytes,
+                        self.snapshot.memory_used_percent
+                    )
+                ),
+                action_label: None,
+                action: None,
+            });
+        } else if self.snapshot.memory_used_percent >= 75 {
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: format!(
+                    "RAM usage is elevated: {}.",
+                    format_usage(
+                        self.snapshot.memory_used_bytes,
+                        self.snapshot.memory_total_bytes,
+                        self.snapshot.memory_used_percent
+                    )
+                ),
+                action_label: None,
+                action: None,
+            });
         }
 
         if self.snapshot.storage_used_percent >= 90 {
-            alerts.push(format!(
-                "Root storage usage is high: {}.",
-                format_usage(
-                    self.snapshot.storage_used_bytes,
-                    self.snapshot.storage_total_bytes,
-                    self.snapshot.storage_used_percent
-                )
-            ));
+            alerts.push(AlertItem {
+                severity: Severity::Error,
+                message: format!(
+                    "Root storage usage is high: {}.",
+                    format_usage(
+                        self.snapshot.storage_used_bytes,
+                        self.snapshot.storage_total_bytes,
+                        self.snapshot.storage_used_percent
+                    )
+                ),
+                action_label: None,
+                action: None,
+            });
+        } else if self.snapshot.storage_used_percent >= 75 {
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: format!(
+                    "Root storage usage is elevated: {}.",
+                    format_usage(
+                        self.snapshot.storage_used_bytes,
+                        self.snapshot.storage_total_bytes,
+                        self.snapshot.storage_used_percent
+                    )
+                ),
+                action_label: None,
+                action: None,
+            });
         }
 
         if self.snapshot.primary_ip.is_none() {
-            alerts.push("No primary IPv4 address was detected.".to_string());
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: "No primary IPv4 address was detected.".to_string(),
+                action_label: None,
+                action: None,
+            });
         }
 
         match &self.update_status {
-            UpdateStatus::Available(count) => {
-                alerts.push(format!("{count} flake input lock entries can be updated."));
-            }
-            UpdateStatus::Error(message) => {
-                alerts.push(format!("Flake input check failed: {message}"));
-            }
+            UpdateStatus::Available(count) => alerts.push(AlertItem {
+                severity: Severity::Info,
+                message: format!("{count} flake input lock entries can be updated."),
+                action_label: Some("Check updates"),
+                action: Some(AlertCommand::CheckForUpdates),
+            }),
+            UpdateStatus::Error(message) => alerts.push(AlertItem {
+                severity: Severity::Error,
+                message: format!("Flake input check failed: {message}"),
+                action_label: Some("Check updates"),
+                action: Some(AlertCommand::CheckForUpdates),
+            }),
             UpdateStatus::Idle | UpdateStatus::Checking | UpdateStatus::UpToDate => {}
         }
 
         if let Some(last_apply) = &self.snapshot.last_apply {
             if last_apply.result != "success" {
-                alerts.push(format!(
-                    "Last {} failed at {} with exit code {}.",
-                    last_apply.action, last_apply.timestamp, last_apply.exit_code
-                ));
+                alerts.push(AlertItem {
+                    severity: Severity::Error,
+                    message: format!(
+                        "Last {} failed at {} with exit code {}.",
+                        last_apply.action, last_apply.timestamp, last_apply.exit_code
+                    ),
+                    action_label: Some("Open Logs"),
+                    action: Some(AlertCommand::OpenLogs),
+                });
             }
         } else {
-            alerts.push("No successful host switch has been recorded yet.".to_string());
+            alerts.push(AlertItem {
+                severity: Severity::Warning,
+                message: "No successful host switch has been recorded yet.".to_string(),
+                action_label: Some("Apply now"),
+                action: Some(AlertCommand::ApplyConfiguration),
+            });
         }
 
         if alerts.is_empty() {
-            alerts.push("No outstanding alerts.".to_string());
+            alerts.push(AlertItem {
+                severity: Severity::Info,
+                message: "No outstanding alerts.".to_string(),
+                action_label: None,
+                action: None,
+            });
         }
 
         alerts
+    }
+
+    fn filtered_logs(&self) -> Vec<String> {
+        let query = self.log_filter.trim().to_lowercase();
+        let iter = self.logs.iter().rev();
+        if query.is_empty() {
+            iter.cloned().collect()
+        } else {
+            iter.filter(|line| line.to_lowercase().contains(&query))
+                .cloned()
+                .collect()
+        }
+    }
+
+    fn recent_logs(&self) -> Vec<String> {
+        let mut logs = self.filtered_logs();
+        logs.truncate(DASHBOARD_LOG_LINES);
+        logs
+    }
+
+    fn palette_entries(&self) -> Vec<PaletteEntry> {
+        let mut entries = vec![
+            PaletteEntry {
+                title: "Go to Dashboard".to_string(),
+                detail: "Switch to the Dashboard page.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Dashboard),
+            },
+            PaletteEntry {
+                title: "Go to Configure".to_string(),
+                detail: "Switch to the Configure page.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Configure),
+            },
+            PaletteEntry {
+                title: "Go to Software".to_string(),
+                detail: "Switch to the Software page.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Software),
+            },
+            PaletteEntry {
+                title: "Go to Maintenance".to_string(),
+                detail: "Switch to the Maintenance page.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Maintenance),
+            },
+            PaletteEntry {
+                title: "Go to Logs".to_string(),
+                detail: "Switch to the Logs page.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Logs),
+            },
+            PaletteEntry {
+                title: "Open Help".to_string(),
+                detail: "Show the full shortcut and navigation reference.".to_string(),
+                action: PaletteAction::OpenHelp,
+            },
+            PaletteEntry {
+                title: "Open Shell".to_string(),
+                detail: "Leave the TUI and exec the configured login shell.".to_string(),
+                action: PaletteAction::OpenShell,
+            },
+        ];
+
+        for page in [
+            Page::Dashboard,
+            Page::Configure,
+            Page::Software,
+            Page::Maintenance,
+            Page::Logs,
+        ] {
+            for action in page_actions(page) {
+                entries.push(PaletteEntry {
+                    title: format!("{} / {}", page_label(page), action.title),
+                    detail: action.detail.to_string(),
+                    action: PaletteAction::RunAction(action.kind),
+                });
+            }
+        }
+
+        let query = self
+            .command_palette
+            .as_ref()
+            .map(|palette| palette.query.trim().to_lowercase())
+            .unwrap_or_default();
+
+        if query.is_empty() {
+            entries
+        } else {
+            entries
+                .into_iter()
+                .filter(|entry| {
+                    entry.title.to_lowercase().contains(&query)
+                        || entry.detail.to_lowercase().contains(&query)
+                })
+                .collect()
+        }
+    }
+}
+
+fn page_actions(page: Page) -> &'static [ActionItem] {
+    match page {
+        Page::Dashboard => &DASHBOARD_ACTIONS,
+        Page::Configure => &CONFIGURE_ACTIONS,
+        Page::Software => &SOFTWARE_ACTIONS,
+        Page::Maintenance => &MAINTENANCE_ACTIONS,
+        Page::Logs => &LOG_ACTIONS,
+    }
+}
+
+fn page_label(page: Page) -> &'static str {
+    match page {
+        Page::Dashboard => "Dashboard",
+        Page::Configure => "Configure",
+        Page::Software => "Software",
+        Page::Maintenance => "Maintenance",
+        Page::Logs => "Logs",
     }
 }
 
@@ -533,7 +981,6 @@ fn run_app(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     loop {
         app.poll_background();
         app.tick = app.tick.wrapping_add(1);
-
         terminal.draw(|frame| render(frame, app))?;
 
         if app.should_quit || app.should_open_shell {
@@ -551,140 +998,309 @@ fn run_app(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
 }
 
 fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+    if app.command_palette.is_some() {
+        return handle_palette_key(app, key);
+    }
+    if app.help_open {
+        return handle_help_key(app, key);
+    }
     if app.modal.is_some() {
-        return handle_modal_key(terminal, app, key);
+        return handle_modal_key(app, key);
     }
 
-    match app.screen {
-        Screen::Main => handle_main_key(terminal, app, key),
-        Screen::Keys => handle_keys_key(terminal, app, key),
-        Screen::Updates => handle_updates_key(terminal, app, key),
+    if key.modifiers.contains(KeyModifiers::CONTROL) && matches!(key.code, KeyCode::Char('p')) {
+        app.command_palette = Some(CommandPalette {
+            query: String::new(),
+            selected: 0,
+        });
+        return Ok(());
     }
-}
 
-fn handle_main_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
-        KeyCode::Up | KeyCode::Char('k') => {
-            if app.selected_action == 0 {
-                app.selected_action = ACTIONS.len() - 1;
-            } else {
-                app.selected_action -= 1;
-            }
+        KeyCode::Char(':') => {
+            app.command_palette = Some(CommandPalette {
+                query: String::new(),
+                selected: 0,
+            });
+            return Ok(());
         }
-        KeyCode::Down | KeyCode::Char('j') => {
-            app.selected_action = (app.selected_action + 1) % ACTIONS.len();
+        KeyCode::Char('?') => {
+            app.help_open = true;
+            return Ok(());
         }
-        KeyCode::Enter => activate_selected_action(terminal, app)?,
+        KeyCode::Char('q') | KeyCode::Char('9') => {
+            app.should_open_shell = true;
+            return Ok(());
+        }
         KeyCode::Char('r') => {
             app.refresh_snapshot()?;
             app.start_update_check();
             app.push_log("Refreshed repository snapshot.");
+            return Ok(());
         }
         KeyCode::Char('u') => {
             app.start_update_check();
             app.push_log("Started a new flake input update check.");
+            return Ok(());
         }
-        KeyCode::Char('q') => {
+        KeyCode::Tab => {
+            app.cycle_focus_forward();
+            return Ok(());
+        }
+        KeyCode::BackTab => {
+            app.cycle_focus_backward();
+            return Ok(());
+        }
+        KeyCode::Char('[') => {
+            app.previous_page();
+            return Ok(());
+        }
+        KeyCode::Char(']') => {
+            app.next_page();
+            return Ok(());
+        }
+        _ => {}
+    }
+
+    match app.focus {
+        FocusZone::Tabs => handle_tabs_key(app, key),
+        FocusZone::Sidebar => handle_sidebar_key(terminal, app, key),
+        FocusZone::Content => handle_content_key(terminal, app, key),
+    }
+}
+
+fn handle_tabs_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Left | KeyCode::Char('h') => app.previous_page(),
+        KeyCode::Right | KeyCode::Char('l') => app.next_page(),
+        KeyCode::Enter | KeyCode::Down | KeyCode::Char('j') => app.focus = FocusZone::Sidebar,
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+    if let KeyCode::Char(ch) = key.code {
+        if ch == '9' || ch == 'q' {
             app.should_open_shell = true;
+            return Ok(());
         }
-        KeyCode::Char(ch) if action_index_for_shortcut(ch).is_some() => {
-            app.selected_action = action_index_for_shortcut(ch).expect("shortcut checked above");
-            activate_selected_action(terminal, app)?;
+
+        if let Some(index) = app
+            .current_page_actions()
+            .iter()
+            .position(|item| item.shortcut == Some(ch))
+        {
+            *app.current_selection_mut() = index;
+            activate_sidebar_selection(terminal, app)?;
+            return Ok(());
         }
+    }
+
+    match key.code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            let len = app.sidebar_len();
+            if app.current_selection() == 0 {
+                *app.current_selection_mut() = len - 1;
+            } else {
+                *app.current_selection_mut() -= 1;
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let next = (app.current_selection() + 1) % app.sidebar_len();
+            *app.current_selection_mut() = next;
+        }
+        KeyCode::Right | KeyCode::Char('l') => app.focus = FocusZone::Content,
+        KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Tabs,
+        KeyCode::Enter => activate_sidebar_selection(terminal, app)?,
         _ => {}
     }
 
     Ok(())
 }
 
-fn handle_keys_key(_terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_content_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+    match app.page {
+        Page::Dashboard => handle_dashboard_content_key(terminal, app, key),
+        Page::Configure => handle_configure_content_key(app, key),
+        Page::Software => handle_software_content_key(app, key),
+        Page::Maintenance => handle_maintenance_content_key(terminal, app, key),
+        Page::Logs => handle_logs_content_key(app, key),
+    }
+}
+
+fn handle_dashboard_content_key(
+    terminal: &mut AppTerminal,
+    app: &mut App,
+    key: KeyEvent,
+) -> Result<()> {
+    let alerts = app.alerts();
     match key.code {
-        KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('b') => {
-            app.screen = Screen::Main;
-        }
         KeyCode::Up | KeyCode::Char('k') => {
-            if !app.snapshot.ssh_keys.is_empty() {
-                if app.selected_key == 0 {
-                    app.selected_key = app.snapshot.ssh_keys.len() - 1;
+            if !alerts.is_empty() {
+                if app.selected_alert == 0 {
+                    app.selected_alert = alerts.len() - 1;
                 } else {
-                    app.selected_key -= 1;
+                    app.selected_alert -= 1;
                 }
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            if !app.snapshot.ssh_keys.is_empty() {
-                app.selected_key = (app.selected_key + 1) % app.snapshot.ssh_keys.len();
+            if !alerts.is_empty() {
+                app.selected_alert = (app.selected_alert + 1) % alerts.len();
             }
         }
-        KeyCode::Char('a') => {
-            open_modal(
+        KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+        KeyCode::Enter => {
+            if let Some(alert) = alerts.get(app.selected_alert) {
+                if let Some(action) = alert.action {
+                    run_alert_action(terminal, app, action)?;
+                }
+            }
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match app.selected_page_action().map(|item| item.kind) {
+        Some(ActionKind::ManageSshKeys) => match key.code {
+            KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                if !app.snapshot.ssh_keys.is_empty() {
+                    if app.selected_key == 0 {
+                        app.selected_key = app.snapshot.ssh_keys.len() - 1;
+                    } else {
+                        app.selected_key -= 1;
+                    }
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if !app.snapshot.ssh_keys.is_empty() {
+                    app.selected_key = (app.selected_key + 1) % app.snapshot.ssh_keys.len();
+                }
+            }
+            KeyCode::Char('a') => open_modal(
                 app,
                 InputAction::AddKey,
                 "Add SSH key",
                 "Paste a full public key line.",
                 "",
-            );
-        }
-        KeyCode::Char('e') | KeyCode::Char('s') => {
-            open_modal(
+            ),
+            KeyCode::Char('e') => open_modal(
                 app,
                 InputAction::SetPrimaryKey,
                 "Replace SSH keys",
                 "Replace the managed key list with a single public key line.",
                 "",
-            );
-        }
-        KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('d') => {
-            if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
-                run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
+            ),
+            KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('d') => {
+                if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
+                    run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
+                }
+            }
+            _ => {}
+        },
+        _ => {
+            if matches!(key.code, KeyCode::Left | KeyCode::Char('h')) {
+                app.focus = FocusZone::Sidebar;
             }
         }
-        _ => {}
     }
-
     Ok(())
 }
 
-fn handle_updates_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Esc | KeyCode::Char('h') | KeyCode::Char('b') => {
-            app.screen = Screen::Main;
+fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    if matches!(key.code, KeyCode::Left | KeyCode::Char('h')) {
+        app.focus = FocusZone::Sidebar;
+    }
+    Ok(())
+}
+
+fn handle_maintenance_content_key(
+    terminal: &mut AppTerminal,
+    app: &mut App,
+    key: KeyEvent,
+) -> Result<()> {
+    match app.selected_page_action().map(|item| item.kind) {
+        Some(ActionKind::CheckForUpdates) => match key.code {
+            KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Up | KeyCode::Char('k') => {
+                if app.selected_update == 0 {
+                    app.selected_update = UPDATE_ACTIONS.len() - 1;
+                } else {
+                    app.selected_update -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                app.selected_update = (app.selected_update + 1) % UPDATE_ACTIONS.len();
+            }
+            KeyCode::Enter => activate_selected_update(terminal, app)?,
+            KeyCode::Char(ch) => {
+                if let Some(index) = UPDATE_ACTIONS.iter().position(|item| item.shortcut == ch) {
+                    app.selected_update = index;
+                    activate_selected_update(terminal, app)?;
+                }
+            }
+            _ => {}
+        },
+        _ => {
+            if matches!(key.code, KeyCode::Left | KeyCode::Char('h')) {
+                app.focus = FocusZone::Sidebar;
+            }
         }
+    }
+    Ok(())
+}
+
+fn handle_logs_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    let total = app.filtered_logs().len();
+    match key.code {
+        KeyCode::Left | KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
         KeyCode::Up | KeyCode::Char('k') => {
-            if app.selected_update == 0 {
-                app.selected_update = UPDATE_ACTIONS.len() - 1;
-            } else {
-                app.selected_update -= 1;
+            if total > 0 {
+                app.log_scroll = min(app.log_scroll + 1, total.saturating_sub(1));
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
-            app.selected_update = (app.selected_update + 1) % UPDATE_ACTIONS.len();
+            app.log_scroll = app.log_scroll.saturating_sub(1);
         }
-        KeyCode::Enter => activate_selected_update(terminal, app)?,
-        KeyCode::Char('r') => {
-            app.refresh_snapshot()?;
-            app.start_update_check();
-            app.push_log("Refreshed repository snapshot.");
+        KeyCode::PageUp => {
+            if total > 0 {
+                app.log_scroll = min(app.log_scroll + 10, total.saturating_sub(1));
+            }
         }
-        KeyCode::Char('u') => {
-            app.start_update_check();
-            app.push_log("Started a new flake input update check.");
+        KeyCode::PageDown => {
+            app.log_scroll = app.log_scroll.saturating_sub(10);
         }
-        KeyCode::Char('q') => {
-            app.should_open_shell = true;
+        KeyCode::Home => {
+            if total > 0 {
+                app.log_scroll = total - 1;
+            }
         }
-        KeyCode::Char(ch) if update_index_for_shortcut(ch).is_some() => {
-            app.selected_update =
-                update_index_for_shortcut(ch).expect("update shortcut checked above");
-            activate_selected_update(terminal, app)?;
+        KeyCode::End => app.log_scroll = 0,
+        KeyCode::Char('/') => {
+            let current = app.log_filter.clone();
+            open_modal(
+                app,
+                InputAction::SetLogFilter,
+                "Filter logs",
+                "Enter a substring to filter Recent Activity entries.",
+                current.as_str(),
+            )
+        }
+        KeyCode::Char('c') => {
+            app.log_filter.clear();
+            app.log_scroll = 0;
+            app.push_log("Cleared log filter.");
         }
         _ => {}
     }
-
     Ok(())
 }
 
-fn handle_modal_key(_terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_modal_key(app: &mut App, key: KeyEvent) -> Result<()> {
     let modal = app.modal.as_mut().expect("modal checked above");
     match key.code {
         KeyCode::Esc => app.modal = None,
@@ -700,111 +1316,358 @@ fn handle_modal_key(_terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -
         KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
             modal.value.clear();
         }
+        KeyCode::Char(ch) => modal.value.push(ch),
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_help_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('?') => app.help_open = false,
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_palette_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc => app.command_palette = None,
+        KeyCode::Backspace => {
+            let palette = app.command_palette.as_mut().expect("palette checked above");
+            palette.query.pop();
+            palette.selected = 0;
+        }
+        KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            let palette = app.command_palette.as_mut().expect("palette checked above");
+            palette.query.clear();
+            palette.selected = 0;
+        }
+        KeyCode::Up | KeyCode::Char('k') => {
+            let len = app.palette_entries().len();
+            if len > 0 {
+                let palette = app.command_palette.as_mut().expect("palette checked above");
+                if palette.selected == 0 {
+                    palette.selected = len - 1;
+                } else {
+                    palette.selected -= 1;
+                }
+            }
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            let len = app.palette_entries().len();
+            if len > 0 {
+                let palette = app.command_palette.as_mut().expect("palette checked above");
+                palette.selected = (palette.selected + 1) % len;
+            }
+        }
+        KeyCode::Enter => {
+            let entries = app.palette_entries();
+            let selected = app
+                .command_palette
+                .as_ref()
+                .map(|palette| palette.selected)
+                .unwrap_or(0);
+            let action = entries.get(selected).map(|entry| entry.action.clone());
+            app.command_palette = None;
+            if let Some(action) = action {
+                run_palette_action(app, action)?;
+            }
+        }
         KeyCode::Char(ch) => {
-            modal.value.push(ch);
+            let palette = app.command_palette.as_mut().expect("palette checked above");
+            palette.query.push(ch);
+            palette.selected = 0;
         }
         _ => {}
     }
-
     Ok(())
 }
 
-fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()> {
-    if value.is_empty() {
-        app.push_log("Ignored empty input.");
-        return Ok(());
-    }
-
+fn run_palette_action(app: &mut App, action: PaletteAction) -> Result<()> {
     match action {
-        InputAction::SetHostname => run_action_capture(app, &["set-hostname", value.as_str()])?,
-        InputAction::SetUsername => run_action_capture(app, &["set-username", value.as_str()])?,
-        InputAction::SetPrimaryKey => run_action_capture(app, &["set-ssh-key", value.as_str()])?,
-        InputAction::AddKey => run_action_capture(app, &["add-ssh-key", value.as_str()])?,
-        InputAction::AddSystemPackage => {
-            run_action_capture(app, &["add-system-package", value.as_str()])?
-        }
-        InputAction::AddUserPackage => {
-            run_action_capture(app, &["add-user-package", value.as_str()])?
-        }
-        InputAction::AddService => run_action_capture(app, &["add-service", value.as_str()])?,
+        PaletteAction::SwitchPage(page) => app.set_page(page),
+        PaletteAction::RunAction(kind) => run_quick_action(app, kind)?,
+        PaletteAction::OpenShell => app.should_open_shell = true,
+        PaletteAction::OpenHelp => app.help_open = true,
     }
-
-    if matches!(action, InputAction::SetPrimaryKey | InputAction::AddKey) {
-        app.screen = Screen::Keys;
-    }
-
-    if matches!(action, InputAction::SetHostname | InputAction::SetUsername) {
-        app.screen = Screen::Main;
-    }
-
     Ok(())
 }
 
-fn activate_selected_action(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
-    match app.selected_action {
-        0 => {
-            let hostname = app.snapshot.hostname.clone();
+fn run_alert_action(terminal: &mut AppTerminal, app: &mut App, action: AlertCommand) -> Result<()> {
+    match action {
+        AlertCommand::OpenMaintenance => {
+            app.set_page(Page::Maintenance);
+            *app.current_selection_mut() = 0;
+            app.focus = FocusZone::Content;
+        }
+        AlertCommand::CheckForUpdates => {
+            app.set_page(Page::Maintenance);
+            *app.current_selection_mut() = 0;
+            app.focus = FocusZone::Content;
+            app.start_update_check();
+        }
+        AlertCommand::ApplyConfiguration => {
+            app.set_page(Page::Maintenance);
+            *app.current_selection_mut() = 1;
+            run_apply_configuration(terminal, app)?;
+        }
+        AlertCommand::OpenLogs => {
+            app.set_page(Page::Logs);
+            app.focus = FocusZone::Content;
+        }
+    }
+    Ok(())
+}
+
+fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
+    match kind {
+        ActionKind::RefreshSnapshot => {
+            app.refresh_snapshot()?;
+            app.start_update_check();
+            app.push_log("Refreshed repository snapshot.");
+        }
+        ActionKind::CheckForUpdates => {
+            app.set_page(Page::Maintenance);
+            *app.current_selection_mut() = 0;
+            app.focus = FocusZone::Content;
+            app.start_update_check();
+            app.push_log("Opened Flake Inputs update view.");
+        }
+        ActionKind::EditHostname => {
+            let current = app.snapshot.hostname.clone();
             open_modal(
                 app,
                 InputAction::SetHostname,
                 "Edit hostname",
                 "Press Enter to write and commit the new hostname.",
-                hostname.as_str(),
-            )
+                current.as_str(),
+            );
         }
-        1 => {
-            let username = app.snapshot.username.clone();
+        ActionKind::EditUsername => {
+            let current = app.snapshot.username.clone();
             open_modal(
                 app,
                 InputAction::SetUsername,
                 "Edit username",
                 "Press Enter to write and commit the new username.",
-                username.as_str(),
-            )
+                current.as_str(),
+            );
         }
-        2 => app.screen = Screen::Keys,
-        3 => run_action_capture(app, &["toggle-extras"])?,
-        4 => open_modal(
+        ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+        ActionKind::ManageSshKeys => {
+            app.set_page(Page::Configure);
+            *app.current_selection_mut() = 3;
+            app.focus = FocusZone::Content;
+        }
+        ActionKind::AddSystemPackage => open_modal(
             app,
             InputAction::AddSystemPackage,
             "Add system package",
             "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
             "",
         ),
-        5 => open_modal(
+        ActionKind::AddUserPackage => open_modal(
             app,
             InputAction::AddUserPackage,
             "Add user package",
             "Enter a nixpkgs attribute path for the user package list.",
             "",
         ),
-        6 => open_modal(
+        ActionKind::AddService => open_modal(
             app,
             InputAction::AddService,
             "Add service",
             "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
             "",
         ),
-        7 => app.screen = Screen::Updates,
-        8 => app.should_open_shell = true,
-        9 => run_command_interactive(terminal, app, "Rollback system", {
-            let mut command = Command::new(app.repo_root.join("scripts/apply-config.sh"));
-            command.arg("--rollback");
-            command
-        })?,
-        10 => run_command_interactive(terminal, app, "Collect garbage", {
-            let mut command = sudo_command();
-            command.args(["nix-collect-garbage", "-d"]);
-            command
-        })?,
-        _ => {}
+        ActionKind::ApplyConfiguration
+        | ActionKind::RollbackGeneration
+        | ActionKind::RunGarbageCollection => {
+            app.set_page(Page::Maintenance);
+        }
+        ActionKind::FilterLogs => {
+            app.set_page(Page::Logs);
+            let current = app.log_filter.clone();
+            open_modal(
+                app,
+                InputAction::SetLogFilter,
+                "Filter logs",
+                "Enter a substring to filter Recent Activity entries.",
+                current.as_str(),
+            );
+        }
+        ActionKind::ClearLogFilter => {
+            app.log_filter.clear();
+            app.log_scroll = 0;
+            app.push_log("Cleared log filter.");
+        }
     }
+    Ok(())
+}
 
+fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    if let Some(action) = app.selected_page_action() {
+        match action.kind {
+            ActionKind::RefreshSnapshot => {
+                app.refresh_snapshot()?;
+                app.start_update_check();
+                app.push_log("Refreshed repository snapshot.");
+            }
+            ActionKind::CheckForUpdates => {
+                app.start_update_check();
+                app.focus = FocusZone::Content;
+                app.set_page(Page::Maintenance);
+                *app.current_selection_mut() = 0;
+            }
+            ActionKind::EditHostname => {
+                let hostname = app.snapshot.hostname.clone();
+                open_modal(
+                    app,
+                    InputAction::SetHostname,
+                    "Edit hostname",
+                    "Press Enter to write and commit the new hostname.",
+                    hostname.as_str(),
+                );
+            }
+            ActionKind::EditUsername => {
+                let username = app.snapshot.username.clone();
+                open_modal(
+                    app,
+                    InputAction::SetUsername,
+                    "Edit username",
+                    "Press Enter to write and commit the new username.",
+                    username.as_str(),
+                );
+            }
+            ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+            ActionKind::ManageSshKeys => app.focus = FocusZone::Content,
+            ActionKind::AddSystemPackage => open_modal(
+                app,
+                InputAction::AddSystemPackage,
+                "Add system package",
+                "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
+                "",
+            ),
+            ActionKind::AddUserPackage => open_modal(
+                app,
+                InputAction::AddUserPackage,
+                "Add user package",
+                "Enter a nixpkgs attribute path for the user package list.",
+                "",
+            ),
+            ActionKind::AddService => open_modal(
+                app,
+                InputAction::AddService,
+                "Add service",
+                "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
+                "",
+            ),
+            ActionKind::ApplyConfiguration => run_apply_configuration(terminal, app)?,
+            ActionKind::RollbackGeneration => run_rollback_generation(terminal, app)?,
+            ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
+            ActionKind::FilterLogs => {
+                let current = app.log_filter.clone();
+                open_modal(
+                    app,
+                    InputAction::SetLogFilter,
+                    "Filter logs",
+                    "Enter a substring to filter Recent Activity entries.",
+                    current.as_str(),
+                )
+            }
+            ActionKind::ClearLogFilter => {
+                app.log_filter.clear();
+                app.log_scroll = 0;
+                app.push_log("Cleared log filter.");
+            }
+        }
+    } else {
+        app.should_open_shell = true;
+    }
+    Ok(())
+}
+
+fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()> {
+    match action {
+        InputAction::SetHostname => {
+            if value.is_empty() {
+                app.push_log("Ignored empty hostname.");
+            } else {
+                run_action_capture(app, &["set-hostname", value.as_str()])?;
+                app.set_page(Page::Configure);
+            }
+        }
+        InputAction::SetUsername => {
+            if value.is_empty() {
+                app.push_log("Ignored empty username.");
+            } else {
+                run_action_capture(app, &["set-username", value.as_str()])?;
+                app.set_page(Page::Configure);
+            }
+        }
+        InputAction::SetPrimaryKey => {
+            if value.is_empty() {
+                app.push_log("Ignored empty SSH key.");
+            } else {
+                run_action_capture(app, &["set-ssh-key", value.as_str()])?;
+                app.set_page(Page::Configure);
+                *app.current_selection_mut() = 3;
+            }
+        }
+        InputAction::AddKey => {
+            if value.is_empty() {
+                app.push_log("Ignored empty SSH key.");
+            } else {
+                run_action_capture(app, &["add-ssh-key", value.as_str()])?;
+                app.set_page(Page::Configure);
+                *app.current_selection_mut() = 3;
+            }
+        }
+        InputAction::AddSystemPackage => {
+            if value.is_empty() {
+                app.push_log("Ignored empty package path.");
+            } else {
+                run_action_capture(app, &["add-system-package", value.as_str()])?;
+                app.set_page(Page::Software);
+                *app.current_selection_mut() = 0;
+            }
+        }
+        InputAction::AddUserPackage => {
+            if value.is_empty() {
+                app.push_log("Ignored empty package path.");
+            } else {
+                run_action_capture(app, &["add-user-package", value.as_str()])?;
+                app.set_page(Page::Software);
+                *app.current_selection_mut() = 1;
+            }
+        }
+        InputAction::AddService => {
+            if value.is_empty() {
+                app.push_log("Ignored empty service path.");
+            } else {
+                run_action_capture(app, &["add-service", value.as_str()])?;
+                app.set_page(Page::Software);
+                *app.current_selection_mut() = 2;
+            }
+        }
+        InputAction::SetLogFilter => {
+            app.log_filter = value;
+            app.log_scroll = 0;
+            app.set_page(Page::Logs);
+            app.focus = FocusZone::Content;
+            if app.log_filter.is_empty() {
+                app.push_log("Cleared log filter.");
+            } else {
+                app.push_log(format!("Set log filter to `{}`.", app.log_filter));
+            }
+        }
+    }
     Ok(())
 }
 
 fn activate_selected_update(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
-    let update = app.selected_update_item();
+    let update = &UPDATE_ACTIONS[app.selected_update];
     run_action_interactive(terminal, app, &[update.backend])
 }
 
@@ -815,6 +1678,30 @@ fn open_modal(app: &mut App, action: InputAction, title: &str, help: &str, initi
         action,
         value: initial.to_string(),
     });
+}
+
+fn run_apply_configuration(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    run_command_interactive(terminal, app, "Apply Configuration", {
+        let mut command = Command::new(app.repo_root.join("scripts/apply-config.sh"));
+        command.args(["--hostname", app.snapshot.hostname.as_str()]);
+        command
+    })
+}
+
+fn run_rollback_generation(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    run_command_interactive(terminal, app, "Rollback Generation", {
+        let mut command = Command::new(app.repo_root.join("scripts/apply-config.sh"));
+        command.arg("--rollback");
+        command
+    })
+}
+
+fn run_garbage_collection(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    run_command_interactive(terminal, app, "Run Garbage Collection", {
+        let mut command = sudo_command();
+        command.args(["nix-collect-garbage", "-d"]);
+        command
+    })
 }
 
 fn run_action_capture(app: &mut App, args: &[&str]) -> Result<()> {
@@ -1029,50 +1916,165 @@ fn format_storage_capacity(used_bytes: u64, total_bytes: u64) -> String {
     }
 }
 
-fn screen_label(screen: Screen) -> &'static str {
-    match screen {
-        Screen::Main => "Overview",
-        Screen::Keys => "SSH Keys",
-        Screen::Updates => "Updates",
+#[derive(Clone, Copy)]
+enum PanelTone {
+    Neutral,
+    Info,
+    Warning,
+    Danger,
+}
+
+fn panel_color(tone: PanelTone, focused: bool) -> Color {
+    if focused {
+        match tone {
+            PanelTone::Neutral | PanelTone::Info => COLOR_ACCENT,
+            PanelTone::Warning => COLOR_WARNING,
+            PanelTone::Danger => COLOR_DANGER,
+        }
+    } else {
+        match tone {
+            PanelTone::Neutral => COLOR_BORDER_DIM,
+            PanelTone::Info | PanelTone::Warning => COLOR_BORDER_MID,
+            PanelTone::Danger => COLOR_DANGER,
+        }
     }
 }
 
-fn branded_block(title: impl Into<Line<'static>>, accent: Color) -> Block<'static> {
+fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Block<'static> {
     Block::default()
         .title(
-            title
-                .into()
-                .style(Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD)),
+            Line::from(format!(" {} ", title.into()))
+                .style(Style::default().fg(COLOR_FG_MAIN).add_modifier(Modifier::BOLD)),
         )
         .borders(Borders::ALL)
         .border_set(border::ROUNDED)
-        .border_style(Style::default().fg(accent))
+        .border_style(Style::default().fg(panel_color(tone, focused)))
         .border_type(BorderType::Rounded)
-        .style(Style::default().bg(COLOR_PANEL))
+        .style(Style::default().bg(COLOR_BG_INNER))
+}
+
+fn inset_rect(area: Rect, x: u16, y: u16) -> Rect {
+    let width = area.width.saturating_sub(x.saturating_mul(2));
+    let height = area.height.saturating_sub(y.saturating_mul(2));
+    Rect {
+        x: area.x.saturating_add(x),
+        y: area.y.saturating_add(y),
+        width,
+        height,
+    }
+}
+
+fn draw_panel(
+    frame: &mut Frame,
+    area: Rect,
+    title: impl Into<String>,
+    focused: bool,
+    tone: PanelTone,
+) -> Rect {
+    let block = panel_block(title, focused, tone);
+    let inner = inset_rect(block.inner(area), 1, 0);
+    frame.render_widget(block, area);
+    inner
+}
+
+fn render(frame: &mut Frame, app: &App) {
+    let area = frame.area();
+    frame.render_widget(Block::default().style(Style::default().bg(COLOR_BG_OUTER)), area);
+
+    let outer = inset_rect(area, 1, 1);
+    if outer.width < 80 || outer.height < 22 {
+        render_too_small(frame, outer, app);
+        if let Some(modal) = &app.modal {
+            render_input_modal(frame, outer, modal);
+        }
+        if let Some(_) = &app.command_palette {
+            render_command_palette(frame, outer, app);
+        }
+        if app.help_open {
+            render_help_modal(frame, outer, app);
+        }
+        return;
+    }
+
+    let vertical = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(7),
+            Constraint::Length(3),
+            Constraint::Min(10),
+            Constraint::Length(4),
+        ])
+        .split(outer);
+
+    render_header(frame, vertical[0], app);
+    render_tabs(frame, vertical[1], app);
+
+    let body = if outer.width >= 120 {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(33), Constraint::Min(40)])
+            .split(vertical[2])
+    } else {
+        Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Length(29), Constraint::Min(30)])
+            .split(vertical[2])
+    };
+
+    render_sidebar(frame, inset_rect(body[0], 0, 0), app);
+    render_page(frame, inset_rect(body[1], 0, 0), app);
+    render_footer(frame, vertical[3], app);
+
+    if let Some(modal) = &app.modal {
+        render_input_modal(frame, outer, modal);
+    }
+    if app.command_palette.is_some() {
+        render_command_palette(frame, outer, app);
+    }
+    if app.help_open {
+        render_help_modal(frame, outer, app);
+    }
+}
+
+fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(
+        frame,
+        area,
+        "NiXOA Console",
+        true,
+        PanelTone::Info,
+    );
+    let text = vec![
+        Line::from(vec![
+            Span::styled("Host: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(
+                format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
+                Style::default().fg(COLOR_FG_MAIN),
+            ),
+        ]),
+        Line::from(vec![
+            Span::styled("Page: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(app.page_title(), Style::default().fg(COLOR_ACCENT)),
+        ]),
+        Line::from(""),
+        Line::from("Increase terminal size for the full multi-pane console."),
+        Line::from("Tab changes focus, : opens the command palette, q opens a shell."),
+    ];
+
+    let paragraph = Paragraph::new(text)
+        .style(Style::default().bg(COLOR_BG_INNER).fg(COLOR_FG_MAIN))
+        .wrap(Wrap { trim: true });
+    frame.render_widget(paragraph, inner);
 }
 
 fn render_header(frame: &mut Frame, area: Rect, app: &App) {
-    let upstream = app
-        .snapshot
-        .upstream
-        .clone()
-        .unwrap_or_else(|| "no upstream".to_string());
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_set(border::ROUNDED)
-        .border_style(Style::default().fg(COLOR_RED))
-        .border_type(BorderType::Rounded)
-        .style(Style::default().bg(COLOR_PANEL_STRONG));
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
+    let inner = draw_panel(frame, area, "NiXOA", false, PanelTone::Info);
     let sections = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
+        .constraints([Constraint::Length(34), Constraint::Min(20)])
         .split(inner);
 
-    let title = Paragraph::new(vec![
+    let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
             " _   _ _ __   __ ___    _   ",
             Style::default()
@@ -1081,27 +2083,33 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         )),
         Line::from(Span::styled(
             "| \\ | | |\\ \\ / // _ \\  /_\\  ",
-            Style::default().fg(COLOR_TEXT),
+            Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
             "|  \\| | | \\ V /| | | |/ _ \\ ",
-            Style::default().fg(COLOR_TEXT),
+            Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
             "| |\\  | |__| | | |_| / ___ \\",
-            Style::default().fg(COLOR_TEXT),
+            Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
             "|_| \\_|____|_|  \\___/_/   \\_\\",
-            Style::default().fg(COLOR_RED),
+            Style::default().fg(COLOR_DANGER),
         )),
-    ])
-    .alignment(Alignment::Left);
+    ]);
+    frame.render_widget(ascii, sections[0]);
 
-    let status = Paragraph::new(vec![
+    let upstream = app
+        .snapshot
+        .upstream
+        .clone()
+        .unwrap_or_else(|| "no upstream".to_string());
+
+    let summary = Paragraph::new(vec![
         Line::from(vec![
             Span::styled("Console ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled("appliance view", Style::default().fg(COLOR_TEXT)),
+            Span::styled("appliance view", Style::default().fg(COLOR_FG_MAIN)),
         ]),
         Line::from(vec![
             Span::styled("Host: ", Style::default().fg(COLOR_MUTED_2)),
@@ -1113,24 +2121,20 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         Line::from(vec![
             Span::styled("Branch: ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
-                format!(
-                    "{} [{}]",
-                    app.snapshot.branch,
-                    short_sha(&app.snapshot.head)
-                ),
-                Style::default().fg(COLOR_TEXT),
+                format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
+                Style::default().fg(COLOR_FG_MAIN),
             ),
-        ]),
-        Line::from(vec![
-            Span::styled("Screen: ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(screen_label(app.screen), Style::default().fg(COLOR_MUTED)),
-        ]),
-        Line::from(vec![
-            Span::styled("Upstream: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("  Upstream: ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(upstream, Style::default().fg(COLOR_INFO)),
         ]),
         Line::from(vec![
-            Span::styled("Last log: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("Page: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(app.page_title(), Style::default().fg(COLOR_FG_MAIN)),
+            Span::styled("  Focus: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(focus_label(app.focus), Style::default().fg(COLOR_ACCENT)),
+        ]),
+        Line::from(vec![
+            Span::styled("Last event: ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 app.logs
                     .last()
@@ -1140,54 +2144,854 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
             ),
         ]),
     ])
-    .alignment(Alignment::Left)
     .wrap(Wrap { trim: true });
-
-    frame.render_widget(title, sections[0]);
-    frame.render_widget(status, sections[1]);
+    frame.render_widget(summary, sections[1]);
 }
 
 fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
-    let items = [
-        (Screen::Main, "1 Overview"),
-        (Screen::Keys, "2 SSH Keys"),
-        (Screen::Updates, "8 Updates"),
-    ];
+    let inner = draw_panel(
+        frame,
+        area,
+        "Navigation",
+        app.focus == FocusZone::Tabs,
+        PanelTone::Neutral,
+    );
 
-    let mut spans = vec![Span::styled(
-        " Views ",
-        Style::default().fg(COLOR_BG).bg(COLOR_RED),
-    )];
-    for (screen, label) in items {
-        spans.push(Span::raw("  "));
-        let style = if app.screen == screen {
+    let mut spans = Vec::new();
+    for page in [
+        Page::Dashboard,
+        Page::Configure,
+        Page::Software,
+        Page::Maintenance,
+        Page::Logs,
+    ] {
+        if !spans.is_empty() {
+            spans.push(Span::raw("  "));
+        }
+        let active = app.page == page;
+        let style = if active {
             Style::default()
-                .fg(COLOR_TEXT)
+                .fg(COLOR_FG_MAIN)
                 .bg(COLOR_ACCENT)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(COLOR_MUTED).bg(COLOR_RED_SOFT)
+            Style::default().fg(COLOR_MUTED).bg(COLOR_BG_INNER)
         };
-        spans.push(Span::styled(format!(" {label} "), style));
+        spans.push(Span::styled(format!(" {} ", page_label(page)), style));
     }
 
     spans.push(Span::raw("   "));
     spans.push(Span::styled(
-        "r refresh  u recheck  q shell",
+        "Tab focus  [ ] pages  : palette  ? help  q shell",
         Style::default().fg(COLOR_MUTED),
     ));
 
-    let tabs = Paragraph::new(Line::from(spans))
-        .style(Style::default().bg(COLOR_BG))
-        .alignment(Alignment::Left);
-
-    frame.render_widget(tabs, area);
+    let paragraph = Paragraph::new(Line::from(spans))
+        .alignment(Alignment::Left)
+        .style(Style::default().bg(COLOR_BG_INNER));
+    frame.render_widget(paragraph, inner);
 }
 
-fn action_index_for_shortcut(shortcut: char) -> Option<usize> {
-    ACTIONS
+fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(
+        frame,
+        area,
+        format!("{} Actions", app.page_title()),
+        app.focus == FocusZone::Sidebar,
+        PanelTone::Neutral,
+    );
+
+    let actions = app.current_page_actions();
+    let mut items: Vec<ListItem> = actions
         .iter()
-        .position(|action| action.shortcut == shortcut)
+        .enumerate()
+        .map(|(idx, action)| {
+            let prefix = if idx == app.current_selection() { "›" } else { " " };
+            let shortcut = action
+                .shortcut
+                .map(|ch| format!("[{ch}] "))
+                .unwrap_or_default();
+            ListItem::new(Line::from(vec![
+                Span::styled(prefix, Style::default().fg(COLOR_ACCENT)),
+                Span::raw(" "),
+                Span::styled(shortcut, Style::default().fg(COLOR_MUTED_2)),
+                Span::styled(action.title, Style::default().fg(COLOR_FG_MAIN)),
+            ]))
+        })
+        .collect();
+
+    items.push(ListItem::new(Line::from("")));
+    let shell_prefix = if app.current_selection() == actions.len() {
+        "›"
+    } else {
+        " "
+    };
+    items.push(ListItem::new(Line::from(vec![
+        Span::styled(shell_prefix, Style::default().fg(COLOR_ACCENT)),
+        Span::raw(" "),
+        Span::styled("[9] ", Style::default().fg(COLOR_MUTED_2)),
+        Span::styled("Open Shell", Style::default().fg(COLOR_FG_MAIN)),
+    ])));
+
+    let mut state = ListState::default();
+    state.select(Some(if app.current_selection() >= actions.len() {
+        actions.len() + 1
+    } else {
+        app.current_selection()
+    }));
+
+    let list = List::new(items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(list, inner, &mut state);
+
+    let detail_area = Rect {
+        x: inner.x,
+        y: inner.y.saturating_add(inner.height.saturating_sub(3)),
+        width: inner.width,
+        height: min(3, inner.height),
+    };
+
+    let detail = Paragraph::new(vec![
+        Line::from(Span::styled(
+            app.selected_sidebar_title(),
+            Style::default()
+                .fg(COLOR_FG_MAIN)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            app.selected_sidebar_detail(),
+            Style::default().fg(COLOR_MUTED),
+        )),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(Clear, detail_area);
+    frame.render_widget(detail, detail_area);
+}
+
+fn render_page(frame: &mut Frame, area: Rect, app: &App) {
+    match app.page {
+        Page::Dashboard => render_dashboard(frame, area, app),
+        Page::Configure => render_configure(frame, area, app),
+        Page::Software => render_software(frame, area, app),
+        Page::Maintenance => render_maintenance(frame, area, app),
+        Page::Logs => render_logs_page(frame, area, app),
+    }
+}
+
+fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
+    let rows = if area.height >= 22 {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(11), Constraint::Min(8)])
+            .split(area)
+    } else {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(11), Constraint::Min(4)])
+            .split(area)
+    };
+
+    let top = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
+        .split(rows[0]);
+
+    render_system_summary(frame, top[0], app);
+    render_repository_status(frame, top[1], app);
+
+    if area.height >= 26 {
+        let bottom = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
+            .split(rows[1]);
+        render_alerts(frame, bottom[0], app);
+        render_recent_activity(frame, bottom[1], app);
+    } else {
+        render_alerts(frame, rows[1], app);
+    }
+}
+
+fn render_system_summary(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(
+        frame,
+        area,
+        "System Summary",
+        app.focus == FocusZone::Content && app.page == Page::Dashboard,
+        PanelTone::Info,
+    );
+
+    let content = Paragraph::new(vec![
+        key_value_line("Hostname", &app.snapshot.hostname, COLOR_ACCENT),
+        key_value_line("Username", &app.snapshot.username, COLOR_FG_MAIN),
+        key_value_line("XOA", &xoa_version(&app.snapshot), COLOR_FG_MAIN),
+        key_value_line("Web UI", &web_ui(&app.snapshot), COLOR_FG_MAIN),
+        key_value_line(
+            "RAM",
+            &format_usage(
+                app.snapshot.memory_used_bytes,
+                app.snapshot.memory_total_bytes,
+                app.snapshot.memory_used_percent,
+            ),
+            usage_color(app.snapshot.memory_used_percent),
+        ),
+        key_value_line(
+            "Storage",
+            &format_storage_capacity(
+                app.snapshot.storage_used_bytes,
+                app.snapshot.storage_total_bytes,
+            ),
+            usage_color(app.snapshot.storage_used_percent),
+        ),
+        key_value_line("Time zone", &app.snapshot.timezone, COLOR_FG_MAIN),
+        key_value_line(
+            "Extras",
+            if app.snapshot.extras { "enabled" } else { "disabled" },
+            if app.snapshot.extras {
+                COLOR_SUCCESS
+            } else {
+                COLOR_WARNING
+            },
+        ),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(content, inner);
+}
+
+fn render_repository_status(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(frame, area, "Repository Status", false, PanelTone::Neutral);
+    let (repo_text, repo_color) = repo_status(&app.snapshot);
+    let (apply_text, apply_color) = apply_status(&app.snapshot);
+    let (upstream_text, upstream_color) = upstream_status(&app.snapshot);
+    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
+
+    let content = Paragraph::new(vec![
+        key_value_line(
+            "Branch",
+            &format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
+            COLOR_FG_MAIN,
+        ),
+        key_value_line("Repository Status", &repo_text, repo_color),
+        key_value_line("Apply Status", &apply_text, apply_color),
+        key_value_line("Upstream", &upstream_text, upstream_color),
+        key_value_line("Flake Inputs", &inputs_text, inputs_color),
+        key_value_line(
+            "Managed items",
+            &format!(
+                "{} keys / {} system / {} user / {} services",
+                app.snapshot.ssh_keys.len(),
+                app.snapshot.system_packages.len(),
+                app.snapshot.user_packages.len(),
+                app.snapshot.services.len()
+            ),
+            COLOR_FG_MAIN,
+        ),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(content, inner);
+}
+
+fn render_alerts(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(
+        frame,
+        area,
+        "Alerts",
+        app.focus == FocusZone::Content && app.page == Page::Dashboard,
+        PanelTone::Warning,
+    );
+
+    let alerts = app.alerts();
+    let items: Vec<ListItem> = alerts
+        .iter()
+        .map(|alert| {
+            let badge = match alert.severity {
+                Severity::Info => ("INFO", COLOR_INFO),
+                Severity::Warning => ("WARN", COLOR_WARNING),
+                Severity::Error => ("ERROR", COLOR_DANGER),
+            };
+
+            let mut spans = vec![
+                Span::styled(
+                    format!("[{}] ", badge.0),
+                    Style::default().fg(badge.1).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(alert.message.clone(), Style::default().fg(COLOR_FG_MAIN)),
+            ];
+
+            if let Some(label) = alert.action_label {
+                spans.push(Span::raw("  "));
+                spans.push(Span::styled(
+                    format!("({label})"),
+                    Style::default().fg(COLOR_ACCENT),
+                ));
+            }
+
+            ListItem::new(Line::from(spans))
+        })
+        .collect();
+
+    let mut state = ListState::default();
+    if !alerts.is_empty() {
+        state.select(Some(app.selected_alert));
+    }
+
+    let list = List::new(items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(list, inner, &mut state);
+}
+
+fn render_recent_activity(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(frame, area, "Recent Activity", false, PanelTone::Neutral);
+    let lines: Vec<Line> = app
+        .recent_logs()
+        .into_iter()
+        .map(Line::from)
+        .collect();
+    let paragraph = Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false });
+    frame.render_widget(paragraph, inner);
+}
+
+fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
+    let action = app
+        .selected_page_action()
+        .map(|item| item.kind)
+        .unwrap_or(ActionKind::ManageSshKeys);
+
+    match action {
+        ActionKind::ManageSshKeys => render_ssh_keys(frame, area, app),
+        ActionKind::EditHostname => render_simple_detail(
+            frame,
+            area,
+            "Hostname",
+            &[
+                format!("Current hostname: {}", app.snapshot.hostname),
+                "Press Enter to open an edit modal and commit the new hostname.".to_string(),
+                "The change is written into config/menu.nix immediately.".to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Info,
+        ),
+        ActionKind::EditUsername => render_simple_detail(
+            frame,
+            area,
+            "Username",
+            &[
+                format!("Current username: {}", app.snapshot.username),
+                "Press Enter to open an edit modal and commit the new username.".to_string(),
+                "The change is written into config/menu.nix immediately.".to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Info,
+        ),
+        ActionKind::ToggleExtras => render_simple_detail(
+            frame,
+            area,
+            "Extras",
+            &[
+                format!(
+                    "Extras are currently {}.",
+                    if app.snapshot.extras { "enabled" } else { "disabled" }
+                ),
+                "Press Enter to toggle the extras feature set and commit the override.".to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Info,
+        ),
+        _ => {}
+    }
+}
+
+fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
+    let split = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
+        .split(area);
+
+    let list_inner = draw_panel(
+        frame,
+        split[0],
+        "SSH Keys",
+        app.focus == FocusZone::Content,
+        PanelTone::Info,
+    );
+
+    let items: Vec<ListItem> = if app.snapshot.ssh_keys.is_empty() {
+        vec![ListItem::new("No SSH keys are currently configured.")]
+    } else {
+        app.snapshot
+            .ssh_keys
+            .iter()
+            .enumerate()
+            .map(|(index, key)| {
+                let prefix = if index == app.selected_key { "› " } else { "  " };
+                ListItem::new(Line::from(format!("{prefix}{}", truncate_middle(key, 96))))
+            })
+            .collect()
+    };
+
+    let mut state = ListState::default();
+    if !app.snapshot.ssh_keys.is_empty() {
+        state.select(Some(app.selected_key));
+    }
+    let list = List::new(items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(list, list_inner, &mut state);
+
+    let help_inner = draw_panel(frame, split[1], "Shortcuts", false, PanelTone::Neutral);
+    let help = Paragraph::new(vec![
+        Line::from("a add a key"),
+        Line::from("e replace all keys"),
+        Line::from("d delete selected key"),
+        Line::from("Esc/Left returns to actions"),
+        Line::from(""),
+        Line::from("Each successful action commits only config/menu.nix."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(help, help_inner);
+}
+
+fn render_software(frame: &mut Frame, area: Rect, app: &App) {
+    let action = app
+        .selected_page_action()
+        .map(|item| item.kind)
+        .unwrap_or(ActionKind::AddSystemPackage);
+
+    match action {
+        ActionKind::AddSystemPackage => render_item_list_page(
+            frame,
+            area,
+            "System Packages",
+            &app.snapshot.system_packages,
+            "Press Enter to add a new nixpkgs attribute path to the system package list.",
+            app.focus == FocusZone::Content,
+        ),
+        ActionKind::AddUserPackage => render_item_list_page(
+            frame,
+            area,
+            "User Packages",
+            &app.snapshot.user_packages,
+            "Press Enter to add a new nixpkgs attribute path to the user package list.",
+            app.focus == FocusZone::Content,
+        ),
+        ActionKind::AddService => render_item_list_page(
+            frame,
+            area,
+            "Services",
+            &app.snapshot.services,
+            "Press Enter to enable a service by dotted NixOS option path.",
+            app.focus == FocusZone::Content,
+        ),
+        _ => {}
+    }
+}
+
+fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
+    match app
+        .selected_page_action()
+        .map(|item| item.kind)
+        .unwrap_or(ActionKind::CheckForUpdates)
+    {
+        ActionKind::CheckForUpdates => render_updates(frame, area, app),
+        ActionKind::ApplyConfiguration => render_simple_detail(
+            frame,
+            area,
+            "Apply Configuration",
+            &[
+                format!("Host: {}", app.snapshot.hostname),
+                "Press Enter to run ./scripts/apply-config.sh for this host.".to_string(),
+                "The console refreshes state and alerts after the interactive command exits."
+                    .to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Info,
+        ),
+        ActionKind::RollbackGeneration => render_simple_detail(
+            frame,
+            area,
+            "Rollback Generation",
+            &[
+                "Press Enter to run nixos-rebuild switch --rollback.".to_string(),
+                "Use this after a bad switch when the previous generation should be restored."
+                    .to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Danger,
+        ),
+        ActionKind::RunGarbageCollection => render_simple_detail(
+            frame,
+            area,
+            "Run Garbage Collection",
+            &[
+                "Press Enter to run nix-collect-garbage -d.".to_string(),
+                "This is a destructive cleanup operation and uses wrapper sudo on NixOS."
+                    .to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Danger,
+        ),
+        _ => {}
+    }
+}
+
+fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
+    let split = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(42), Constraint::Percentage(58)])
+        .split(area);
+
+    let list_inner = draw_panel(
+        frame,
+        split[0],
+        "Flake Inputs",
+        app.focus == FocusZone::Content,
+        PanelTone::Warning,
+    );
+
+    let items: Vec<ListItem> = UPDATE_ACTIONS
+        .iter()
+        .map(|action| {
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("[{}] ", action.shortcut),
+                    Style::default().fg(COLOR_MUTED_2),
+                ),
+                Span::styled(action.title, Style::default().fg(COLOR_FG_MAIN)),
+            ]))
+        })
+        .collect();
+    let mut state = ListState::default();
+    state.select(Some(app.selected_update));
+    let list = List::new(items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(list, list_inner, &mut state);
+
+    let detail_inner = draw_panel(frame, split[1], "Update Details", false, PanelTone::Neutral);
+    let update = &UPDATE_ACTIONS[app.selected_update];
+    let content = Paragraph::new(vec![
+        Line::from(update.detail),
+        Line::from(""),
+        key_value_line(
+            "Queued on boot",
+            if app.snapshot.rebuild_queued { "yes" } else { "no" },
+            if app.snapshot.rebuild_queued {
+                COLOR_INFO
+            } else {
+                COLOR_FG_MAIN
+            },
+        ),
+        key_value_line(
+            "Needs rebuild",
+            if app.snapshot.rebuild_needed { "yes" } else { "no" },
+            if app.snapshot.rebuild_needed {
+                COLOR_WARNING
+            } else {
+                COLOR_FG_MAIN
+            },
+        ),
+        key_value_line(
+            "Input status",
+            &inputs_status(&app.update_status, app.tick).0,
+            inputs_status(&app.update_status, app.tick).1,
+        ),
+        Line::from(""),
+        Line::from("Each update commits only flake.lock."),
+        Line::from("After a lock change, the backend asks whether to rebuild now or on the next boot."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(content, detail_inner);
+}
+
+fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(5), Constraint::Min(8)])
+        .split(area);
+
+    let meta_inner = draw_panel(frame, rows[0], "Recent Activity", false, PanelTone::Neutral);
+    let filtered_logs = app.filtered_logs();
+    let meta = Paragraph::new(vec![
+        key_value_line(
+            "Filter",
+            if app.log_filter.is_empty() {
+                "none"
+            } else {
+                app.log_filter.as_str()
+            },
+            if app.log_filter.is_empty() {
+                COLOR_MUTED
+            } else {
+                COLOR_ACCENT
+            },
+        ),
+        key_value_line("Visible entries", &filtered_logs.len().to_string(), COLOR_FG_MAIN),
+        Line::from("Use / to set a filter, c to clear it, and arrows/jk to scroll."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(meta, meta_inner);
+
+    let log_inner = draw_panel(
+        frame,
+        rows[1],
+        "Logs",
+        app.focus == FocusZone::Content,
+        PanelTone::Info,
+    );
+    if filtered_logs.is_empty() {
+        frame.render_widget(
+            Paragraph::new("No log entries matched the current filter.")
+                .wrap(Wrap { trim: true }),
+            log_inner,
+        );
+        return;
+    }
+
+    let visible_height = max(log_inner.height as usize, 1);
+    let scroll = min(app.log_scroll, filtered_logs.len().saturating_sub(1));
+    let start = scroll;
+    let end = min(start + visible_height, filtered_logs.len());
+    let lines: Vec<Line> = filtered_logs[start..end]
+        .iter()
+        .map(|line| Line::from(line.clone()))
+        .collect();
+
+    let paragraph = Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false });
+    frame.render_widget(paragraph, log_inner);
+}
+
+fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
+    let inner = draw_panel(frame, area, "Shortcuts", false, PanelTone::Neutral);
+    let footer = Paragraph::new(vec![
+        Line::from(vec![
+            Span::styled("Tab ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("focus", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("[ ] ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("pages", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("run / open", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled(": ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("palette", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("? ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("help", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("q ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("shell", Style::default().fg(COLOR_MUTED)),
+        ]),
+        Line::from(vec![
+            Span::styled("Last apply: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(last_apply_label(&app.snapshot), Style::default().fg(COLOR_MUTED)),
+        ]),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(footer, inner);
+}
+
+fn render_simple_detail(
+    frame: &mut Frame,
+    area: Rect,
+    title: &str,
+    lines: &[String],
+    focused: bool,
+    tone: PanelTone,
+) {
+    let inner = draw_panel(frame, area, title, focused, tone);
+    let paragraph = Paragraph::new(lines.iter().cloned().map(Line::from).collect::<Vec<_>>())
+        .wrap(Wrap { trim: true });
+    frame.render_widget(paragraph, inner);
+}
+
+fn render_item_list_page(
+    frame: &mut Frame,
+    area: Rect,
+    title: &str,
+    items: &[String],
+    help: &str,
+    focused: bool,
+) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(6), Constraint::Length(5)])
+        .split(area);
+
+    let list_inner = draw_panel(frame, rows[0], title, focused, PanelTone::Info);
+    let list_items: Vec<ListItem> = if items.is_empty() {
+        vec![ListItem::new("No entries are currently configured.")]
+    } else {
+        items.iter()
+            .map(|item| ListItem::new(truncate_middle(item, 100)))
+            .collect()
+    };
+    frame.render_widget(List::new(list_items), list_inner);
+
+    let help_inner = draw_panel(frame, rows[1], "Details", false, PanelTone::Neutral);
+    frame.render_widget(
+        Paragraph::new(help).wrap(Wrap { trim: true }),
+        help_inner,
+    );
+}
+
+fn render_input_modal(frame: &mut Frame, area: Rect, modal: &InputModal) {
+    let popup = centered_rect(72, 32, area);
+    frame.render_widget(Clear, popup);
+    let inner = draw_panel(frame, popup, modal.title.clone(), true, PanelTone::Info);
+    let paragraph = Paragraph::new(vec![
+        Line::from(modal.help.clone()),
+        Line::from(""),
+        Line::from(format!("> {}", modal.value)),
+        Line::from(""),
+        Line::from("Enter submits. Esc cancels. Ctrl+u clears the input."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(paragraph, inner);
+}
+
+fn render_command_palette(frame: &mut Frame, area: Rect, app: &App) {
+    let popup = centered_rect(74, 62, area);
+    frame.render_widget(Clear, popup);
+    let inner = draw_panel(frame, popup, "Command Palette", true, PanelTone::Info);
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(3), Constraint::Min(6), Constraint::Length(3)])
+        .split(inner);
+
+    let query = app
+        .command_palette
+        .as_ref()
+        .map(|palette| palette.query.as_str())
+        .unwrap_or("");
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from("Search actions and pages."),
+            Line::from(format!("> {query}")),
+        ]),
+        sections[0],
+    );
+
+    let entries = app.palette_entries();
+    let items: Vec<ListItem> = if entries.is_empty() {
+        vec![ListItem::new("No commands matched the current query.")]
+    } else {
+        entries
+            .iter()
+            .map(|entry| {
+                ListItem::new(vec![
+                    Line::from(Span::styled(
+                        entry.title.clone(),
+                        Style::default().fg(COLOR_FG_MAIN),
+                    )),
+                    Line::from(Span::styled(
+                        entry.detail.clone(),
+                        Style::default().fg(COLOR_MUTED),
+                    )),
+                ])
+            })
+            .collect()
+    };
+
+    let mut state = ListState::default();
+    if !entries.is_empty() {
+        let selected = app
+            .command_palette
+            .as_ref()
+            .map(|palette| min(palette.selected, entries.len() - 1))
+            .unwrap_or(0);
+        state.select(Some(selected));
+    }
+
+    let list = List::new(items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(list, sections[1], &mut state);
+
+    frame.render_widget(
+        Paragraph::new("Esc closes. Enter runs the selected action. Up/Down move the selection.")
+            .wrap(Wrap { trim: true }),
+        sections[2],
+    );
+}
+
+fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
+    let popup = centered_rect(76, 68, area);
+    frame.render_widget(Clear, popup);
+    let inner = draw_panel(frame, popup, "Help", true, PanelTone::Info);
+    let help = Paragraph::new(vec![
+        Line::from("Global navigation"),
+        Line::from("  Tab / Shift-Tab move focus between tabs, actions, and page content."),
+        Line::from("  [ and ] change pages quickly. : or Ctrl+p opens the command palette."),
+        Line::from("  ? opens this help modal. q or 9 drops into the shell."),
+        Line::from(""),
+        Line::from("Page model"),
+        Line::from("  Dashboard: summary, alerts, recent activity."),
+        Line::from("  Configure: hostname, username, extras, SSH keys."),
+        Line::from("  Software: system packages, user packages, services."),
+        Line::from("  Maintenance: Flake Inputs, apply, rollback, garbage collection."),
+        Line::from("  Logs: scrollable and filterable Recent Activity view."),
+        Line::from(""),
+        Line::from("Current page"),
+        Line::from(format!("  {}", app.page_title())),
+        Line::from(format!("  Selected action: {}", app.selected_sidebar_title())),
+        Line::from(format!("  Focus: {}", focus_label(app.focus))),
+        Line::from(""),
+        Line::from("Esc closes this help modal."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(help, inner);
+}
+
+fn key_value_line(label: &str, value: &str, color: Color) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(format!("{label:<16}"), Style::default().fg(COLOR_MUTED_2)),
+        Span::styled(value.to_string(), Style::default().fg(color)),
+    ])
+}
+
+fn focus_label(focus: FocusZone) -> &'static str {
+    match focus {
+        FocusZone::Tabs => "Tabs",
+        FocusZone::Sidebar => "Actions",
+        FocusZone::Content => "Content",
+    }
+}
+
+fn last_apply_label(snapshot: &Snapshot) -> String {
+    if let Some(last_apply) = &snapshot.last_apply {
+        format!(
+            "{} {} on {} @ {}{} [{}]",
+            last_apply.result,
+            last_apply.action,
+            last_apply.hostname,
+            last_apply.timestamp,
+            if last_apply.first_install {
+                " (first install)"
+            } else {
+                ""
+            },
+            short_sha(&last_apply.head)
+        )
+    } else {
+        "not recorded".to_string()
+    }
 }
 
 fn sudo_command() -> Command {
@@ -1196,12 +3000,6 @@ fn sudo_command() -> Command {
     } else {
         Command::new("sudo")
     }
-}
-
-fn update_index_for_shortcut(shortcut: char) -> Option<usize> {
-    UPDATE_ACTIONS
-        .iter()
-        .position(|action| action.shortcut == shortcut)
 }
 
 fn check_flake_updates(repo_root: &Path) -> UpdateStatus {
@@ -1276,547 +3074,6 @@ fn count_lock_changes(current_lock: &Path, updated_lock: &Path) -> Result<usize>
                 != updated.nodes.get(name).and_then(|node| node.locked.clone())
         })
         .count())
-}
-
-fn render(frame: &mut Frame, app: &App) {
-    let area = frame.area();
-    frame.render_widget(Block::default().style(Style::default().bg(COLOR_BG)), area);
-
-    let vertical = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(8),
-            Constraint::Length(2),
-            Constraint::Length(5),
-            Constraint::Min(18),
-            Constraint::Length(8),
-        ])
-        .split(area);
-
-    render_header(frame, vertical[0], app);
-    render_tabs(frame, vertical[1], app);
-    render_status_bar(frame, vertical[2], app);
-
-    let middle = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(34), Constraint::Percentage(66)])
-        .split(vertical[3]);
-
-    render_actions(frame, middle[0], app);
-
-    match app.screen {
-        Screen::Main => render_dashboard(frame, middle[1], app),
-        Screen::Keys => render_keys(frame, middle[1], app),
-        Screen::Updates => render_updates(frame, middle[1], app),
-    }
-
-    let bottom = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
-        .split(vertical[4]);
-
-    render_logs(frame, bottom[0], app);
-    render_help(frame, bottom[1], app);
-
-    if let Some(modal) = &app.modal {
-        render_modal(frame, area, modal);
-    }
-}
-
-fn render_status_bar(frame: &mut Frame, area: Rect, app: &App) {
-    let (repo_text, repo_color) = repo_status(&app.snapshot);
-    let (apply_text, apply_color) = apply_status(&app.snapshot);
-    let (upstream_text, upstream_color) = upstream_status(&app.snapshot);
-    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
-
-    let top_line = Line::from(vec![
-        Span::styled(" HOST ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT)),
-        Span::styled(
-            format!(" {} ", app.snapshot.hostname),
-            Style::default().fg(COLOR_TEXT),
-        ),
-        Span::styled(" XO ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT)),
-        Span::styled(
-            format!(" {} ", xoa_version(&app.snapshot)),
-            Style::default().fg(COLOR_TEXT),
-        ),
-        Span::styled(" RAM ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT)),
-        Span::styled(
-            format!(
-                " {} ",
-                format_usage(
-                    app.snapshot.memory_used_bytes,
-                    app.snapshot.memory_total_bytes,
-                    app.snapshot.memory_used_percent
-                )
-            ),
-            Style::default().fg(usage_color(app.snapshot.memory_used_percent)),
-        ),
-        Span::styled(" STORAGE ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT)),
-        Span::styled(
-            format!(
-                " {} ",
-                format_storage_capacity(
-                    app.snapshot.storage_used_bytes,
-                    app.snapshot.storage_total_bytes
-                )
-            ),
-            Style::default().fg(usage_color(app.snapshot.storage_used_percent)),
-        ),
-    ]);
-
-    let bottom_line = Line::from(vec![
-        Span::styled(
-            " WEB UI ",
-            Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT),
-        ),
-        Span::styled(
-            format!(" {} ", web_ui(&app.snapshot)),
-            Style::default().fg(COLOR_TEXT),
-        ),
-        Span::styled(" APPLY ", Style::default().fg(COLOR_BG).bg(COLOR_RED)),
-        Span::styled(
-            format!(" {} ", apply_text),
-            Style::default().fg(apply_color),
-        ),
-        Span::styled(" REPO ", Style::default().fg(COLOR_BG).bg(COLOR_ACCENT)),
-        Span::styled(format!(" {} ", repo_text), Style::default().fg(repo_color)),
-        Span::styled(
-            " UPSTREAM ",
-            Style::default().fg(COLOR_BG).bg(COLOR_ACCENT_SOFT),
-        ),
-        Span::styled(
-            format!(" {} ", upstream_text),
-            Style::default().fg(upstream_color),
-        ),
-        Span::styled(" INPUTS ", Style::default().fg(COLOR_BG).bg(COLOR_RED_SOFT)),
-        Span::styled(
-            format!(" {} ", inputs_text),
-            Style::default().fg(inputs_color),
-        ),
-    ]);
-
-    let paragraph = Paragraph::new(vec![top_line, Line::from(""), bottom_line])
-        .block(branded_block("Primary status", COLOR_ACCENT))
-        .wrap(Wrap { trim: false });
-    frame.render_widget(paragraph, area);
-}
-
-fn render_actions(frame: &mut Frame, area: Rect, app: &App) {
-    let items: Vec<ListItem> = ACTIONS
-        .iter()
-        .enumerate()
-        .map(|(index, action)| {
-            let prefix = if index == app.selected_action {
-                "›"
-            } else {
-                " "
-            };
-            ListItem::new(Line::from(format!(
-                "{prefix} {}. {}",
-                action.shortcut, action.title
-            )))
-        })
-        .collect();
-
-    let block = branded_block(
-        Line::from(vec![
-            Span::styled(
-                "Actions",
-                Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD),
-            ),
-            Span::raw("  "),
-            Span::styled(
-                format!("{} @ {}", app.snapshot.username, app.snapshot.hostname),
-                Style::default().fg(COLOR_MUTED),
-            ),
-        ]),
-        COLOR_RED,
-    )
-    .title_bottom(Line::from(Span::styled(
-        app.selected_item().detail,
-        Style::default().fg(COLOR_MUTED),
-    )));
-
-    let list = List::new(items).block(block).highlight_style(
-        Style::default()
-            .fg(COLOR_TEXT)
-            .bg(COLOR_RED_SOFT)
-            .add_modifier(Modifier::BOLD),
-    );
-
-    let mut state = ListState::default();
-    state.select(Some(app.selected_action));
-    frame.render_stateful_widget(list, area, &mut state);
-}
-
-fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
-    let (repo_text, repo_color) = repo_status(&app.snapshot);
-    let (apply_text, apply_color) = apply_status(&app.snapshot);
-    let (upstream_text, upstream_color) = upstream_status(&app.snapshot);
-    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
-    let sections = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(12), Constraint::Min(8)])
-        .split(area);
-
-    let summary = vec![
-        Line::from(vec![
-            Span::styled("Host        ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                format!("{} @ {}", app.snapshot.username, app.snapshot.hostname),
-                Style::default()
-                    .fg(COLOR_ACCENT)
-                    .add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("XO build    ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(xoa_version(&app.snapshot), Style::default().fg(COLOR_TEXT)),
-        ]),
-        Line::from(vec![
-            Span::styled("Web UI      ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(web_ui(&app.snapshot), Style::default().fg(COLOR_TEXT)),
-        ]),
-        Line::from(vec![
-            Span::styled("RAM         ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                format_usage(
-                    app.snapshot.memory_used_bytes,
-                    app.snapshot.memory_total_bytes,
-                    app.snapshot.memory_used_percent,
-                ),
-                Style::default().fg(usage_color(app.snapshot.memory_used_percent)),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Storage     ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                format_storage_capacity(
-                    app.snapshot.storage_used_bytes,
-                    app.snapshot.storage_total_bytes,
-                ),
-                Style::default().fg(usage_color(app.snapshot.storage_used_percent)),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Apply       ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(apply_text, Style::default().fg(apply_color)),
-        ]),
-        Line::from(vec![
-            Span::styled("Repo        ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(repo_text, Style::default().fg(repo_color)),
-            Span::styled("    Upstream  ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(upstream_text, Style::default().fg(upstream_color)),
-        ]),
-        Line::from(vec![
-            Span::styled("Inputs      ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(inputs_text, Style::default().fg(inputs_color)),
-        ]),
-        Line::from(vec![
-            Span::styled("Time zone   ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                app.snapshot.timezone.clone(),
-                Style::default().fg(COLOR_TEXT),
-            ),
-            Span::styled("    Extras  ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                if app.snapshot.extras {
-                    "enabled"
-                } else {
-                    "disabled"
-                },
-                Style::default().fg(if app.snapshot.extras {
-                    COLOR_SUCCESS
-                } else {
-                    COLOR_WARNING
-                }),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Packages    ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                format!(
-                    "{} system / {} user / {} services / {} keys",
-                    app.snapshot.system_packages.len(),
-                    app.snapshot.user_packages.len(),
-                    app.snapshot.services.len(),
-                    app.snapshot.ssh_keys.len()
-                ),
-                Style::default().fg(COLOR_TEXT),
-            ),
-        ]),
-        Line::from(vec![
-            Span::styled("Focused     ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                app.selected_item().title,
-                Style::default().fg(COLOR_RED).add_modifier(Modifier::BOLD),
-            ),
-        ]),
-        Line::from(Span::styled(
-            app.selected_item().detail,
-            Style::default().fg(COLOR_MUTED),
-        )),
-    ];
-
-    let summary_block = Paragraph::new(summary)
-        .block(branded_block("System status", COLOR_ACCENT))
-        .wrap(Wrap { trim: true });
-    frame.render_widget(summary_block, sections[0]);
-
-    let alerts: Vec<ListItem> = app
-        .alerts()
-        .into_iter()
-        .map(|alert| {
-            ListItem::new(Line::from(vec![
-                Span::styled("● ", Style::default().fg(COLOR_RED)),
-                Span::styled(alert, Style::default().fg(COLOR_TEXT)),
-            ]))
-        })
-        .collect();
-
-    let alerts_block = List::new(alerts).block(branded_block("Alerts", COLOR_RED));
-    frame.render_widget(alerts_block, sections[1]);
-}
-
-fn render_keys(frame: &mut Frame, area: Rect, app: &App) {
-    let sections = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(60), Constraint::Percentage(40)])
-        .split(area);
-
-    let items: Vec<ListItem> = if app.snapshot.ssh_keys.is_empty() {
-        vec![ListItem::new(Line::from(
-            "No SSH keys are currently configured.",
-        ))]
-    } else {
-        app.snapshot
-            .ssh_keys
-            .iter()
-            .enumerate()
-            .map(|(index, key)| {
-                let marker = if index == app.selected_key {
-                    "›"
-                } else {
-                    " "
-                };
-                ListItem::new(Line::from(format!("{marker} {}", truncate_middle(key, 88))))
-            })
-            .collect()
-    };
-
-    let mut state = ListState::default();
-    if !app.snapshot.ssh_keys.is_empty() {
-        state.select(Some(app.selected_key));
-    }
-
-    let keys_list = List::new(items)
-        .block(
-            branded_block("SSH key manager", COLOR_ACCENT).title_bottom(Line::from(Span::styled(
-                "a add  e replace  d delete  Esc back",
-                Style::default().fg(COLOR_MUTED),
-            ))),
-        )
-        .highlight_style(
-            Style::default()
-                .fg(COLOR_TEXT)
-                .bg(COLOR_ACCENT_SOFT)
-                .add_modifier(Modifier::BOLD),
-        );
-
-    frame.render_stateful_widget(keys_list, sections[0], &mut state);
-
-    let help_lines = vec![
-        Line::from("The SSH key view edits the same config/menu.nix override layer used by the bootstrap and shell tools."),
-        Line::from(""),
-        Line::from("Each successful action commits only the affected menu file."),
-        Line::from(""),
-        Line::from("Replace writes a single managed key."),
-        Line::from("Add appends a new unique key."),
-        Line::from("Delete removes the selected key."),
-    ];
-
-    let help = Paragraph::new(help_lines)
-        .block(branded_block("Key actions", COLOR_INFO))
-        .wrap(Wrap { trim: true });
-    frame.render_widget(help, sections[1]);
-}
-
-fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
-    let sections = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(46), Constraint::Percentage(54)])
-        .split(area);
-
-    let items: Vec<ListItem> = UPDATE_ACTIONS
-        .iter()
-        .enumerate()
-        .map(|(index, action)| {
-            let marker = if index == app.selected_update {
-                "›"
-            } else {
-                " "
-            };
-            ListItem::new(Line::from(format!(
-                "{marker} {}. {}",
-                action.shortcut, action.title
-            )))
-        })
-        .collect();
-
-    let mut state = ListState::default();
-    state.select(Some(app.selected_update));
-
-    let updates = List::new(items)
-        .block(
-            branded_block("Update menu", COLOR_WARNING).title_bottom(Line::from(Span::styled(
-                "Enter run  Esc back",
-                Style::default().fg(COLOR_MUTED),
-            ))),
-        )
-        .highlight_style(
-            Style::default()
-                .fg(COLOR_BG)
-                .bg(COLOR_WARNING)
-                .add_modifier(Modifier::BOLD),
-        );
-
-    frame.render_stateful_widget(updates, sections[0], &mut state);
-
-    let detail_lines = vec![
-        Line::from(app.selected_update_item().detail),
-        Line::from(""),
-        Line::from(format!(
-            "Queued on boot: {}",
-            if app.snapshot.rebuild_queued {
-                "yes"
-            } else {
-                "no"
-            }
-        )),
-        Line::from(format!(
-            "Rebuild needed: {}",
-            if app.snapshot.rebuild_needed {
-                "yes"
-            } else {
-                "no"
-            }
-        )),
-        Line::from(""),
-        Line::from("Each update commits only flake.lock."),
-        Line::from(
-            "After a lock change, the console asks whether to rebuild now or on the next boot.",
-        ),
-        Line::from(
-            "The XOA updater checks the latest upstream tag before refreshing xen-orchestra-ce.",
-        ),
-    ];
-
-    let details = Paragraph::new(detail_lines)
-        .block(branded_block("Update details", COLOR_WARNING))
-        .wrap(Wrap { trim: true });
-    frame.render_widget(details, sections[1]);
-}
-
-fn render_logs(frame: &mut Frame, area: Rect, app: &App) {
-    let lines: Vec<Line> = app
-        .logs
-        .iter()
-        .rev()
-        .take(8)
-        .rev()
-        .map(|entry| Line::from(entry.clone()))
-        .collect();
-
-    let logs = Paragraph::new(Text::from(lines))
-        .block(branded_block("Activity", COLOR_ACCENT))
-        .wrap(Wrap { trim: false });
-    frame.render_widget(logs, area);
-}
-
-fn render_help(frame: &mut Frame, area: Rect, app: &App) {
-    let help_text = match app.screen {
-        Screen::Main => vec![
-            Line::from("Arrows/jk move"),
-            Line::from("Enter, 1-9, 0, or g run actions"),
-            Line::from("r refresh snapshot"),
-            Line::from("u refresh flake input check"),
-            Line::from("q or 9 open shell"),
-        ],
-        Screen::Keys => vec![
-            Line::from("Arrows/jk move"),
-            Line::from("a add key"),
-            Line::from("e replace all keys"),
-            Line::from("d or Backspace remove selected"),
-            Line::from("Esc back to dashboard"),
-        ],
-        Screen::Updates => vec![
-            Line::from("Arrows/jk move"),
-            Line::from("Enter or 1-4 run updates"),
-            Line::from("r refresh snapshot"),
-            Line::from("u refresh flake input check"),
-            Line::from("Esc back to dashboard, q open shell"),
-        ],
-    };
-
-    let footer = if let Some(last_apply) = &app.snapshot.last_apply {
-        format!(
-            "Last apply: {} {} on {} @ {}{} [{}]",
-            last_apply.result,
-            last_apply.action,
-            last_apply.hostname,
-            last_apply.timestamp,
-            if last_apply.first_install {
-                " (first install)"
-            } else {
-                ""
-            },
-            short_sha(&last_apply.head)
-        )
-    } else {
-        "Last apply: not recorded".to_string()
-    };
-
-    let help = Paragraph::new(help_text)
-        .block(
-            branded_block("Keys", COLOR_INFO).title_bottom(Line::from(Span::styled(
-                footer,
-                Style::default().fg(COLOR_MUTED),
-            ))),
-        )
-        .wrap(Wrap { trim: true });
-    frame.render_widget(help, area);
-}
-
-fn render_modal(frame: &mut Frame, area: Rect, modal: &InputModal) {
-    let popup = centered_rect(68, 28, area);
-    frame.render_widget(Clear, popup);
-
-    let block = Block::default()
-        .title(
-            Line::from(modal.title.clone())
-                .style(Style::default().fg(COLOR_TEXT).add_modifier(Modifier::BOLD)),
-        )
-        .borders(Borders::ALL)
-        .border_set(border::ROUNDED)
-        .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(COLOR_RED))
-        .style(Style::default().bg(COLOR_PANEL_STRONG));
-
-    let content = vec![
-        Line::from(modal.help.clone()),
-        Line::from(""),
-        Line::from(format!("> {}", modal.value)),
-        Line::from(""),
-        Line::from("Enter submits. Esc cancels. Ctrl+u clears the input."),
-    ];
-
-    let paragraph = Paragraph::new(content)
-        .block(block)
-        .alignment(Alignment::Left)
-        .wrap(Wrap { trim: true });
-
-    frame.render_widget(paragraph, popup);
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {

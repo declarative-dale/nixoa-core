@@ -1,6 +1,42 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v1.7.0 — Shared Console Release And XO Cache Alignment
+
+Date: 2026-04-05
+
+This release turns `core` into the shared source of truth for the NiXOA
+console, aligns the Xen Orchestra package resolution with the exact upstream
+`xo-nixpkg` derivation, and ships a larger console refactor focused on cleaner
+navigation, better layout behavior, and lower bootstrap build overhead.
+
+### ✨ Added
+
+- **Shared `nixoa-menu` package ownership in `core`** so downstream consumers can reuse one cached console build
+- **Page-based console navigation** with `Dashboard`, `Configure`, `Software`, `Maintenance`, and `Logs`
+- **Searchable command palette and dedicated help modal** for faster keyboard-driven action discovery
+- **Typed alert model** with severity levels and optional action affordances
+- **Scrollable and filterable log browsing** through a dedicated `Logs` page plus a smaller dashboard activity panel
+
+### 🔄 Changed
+
+- **`xen-orchestra-ce` resolution** now follows the exact `xo-nixpkg` derivation path instead of re-materializing it through `core`'s own nixpkgs graph
+- **`libvhdi` defaults** now come directly from the `xo-nixpkg` input graph rather than a separate `core`-owned package export
+- **Console layout hierarchy** now uses stable domain tabs, grouped action menus, footer shortcuts, and consistent gutters/padding
+- **Console labels and maintenance terminology** now use clearer task names such as `System Summary`, `Recent Activity`, `Flake Inputs`, `Rollback Generation`, and `Run Garbage Collection`
+- **Console package version** advanced to `0.3.0`
+
+### 🗑️ Removed
+
+- **Flat top-level action list** that mixed unrelated configuration, software, and maintenance tasks into one overloaded menu
+- **Red as a generic active-state color** outside true errors or destructive actions
+
+### 🐛 Fixed
+
+- **Border collisions and clipped panes** in the Ratatui console layout by rebuilding the screen around gutters and adaptive panel sizing
+- **TUI/backend drift** by moving the shared console binary into `core` while keeping host-mutating repo actions in `system`
+- **Cache misses for Xen Orchestra builds** caused by `core` resolving a different derivation than the one published by `xo-nixpkg`
+
 ## v1.6.0 — Den Alignment And Output Naming Cleanup
 
 Date: 2026-04-04
