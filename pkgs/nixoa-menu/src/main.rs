@@ -156,6 +156,8 @@ enum ActionKind {
     ApplyConfiguration,
     RollbackGeneration,
     RunGarbageCollection,
+    RebootSystem,
+    ShutdownSystem,
     FilterLogs,
     ClearLogFilter,
 }
@@ -310,7 +312,7 @@ const SOFTWARE_ACTIONS: [ActionItem; 3] = [
     },
 ];
 
-const MAINTENANCE_ACTIONS: [ActionItem; 4] = [
+const MAINTENANCE_ACTIONS: [ActionItem; 6] = [
     ActionItem {
         kind: ActionKind::CheckForUpdates,
         title: "Check for Updates",
@@ -334,6 +336,18 @@ const MAINTENANCE_ACTIONS: [ActionItem; 4] = [
         title: "Run Garbage Collection",
         detail: "Run nix-collect-garbage -d interactively for a full manual store cleanup.",
         shortcut: Some('g'),
+    },
+    ActionItem {
+        kind: ActionKind::RebootSystem,
+        title: "Reboot System",
+        detail: "Run systemctl reboot through wrapper sudo for a clean systemd-managed reboot.",
+        shortcut: Some('b'),
+    },
+    ActionItem {
+        kind: ActionKind::ShutdownSystem,
+        title: "Shut Down System",
+        detail: "Run systemctl poweroff through wrapper sudo for a clean systemd-managed shutdown.",
+        shortcut: Some('s'),
     },
 ];
 
@@ -1507,7 +1521,9 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
         ),
         ActionKind::ApplyConfiguration
         | ActionKind::RollbackGeneration
-        | ActionKind::RunGarbageCollection => {
+        | ActionKind::RunGarbageCollection
+        | ActionKind::RebootSystem
+        | ActionKind::ShutdownSystem => {
             app.set_page(Page::Maintenance);
         }
         ActionKind::FilterLogs => {
@@ -1590,6 +1606,8 @@ fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Resu
             ActionKind::ApplyConfiguration => run_apply_configuration(terminal, app)?,
             ActionKind::RollbackGeneration => run_rollback_generation(terminal, app)?,
             ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
+            ActionKind::RebootSystem => run_reboot_system(terminal, app)?,
+            ActionKind::ShutdownSystem => run_shutdown_system(terminal, app)?,
             ActionKind::FilterLogs => {
                 let current = app.log_filter.clone();
                 open_modal(
@@ -1724,6 +1742,22 @@ fn run_garbage_collection(terminal: &mut AppTerminal, app: &mut App) -> Result<(
     run_command_interactive(terminal, app, "Run Garbage Collection", {
         let mut command = sudo_command();
         command.args(["nix-collect-garbage", "-d"]);
+        command
+    })
+}
+
+fn run_reboot_system(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    run_command_interactive(terminal, app, "Reboot System", {
+        let mut command = sudo_command();
+        command.args(["systemctl", "reboot"]);
+        command
+    })
+}
+
+fn run_shutdown_system(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    run_command_interactive(terminal, app, "Shut Down System", {
+        let mut command = sudo_command();
+        command.args(["systemctl", "poweroff"]);
         command
     })
 }
@@ -2659,6 +2693,30 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             app.focus == FocusZone::Content,
             PanelTone::Danger,
         ),
+        ActionKind::RebootSystem => render_simple_detail(
+            frame,
+            area,
+            "Reboot System",
+            &[
+                "Press Enter to run systemctl reboot.".to_string(),
+                "This uses wrapper sudo and asks systemd to perform a clean reboot."
+                    .to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Danger,
+        ),
+        ActionKind::ShutdownSystem => render_simple_detail(
+            frame,
+            area,
+            "Shut Down System",
+            &[
+                "Press Enter to run systemctl poweroff.".to_string(),
+                "This uses wrapper sudo and asks systemd to perform a clean shutdown."
+                    .to_string(),
+            ],
+            app.focus == FocusZone::Content,
+            PanelTone::Danger,
+        ),
         _ => {}
     }
 }
@@ -2957,14 +3015,14 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     let help = Paragraph::new(vec![
         Line::from("Global navigation"),
         Line::from("  Tab / Shift-Tab move focus between tabs, actions, and page content."),
-        Line::from("  [ and ] change pages quickly. : or Ctrl+p opens the command palette."),
+        Line::from("  Left/Right or [ and ] change pages quickly. : or Ctrl+p opens the command palette."),
         Line::from("  ? opens this help modal. q or 9 drops into the shell."),
         Line::from(""),
         Line::from("Page model"),
         Line::from("  Dashboard: summary, alerts, recent activity."),
         Line::from("  Configure: hostname, username, extras, SSH keys."),
         Line::from("  Software: system packages, user packages, services."),
-        Line::from("  Maintenance: Flake Inputs, apply, rollback, garbage collection."),
+        Line::from("  Maintenance: Flake Inputs, apply, rollback, garbage collection, reboot, shutdown."),
         Line::from("  Logs: scrollable and filterable Recent Activity view."),
         Line::from(""),
         Line::from("Current page"),
