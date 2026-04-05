@@ -2220,7 +2220,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         Line::from(Span::styled(
             " _   _ _ __  __  ___    _   ",
             Style::default()
-                .fg(COLOR_ACCENT)
+                .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
@@ -2237,7 +2237,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         )),
         Line::from(Span::styled(
             "|_| \\_|_/_/  \\_\\\\___/_/   \\_\\",
-            Style::default().fg(COLOR_DANGER),
+            Style::default().fg(COLOR_FG_MAIN),
         )),
     ]);
     frame.render_widget(ascii, sections[0]);
