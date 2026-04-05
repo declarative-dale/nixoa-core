@@ -1211,6 +1211,39 @@ fn handle_dashboard_content_key(
 
 fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match app.selected_page_action().map(|item| item.kind) {
+        Some(ActionKind::EditHostname) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => {
+                let current = app.snapshot.hostname.clone();
+                open_modal(
+                    app,
+                    InputAction::SetHostname,
+                    "Edit hostname",
+                    "Press Enter to write and commit the new hostname.",
+                    current.as_str(),
+                );
+            }
+            _ => {}
+        },
+        Some(ActionKind::EditUsername) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => {
+                let current = app.snapshot.username.clone();
+                open_modal(
+                    app,
+                    InputAction::SetUsername,
+                    "Edit username",
+                    "Press Enter to write and commit the new username.",
+                    current.as_str(),
+                );
+            }
+            _ => {}
+        },
+        Some(ActionKind::ToggleExtras) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => run_action_capture(app, &["toggle-extras"])?,
+            _ => {}
+        },
         Some(ActionKind::ManageSshKeys) => match key.code {
             KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
             KeyCode::Up | KeyCode::Char('k') => {
@@ -1258,8 +1291,45 @@ fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
 }
 
 fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    if matches!(key.code, KeyCode::Char('h')) {
-        app.focus = FocusZone::Sidebar;
+    match app.selected_page_action().map(|item| item.kind) {
+        Some(ActionKind::AddSystemPackage) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => open_modal(
+                app,
+                InputAction::AddSystemPackage,
+                "Add system package",
+                "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
+                "",
+            ),
+            _ => {}
+        },
+        Some(ActionKind::AddUserPackage) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => open_modal(
+                app,
+                InputAction::AddUserPackage,
+                "Add user package",
+                "Enter a nixpkgs attribute path for the user package list.",
+                "",
+            ),
+            _ => {}
+        },
+        Some(ActionKind::AddService) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => open_modal(
+                app,
+                InputAction::AddService,
+                "Add service",
+                "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
+                "",
+            ),
+            _ => {}
+        },
+        _ => {
+            if matches!(key.code, KeyCode::Char('h')) {
+                app.focus = FocusZone::Sidebar;
+            }
+        }
     }
     Ok(())
 }
@@ -1289,6 +1359,42 @@ fn handle_maintenance_content_key(
                     activate_selected_update(terminal, app)?;
                 }
             }
+            _ => {}
+        },
+        Some(ActionKind::ApplyConfiguration) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => run_apply_configuration(terminal, app)?,
+            _ => {}
+        },
+        Some(ActionKind::RollbackGeneration) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => run_rollback_generation(terminal, app)?,
+            _ => {}
+        },
+        Some(ActionKind::RunGarbageCollection) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => run_garbage_collection(terminal, app)?,
+            _ => {}
+        },
+        Some(ActionKind::RebootSystem) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => run_reboot_system(terminal, app)?,
+            _ => {}
+        },
+        Some(ActionKind::ShutdownSystem) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => run_shutdown_system(terminal, app)?,
+            _ => {}
+        },
+        Some(ActionKind::CleanupUnmanagedUsers) => match key.code {
+            KeyCode::Char('h') => app.focus = FocusZone::Sidebar,
+            KeyCode::Enter => open_modal(
+                app,
+                InputAction::ConfirmCleanupUnmanagedUsers,
+                "Cleanup unmanaged users",
+                "Type WIPE to remove unmanaged users under /home and delete their home data.",
+                "",
+            ),
             _ => {}
         },
         _ => {
@@ -1555,7 +1661,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
     Ok(())
 }
 
-fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+fn activate_sidebar_selection(_terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     if let Some(action) = app.selected_page_action() {
         match action.kind {
             ActionKind::RefreshSnapshot => {
@@ -1569,61 +1675,19 @@ fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Resu
                 app.set_page(Page::Maintenance);
                 *app.current_selection_mut() = 0;
             }
-            ActionKind::EditHostname => {
-                let hostname = app.snapshot.hostname.clone();
-                open_modal(
-                    app,
-                    InputAction::SetHostname,
-                    "Edit hostname",
-                    "Press Enter to write and commit the new hostname.",
-                    hostname.as_str(),
-                );
-            }
-            ActionKind::EditUsername => {
-                let username = app.snapshot.username.clone();
-                open_modal(
-                    app,
-                    InputAction::SetUsername,
-                    "Edit username",
-                    "Press Enter to write and commit the new username.",
-                    username.as_str(),
-                );
-            }
-            ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+            ActionKind::EditHostname => app.focus = FocusZone::Content,
+            ActionKind::EditUsername => app.focus = FocusZone::Content,
+            ActionKind::ToggleExtras => app.focus = FocusZone::Content,
             ActionKind::ManageSshKeys => app.focus = FocusZone::Content,
-            ActionKind::AddSystemPackage => open_modal(
-                app,
-                InputAction::AddSystemPackage,
-                "Add system package",
-                "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
-                "",
-            ),
-            ActionKind::AddUserPackage => open_modal(
-                app,
-                InputAction::AddUserPackage,
-                "Add user package",
-                "Enter a nixpkgs attribute path for the user package list.",
-                "",
-            ),
-            ActionKind::AddService => open_modal(
-                app,
-                InputAction::AddService,
-                "Add service",
-                "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
-                "",
-            ),
-            ActionKind::ApplyConfiguration => run_apply_configuration(terminal, app)?,
-            ActionKind::RollbackGeneration => run_rollback_generation(terminal, app)?,
-            ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
-            ActionKind::RebootSystem => run_reboot_system(terminal, app)?,
-            ActionKind::ShutdownSystem => run_shutdown_system(terminal, app)?,
-            ActionKind::CleanupUnmanagedUsers => open_modal(
-                app,
-                InputAction::ConfirmCleanupUnmanagedUsers,
-                "Cleanup unmanaged users",
-                "Type WIPE to remove unmanaged users under /home and delete their home data.",
-                "",
-            ),
+            ActionKind::AddSystemPackage => app.focus = FocusZone::Content,
+            ActionKind::AddUserPackage => app.focus = FocusZone::Content,
+            ActionKind::AddService => app.focus = FocusZone::Content,
+            ActionKind::ApplyConfiguration => app.focus = FocusZone::Content,
+            ActionKind::RollbackGeneration => app.focus = FocusZone::Content,
+            ActionKind::RunGarbageCollection => app.focus = FocusZone::Content,
+            ActionKind::RebootSystem => app.focus = FocusZone::Content,
+            ActionKind::ShutdownSystem => app.focus = FocusZone::Content,
+            ActionKind::CleanupUnmanagedUsers => app.focus = FocusZone::Content,
             ActionKind::FilterLogs => {
                 let current = app.log_filter.clone();
                 open_modal(
