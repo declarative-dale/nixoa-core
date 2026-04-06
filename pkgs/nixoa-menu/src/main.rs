@@ -2081,10 +2081,10 @@ enum PanelTone {
 
 fn panel_color(tone: PanelTone, focused: bool) -> Color {
     if focused {
-        match tone {
-            PanelTone::Neutral | PanelTone::Info => COLOR_ACCENT,
-            PanelTone::Warning => COLOR_WARNING,
-            PanelTone::Danger => COLOR_DANGER,
+        if matches!(tone, PanelTone::Danger) {
+            COLOR_DANGER
+        } else {
+            COLOR_ACCENT
         }
     } else {
         match tone {
@@ -2096,14 +2096,31 @@ fn panel_color(tone: PanelTone, focused: bool) -> Color {
 }
 
 fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Block<'static> {
+    let title_style = if focused {
+        Style::default()
+            .fg(panel_color(tone, focused))
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default()
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD)
+    };
+
     Block::default()
         .title(
-            Line::from(format!(" {} ", title.into()))
-                .style(Style::default().fg(COLOR_FG_MAIN).add_modifier(Modifier::BOLD)),
+            Line::from(format!(" {} ", title.into())).style(title_style),
         )
         .borders(Borders::ALL)
         .border_set(border::ROUNDED)
-        .border_style(Style::default().fg(panel_color(tone, focused)))
+        .border_style(
+            Style::default()
+                .fg(panel_color(tone, focused))
+                .add_modifier(if focused {
+                    Modifier::BOLD
+                } else {
+                    Modifier::empty()
+                }),
+        )
         .border_type(BorderType::Rounded)
         .style(Style::default().bg(COLOR_BG_INNER))
 }
@@ -2166,10 +2183,10 @@ fn render(frame: &mut Frame, app: &App) {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),
+            Constraint::Length(6),
             Constraint::Length(3),
             Constraint::Min(10),
-            Constraint::Length(4),
+            Constraint::Length(3),
         ])
         .split(outer);
 
@@ -2254,30 +2271,26 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "NiXOA", false, PanelTone::Info);
     let sections = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(34), Constraint::Min(20)])
+        .constraints([Constraint::Length(28), Constraint::Min(20)])
         .split(inner);
 
     let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
-            " _   _ _ __  __  ___    _   ",
+            " _   _ ___ __  __  ",
             Style::default()
                 .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            "| \\ | | |\\ \\/ / / _ \\  /_\\  ",
+            "| \\ | |_ _|  \\/  | ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|  \\| | | >  < | | | |/ _ \\ ",
+            "|  \\| || || |\\/| | ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "| |\\  | |/ /\\ \\| |_| / ___ \\",
-            Style::default().fg(COLOR_FG_MAIN),
-        )),
-        Line::from(Span::styled(
-            "|_| \\_|_/_/  \\_\\\\___/_/   \\_\\",
+            "|_|\\_|___|_|  |_| ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
     ]);
@@ -2291,33 +2304,27 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let summary = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("Console ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled("appliance view", Style::default().fg(COLOR_FG_MAIN)),
-        ]),
-        Line::from(vec![
-            Span::styled("Host: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("Host ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
                 Style::default().fg(COLOR_ACCENT),
             ),
-        ]),
-        Line::from(vec![
-            Span::styled("Branch: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("  Branch ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
                 Style::default().fg(COLOR_FG_MAIN),
             ),
-            Span::styled("  Upstream: ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(upstream, Style::default().fg(COLOR_INFO)),
         ]),
         Line::from(vec![
-            Span::styled("Page: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("Page ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(app.page_title(), Style::default().fg(COLOR_FG_MAIN)),
-            Span::styled("  Focus: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("  Focus ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(focus_label(app.focus), Style::default().fg(COLOR_ACCENT)),
         ]),
         Line::from(vec![
-            Span::styled("Last event: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("Upstream ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(upstream, Style::default().fg(COLOR_INFO)),
+            Span::styled("  Last ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(
                 app.logs
                     .last()
@@ -2363,12 +2370,6 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
         spans.push(Span::styled(format!(" {} ", page_label(page)), style));
     }
 
-    spans.push(Span::raw("   "));
-    spans.push(Span::styled(
-        "Left/Right or h/l pages  Down or j enters actions  Left from actions returns here",
-        Style::default().fg(COLOR_MUTED),
-    ));
-
     let paragraph = Paragraph::new(Line::from(spans))
         .alignment(Alignment::Left)
         .style(Style::default().bg(COLOR_BG_INNER));
@@ -2383,6 +2384,11 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         app.focus_is(Focus::MainActions),
         PanelTone::Neutral,
     );
+
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(8), Constraint::Length(6)])
+        .split(inner);
 
     let actions = app.current_page_actions();
     let mut items: Vec<ListItem> = actions
@@ -2429,15 +2435,9 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
             .fg(COLOR_FG_MAIN)
             .add_modifier(Modifier::BOLD),
     );
-    frame.render_stateful_widget(list, inner, &mut state);
+    frame.render_stateful_widget(list, sections[0], &mut state);
 
-    let detail_area = Rect {
-        x: inner.x,
-        y: inner.y.saturating_add(inner.height.saturating_sub(3)),
-        width: inner.width,
-        height: min(3, inner.height),
-    };
-
+    let detail_inner = draw_panel(frame, sections[1], "Selection", false, PanelTone::Neutral);
     let detail = Paragraph::new(vec![
         Line::from(Span::styled(
             app.selected_sidebar_title(),
@@ -2449,10 +2449,13 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
             app.selected_sidebar_detail(),
             Style::default().fg(COLOR_MUTED),
         )),
+        Line::from(Span::styled(
+            "Enter runs or opens. Left returns to Main Menu.",
+            Style::default().fg(COLOR_MUTED_2),
+        )),
     ])
     .wrap(Wrap { trim: true });
-    frame.render_widget(Clear, detail_area);
-    frame.render_widget(detail, detail_area);
+    frame.render_widget(detail, detail_inner);
 }
 
 fn render_page(frame: &mut Frame, area: Rect, app: &App) {
@@ -2818,80 +2821,65 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
         .unwrap_or(ActionKind::CheckForUpdates)
     {
         ActionKind::CheckForUpdates => render_updates(frame, area, app),
-        ActionKind::ApplyConfiguration => render_simple_detail(
+        ActionKind::ApplyConfiguration => render_maintenance_detail_page(
             frame,
             area,
             "Apply Configuration",
-            &[
-                format!("Host: {}", app.snapshot.hostname),
-                "Press Enter to run ./scripts/apply-config.sh for this host.".to_string(),
-                "The console refreshes state and alerts after the interactive command exits."
-                    .to_string(),
-            ],
-            false,
-            PanelTone::Info,
+            "Apply the current repository state to this host.",
+            "The active host configuration is rebuilt from the current flake and switched in after the command exits.",
+            "Applying configuration changes the running system state immediately. Review the current build status before proceeding.",
+            "Enter runs ./scripts/apply-config.sh for this host.",
+            app,
         ),
-        ActionKind::RollbackGeneration => render_simple_detail(
+        ActionKind::RollbackGeneration => render_maintenance_detail_page(
             frame,
             area,
             "Rollback Generation",
-            &[
-                "Press Enter to run nixos-rebuild switch --rollback.".to_string(),
-                "Use this after a bad switch when the previous generation should be restored."
-                    .to_string(),
-            ],
-            false,
-            PanelTone::Danger,
+            "Restore the previous NixOS generation for this host.",
+            "Use this when the last switch introduced a regression and the prior generation should be made active again.",
+            "Rollback changes the running system state. Confirm that the previous generation is the one you want to restore.",
+            "Enter runs nixos-rebuild switch --rollback.",
+            app,
         ),
-        ActionKind::RunGarbageCollection => render_simple_detail(
+        ActionKind::RunGarbageCollection => render_maintenance_detail_page(
             frame,
             area,
             "Run Garbage Collection",
-            &[
-                "Press Enter to run nix-collect-garbage -d.".to_string(),
-                "This is a destructive cleanup operation and uses wrapper sudo on NixOS."
-                    .to_string(),
-            ],
-            false,
-            PanelTone::Danger,
+            "Delete old generations and unreachable store paths.",
+            "This reclaims disk space and reduces retained history in the Nix store.",
+            "Garbage collection is destructive. It may remove rollback targets you still expect to use later.",
+            "Enter runs nix-collect-garbage -d.",
+            app,
         ),
-        ActionKind::RebootSystem => render_simple_detail(
+        ActionKind::RebootSystem => render_maintenance_detail_page(
             frame,
             area,
             "Reboot System",
-            &[
-                "Press Enter to run systemctl reboot.".to_string(),
-                "This uses wrapper sudo and asks systemd to perform a clean reboot."
-                    .to_string(),
-            ],
-            false,
-            PanelTone::Danger,
+            "Request a clean reboot through systemd.",
+            "Use this after changes that should apply on the next boot or when the appliance needs a restart.",
+            "Reboot interrupts active sessions and workloads running on the host.",
+            "Enter runs systemctl reboot.",
+            app,
         ),
-        ActionKind::ShutdownSystem => render_simple_detail(
+        ActionKind::ShutdownSystem => render_maintenance_detail_page(
             frame,
             area,
             "Shut Down System",
-            &[
-                "Press Enter to run systemctl poweroff.".to_string(),
-                "This uses wrapper sudo and asks systemd to perform a clean shutdown."
-                    .to_string(),
-            ],
-            false,
-            PanelTone::Danger,
+            "Request a clean poweroff through systemd.",
+            "Use this when the appliance should be taken offline in a controlled way.",
+            "Shutdown powers the machine off and ends every active session immediately.",
+            "Enter runs systemctl poweroff.",
+            app,
         ),
-        ActionKind::CleanupUnmanagedUsers => render_simple_detail(
+        ActionKind::CleanupUnmanagedUsers => render_maintenance_detail_page(
             frame,
             area,
             "Cleanup Unmanaged Users",
-            &[
-                "Press Enter to open a confirmation prompt.".to_string(),
-                "Typing WIPE removes non-system users outside the flake-managed admin account."
-                    .to_string(),
-                "The cleanup also deletes their home directories and orphaned /home entries."
-                    .to_string(),
-            ],
-            false,
-            PanelTone::Danger,
+            "Remove unmanaged non-system users from this host.",
+            "The cleanup deletes those users and removes their home directories under /home.",
+            "This is irreversible for the affected users and their data. Use it only when the host should be fully re-aligned with the flake.",
+            "Enter opens a WIPE confirmation prompt.",
+            app,
         ),
         _ => {}
     }
@@ -2921,7 +2909,7 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
         split[0],
         "Flake Inputs",
         app.focus_is(Focus::MaintenanceFlakeInputs),
-        PanelTone::Warning,
+        PanelTone::Neutral,
     );
 
     let items: Vec<ListItem> = UPDATE_ACTIONS
@@ -3049,32 +3037,23 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "Shortcuts", false, PanelTone::Neutral);
     let footer = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("Tab ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("focus", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Arrows/hjkl ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("move", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
-            Span::styled("Up/Down ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("or j/k move within the focused list", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("open or run", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
-            Span::styled("Left/Right ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("or h/l handle page and parent/child navigation", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Esc ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("back", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("[ ] ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("pages", Style::default().fg(COLOR_MUTED)),
-            Span::raw("   "),
-            Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("run / open", Style::default().fg(COLOR_MUTED)),
-            Span::raw("   "),
-            Span::styled("Esc ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("back / quit prompt", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled(": ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("palette", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("? ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("help", Style::default().fg(COLOR_MUTED)),
-            Span::raw("   "),
-            Span::styled("q ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("shell", Style::default().fg(COLOR_MUTED)),
         ]),
         Line::from(vec![
             Span::styled("Last apply: ", Style::default().fg(COLOR_MUTED_2)),
@@ -3097,6 +3076,88 @@ fn render_simple_detail(
     let paragraph = Paragraph::new(lines.iter().cloned().map(Line::from).collect::<Vec<_>>())
         .wrap(Wrap { trim: true });
     frame.render_widget(paragraph, inner);
+}
+
+fn render_maintenance_detail_page(
+    frame: &mut Frame,
+    area: Rect,
+    title: &str,
+    summary: &str,
+    outcome: &str,
+    risk: &str,
+    action_hint: &str,
+    app: &App,
+) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(7), Constraint::Min(8)])
+        .split(area);
+
+    let summary_inner = draw_panel(frame, rows[0], title, false, PanelTone::Neutral);
+    let summary_text = Paragraph::new(vec![
+        Line::from(Span::styled(summary, Style::default().fg(COLOR_FG_MAIN))),
+        Line::from(Span::styled(outcome, Style::default().fg(COLOR_MUTED))),
+        Line::from(Span::styled(action_hint, Style::default().fg(COLOR_ACCENT))),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(summary_text, summary_inner);
+
+    let lower = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(46), Constraint::Percentage(54)])
+        .split(rows[1]);
+
+    let state_inner = draw_panel(frame, lower[0], "Current State", false, PanelTone::Neutral);
+    let state = Paragraph::new(vec![
+        key_value_line("Host", &app.snapshot.hostname, COLOR_FG_MAIN),
+        key_value_line(
+            "Queued on boot",
+            if app.snapshot.rebuild_queued { "yes" } else { "no" },
+            if app.snapshot.rebuild_queued {
+                COLOR_INFO
+            } else {
+                COLOR_FG_MAIN
+            },
+        ),
+        key_value_line(
+            "Needs rebuild",
+            if app.snapshot.rebuild_needed { "yes" } else { "no" },
+            if app.snapshot.rebuild_needed {
+                COLOR_WARNING
+            } else {
+                COLOR_FG_MAIN
+            },
+        ),
+        key_value_line(
+            "Inputs",
+            &inputs_status(&app.update_status, app.tick).0,
+            inputs_status(&app.update_status, app.tick).1,
+        ),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(state, state_inner);
+
+    let notes_inner = draw_panel(frame, lower[1], "Operational Notes", false, PanelTone::Neutral);
+    let notes = Paragraph::new(vec![
+        Line::from(Span::styled(
+            "Risk",
+            Style::default()
+                .fg(COLOR_DANGER)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(risk, Style::default().fg(COLOR_MUTED))),
+        Line::from(""),
+        Line::from(Span::styled(
+            "Use ?",
+            Style::default().fg(COLOR_ACCENT),
+        )),
+        Line::from(Span::styled(
+            "for the full shortcut reference and workflow help.",
+            Style::default().fg(COLOR_MUTED),
+        )),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(notes, notes_inner);
 }
 
 fn render_item_list_page(
