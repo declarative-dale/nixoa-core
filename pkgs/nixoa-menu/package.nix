@@ -16,7 +16,7 @@
 
 rustPlatform.buildRustPackage {
   pname = "nixoa-menu";
-  version = "0.3.3";
+  version = "0.3.4";
 
   src = lib.cleanSource ./.;
 

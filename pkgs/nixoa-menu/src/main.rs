@@ -136,10 +136,13 @@ enum Page {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FocusZone {
-    Tabs,
-    Sidebar,
-    Content,
+enum Focus {
+    TopNav,
+    MainActions,
+    DashboardAlerts,
+    ConfigureSshKeys,
+    MaintenanceFlakeInputs,
+    LogsView,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -235,8 +238,7 @@ struct App {
     update_status: UpdateStatus,
     update_rx: Option<Receiver<UpdateStatus>>,
     page: Page,
-    focus: FocusZone,
-    content_pane: usize,
+    focus: Focus,
     page_selection: [usize; 5],
     selected_update: usize,
     selected_key: usize,
@@ -244,6 +246,7 @@ struct App {
     modal: Option<InputModal>,
     command_palette: Option<CommandPalette>,
     help_open: bool,
+    quit_confirm: bool,
     logs: Vec<String>,
     log_filter: String,
     log_scroll: usize,
@@ -416,8 +419,7 @@ impl App {
             update_status: UpdateStatus::Idle,
             update_rx: None,
             page: Page::Dashboard,
-            focus: FocusZone::Sidebar,
-            content_pane: 0,
+            focus: Focus::MainActions,
             page_selection: [0; 5],
             selected_update: 0,
             selected_key: 0,
@@ -425,9 +427,11 @@ impl App {
             modal: None,
             command_palette: None,
             help_open: false,
+            quit_confirm: false,
             logs: vec![
                 "NiXOA console ready.".to_string(),
-                "Press Tab to move focus, ? for help, : for the command palette.".to_string(),
+                "Use arrows or h/j/k/l for navigation, Tab for focus cycling, and [ ] for pages."
+                    .to_string(),
             ],
             log_filter: String::new(),
             log_scroll: 0,
@@ -476,6 +480,10 @@ impl App {
         actions.get(self.current_selection())
     }
 
+    fn selected_action_kind(&self) -> Option<ActionKind> {
+        self.selected_page_action().map(|item| item.kind)
+    }
+
     fn selected_sidebar_title(&self) -> &'static str {
         self.selected_page_action()
             .map(|item| item.title)
@@ -499,10 +507,15 @@ impl App {
     }
 
     fn set_page(&mut self, page: Page) {
+        let keep_top_nav = self.focus == Focus::TopNav;
         self.page = page;
-        self.focus = FocusZone::Sidebar;
-        self.content_pane = 0;
         self.clamp_selection_state();
+        self.focus = if keep_top_nav {
+            Focus::TopNav
+        } else {
+            Focus::MainActions
+        };
+        self.ensure_focus_valid();
     }
 
     fn next_page(&mut self) {
@@ -525,26 +538,83 @@ impl App {
         });
     }
 
-    fn cycle_focus_forward(&mut self) {
-        self.focus = match self.focus {
-            FocusZone::Tabs => FocusZone::Sidebar,
-            FocusZone::Sidebar => FocusZone::Content,
-            FocusZone::Content => FocusZone::Tabs,
-        };
-        if self.focus != FocusZone::Content {
-            self.content_pane = 0;
+    fn is_focus_valid(&self, focus: Focus) -> bool {
+        match focus {
+            Focus::TopNav | Focus::MainActions => true,
+            Focus::DashboardAlerts => self.page == Page::Dashboard,
+            Focus::ConfigureSshKeys => {
+                self.page == Page::Configure
+                    && self.selected_action_kind() == Some(ActionKind::ManageSshKeys)
+            }
+            Focus::MaintenanceFlakeInputs => {
+                self.page == Page::Maintenance
+                    && self.selected_action_kind() == Some(ActionKind::CheckForUpdates)
+            }
+            Focus::LogsView => self.page == Page::Logs,
         }
     }
 
-    fn cycle_focus_backward(&mut self) {
-        self.focus = match self.focus {
-            FocusZone::Tabs => FocusZone::Content,
-            FocusZone::Sidebar => FocusZone::Tabs,
-            FocusZone::Content => FocusZone::Sidebar,
-        };
-        if self.focus != FocusZone::Content {
-            self.content_pane = 0;
+    fn ensure_focus_valid(&mut self) {
+        if !self.is_focus_valid(self.focus) {
+            self.focus = Focus::MainActions;
         }
+    }
+
+    fn set_focus(&mut self, focus: Focus) {
+        self.focus = focus;
+        self.ensure_focus_valid();
+    }
+
+    fn action_child_focus(&self) -> Option<Focus> {
+        if self.current_selection() >= self.current_page_actions().len() {
+            return None;
+        }
+
+        match self.page {
+            Page::Dashboard => Some(Focus::DashboardAlerts),
+            Page::Configure if self.selected_action_kind() == Some(ActionKind::ManageSshKeys) => {
+                Some(Focus::ConfigureSshKeys)
+            }
+            Page::Maintenance
+                if self.selected_action_kind() == Some(ActionKind::CheckForUpdates) =>
+            {
+                Some(Focus::MaintenanceFlakeInputs)
+            }
+            Page::Logs => Some(Focus::LogsView),
+            _ => None,
+        }
+    }
+
+    fn parent_focus(&self) -> Option<Focus> {
+        match self.focus {
+            Focus::DashboardAlerts
+            | Focus::ConfigureSshKeys
+            | Focus::MaintenanceFlakeInputs
+            | Focus::LogsView => Some(Focus::MainActions),
+            Focus::TopNav | Focus::MainActions => None,
+        }
+    }
+
+    fn focus_order(&self) -> Vec<Focus> {
+        let mut order = vec![Focus::TopNav, Focus::MainActions];
+        if let Some(child) = self.action_child_focus() {
+            order.push(child);
+        }
+        order
+    }
+
+    fn cycle_focus_forward(&mut self) {
+        let order = self.focus_order();
+        let index = order.iter().position(|focus| *focus == self.focus).unwrap_or(0);
+        let next = (index + 1) % order.len();
+        self.focus = order[next];
+    }
+
+    fn cycle_focus_backward(&mut self) {
+        let order = self.focus_order();
+        let index = order.iter().position(|focus| *focus == self.focus).unwrap_or(0);
+        let next = (index + order.len() - 1) % order.len();
+        self.focus = order[next];
     }
 
     fn move_sidebar_up(&mut self) -> bool {
@@ -566,37 +636,8 @@ impl App {
         }
     }
 
-    fn content_has_secondary_pane(&self) -> bool {
-        if self.current_selection() >= self.current_page_actions().len() {
-            return false;
-        }
-
-        match self.page {
-            Page::Dashboard => true,
-            Page::Configure => matches!(
-                self.selected_page_action().map(|item| item.kind),
-                Some(ActionKind::ManageSshKeys)
-            ),
-            Page::Software => true,
-            Page::Maintenance => matches!(
-                self.selected_page_action().map(|item| item.kind),
-                Some(ActionKind::CheckForUpdates)
-            ),
-            Page::Logs => false,
-        }
-    }
-
-    fn content_primary_focused(&self) -> bool {
-        self.focus == FocusZone::Content && self.content_pane == 0
-    }
-
-    fn content_secondary_focused(&self) -> bool {
-        self.focus == FocusZone::Content && self.content_pane > 0 && self.content_has_secondary_pane()
-    }
-
-    fn focus_content_primary(&mut self) {
-        self.focus = FocusZone::Content;
-        self.content_pane = 0;
+    fn focus_is(&self, focus: Focus) -> bool {
+        self.focus == focus
     }
 
     fn start_update_check(&mut self) {
@@ -649,6 +690,8 @@ impl App {
             *self.current_selection_mut() = sidebar_len.saturating_sub(1);
         }
 
+        self.selected_update = min(self.selected_update, UPDATE_ACTIONS.len().saturating_sub(1));
+
         if self.snapshot.ssh_keys.is_empty() {
             self.selected_key = 0;
         } else if self.selected_key >= self.snapshot.ssh_keys.len() {
@@ -668,6 +711,8 @@ impl App {
         } else {
             self.log_scroll = min(self.log_scroll, filtered_count.saturating_sub(1));
         }
+
+        self.ensure_focus_valid();
     }
 
     fn push_log(&mut self, message: impl Into<String>) {
@@ -1096,6 +1141,9 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
     if app.modal.is_some() {
         return handle_modal_key(app, key);
     }
+    if app.quit_confirm {
+        return handle_quit_confirm_key(app, key);
+    }
 
     if key.modifiers.contains(KeyModifiers::CONTROL) && matches!(key.code, KeyCode::Char('p')) {
         app.command_palette = Some(CommandPalette {
@@ -1122,13 +1170,12 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
             return Ok(());
         }
         KeyCode::Esc => {
-            app.focus = match app.focus {
-                FocusZone::Content => FocusZone::Sidebar,
-                FocusZone::Sidebar => FocusZone::Tabs,
-                FocusZone::Tabs => FocusZone::Tabs,
-            };
-            if app.focus != FocusZone::Content {
-                app.content_pane = 0;
+            if let Some(parent) = app.parent_focus() {
+                app.focus = parent;
+            } else if app.focus == Focus::TopNav {
+                app.focus = Focus::MainActions;
+            } else if app.focus == Focus::MainActions {
+                app.quit_confirm = true;
             }
             return Ok(());
         }
@@ -1163,26 +1210,26 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
     }
 
     match app.focus {
-        FocusZone::Tabs => handle_tabs_key(app, key),
-        FocusZone::Sidebar => handle_sidebar_key(terminal, app, key),
-        FocusZone::Content => handle_content_key(terminal, app, key),
+        Focus::TopNav => handle_top_nav_key(app, key),
+        Focus::MainActions => handle_main_actions_key(terminal, app, key),
+        Focus::DashboardAlerts => handle_dashboard_alerts_key(terminal, app, key),
+        Focus::ConfigureSshKeys => handle_configure_ssh_keys_key(app, key),
+        Focus::MaintenanceFlakeInputs => handle_maintenance_flake_inputs_key(terminal, app, key),
+        Focus::LogsView => handle_logs_view_key(app, key),
     }
 }
 
-fn handle_tabs_key(app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_top_nav_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
         KeyCode::Left | KeyCode::Char('h') => app.previous_page(),
         KeyCode::Right | KeyCode::Char('l') => app.next_page(),
-        KeyCode::Enter | KeyCode::Down | KeyCode::Char('j') => {
-            app.focus = FocusZone::Sidebar;
-            app.content_pane = 0;
-        }
+        KeyCode::Down | KeyCode::Char('j') => app.focus = Focus::MainActions,
         _ => {}
     }
     Ok(())
 }
 
-fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_main_actions_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
     if let KeyCode::Char(ch) = key.code {
         if ch == '9' || ch == 'q' {
             app.should_open_shell = true;
@@ -1203,17 +1250,16 @@ fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => {
             if !app.move_sidebar_up() {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
+                app.focus = Focus::TopNav;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
             let _ = app.move_sidebar_down();
         }
-        KeyCode::Right | KeyCode::Char('l') => app.focus_content_primary(),
-        KeyCode::Left | KeyCode::Char('h') => {
-            app.focus = FocusZone::Tabs;
-            app.content_pane = 0;
+        KeyCode::Right | KeyCode::Char('l') => {
+            if let Some(child) = app.action_child_focus() {
+                app.focus = child;
+            }
         }
         KeyCode::Enter => activate_sidebar_selection(terminal, app)?,
         _ => {}
@@ -1222,59 +1268,17 @@ fn handle_sidebar_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
     Ok(())
 }
 
-fn handle_content_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
-    match key.code {
-        KeyCode::Left | KeyCode::Char('h') => {
-            if app.content_pane > 0 {
-                app.content_pane = 0;
-            } else {
-                app.focus = FocusZone::Sidebar;
-            }
-            return Ok(());
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            if app.content_has_secondary_pane() {
-                app.content_pane = 1;
-            }
-            return Ok(());
-        }
-        _ => {}
-    }
-
-    if app.current_selection() >= app.current_page_actions().len() {
-        if matches!(key.code, KeyCode::Enter) {
-            app.should_open_shell = true;
-        } else if matches!(key.code, KeyCode::Up | KeyCode::Char('k')) {
-            app.focus = FocusZone::Tabs;
-            app.content_pane = 0;
-        }
-        return Ok(());
-    }
-
-    match app.page {
-        Page::Dashboard => handle_dashboard_content_key(terminal, app, key),
-        Page::Configure => handle_configure_content_key(app, key),
-        Page::Software => handle_software_content_key(app, key),
-        Page::Maintenance => handle_maintenance_content_key(terminal, app, key),
-        Page::Logs => handle_logs_content_key(app, key),
-    }
-}
-
-fn handle_dashboard_content_key(
+fn handle_dashboard_alerts_key(
     terminal: &mut AppTerminal,
     app: &mut App,
     key: KeyEvent,
 ) -> Result<()> {
     let alerts = app.alerts();
     match key.code {
+        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
         KeyCode::Up | KeyCode::Char('k') => {
-            if !alerts.is_empty() {
-                if app.selected_alert == 0 {
-                    app.focus = FocusZone::Tabs;
-                    app.content_pane = 0;
-                } else {
-                    app.selected_alert -= 1;
-                }
+            if !alerts.is_empty() && app.selected_alert > 0 {
+                app.selected_alert -= 1;
             }
         }
         KeyCode::Down | KeyCode::Char('j') => {
@@ -1294,238 +1298,76 @@ fn handle_dashboard_content_key(
     Ok(())
 }
 
-fn handle_configure_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    match app.selected_page_action().map(|item| item.kind) {
-        Some(ActionKind::EditHostname) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
+fn handle_configure_ssh_keys_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
+        KeyCode::Up | KeyCode::Char('k') => {
+            if !app.snapshot.ssh_keys.is_empty() && app.selected_key > 0 {
+                app.selected_key -= 1;
             }
-            KeyCode::Enter => {
-                let current = app.snapshot.hostname.clone();
-                open_modal(
-                    app,
-                    InputAction::SetHostname,
-                    "Edit hostname",
-                    "Press Enter to write and commit the new hostname.",
-                    current.as_str(),
-                );
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            if !app.snapshot.ssh_keys.is_empty() {
+                app.selected_key = min(app.selected_key + 1, app.snapshot.ssh_keys.len() - 1);
             }
-            _ => {}
-        },
-        Some(ActionKind::EditUsername) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
+        }
+        KeyCode::Char('a') => open_modal(
+            app,
+            InputAction::AddKey,
+            "Add SSH key",
+            "Paste a full public key line.",
+            "",
+        ),
+        KeyCode::Char('e') => open_modal(
+            app,
+            InputAction::SetPrimaryKey,
+            "Replace SSH keys",
+            "Replace the managed key list with a single public key line.",
+            "",
+        ),
+        KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('d') => {
+            if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
+                run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
             }
-            KeyCode::Enter => {
-                let current = app.snapshot.username.clone();
-                open_modal(
-                    app,
-                    InputAction::SetUsername,
-                    "Edit username",
-                    "Press Enter to write and commit the new username.",
-                    current.as_str(),
-                );
-            }
-            _ => {}
-        },
-        Some(ActionKind::ToggleExtras) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => run_action_capture(app, &["toggle-extras"])?,
-            _ => {}
-        },
-        Some(ActionKind::ManageSshKeys) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                if !app.snapshot.ssh_keys.is_empty() {
-                    if app.selected_key == 0 {
-                        app.focus = FocusZone::Tabs;
-                        app.content_pane = 0;
-                    } else {
-                        app.selected_key -= 1;
-                    }
-                } else {
-                    app.focus = FocusZone::Tabs;
-                    app.content_pane = 0;
-                }
-            }
-            KeyCode::Down | KeyCode::Char('j') => {
-                if !app.snapshot.ssh_keys.is_empty() {
-                    app.selected_key = min(app.selected_key + 1, app.snapshot.ssh_keys.len() - 1);
-                }
-            }
-            KeyCode::Char('a') => open_modal(
-                app,
-                InputAction::AddKey,
-                "Add SSH key",
-                "Paste a full public key line.",
-                "",
-            ),
-            KeyCode::Char('e') => open_modal(
-                app,
-                InputAction::SetPrimaryKey,
-                "Replace SSH keys",
-                "Replace the managed key list with a single public key line.",
-                "",
-            ),
-            KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('d') => {
-                if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
-                    run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
-                }
-            }
-            _ => {}
-        },
+        }
         _ => {}
     }
     Ok(())
 }
 
-fn handle_software_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    match app.selected_page_action().map(|item| item.kind) {
-        Some(ActionKind::AddSystemPackage) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => open_modal(
-                app,
-                InputAction::AddSystemPackage,
-                "Add system package",
-                "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
-                "",
-            ),
-            _ => {}
-        },
-        Some(ActionKind::AddUserPackage) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => open_modal(
-                app,
-                InputAction::AddUserPackage,
-                "Add user package",
-                "Enter a nixpkgs attribute path for the user package list.",
-                "",
-            ),
-            _ => {}
-        },
-        Some(ActionKind::AddService) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => open_modal(
-                app,
-                InputAction::AddService,
-                "Add service",
-                "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
-                "",
-            ),
-            _ => {}
-        },
-        _ => {}
-    }
-    Ok(())
-}
-
-fn handle_maintenance_content_key(
+fn handle_maintenance_flake_inputs_key(
     terminal: &mut AppTerminal,
     app: &mut App,
     key: KeyEvent,
 ) -> Result<()> {
-    match app.selected_page_action().map(|item| item.kind) {
-        Some(ActionKind::CheckForUpdates) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                if app.selected_update == 0 {
-                    app.focus = FocusZone::Tabs;
-                    app.content_pane = 0;
-                } else {
-                    app.selected_update -= 1;
-                }
+    match key.code {
+        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
+        KeyCode::Up | KeyCode::Char('k') => {
+            if app.selected_update > 0 {
+                app.selected_update -= 1;
             }
-            KeyCode::Down | KeyCode::Char('j') => {
-                app.selected_update = min(app.selected_update + 1, UPDATE_ACTIONS.len() - 1);
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            app.selected_update = min(app.selected_update + 1, UPDATE_ACTIONS.len() - 1);
+        }
+        KeyCode::Enter => activate_selected_update(terminal, app)?,
+        KeyCode::Char(ch) => {
+            if let Some(index) = UPDATE_ACTIONS.iter().position(|item| item.shortcut == ch) {
+                app.selected_update = index;
+                activate_selected_update(terminal, app)?;
             }
-            KeyCode::Enter => activate_selected_update(terminal, app)?,
-            KeyCode::Char(ch) => {
-                if let Some(index) = UPDATE_ACTIONS.iter().position(|item| item.shortcut == ch) {
-                    app.selected_update = index;
-                    activate_selected_update(terminal, app)?;
-                }
-            }
-            _ => {}
-        },
-        Some(ActionKind::ApplyConfiguration) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => run_apply_configuration(terminal, app)?,
-            _ => {}
-        },
-        Some(ActionKind::RollbackGeneration) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => run_rollback_generation(terminal, app)?,
-            _ => {}
-        },
-        Some(ActionKind::RunGarbageCollection) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => run_garbage_collection(terminal, app)?,
-            _ => {}
-        },
-        Some(ActionKind::RebootSystem) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => run_reboot_system(terminal, app)?,
-            _ => {}
-        },
-        Some(ActionKind::ShutdownSystem) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => run_shutdown_system(terminal, app)?,
-            _ => {}
-        },
-        Some(ActionKind::CleanupUnmanagedUsers) => match key.code {
-            KeyCode::Up | KeyCode::Char('k') => {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            }
-            KeyCode::Enter => open_modal(
-                app,
-                InputAction::ConfirmCleanupUnmanagedUsers,
-                "Cleanup unmanaged users",
-                "Type WIPE to remove unmanaged users under /home and delete their home data.",
-                "",
-            ),
-            _ => {}
-        },
+        }
         _ => {}
     }
     Ok(())
 }
 
-fn handle_logs_content_key(app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_logs_view_key(app: &mut App, key: KeyEvent) -> Result<()> {
     let total = app.filtered_logs().len();
     match key.code {
+        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
         KeyCode::Up | KeyCode::Char('k') => {
-            if total == 0 || app.log_scroll >= total.saturating_sub(1) {
-                app.focus = FocusZone::Tabs;
-                app.content_pane = 0;
-            } else {
+            if total > 0 && app.log_scroll < total.saturating_sub(1) {
                 app.log_scroll = min(app.log_scroll + 1, total.saturating_sub(1));
             }
         }
@@ -1583,6 +1425,18 @@ fn handle_modal_key(app: &mut App, key: KeyEvent) -> Result<()> {
             modal.value.clear();
         }
         KeyCode::Char(ch) => modal.value.push(ch),
+        _ => {}
+    }
+    Ok(())
+}
+
+fn handle_quit_confirm_key(app: &mut App, key: KeyEvent) -> Result<()> {
+    match key.code {
+        KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => app.quit_confirm = false,
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            app.quit_confirm = false;
+            app.should_quit = true;
+        }
         _ => {}
     }
     Ok(())
@@ -1665,12 +1519,12 @@ fn run_alert_action(terminal: &mut AppTerminal, app: &mut App, action: AlertComm
         AlertCommand::OpenMaintenance => {
             app.set_page(Page::Maintenance);
             *app.current_selection_mut() = 0;
-            app.focus_content_primary();
+            app.set_focus(Focus::MainActions);
         }
         AlertCommand::CheckForUpdates => {
             app.set_page(Page::Maintenance);
             *app.current_selection_mut() = 0;
-            app.focus_content_primary();
+            app.set_focus(Focus::MaintenanceFlakeInputs);
             app.start_update_check();
         }
         AlertCommand::ApplyConfiguration => {
@@ -1680,7 +1534,7 @@ fn run_alert_action(terminal: &mut AppTerminal, app: &mut App, action: AlertComm
         }
         AlertCommand::OpenLogs => {
             app.set_page(Page::Logs);
-            app.focus_content_primary();
+            app.set_focus(Focus::LogsView);
         }
     }
     Ok(())
@@ -1696,7 +1550,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
         ActionKind::CheckForUpdates => {
             app.set_page(Page::Maintenance);
             *app.current_selection_mut() = 0;
-            app.focus_content_primary();
+            app.set_focus(Focus::MaintenanceFlakeInputs);
             app.start_update_check();
             app.push_log("Opened Flake Inputs update view.");
         }
@@ -1724,7 +1578,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
         ActionKind::ManageSshKeys => {
             app.set_page(Page::Configure);
             *app.current_selection_mut() = 3;
-            app.focus_content_primary();
+            app.set_focus(Focus::ConfigureSshKeys);
         }
         ActionKind::AddSystemPackage => open_modal(
             app,
@@ -1775,7 +1629,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
     Ok(())
 }
 
-fn activate_sidebar_selection(_terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     if let Some(action) = app.selected_page_action() {
         match action.kind {
             ActionKind::RefreshSnapshot => {
@@ -1787,21 +1641,63 @@ fn activate_sidebar_selection(_terminal: &mut AppTerminal, app: &mut App) -> Res
                 app.start_update_check();
                 app.set_page(Page::Maintenance);
                 *app.current_selection_mut() = 0;
-                app.focus_content_primary();
+                app.set_focus(Focus::MaintenanceFlakeInputs);
             }
-            ActionKind::EditHostname => app.focus_content_primary(),
-            ActionKind::EditUsername => app.focus_content_primary(),
-            ActionKind::ToggleExtras => app.focus_content_primary(),
-            ActionKind::ManageSshKeys => app.focus_content_primary(),
-            ActionKind::AddSystemPackage => app.focus_content_primary(),
-            ActionKind::AddUserPackage => app.focus_content_primary(),
-            ActionKind::AddService => app.focus_content_primary(),
-            ActionKind::ApplyConfiguration => app.focus_content_primary(),
-            ActionKind::RollbackGeneration => app.focus_content_primary(),
-            ActionKind::RunGarbageCollection => app.focus_content_primary(),
-            ActionKind::RebootSystem => app.focus_content_primary(),
-            ActionKind::ShutdownSystem => app.focus_content_primary(),
-            ActionKind::CleanupUnmanagedUsers => app.focus_content_primary(),
+            ActionKind::EditHostname => {
+                let current = app.snapshot.hostname.clone();
+                open_modal(
+                    app,
+                    InputAction::SetHostname,
+                    "Edit hostname",
+                    "Press Enter to write and commit the new hostname.",
+                    current.as_str(),
+                );
+            }
+            ActionKind::EditUsername => {
+                let current = app.snapshot.username.clone();
+                open_modal(
+                    app,
+                    InputAction::SetUsername,
+                    "Edit username",
+                    "Press Enter to write and commit the new username.",
+                    current.as_str(),
+                );
+            }
+            ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+            ActionKind::ManageSshKeys => app.set_focus(Focus::ConfigureSshKeys),
+            ActionKind::AddSystemPackage => open_modal(
+                app,
+                InputAction::AddSystemPackage,
+                "Add system package",
+                "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
+                "",
+            ),
+            ActionKind::AddUserPackage => open_modal(
+                app,
+                InputAction::AddUserPackage,
+                "Add user package",
+                "Enter a nixpkgs attribute path for the user package list.",
+                "",
+            ),
+            ActionKind::AddService => open_modal(
+                app,
+                InputAction::AddService,
+                "Add service",
+                "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
+                "",
+            ),
+            ActionKind::ApplyConfiguration => run_apply_configuration(terminal, app)?,
+            ActionKind::RollbackGeneration => run_rollback_generation(terminal, app)?,
+            ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
+            ActionKind::RebootSystem => run_reboot_system(terminal, app)?,
+            ActionKind::ShutdownSystem => run_shutdown_system(terminal, app)?,
+            ActionKind::CleanupUnmanagedUsers => open_modal(
+                app,
+                InputAction::ConfirmCleanupUnmanagedUsers,
+                "Cleanup unmanaged users",
+                "Type WIPE to remove unmanaged users under /home and delete their home data.",
+                "",
+            ),
             ActionKind::FilterLogs => {
                 let current = app.log_filter.clone();
                 open_modal(
@@ -1831,7 +1727,6 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty hostname.");
             } else {
                 run_action_capture(app, &["set-hostname", value.as_str()])?;
-                app.set_page(Page::Configure);
             }
         }
         InputAction::SetUsername => {
@@ -1839,7 +1734,6 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty username.");
             } else {
                 run_action_capture(app, &["set-username", value.as_str()])?;
-                app.set_page(Page::Configure);
             }
         }
         InputAction::SetPrimaryKey => {
@@ -1849,6 +1743,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 run_action_capture(app, &["set-ssh-key", value.as_str()])?;
                 app.set_page(Page::Configure);
                 *app.current_selection_mut() = 3;
+                app.set_focus(Focus::ConfigureSshKeys);
             }
         }
         InputAction::AddKey => {
@@ -1858,6 +1753,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 run_action_capture(app, &["add-ssh-key", value.as_str()])?;
                 app.set_page(Page::Configure);
                 *app.current_selection_mut() = 3;
+                app.set_focus(Focus::ConfigureSshKeys);
             }
         }
         InputAction::AddSystemPackage => {
@@ -1900,7 +1796,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
             app.log_filter = value;
             app.log_scroll = 0;
             app.set_page(Page::Logs);
-            app.focus_content_primary();
+            app.set_focus(Focus::LogsView);
             if app.log_filter.is_empty() {
                 app.push_log("Cleared log filter.");
             } else {
@@ -2258,6 +2154,9 @@ fn render(frame: &mut Frame, app: &App) {
         if app.help_open {
             render_help_modal(frame, outer, app);
         }
+        if app.quit_confirm {
+            render_quit_confirm(frame, outer);
+        }
         return;
     }
 
@@ -2312,6 +2211,9 @@ fn render(frame: &mut Frame, app: &App) {
     if app.help_open {
         render_help_modal(frame, outer, app);
     }
+    if app.quit_confirm {
+        render_quit_confirm(frame, outer);
+    }
 }
 
 fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
@@ -2336,7 +2238,7 @@ fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(""),
         Line::from("Increase terminal size for the full multi-pane console."),
-        Line::from("Tab changes focus, : opens the command palette, q opens a shell."),
+        Line::from("Esc unwinds to the main menu. Esc on the main menu prompts to quit."),
     ];
 
     let paragraph = Paragraph::new(text)
@@ -2431,7 +2333,7 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         area,
         "Navigation",
-        app.focus == FocusZone::Tabs,
+        app.focus_is(Focus::TopNav),
         PanelTone::Neutral,
     );
 
@@ -2460,7 +2362,7 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
 
     spans.push(Span::raw("   "));
     spans.push(Span::styled(
-        "Tab focus  arrows navigate panes  [ ] pages  : palette  ? help  q shell",
+        "Left/Right or h/l pages  Down or j enters actions  Esc returns  [ ] pages",
         Style::default().fg(COLOR_MUTED),
     ));
 
@@ -2475,7 +2377,7 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         area,
         format!("{} Actions", app.page_title()),
-        app.focus == FocusZone::Sidebar,
+        app.focus_is(Focus::MainActions),
         PanelTone::Neutral,
     );
 
@@ -2562,7 +2464,7 @@ fn render_page(frame: &mut Frame, area: Rect, app: &App) {
                     .to_string(),
                 "Press Enter, q, or 9 to open the shell.".to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Info,
         );
         return;
@@ -2694,7 +2596,7 @@ fn render_alerts(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         area,
         "Alerts",
-        app.content_primary_focused() && app.page == Page::Dashboard,
+        app.focus_is(Focus::DashboardAlerts),
         PanelTone::Warning,
     );
 
@@ -2747,7 +2649,7 @@ fn render_recent_activity(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         area,
         "Recent Activity",
-        app.content_secondary_focused() && app.page == Page::Dashboard,
+        false,
         PanelTone::Neutral,
     );
     let lines: Vec<Line> = app
@@ -2776,7 +2678,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
                 "Press Enter to open an edit modal and commit the new hostname.".to_string(),
                 "The change is written into config/menu.nix immediately.".to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Info,
         ),
         ActionKind::EditUsername => render_simple_detail(
@@ -2788,7 +2690,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
                 "Press Enter to open an edit modal and commit the new username.".to_string(),
                 "The change is written into config/menu.nix immediately.".to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Info,
         ),
         ActionKind::ToggleExtras => render_simple_detail(
@@ -2802,7 +2704,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
                 ),
                 "Press Enter to toggle the extras feature set and commit the override.".to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Info,
         ),
         _ => {}
@@ -2819,7 +2721,7 @@ fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         split[0],
         "SSH Keys",
-        app.content_primary_focused(),
+        app.focus_is(Focus::ConfigureSshKeys),
         PanelTone::Info,
     );
 
@@ -2853,7 +2755,7 @@ fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         split[1],
         "Shortcuts",
-        app.content_secondary_focused(),
+        false,
         PanelTone::Neutral,
     );
     let help = Paragraph::new(vec![
@@ -2881,8 +2783,8 @@ fn render_software(frame: &mut Frame, area: Rect, app: &App) {
             "System Packages",
             &app.snapshot.system_packages,
             "Press Enter to add a new nixpkgs attribute path to the system package list.",
-            app.content_primary_focused(),
-            app.content_secondary_focused(),
+            false,
+            false,
         ),
         ActionKind::AddUserPackage => render_item_list_page(
             frame,
@@ -2890,8 +2792,8 @@ fn render_software(frame: &mut Frame, area: Rect, app: &App) {
             "User Packages",
             &app.snapshot.user_packages,
             "Press Enter to add a new nixpkgs attribute path to the user package list.",
-            app.content_primary_focused(),
-            app.content_secondary_focused(),
+            false,
+            false,
         ),
         ActionKind::AddService => render_item_list_page(
             frame,
@@ -2899,8 +2801,8 @@ fn render_software(frame: &mut Frame, area: Rect, app: &App) {
             "Services",
             &app.snapshot.services,
             "Press Enter to enable a service by dotted NixOS option path.",
-            app.content_primary_focused(),
-            app.content_secondary_focused(),
+            false,
+            false,
         ),
         _ => {}
     }
@@ -2923,7 +2825,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "The console refreshes state and alerts after the interactive command exits."
                     .to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Info,
         ),
         ActionKind::RollbackGeneration => render_simple_detail(
@@ -2935,7 +2837,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "Use this after a bad switch when the previous generation should be restored."
                     .to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Danger,
         ),
         ActionKind::RunGarbageCollection => render_simple_detail(
@@ -2947,7 +2849,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "This is a destructive cleanup operation and uses wrapper sudo on NixOS."
                     .to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Danger,
         ),
         ActionKind::RebootSystem => render_simple_detail(
@@ -2959,7 +2861,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "This uses wrapper sudo and asks systemd to perform a clean reboot."
                     .to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Danger,
         ),
         ActionKind::ShutdownSystem => render_simple_detail(
@@ -2971,7 +2873,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "This uses wrapper sudo and asks systemd to perform a clean shutdown."
                     .to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Danger,
         ),
         ActionKind::CleanupUnmanagedUsers => render_simple_detail(
@@ -2985,7 +2887,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
                 "The cleanup also deletes their home directories and orphaned /home entries."
                     .to_string(),
             ],
-            app.content_primary_focused(),
+            false,
             PanelTone::Danger,
         ),
         _ => {}
@@ -3007,7 +2909,7 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         split[0],
         "Flake Inputs",
-        app.content_primary_focused(),
+        app.focus_is(Focus::MaintenanceFlakeInputs),
         PanelTone::Warning,
     );
 
@@ -3037,7 +2939,7 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         split[2],
         "Update Details",
-        app.content_secondary_focused(),
+        false,
         PanelTone::Neutral,
     );
     let update = &UPDATE_ACTIONS[app.selected_update];
@@ -3107,7 +3009,7 @@ fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
         frame,
         rows[1],
         "Logs",
-        app.content_primary_focused(),
+        app.focus_is(Focus::LogsView),
         PanelTone::Info,
     );
     if filtered_logs.is_empty() {
@@ -3139,14 +3041,20 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled("Tab ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("focus", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
-            Span::styled("Arrows ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("move panes / lists", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Up/Down ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("or j/k move within the focused list", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("Left/Right ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("or h/l handle page and parent/child navigation", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("[ ] ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("pages", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("run / open", Style::default().fg(COLOR_MUTED)),
+            Span::raw("   "),
+            Span::styled("Esc ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("back / quit prompt", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled(": ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("palette", Style::default().fg(COLOR_MUTED)),
@@ -3226,6 +3134,20 @@ fn render_input_modal(frame: &mut Frame, area: Rect, modal: &InputModal) {
     frame.render_widget(paragraph, inner);
 }
 
+fn render_quit_confirm(frame: &mut Frame, area: Rect) {
+    let popup = centered_rect(44, 24, area);
+    frame.render_widget(Clear, popup);
+    let inner = draw_panel(frame, popup, "Exit Console?", true, PanelTone::Danger);
+    let paragraph = Paragraph::new(vec![
+        Line::from("Close the TUI and return to the shell?"),
+        Line::from(""),
+        Line::from("Press Y to exit."),
+        Line::from("Press N or Esc to stay in the console."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(paragraph, inner);
+}
+
 fn render_command_palette(frame: &mut Frame, area: Rect, app: &App) {
     let popup = centered_rect(74, 62, area);
     frame.render_widget(Clear, popup);
@@ -3300,17 +3222,19 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, popup, "Help", true, PanelTone::Info);
     let help = Paragraph::new(vec![
         Line::from("Global navigation"),
-        Line::from("  Tab / Shift-Tab move focus between tabs, actions, and page content."),
-        Line::from("  Left/Right switch pages when tabs are focused. [ and ] always switch pages."),
-        Line::from("  Arrow keys move between panes and through list content. Up at the top of a list returns to tabs."),
-        Line::from("  ? opens this help modal. q or 9 drops into the shell."),
+        Line::from("  Up/Down or j/k move inside the focused list or menu."),
+        Line::from("  Left/Right or h/l switch pages at the top nav, or move between an action pane and its child pane."),
+        Line::from("  Enter only runs, confirms, or opens the selected item."),
+        Line::from("  Esc unwinds back to the main actions pane. Esc on the main actions pane opens a Y/N quit prompt."),
+        Line::from("  Tab / Shift-Tab still provide an optional deterministic focus cycle. [ and ] still switch pages."),
+        Line::from("  ? opens this help modal. q or 9 exec the configured login shell."),
         Line::from(""),
         Line::from("Page model"),
-        Line::from("  Dashboard: summary, alerts, recent activity."),
-        Line::from("  Configure: hostname, username, extras, SSH keys."),
-        Line::from("  Software: system packages, user packages, services."),
-        Line::from("  Maintenance: Flake Inputs, apply, rollback, garbage collection, reboot, shutdown, cleanup."),
-        Line::from("  Logs: scrollable and filterable Recent Activity view."),
+        Line::from("  Dashboard: Main Actions -> Alerts."),
+        Line::from("  Configure: Main Actions -> SSH Keys only for the SSH Keys action."),
+        Line::from("  Software: Main Actions only; package/service details are read-only."),
+        Line::from("  Maintenance: Main Actions -> Flake Inputs only for Check for Updates."),
+        Line::from("  Logs: Main Actions -> Logs."),
         Line::from(""),
         Line::from("Current page"),
         Line::from(format!("  {}", app.page_title())),
@@ -3330,11 +3254,14 @@ fn key_value_line(label: &str, value: &str, color: Color) -> Line<'static> {
     ])
 }
 
-fn focus_label(focus: FocusZone) -> &'static str {
+fn focus_label(focus: Focus) -> &'static str {
     match focus {
-        FocusZone::Tabs => "Tabs",
-        FocusZone::Sidebar => "Actions",
-        FocusZone::Content => "Content",
+        Focus::TopNav => "Top Nav",
+        Focus::MainActions => "Main Actions",
+        Focus::DashboardAlerts => "Alerts",
+        Focus::ConfigureSshKeys => "SSH Keys",
+        Focus::MaintenanceFlakeInputs => "Flake Inputs",
+        Focus::LogsView => "Logs",
     }
 }
 
