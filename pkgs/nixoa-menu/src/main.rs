@@ -1248,6 +1248,9 @@ fn handle_main_actions_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEv
     }
 
     match key.code {
+        KeyCode::Left | KeyCode::Char('h') => {
+            app.focus = Focus::TopNav;
+        }
         KeyCode::Up | KeyCode::Char('k') => {
             if !app.move_sidebar_up() {
                 app.focus = Focus::TopNav;
@@ -2332,7 +2335,7 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(
         frame,
         area,
-        "Navigation",
+        "Main Menu",
         app.focus_is(Focus::TopNav),
         PanelTone::Neutral,
     );
@@ -2362,7 +2365,7 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
 
     spans.push(Span::raw("   "));
     spans.push(Span::styled(
-        "Left/Right or h/l pages  Down or j enters actions  Esc returns  [ ] pages",
+        "Left/Right or h/l pages  Down or j enters actions  Left from actions returns here",
         Style::default().fg(COLOR_MUTED),
     ));
 
@@ -2895,13 +2898,21 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
-    let input_width = if area.width >= 72 { 24 } else { 20 };
+    let min_detail_width = if area.width >= 80 { 26 } else { 22 };
+    let preferred_input_width = if area.width >= 96 { 39 } else { 35 };
+    let input_width = max(
+        24,
+        min(
+            preferred_input_width,
+            area.width.saturating_sub(min_detail_width + 1),
+        ),
+    );
     let split = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Length(input_width),
             Constraint::Length(1),
-            Constraint::Min(40),
+            Constraint::Min(min_detail_width),
         ])
         .split(area);
 
@@ -3223,7 +3234,7 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     let help = Paragraph::new(vec![
         Line::from("Global navigation"),
         Line::from("  Up/Down or j/k move inside the focused list or menu."),
-        Line::from("  Left/Right or h/l switch pages at the top nav, or move between an action pane and its child pane."),
+        Line::from("  Left/Right or h/l switch pages in the main menu, or move between an action pane and its child pane."),
         Line::from("  Enter only runs, confirms, or opens the selected item."),
         Line::from("  Esc unwinds back to the main actions pane. Esc on the main actions pane opens a Y/N quit prompt."),
         Line::from("  Tab / Shift-Tab still provide an optional deterministic focus cycle. [ and ] still switch pages."),
