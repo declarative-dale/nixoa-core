@@ -2279,21 +2279,21 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
-            " _   _ i __   ___    _  ",
+            " _  _ ___  _____   _   ",
             Style::default()
                 .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            "| \\ | |/ /  / _ \\  / \\ ",
+            " | \\| (_) \\/ / _ \\ /_\\  ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|  \\| / /  | | | |/ _ \\",
+            " | .` | |>  < (_) / _ \\ ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|_|\\_/_/   \\___/_/ \\_\\",
+            " |_|\\_|_/_/\\_\\___/_/ \\_\\",
             Style::default().fg(COLOR_FG_MAIN),
         )),
     ]);
