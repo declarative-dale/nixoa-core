@@ -2274,7 +2274,7 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "NiXOA", false, PanelTone::Info);
     let sections = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(31), Constraint::Min(24)])
+        .constraints([Constraint::Length(38), Constraint::Min(24)])
         .split(inner);
 
     let ascii = Paragraph::new(vec![
