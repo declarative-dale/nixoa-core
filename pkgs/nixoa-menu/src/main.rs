@@ -32,10 +32,9 @@ type AppTerminal = Terminal<Backend>;
 
 const UPDATE_TIMEOUT_SECS: u64 = 120;
 const MAX_LOG_ENTRIES: usize = 160;
-const DASHBOARD_LOG_LINES: usize = 5;
-
 const COLOR_BG_OUTER: Color = Color::Rgb(0x1C, 0x1B, 0x34);
 const COLOR_BG_INNER: Color = Color::Rgb(0x1A, 0x1A, 0x22);
+const COLOR_BG_FOCUSED: Color = Color::Rgb(0x22, 0x21, 0x3A);
 const COLOR_FG_MAIN: Color = Color::Rgb(0xF7, 0xF7, 0xF9);
 const COLOR_ACCENT: Color = Color::Rgb(0x87, 0x7C, 0xFC);
 const COLOR_ACCENT_SOFT: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
@@ -47,6 +46,8 @@ const COLOR_BORDER_MID: Color = Color::Rgb(0x73, 0x73, 0x7A);
 const COLOR_WARNING: Color = Color::Rgb(0xC1, 0xC1, 0xC7);
 const COLOR_SUCCESS: Color = Color::Rgb(0x87, 0x7C, 0xFC);
 const COLOR_INFO: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
+const PANEL_LABEL_WIDTH: usize = 18;
+const HEADER_LABEL_WIDTH: usize = 8;
 
 #[derive(Clone, Debug)]
 struct ActionItem {
@@ -913,12 +914,6 @@ impl App {
                 .cloned()
                 .collect()
         }
-    }
-
-    fn recent_logs(&self) -> Vec<String> {
-        let mut logs = self.filtered_logs();
-        logs.truncate(DASHBOARD_LOG_LINES);
-        logs
     }
 
     fn palette_entries(&self) -> Vec<PaletteEntry> {
@@ -2096,6 +2091,7 @@ fn panel_color(tone: PanelTone, focused: bool) -> Color {
 }
 
 fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Block<'static> {
+    let title = title.into();
     let title_style = if focused {
         Style::default()
             .fg(panel_color(tone, focused))
@@ -2107,9 +2103,12 @@ fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Bloc
     };
 
     Block::default()
-        .title(
-            Line::from(format!(" {} ", title.into())).style(title_style),
-        )
+        .title(Line::from(if focused {
+            format!(" ● {title} ")
+        } else {
+            format!(" {title} ")
+        })
+        .style(title_style))
         .borders(Borders::ALL)
         .border_set(border::ROUNDED)
         .border_style(
@@ -2122,7 +2121,11 @@ fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Bloc
                 }),
         )
         .border_type(BorderType::Rounded)
-        .style(Style::default().bg(COLOR_BG_INNER))
+        .style(Style::default().bg(if focused {
+            COLOR_BG_FOCUSED
+        } else {
+            COLOR_BG_INNER
+        }))
 }
 
 fn action_row_width(actions: &[ActionItem]) -> u16 {
@@ -2271,26 +2274,26 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "NiXOA", false, PanelTone::Info);
     let sections = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(28), Constraint::Min(20)])
+        .constraints([Constraint::Length(26), Constraint::Min(24)])
         .split(inner);
 
     let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
-            " _   _ ___ __  __  ",
+            " _   _ _  __   ___    _ ",
             Style::default()
                 .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            "| \\ | |_ _|  \\/  | ",
+            "| \\ | | |/ /  / _ \\  / \\",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|  \\| || || |\\/| | ",
+            "|  \\| | ' /  | | | |/ _ \\",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|_|\\_|___|_|  |_| ",
+            "|_|\\__|_|\\_\\  \\___/_/ \\_\\  NiXOA",
             Style::default().fg(COLOR_FG_MAIN),
         )),
     ]);
@@ -2302,40 +2305,42 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
         .clone()
         .unwrap_or_else(|| "no upstream".to_string());
 
-    let summary = Paragraph::new(vec![
-        Line::from(vec![
-            Span::styled("Host ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
-                Style::default().fg(COLOR_ACCENT),
+    let meta_rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(2), Constraint::Length(1), Constraint::Min(0)])
+        .split(sections[1]);
+    let meta_columns = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(meta_rows[0]);
+
+    frame.render_widget(
+        Paragraph::new(vec![
+            header_key_value_line(
+                "Host",
+                &format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
+                COLOR_ACCENT,
             ),
-            Span::styled("  Branch ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
-                Style::default().fg(COLOR_FG_MAIN),
+            header_key_value_line("Page", app.page_title(), COLOR_FG_MAIN),
+        ]),
+        meta_columns[0],
+    );
+    frame.render_widget(
+        Paragraph::new(vec![
+            header_key_value_line(
+                "Branch",
+                &format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
+                COLOR_FG_MAIN,
             ),
+            header_key_value_line("Focus", focus_label(app.focus), COLOR_ACCENT),
         ]),
-        Line::from(vec![
-            Span::styled("Page ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(app.page_title(), Style::default().fg(COLOR_FG_MAIN)),
-            Span::styled("  Focus ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(focus_label(app.focus), Style::default().fg(COLOR_ACCENT)),
-        ]),
-        Line::from(vec![
-            Span::styled("Upstream ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(upstream, Style::default().fg(COLOR_INFO)),
-            Span::styled("  Last ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(
-                app.logs
-                    .last()
-                    .cloned()
-                    .unwrap_or_else(|| "NiXOA console ready.".to_string()),
-                Style::default().fg(COLOR_MUTED),
-            ),
-        ]),
-    ])
-    .wrap(Wrap { trim: true });
-    frame.render_widget(summary, sections[1]);
+        meta_columns[1],
+    );
+    frame.render_widget(
+        Paragraph::new(vec![header_key_value_line("Upstream", &upstream, COLOR_INFO)])
+            .wrap(Wrap { trim: true }),
+        meta_rows[1],
+    );
 }
 
 fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
@@ -2377,20 +2382,29 @@ fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(
+    let actions = app.current_page_actions();
+    let visible_items = actions.len() as u16 + 2;
+    let selection_height = if app.page == Page::Dashboard { 7 } else { 6 };
+    let action_height = visible_items
+        .saturating_add(2)
+        .max(5)
+        .min(area.height.saturating_sub(selection_height).max(5));
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(action_height),
+            Constraint::Length(selection_height),
+            Constraint::Min(0),
+        ])
+        .split(area);
+
+    let list_inner = draw_panel(
         frame,
-        area,
+        sections[0],
         format!("{} Actions", app.page_title()),
         app.focus_is(Focus::MainActions),
         PanelTone::Neutral,
     );
-
-    let sections = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(8), Constraint::Length(6)])
-        .split(inner);
-
-    let actions = app.current_page_actions();
     let mut items: Vec<ListItem> = actions
         .iter()
         .enumerate()
@@ -2435,9 +2449,10 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
             .fg(COLOR_FG_MAIN)
             .add_modifier(Modifier::BOLD),
     );
-    frame.render_stateful_widget(list, sections[0], &mut state);
+    frame.render_stateful_widget(list, list_inner, &mut state);
 
     let detail_inner = draw_panel(frame, sections[1], "Selection", false, PanelTone::Neutral);
+    let detail_width = detail_inner.width.saturating_sub(1) as usize;
     let detail = Paragraph::new(vec![
         Line::from(Span::styled(
             app.selected_sidebar_title(),
@@ -2446,13 +2461,18 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            app.selected_sidebar_detail(),
+            truncate_end(app.selected_sidebar_detail(), detail_width.saturating_mul(2)),
             Style::default().fg(COLOR_MUTED),
         )),
-        Line::from(Span::styled(
-            "Enter runs or opens. Left returns to Main Menu.",
-            Style::default().fg(COLOR_MUTED_2),
-        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("run or open", Style::default().fg(COLOR_MUTED_2)),
+        ]),
+        Line::from(vec![
+            Span::styled("Left ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("return to Main Menu", Style::default().fg(COLOR_MUTED_2)),
+        ]),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(detail, detail_inner);
@@ -2486,36 +2506,27 @@ fn render_page(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
-    let rows = if area.height >= 22 {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(11), Constraint::Min(8)])
-            .split(area)
-    } else {
-        Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([Constraint::Length(11), Constraint::Min(4)])
-            .split(area)
-    };
+    let alert_count = app.alerts().len() as u16;
+    let alert_height = (alert_count.saturating_add(3)).clamp(4, 7);
+    let top_height = if area.height >= 20 { 10 } else { 9 };
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(top_height),
+            Constraint::Length(alert_height),
+            Constraint::Min(6),
+        ])
+        .split(area);
 
     let top = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(58), Constraint::Percentage(42)])
+        .constraints([Constraint::Percentage(57), Constraint::Percentage(43)])
         .split(rows[0]);
 
     render_system_summary(frame, top[0], app);
     render_repository_status(frame, top[1], app);
-
-    if area.height >= 26 {
-        let bottom = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
-            .split(rows[1]);
-        render_alerts(frame, bottom[0], app);
-        render_recent_activity(frame, bottom[1], app);
-    } else {
-        render_alerts(frame, rows[1], app);
-    }
+    render_alerts(frame, rows[1], app);
+    render_recent_activity(frame, rows[2], app);
 }
 
 fn render_system_summary(frame: &mut Frame, area: Rect, app: &App) {
@@ -2581,17 +2592,17 @@ fn render_repository_status(frame: &mut Frame, area: Rect, app: &App) {
         key_value_line("Apply Status", &apply_text, apply_color),
         key_value_line("Upstream", &upstream_text, upstream_color),
         key_value_line("Flake Inputs", &inputs_text, inputs_color),
+        key_value_line("SSH Keys", &app.snapshot.ssh_keys.len().to_string(), COLOR_FG_MAIN),
         key_value_line(
-            "Managed items",
+            "Packages",
             &format!(
-                "{} keys / {} system / {} user / {} services",
-                app.snapshot.ssh_keys.len(),
+                "{} system / {} user",
                 app.snapshot.system_packages.len(),
-                app.snapshot.user_packages.len(),
-                app.snapshot.services.len()
+                app.snapshot.user_packages.len()
             ),
             COLOR_FG_MAIN,
         ),
+        key_value_line("Services", &app.snapshot.services.len().to_string(), COLOR_FG_MAIN),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(content, inner);
@@ -2658,12 +2669,15 @@ fn render_recent_activity(frame: &mut Frame, area: Rect, app: &App) {
         false,
         PanelTone::Neutral,
     );
+    let max_width = inner.width.saturating_sub(1) as usize;
+    let max_lines = max(inner.height as usize, 1);
     let lines: Vec<Line> = app
-        .recent_logs()
+        .filtered_logs()
         .into_iter()
-        .map(Line::from)
+        .take(max_lines)
+        .map(|line| Line::from(truncate_end(&line, max_width)))
         .collect();
-    let paragraph = Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false });
+    let paragraph = Paragraph::new(Text::from(lines));
     frame.render_widget(paragraph, inner);
 }
 
@@ -3035,6 +3049,7 @@ fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
 
 fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "Shortcuts", false, PanelTone::Neutral);
+    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
     let footer = Paragraph::new(vec![
         Line::from(vec![
             Span::styled("Arrows/hjkl ", Style::default().fg(COLOR_ACCENT)),
@@ -3056,6 +3071,9 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled("help", Style::default().fg(COLOR_MUTED)),
         ]),
         Line::from(vec![
+            Span::styled("Inputs: ", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled(inputs_text, Style::default().fg(inputs_color)),
+            Span::raw("   "),
             Span::styled("Last apply: ", Style::default().fg(COLOR_MUTED_2)),
             Span::styled(last_apply_label(&app.snapshot), Style::default().fg(COLOR_MUTED)),
         ]),
@@ -3319,11 +3337,28 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(help, inner);
 }
 
-fn key_value_line(label: &str, value: &str, color: Color) -> Line<'static> {
+fn aligned_key_value_line(
+    label: &str,
+    value: &str,
+    color: Color,
+    label_width: usize,
+) -> Line<'static> {
     Line::from(vec![
-        Span::styled(format!("{label:<16}"), Style::default().fg(COLOR_MUTED_2)),
+        Span::styled(
+            format!("{label:<label_width$}"),
+            Style::default().fg(COLOR_MUTED_2),
+        ),
+        Span::raw("  "),
         Span::styled(value.to_string(), Style::default().fg(color)),
     ])
+}
+
+fn key_value_line(label: &str, value: &str, color: Color) -> Line<'static> {
+    aligned_key_value_line(label, value, color, PANEL_LABEL_WIDTH)
+}
+
+fn header_key_value_line(label: &str, value: &str, color: Color) -> Line<'static> {
+    aligned_key_value_line(label, value, color, HEADER_LABEL_WIDTH)
 }
 
 fn focus_label(focus: Focus) -> &'static str {
@@ -3475,6 +3510,19 @@ fn truncate_middle(value: &str, max_width: usize) -> String {
         .rev()
         .collect();
     format!("{start}...{end}")
+}
+
+fn truncate_end(value: &str, max_width: usize) -> String {
+    if value.chars().count() <= max_width {
+        return value.to_string();
+    }
+
+    if max_width <= 3 {
+        return ".".repeat(max_width);
+    }
+
+    let visible: String = value.chars().take(max_width - 3).collect();
+    format!("{visible}...")
 }
 
 fn open_shell() -> ! {
