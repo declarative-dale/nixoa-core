@@ -2274,26 +2274,26 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "NiXOA", false, PanelTone::Info);
     let sections = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(26), Constraint::Min(24)])
+        .constraints([Constraint::Length(31), Constraint::Min(24)])
         .split(inner);
 
     let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
-            " _   _ _  __   ___    _ ",
+            " _   _ i __   ___    _  ",
             Style::default()
                 .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            "| \\ | | |/ /  / _ \\  / \\",
+            "| \\ | |/ /  / _ \\  / \\ ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|  \\| | ' /  | | | |/ _ \\",
+            "|  \\| / /  | | | |/ _ \\",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            "|_|\\__|_|\\_\\  \\___/_/ \\_\\  NiXOA",
+            "|_|\\_/_/   \\___/_/ \\_\\",
             Style::default().fg(COLOR_FG_MAIN),
         )),
     ]);
