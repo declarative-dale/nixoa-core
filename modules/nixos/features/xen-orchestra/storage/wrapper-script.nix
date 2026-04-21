@@ -3,12 +3,12 @@
 {
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 
   sudoWrapper = pkgs.runCommand "xo-sudo-wrapper" { } ''
         mkdir -p $out/bin

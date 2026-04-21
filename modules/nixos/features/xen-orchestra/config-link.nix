@@ -2,16 +2,16 @@
 # XO Server configuration - links config.nixoa.toml from system flake
 {
   lib,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf;
 in
 {
-  config = mkIf (vars.enableXO && vars.xoConfigFile != null) {
+  config = mkIf (context.enableXO && context.xoConfigFile != null) {
     environment.etc."xo-server/config.nixoa.toml" = {
-      source = vars.xoConfigFile;
+      source = context.xoConfigFile;
       mode = "0644";
     };
   };

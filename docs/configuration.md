@@ -1,7 +1,7 @@
 # Configuration Reference (Core)
 
 Core does not store host policy. It consumes values provided by the downstream
-host flake through `vars`.
+host flake through `context`.
 
 ## Expected Host Configuration Shape
 
@@ -15,7 +15,10 @@ Core is designed around the current `system/` layout:
 - `config/storage.nix`
 - optional `config/overrides.nix`
 
-## Key Vars Consumed By Core
+These fragments are merged by `system/config/context.nix` and passed through the
+host evaluation as `context`.
+
+## Key Context Values Consumed By Core
 
 - `enableXO`
 - `enableXenGuest`
@@ -29,4 +32,4 @@ Core is designed around the current `system/` layout:
 - `mountsDir`
 
 XO service identity now defaults inside core through `nixoa.xo.user` and
-`nixoa.xo.group`, rather than being configured through downstream `vars`.
+`nixoa.xo.group`, rather than being configured through downstream `context`.

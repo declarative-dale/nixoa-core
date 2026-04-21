@@ -1,38 +1,45 @@
 # NiXOA Core
 
-NiXOA core is the **immutable appliance library** for NiXOA. It exports curated
-NixOS module stacks, overlays, and packages for Xen Orchestra CE hosts while
-leaving host policy to the separate `system/` flake.
+NiXOA core is the **immutable Den-native aspect library** for NiXOA. It exports
+a reusable `nixoa` namespace through `flake.denful` and keeps host-specific
+policy in the separate `system/` flake.
 
 Current release series: `v3.1.0`
 
 ## What Core Provides
 
-- `nixosModules.platform`
-- `nixosModules.virtualization`
-- `nixosModules.xenOrchestra`
-- `nixosModules.appliance`
-- `overlays.nixoa`
-- `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,metadata}`
+- `denful.nixoa.platform`
+- `denful.nixoa.virtualization`
+- `denful.nixoa.xen-orchestra`
+- `denful.nixoa.appliance`
+- `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,nixoa-menu,metadata}`
 
 ## Recommended Use
 
 Use `system/` for real hosts. Import `core` directly only when you want the
-appliance stacks without the NiXOA host workflow.
+NiXOA aspects without the host-local workflow layered on top.
 
 ```nix
 {
+  inputs.den.url = "github:vic/den";
   inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 
-  outputs = { nixoaCore, nixpkgs, ... }: {
-    nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
+  outputs = inputs:
+    (inputs.nixpkgs.lib.evalModules {
       modules = [
-        nixoaCore.nixosModules.platform
-        nixoaCore.nixosModules.virtualization
-        nixoaCore.nixosModules.xenOrchestra
+        ({ den, ... }: {
+          imports = [
+            inputs.den.flakeModules.dendritic
+            (inputs.den.namespace "nixoa" [ inputs.nixoaCore ])
+          ];
+
+          _module.args.__findFile = den.lib.__findFile;
+
+          den.hosts.x86_64-linux.my-host = { };
+          den.aspects.my-host.includes = [ <nixoa/appliance> ];
+        })
       ];
-    };
-  };
+    }).config.flake;
 }
 ```
 
@@ -41,8 +48,11 @@ appliance stacks without the NiXOA host workflow.
 ```text
 core/
 ├── modules/
-│   ├── outputs/        # public flake surface
-│   └── nixos/          # plain implementation modules
+│   ├── dendritic.nix   # installs Den's dendritic flake module
+│   ├── namespace.nix   # creates and exports the `nixoa` namespace
+│   ├── aspects/        # exported NiXOA aspect trees
+│   ├── outputs/        # supporting package outputs
+│   └── nixos/          # plain implementation modules behind aspects
 ├── lib/                # shared helpers
 ├── docs/               # consumer-facing docs
 ├── scripts/            # XO maintenance helpers
@@ -51,8 +61,7 @@ core/
 
 ## Notes
 
-- `nixosModules.appliance` remains the default full stack.
 - Host bootstrap and install workflow belong in `system/`, not in `core`.
 - XO service identity defaults live in core as `nixoa.xo.user` and `nixoa.xo.group`.
-- `denful` is intentionally not exported here; curated flake outputs are the public interface.
+- `flake.denful.nixoa` is the primary public interface.
 - `system/` is the recommended entrypoint for actual NiXOA hosts.

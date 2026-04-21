@@ -2,8 +2,8 @@
 # Safe nested attribute access
 { lib, ... }:
 {
-  # Usage: getOption vars ["xo" "port"] 80
-  # Returns: vars.xo.port or 80 if not found
+  # Usage: getOption context ["xo" "port"] 80
+  # Returns: context.xo.port or 80 if not found
   getOption =
     settings: path: default:
     let

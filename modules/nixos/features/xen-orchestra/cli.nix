@@ -3,7 +3,7 @@
 {
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
@@ -55,7 +55,7 @@ let
   };
 in
 {
-  config = mkIf vars.enableXO {
+  config = mkIf context.enableXO {
     environment.systemPackages = [
       nixoa-cli
       nixoa-completion

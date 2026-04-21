@@ -1,53 +1,59 @@
 # Core Architecture
 
-NiXOA core is a reusable appliance library. It keeps plain NixOS feature
-modules under `modules/nixos/` and publishes only a small curated output
-surface from `modules/outputs/`.
+NiXOA core is a reusable Den namespace. It keeps plain NixOS implementation
+modules under `modules/nixos/features/`, then exports those capabilities as a
+NiXOA aspect tree under `flake.denful.nixoa`.
 
 ## Repository Shape
 
 ```text
 modules/
 ├── dendritic.nix
+├── namespace.nix
+├── aspects/
+│   ├── platform.nix
+│   ├── virtualization.nix
+│   ├── xen-orchestra.nix
+│   └── appliance.nix
 ├── outputs/
-│   ├── stacks.nix
-│   ├── overlays.nix
 │   └── packages.nix
-└── nixos/
-    └── features/
-        ├── shared/
-        ├── platform/
-        ├── virtualization/
-        └── xen-orchestra/
+└── nixos/features/
+    ├── shared/
+    ├── platform/
+    ├── virtualization/
+    └── xen-orchestra/
 ```
 
-## Curated Exports
+## Exported Namespace
 
-`modules/outputs/stacks.nix` defines the public module stacks:
+`modules/namespace.nix` creates and exports the `nixoa` namespace:
 
-- `platform`
-- `virtualization`
-- `xenOrchestra`
-- `appliance`
+- `flake.denful.nixoa.platform`
+- `flake.denful.nixoa.virtualization`
+- `flake.denful.nixoa.xen-orchestra`
+- `flake.denful.nixoa.appliance`
 
-The overlay and package outputs live in:
+Each aspect owns its NixOS-facing behavior directly:
 
-- `modules/outputs/overlays.nix`
-- `modules/outputs/packages.nix`
+- `platform`: base OS policy and shared packages
+- `virtualization`: Xen guest and hardware integration
+- `xen-orchestra`: XO modules plus the internal `pkgs.nixoa.*` overlay wiring
+- `appliance`: includes the three reusable aspects above
 
 ## Relationship To System
 
-`system/` imports core as a flake input and applies:
+`system/` imports core as a flake input, merges `flake.denful.nixoa` into its
+local namespace, and includes the exported aspects from its host aspect:
 
-- `nixoaCore.nixosModules.appliance`
-- `nixoaCore.overlays.nixoa`
+- `imports = [ (inputs.den.namespace "nixoa" [ inputs.nixoaCore ]) ];`
+- `den.aspects.${context.hostname}.includes = [ <nixoa/appliance> ];`
 
-Host policy stays in `system/config/*`, which composes into `vars` and is passed
-to core modules through NixOS `specialArgs`.
+Host policy stays in `system/config/*`, which composes into `context` and is
+passed to core's plain implementation modules through downstream NixOS
+evaluation.
 
-## Why No Namespace
+## Supporting Outputs
 
-Den namespaces are useful when a flake is intentionally exporting reusable
-aspects to other den flakes through `flake.denful`. Core currently exports
-curated NixOS stacks instead, so a namespace would add a custom flake output
-without improving the present core/system composition model.
+Core still publishes supporting packages from `modules/outputs/packages.nix`
+for consumers that need build artifacts outside the aspect tree, but those are
+secondary to the exported `nixoa` namespace.

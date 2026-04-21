@@ -4,17 +4,17 @@
   config,
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf optionals;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
   cfg = config.services.libvhdi;
 in
 {
   config = mkIf storageEnabled {
-    environment.systemPackages = optionals vars.enableVHD [ cfg.package ];
-    services.libvhdi.enable = vars.enableVHD;
+    environment.systemPackages = optionals context.enableVHD [ cfg.package ];
+    services.libvhdi.enable = context.enableVHD;
   };
 }

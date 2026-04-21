@@ -3,7 +3,7 @@
 {
   config,
   lib,
-  vars,
+  context,
   ...
 }:
 let
@@ -11,7 +11,7 @@ let
   cfg = config.nixoa.xo;
 in
 {
-  config = mkIf vars.enableXO {
+  config = mkIf context.enableXO {
     systemd.tmpfiles.rules = [
       "d ${cfg.home}                          0750 ${cfg.user} ${cfg.group} - -"
       "d ${cfg.cacheDir}                      0750 ${cfg.user} ${cfg.group} - -"

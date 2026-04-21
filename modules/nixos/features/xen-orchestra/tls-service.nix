@@ -4,7 +4,7 @@
   config,
   pkgs,
   lib,
-  vars,
+  context,
   ...
 }:
 let
@@ -41,7 +41,7 @@ let
     ${openssl}/bin/openssl req -x509 -newkey rsa:4096 -nodes -days 3650 \
       -keyout "$key" -out "$cert" \
       -subj "/CN=$host" \
-      -addext "subjectAltName=DNS:$host,DNS:localhost,IP:${vars.xoHttpHost}"
+      -addext "subjectAltName=DNS:$host,DNS:localhost,IP:${context.xoHttpHost}"
 
     chown ${cfg.user}:${cfg.group} "$key" "$cert"
     chmod 0640 "$key" "$cert"
@@ -50,7 +50,7 @@ let
   '';
 in
 {
-  config = mkIf vars.enableAutoCert {
+  config = mkIf context.enableAutoCert {
     # Systemd service to generate/renew certificates at boot
     systemd.services.xo-autocert = {
       description = "Generate XO TLS certificates if missing or expired";

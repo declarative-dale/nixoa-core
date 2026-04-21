@@ -4,17 +4,17 @@
   config,
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 in
 {
   config = mkIf storageEnabled {
-    security.wrappers = lib.mkIf vars.enableCIFS {
+    security.wrappers = lib.mkIf context.enableCIFS {
       "mount.cifs" = {
         program = "mount.cifs";
         source = "${lib.getBin pkgs.cifs-utils}/bin/mount.cifs";

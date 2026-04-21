@@ -4,7 +4,7 @@
   config,
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
@@ -14,7 +14,7 @@ let
   startScript = config.nixoa.xo.internal.startScript;
 in
 {
-  config = mkIf vars.enableXO {
+  config = mkIf context.enableXO {
     systemd.services.xo-server = {
       description = "Xen Orchestra Server";
       after =
@@ -23,7 +23,7 @@ in
           "network-online.target"
           "redis-xo.service"
         ]
-        ++ lib.optional vars.enableAutoCert "xo-autocert.service";
+        ++ lib.optional context.enableAutoCert "xo-autocert.service";
 
       wants = [
         "network-online.target"
@@ -101,7 +101,7 @@ in
           "CAP_DAC_OVERRIDE"
         ];
 
-        ReadOnlyPaths = lib.optionals vars.enableTLS [ cfg.tls.dir ];
+        ReadOnlyPaths = lib.optionals context.enableTLS [ cfg.tls.dir ];
 
         ReadWritePaths = [
           cfg.home
@@ -110,7 +110,7 @@ in
           cfg.tempDir
           "/etc/xo-server"
           "/var/lib/xo-server"
-          vars.mountsDir
+          context.mountsDir
           "/run/lock"
           "/run/redis-xo"
           "/dev"

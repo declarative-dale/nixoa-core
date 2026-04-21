@@ -3,13 +3,13 @@
 {
   config,
   lib,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 in
 {
   config = mkIf storageEnabled {
@@ -21,7 +21,7 @@ in
         message = "XO user must be in 'fuse' group for remote storage mounting";
       }
       {
-        assertion = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+        assertion = context.enableNFS || context.enableCIFS || context.enableVHD;
         message = "At least one storage type must be enabled (NFS, CIFS, or VHD)";
       }
     ];

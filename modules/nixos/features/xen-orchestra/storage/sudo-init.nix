@@ -4,13 +4,13 @@
   config,
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 in
 {
   config = mkIf storageEnabled {

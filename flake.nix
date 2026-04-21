@@ -1,19 +1,19 @@
 {
-  description = "NiXOA Core - Xen Orchestra Community Edition deployment for NixOS homelabs";
+  description = "NiXOA Core - Den-native aspect namespace for Xen Orchestra Community Edition hosts";
 
   outputs =
     inputs:
-    builtins.removeAttrs
-      (
-        (inputs.nixpkgs.lib.evalModules {
-          modules = [
-            ./modules/den.nix
-            ./modules/outputs
-          ];
-          specialArgs = { inherit inputs; };
-        }).config.flake
-      )
-      [ "denful" ];
+    (
+      inputs.nixpkgs.lib.evalModules {
+        modules = [
+          ./modules/dendritic.nix
+          ./modules/namespace.nix
+          ./modules/aspects
+          ./modules/outputs
+        ];
+        specialArgs = { inherit inputs; };
+      }
+    ).config.flake;
 
   inputs = {
     den.url = "github:vic/den";

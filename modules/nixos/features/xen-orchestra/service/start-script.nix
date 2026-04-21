@@ -4,7 +4,7 @@
   config,
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
@@ -20,7 +20,7 @@ let
   '';
 in
 {
-  config = mkIf vars.enableXO {
+  config = mkIf context.enableXO {
     nixoa.xo.internal.startScript = startXO;
   };
 }

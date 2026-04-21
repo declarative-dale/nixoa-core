@@ -3,7 +3,7 @@
 {
   config,
   lib,
-  vars,
+  context,
   ...
 }:
 let
@@ -11,7 +11,7 @@ let
   tlsCfg = config.nixoa.xo.tls;
 in
 {
-  config = mkIf vars.enableAutoCert {
+  config = mkIf context.enableAutoCert {
     systemd.tmpfiles.rules = [
       "d ${tlsCfg.dir} 0755 root root - -"
     ];

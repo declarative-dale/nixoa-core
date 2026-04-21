@@ -3,7 +3,7 @@
 {
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
@@ -17,7 +17,7 @@ let
       pkgs.valkey;
 in
 {
-  config = mkIf vars.enableXO {
+  config = mkIf context.enableXO {
     environment.systemPackages = lib.unique ([
       valkeyCompat
     ] ++ (with pkgs; [

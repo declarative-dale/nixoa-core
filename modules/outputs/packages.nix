@@ -15,6 +15,7 @@ in
     in
     {
       xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
+      libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;
       default = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
@@ -29,7 +30,7 @@ in
         installPhase = ''
           mkdir -p $out/share/doc/nixoa-core
           echo "NiXOA Core - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa-core/README
-          echo "This is a NixOS module library flake." >> $out/share/doc/nixoa-core/README
+          echo "This is a Den-native aspect namespace flake." >> $out/share/doc/nixoa-core/README
           echo "See https://codeberg.org/NiXOA/core for details." >> $out/share/doc/nixoa-core/README
         '';
         meta = with pkgs.lib; {

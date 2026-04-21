@@ -4,7 +4,7 @@
   config,
   lib,
   pkgs,
-  vars,
+  context,
   ...
 }:
 let
@@ -12,7 +12,7 @@ let
   cfg = config.nixoa.xo;
 in
 {
-  config = mkIf vars.enableXO {
+  config = mkIf context.enableXO {
     services.redis.package = pkgs.valkey;
     services.redis.servers.xo = {
       enable = true;

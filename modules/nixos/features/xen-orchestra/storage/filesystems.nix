@@ -2,12 +2,12 @@
 # XO storage filesystem support
 {
   lib,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf optionals;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 in
 {
   config = mkIf storageEnabled {
@@ -15,17 +15,17 @@ in
 
     boot.kernelModules =
       [ "fuse" ]
-      ++ optionals vars.enableNFS [
+      ++ optionals context.enableNFS [
         "nfs"
         "nfsv4"
       ]
-      ++ optionals vars.enableCIFS [ "cifs" ];
+      ++ optionals context.enableCIFS [ "cifs" ];
 
     boot.supportedFilesystems =
-      optionals vars.enableNFS [
+      optionals context.enableNFS [
         "nfs"
         "nfs4"
       ]
-      ++ optionals vars.enableCIFS [ "cifs" ];
+      ++ optionals context.enableCIFS [ "cifs" ];
   };
 }

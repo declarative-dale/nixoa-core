@@ -3,13 +3,13 @@
 {
   config,
   lib,
-  vars,
+  context,
   ...
 }:
 let
   inherit (lib) mkIf optionals;
   cfg = config.nixoa.xo;
-  storageEnabled = vars.enableNFS || vars.enableCIFS || vars.enableVHD;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 in
 {
   config = mkIf storageEnabled {
@@ -57,7 +57,7 @@ in
                 options = [ "NOPASSWD" ];
               }
             ]
-            ++ optionals vars.enableVHD [
+            ++ optionals context.enableVHD [
               {
                 command = "/run/current-system/sw/bin/vhdimount";
                 options = [ "NOPASSWD" ];
