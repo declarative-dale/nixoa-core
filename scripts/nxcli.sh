@@ -241,7 +241,7 @@ host_edit() {
 }
 
 host_add() {
-  local hostname_arg="${1:-}"
+  local hostname_arg=""
   local profile_arg=""
   local username_arg=""
   local git_name_arg=""
@@ -263,7 +263,10 @@ host_add() {
   local ssh_key=""
   declare -a ssh_keys=()
 
-  shift || true
+  if [ $# -gt 0 ] && [[ "$1" != --* ]]; then
+    hostname_arg="$1"
+    shift
+  fi
 
   while [ $# -gt 0 ]; do
     case "$1" in
