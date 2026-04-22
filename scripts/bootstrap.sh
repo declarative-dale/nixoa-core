@@ -247,10 +247,43 @@ nix_conf_ensure_tokens() {
   rm -f "$temp_file"
 }
 
+restart_nix_daemon_if_needed() {
+  local systemctl_bin=""
+  local service_present=0
+  local socket_present=0
+
+  systemctl_bin="$(command -v systemctl 2>/dev/null || true)"
+  [ -n "$systemctl_bin" ] || return 0
+
+  nixoa_print_info "Restarting nix-daemon so the new trusted cache settings take effect"
+
+  if nixoa_run_as_root "$systemctl_bin" cat nix-daemon.service >/dev/null 2>&1; then
+    service_present=1
+  fi
+
+  if nixoa_run_as_root "$systemctl_bin" cat nix-daemon.socket >/dev/null 2>&1; then
+    socket_present=1
+  fi
+
+  if [ "$service_present" -eq 1 ]; then
+    nixoa_run_as_root "$systemctl_bin" restart nix-daemon.service
+  fi
+
+  if [ "$socket_present" -eq 1 ]; then
+    nixoa_run_as_root "$systemctl_bin" restart nix-daemon.socket
+  fi
+}
+
 prepare_first_switch_nix_access() {
   local operator_user="$1"
   local target_user="$2"
   local nix_conf="/etc/nix/nix.conf"
+  local before_trusted_users=""
+  local before_substituters=""
+  local before_keys=""
+  local after_trusted_users=""
+  local after_substituters=""
+  local after_keys=""
   local users_to_trust=(
     root
     @wheel
@@ -266,6 +299,9 @@ prepare_first_switch_nix_access() {
 
   nixoa_print_info "Preparing trusted Nix cache settings for the initial switch"
   nixoa_run_as_root install -d -m 0755 /etc/nix
+  before_trusted_users="$(nix_conf_read_setting "$nix_conf" trusted-users || true)"
+  before_substituters="$(nix_conf_read_setting "$nix_conf" extra-substituters || true)"
+  before_keys="$(nix_conf_read_setting "$nix_conf" extra-trusted-public-keys || true)"
   nix_conf_ensure_tokens "$nix_conf" trusted-users "${users_to_trust[@]}"
   nix_conf_ensure_tokens "$nix_conf" extra-substituters \
     "$NIXOA_DETERMINATE_SUBSTITUTER" \
@@ -273,6 +309,16 @@ prepare_first_switch_nix_access() {
   nix_conf_ensure_tokens "$nix_conf" extra-trusted-public-keys \
     "$NIXOA_DETERMINATE_PUBLIC_KEY" \
     "$NIXOA_XO_PUBLIC_KEY"
+  after_trusted_users="$(nix_conf_read_setting "$nix_conf" trusted-users || true)"
+  after_substituters="$(nix_conf_read_setting "$nix_conf" extra-substituters || true)"
+  after_keys="$(nix_conf_read_setting "$nix_conf" extra-trusted-public-keys || true)"
+
+  if [ "$before_trusted_users" != "$after_trusted_users" ] \
+    || [ "$before_substituters" != "$after_substituters" ] \
+    || [ "$before_keys" != "$after_keys" ]
+  then
+    restart_nix_daemon_if_needed
+  fi
 }
 
 repo_url="https://codeberg.org/NiXOA/core.git"
