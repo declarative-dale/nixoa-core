@@ -171,6 +171,7 @@ repo_dir_explicit=0
 enable_flakes=0
 hostname_arg=""
 username_arg=""
+username_arg_explicit=0
 declare -a host_add_args=()
 host_add_args+=(--no-nom)
 
@@ -199,6 +200,7 @@ while [ $# -gt 0 ]; do
       ;;
     --username)
       username_arg="$2"
+      username_arg_explicit=1
       host_add_args+=(--username "$2")
       shift 2
       ;;
@@ -249,6 +251,15 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+if [ -z "$username_arg" ] && [ -t 0 ]; then
+  username_arg="$(nixoa_prompt_with_default "Username" "$NIXOA_DEFAULT_USERNAME")"
+  nixoa_validate_username "$username_arg"
+fi
+
+if [ "$username_arg_explicit" -eq 0 ] && [ -n "$username_arg" ]; then
+  host_add_args+=(--username "$username_arg")
+fi
 
 if [ -z "$repo_dir" ]; then
   default_bootstrap_user="${username_arg:-$NIXOA_DEFAULT_USERNAME}"
