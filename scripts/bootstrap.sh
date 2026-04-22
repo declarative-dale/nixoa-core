@@ -45,6 +45,54 @@ resolve_user_home() {
   printf '/home/%s\n' "$username"
 }
 
+bootstrap_operator_user() {
+  if [ "$(id -u)" -eq 0 ] && nixoa_user_exists "${SUDO_USER:-}"; then
+    printf '%s\n' "$SUDO_USER"
+    return 0
+  fi
+
+  id -un
+}
+
+prepare_repo_checkout_parent() {
+  local repo_path="$1"
+  local target_user="$2"
+  local repo_parent_dir=""
+  local target_home=""
+  local operator_user=""
+  local parent_exists=0
+
+  repo_parent_dir="$(dirname "$repo_path")"
+  target_home="$(resolve_user_home "$target_user")"
+  operator_user="$(bootstrap_operator_user)"
+
+  if [ -d "$repo_parent_dir" ] && [ -w "$repo_parent_dir" ]; then
+    return 0
+  fi
+
+  if [ -d "$repo_parent_dir" ]; then
+    parent_exists=1
+  fi
+
+  if mkdir -p "$repo_parent_dir" 2>/dev/null; then
+    return 0
+  fi
+
+  nixoa_print_info "Preparing checkout parent $repo_parent_dir with root privileges"
+  nixoa_run_as_root install -d -m 0755 "$repo_parent_dir"
+
+  if [ "$operator_user" != "root" ] && { [ "$parent_exists" -eq 0 ] || [[ "$repo_parent_dir" == "$target_home" || "$repo_parent_dir" == "$target_home/"* ]]; }; then
+    nixoa_run_as_root chown "$operator_user:users" "$repo_parent_dir"
+    nixoa_print_info "Temporarily assigned $repo_parent_dir to $operator_user for bootstrap. The first switch will hand it to $target_user."
+  fi
+
+  if [ "$(id -u)" -ne 0 ] && [ ! -w "$repo_parent_dir" ]; then
+    nixoa_print_error "Checkout parent $repo_parent_dir is not writable by $operator_user."
+    nixoa_print_error "Choose a writable --repo-dir or rerun bootstrap with sudo so it can prepare the path."
+    exit 1
+  fi
+}
+
 flakes_are_enabled() {
   if nix show-config experimental-features >/dev/null 2>&1; then
     local features
@@ -190,6 +238,9 @@ if [ "$enable_flakes" -eq 1 ]; then
   enable_flakes_now
 fi
 
+bootstrap_target_user="${username_arg:-$NIXOA_DEFAULT_USERNAME}"
+prepare_repo_checkout_parent "$repo_dir" "$bootstrap_target_user"
+
 if [ -d "$repo_dir/.git" ]; then
   if [ -n "$(git -C "$repo_dir" status --short 2>/dev/null || true)" ]; then
     nixoa_print_error "Existing checkout at $repo_dir is dirty. Clean it before running bootstrap."
@@ -202,7 +253,6 @@ if [ -d "$repo_dir/.git" ]; then
   git -C "$repo_dir" pull --ff-only origin "$branch"
 else
   repo_parent_dir="$(dirname "$repo_dir")"
-  mkdir -p "$repo_parent_dir"
   nixoa_print_info "Cloning $repo_url into $repo_dir"
   git clone --branch "$branch" "$repo_url" "$repo_dir"
 fi
