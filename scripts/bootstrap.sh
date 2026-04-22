@@ -27,7 +27,7 @@ Options:
   --ssh-key KEY         Add an SSH public key. Repeatable.
   --skip-check          Skip nix flake check after host creation.
   --skip-hardware-copy  Do not copy /etc/nixos/hardware-configuration.nix.
-  --first-switch        Run nxcli apply --first-install after setup.
+  --first-switch        Run the first switch after setup without prompting.
   --help                Show this help text.
 EOF
 }

@@ -66,6 +66,19 @@ nixoa_print_cli_command() {
   printf '\n'
 }
 
+nixoa_print_first_switch_commands() {
+  local target="$1"
+  local resolved_target=""
+  local flake_ref=""
+
+  resolved_target="$(nixoa_host_output_name "$target")"
+  flake_ref="path:${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${resolved_target}"
+
+  printf 'Manual switch commands:\n'
+  nixoa_print_cli_command "  Repo helper:" apply --target "$resolved_target" --first-install
+  printf '  nh via nix shell: nix shell nixpkgs#nh -c nh os switch %q\n' "$flake_ref"
+}
+
 nixoa_nix_quote() {
   printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"
 }

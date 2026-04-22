@@ -124,7 +124,7 @@ Options:
   --state-version VER      State version. Default: 25.11.
   --ssh-key KEY            Add an SSH public key. Repeatable.
   --skip-check             Skip nix flake check after creating the host.
-  --first-switch           Run nxcli apply --first-install after creating the host.
+  --first-switch           Run the first switch after creating the host without prompting.
   --help                   Show this help text.
 EOF
 }
@@ -251,6 +251,7 @@ host_add() {
   local set_vm_alias=1
   local skip_check=0
   local first_switch=0
+  local switch_now=0
   local extra_ssh_key=""
   local template_dir=""
   local host_dir=""
@@ -448,15 +449,25 @@ host_add() {
   fi
 
   if [ "$first_switch" -eq 1 ]; then
+    switch_now=1
+  elif [ -t 0 ]; then
+    if nixoa_confirm "Switch to the new flake now"; then
+      switch_now=1
+    fi
+  fi
+
+  if [ "$switch_now" -eq 1 ]; then
+    nixoa_print_info "Switching to the new flake now. This uses nh and falls back to 'nix shell nixpkgs#nh -c nh' if nh is not installed yet."
     "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
   fi
 
   nixoa_print_success "Created host/$hostname_arg."
   nixoa_print_cli_command "Next:" host show "$hostname_arg"
-  if [ "$first_switch" -eq 1 ]; then
+  if [ "$switch_now" -eq 1 ]; then
     printf 'Initial apply completed for target %s.\n' "$hostname_arg"
   else
-    nixoa_print_cli_command "Apply with:" apply --target "$hostname_arg"
+    nixoa_print_info "Initial switch skipped."
+    nixoa_print_first_switch_commands "$hostname_arg"
   fi
   nixoa_print_cli_command "Stable vm target:" apply --target vm
 }
