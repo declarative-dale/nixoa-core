@@ -10,7 +10,9 @@ let
   repoDir = context.repoDir or "${homeDir}/nixoa";
 in
 {
-  users.mutableUsers = false;
+  # Preserve existing installer/cloud-init users during the live cutover.
+  # This avoids deleting the active bootstrap account mid-switch.
+  users.mutableUsers = true;
 
   systemd.tmpfiles.rules = [
     "d ${homeDir} 0755 ${context.username} users -"

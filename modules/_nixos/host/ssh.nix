@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SSH service configuration
 {
+  lib,
   context,
   ...
 }:
@@ -14,7 +15,7 @@
       PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;
       PubkeyAuthentication = true;
-      AllowUsers = [ context.username ];
+      AllowUsers = lib.unique ([ context.username ] ++ lib.optional (context.username != "nixos") "nixos");
 
       X11Forwarding = false;
       PermitEmptyPasswords = false;
