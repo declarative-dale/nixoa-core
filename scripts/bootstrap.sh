@@ -58,37 +58,66 @@ prepare_repo_checkout_parent() {
   local repo_path="$1"
   local target_user="$2"
   local repo_parent_dir=""
+  local repo_dir=""
   local target_home=""
   local operator_user=""
   local parent_exists=0
+  local repo_dir_exists=0
 
   repo_parent_dir="$(dirname "$repo_path")"
+  repo_dir="$repo_path"
   target_home="$(resolve_user_home "$target_user")"
   operator_user="$(bootstrap_operator_user)"
 
   if [ -d "$repo_parent_dir" ] && [ -w "$repo_parent_dir" ]; then
-    return 0
-  fi
+    :
+  else
+    if [ -d "$repo_parent_dir" ]; then
+      parent_exists=1
+    fi
 
-  if [ -d "$repo_parent_dir" ]; then
-    parent_exists=1
-  fi
+    if [ "$parent_exists" -eq 0 ] && mkdir -p "$repo_parent_dir" 2>/dev/null && [ -w "$repo_parent_dir" ]; then
+      :
+    else
+      nixoa_print_info "Preparing checkout parent $repo_parent_dir with root privileges"
+      nixoa_run_as_root install -d -m 0755 "$repo_parent_dir"
 
-  if mkdir -p "$repo_parent_dir" 2>/dev/null; then
-    return 0
-  fi
-
-  nixoa_print_info "Preparing checkout parent $repo_parent_dir with root privileges"
-  nixoa_run_as_root install -d -m 0755 "$repo_parent_dir"
-
-  if [ "$operator_user" != "root" ] && { [ "$parent_exists" -eq 0 ] || [[ "$repo_parent_dir" == "$target_home" || "$repo_parent_dir" == "$target_home/"* ]]; }; then
-    nixoa_run_as_root chown "$operator_user:users" "$repo_parent_dir"
-    nixoa_print_info "Temporarily assigned $repo_parent_dir to $operator_user for bootstrap. The first switch will hand it to $target_user."
+      if [ "$operator_user" != "root" ] && [[ "$repo_parent_dir" == "$target_home" || "$repo_parent_dir" == "$target_home/"* ]]; then
+        nixoa_run_as_root chown "$operator_user:users" "$repo_parent_dir"
+        nixoa_print_info "Temporarily assigned $repo_parent_dir to $operator_user for bootstrap. The first switch will hand it to $target_user."
+      fi
+    fi
   fi
 
   if [ "$(id -u)" -ne 0 ] && [ ! -w "$repo_parent_dir" ]; then
     nixoa_print_error "Checkout parent $repo_parent_dir is not writable by $operator_user."
     nixoa_print_error "Choose a writable --repo-dir or rerun bootstrap with sudo so it can prepare the path."
+    exit 1
+  fi
+
+  if [ -d "$repo_dir" ]; then
+    repo_dir_exists=1
+  fi
+
+  if [ "$repo_dir_exists" -eq 1 ] && [ ! -d "$repo_dir/.git" ] && [ "$operator_user" != "root" ] && [ ! -w "$repo_dir" ] && [[ "$repo_dir" == "$target_home" || "$repo_dir" == "$target_home/"* ]]; then
+    nixoa_print_info "Repairing bootstrap checkout directory ownership for $repo_dir"
+    nixoa_run_as_root chown "$operator_user:users" "$repo_dir"
+  fi
+
+  if [ "$repo_dir_exists" -eq 1 ] && [ ! -d "$repo_dir/.git" ]; then
+    if [ ! -w "$repo_dir" ]; then
+      nixoa_print_error "Checkout directory $repo_dir exists but is not writable by $operator_user."
+      nixoa_print_error "Remove it, choose a different --repo-dir, or rerun bootstrap with sudo so it can repair the path."
+      exit 1
+    fi
+
+    if find "$repo_dir" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null | grep -q .; then
+      nixoa_print_error "Checkout directory $repo_dir already exists and is not an existing git checkout."
+      nixoa_print_error "Remove it or choose a different --repo-dir before running bootstrap again."
+      exit 1
+    fi
+  elif [ -e "$repo_dir" ] && [ ! -d "$repo_dir" ]; then
+    nixoa_print_error "Checkout path $repo_dir exists but is not a directory."
     exit 1
   fi
 }
