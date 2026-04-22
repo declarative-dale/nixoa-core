@@ -14,7 +14,8 @@ Usage: bootstrap.sh [options]
 Options:
   --repo-dir PATH       Checkout directory. Defaults to the managed user's home plus /nixoa.
   --repo-url URL        Repository URL. Defaults to the unified core repository.
-  --branch NAME         Branch to clone or update. Defaults to beta.
+  --branch NAME         Optional branch override. Defaults to the current branch of the
+                        checkout running bootstrap.
   --enable-flakes       Persist nix-command + flakes before validation.
   --hostname NAME       Hostname to create with nxcli host add.
   --username NAME       Primary username passed through to nxcli host add.
@@ -87,7 +88,7 @@ enable_flakes_now() {
 }
 
 repo_url="https://codeberg.org/NiXOA/core.git"
-branch="beta"
+branch=""
 repo_dir=""
 repo_dir_explicit=0
 enable_flakes=0
@@ -174,6 +175,15 @@ done
 if [ -z "$repo_dir" ]; then
   default_bootstrap_user="${username_arg:-$NIXOA_DEFAULT_USERNAME}"
   repo_dir="$(nixoa_prompt_with_default "Repository path" "$(resolve_user_home "$default_bootstrap_user")/nixoa")"
+fi
+
+if [ -z "$branch" ]; then
+  branch="$(git -C "$(nixoa_system_root)" branch --show-current 2>/dev/null || true)"
+fi
+
+if [ -z "$branch" ]; then
+  nixoa_print_error "Bootstrap must run from a named branch checkout or receive --branch explicitly."
+  exit 1
 fi
 
 if [ "$enable_flakes" -eq 1 ]; then
