@@ -7,11 +7,11 @@ NiXOA is now used directly from the unified `core` repo.
 ```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
 cd ~/nixoa
-./scripts/bootstrap.sh
+nix run .#nxcli -- host add
 ```
 
-The bootstrap flow prompts for hostname, username, timezone, state version,
-SSH keys, repo path, and deployment profile. It then:
+The `nxcli host add` flow prompts for hostname, username, timezone, state
+version, SSH keys, and deployment profile. It then:
 
 - copies `host/_template/` to `host/<hostname>/`
 - writes host-local settings into `host/<hostname>/_ctx/settings.nix`
@@ -21,19 +21,23 @@ SSH keys, repo path, and deployment profile. It then:
 - validates the flake
 - optionally performs the first switch through `nh`
 
-The suggested hostname during bootstrap is `nixo-ce`. The repo also ships a
-sample concrete host at `host/nixo-ce-example/`.
+Use `scripts/bootstrap.sh` only when you want the older convenience wrapper that
+also clones or refreshes a checkout before handing off to `nxcli host add`.
 
 ## Operate A Host
 
 From the repo root:
 
 ```bash
-./scripts/show-diff.sh
-./scripts/apply-config.sh --hostname nixo-ce
-nh os switch .#nixosConfigurations.nixo-ce
-nh os build .#nixosConfigurations.vm
+nxcli status
+nxcli apply --target nixo-ce
+nxcli apply --target vm --dry-run
+nxcli boot --target vm
 ```
+
+`--target vm` always resolves through `host/_automation/default.nix`, so it is
+the stable automation target for VM/XO workflows. Use concrete host names when
+you need to pin an operation to one specific host output.
 
 ## Reuse The Namespace Elsewhere
 

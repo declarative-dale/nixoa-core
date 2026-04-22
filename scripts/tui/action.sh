@@ -79,7 +79,7 @@ prompt_rebuild_policy() {
   target_value="$(nixoa_host_output_name "$target_value")"
 
   if prompt_yes_no "Rebuild now"; then
-    "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --hostname "$target_value"
+    "$NIXOA_SYSTEM_ROOT/scripts/nxcli.sh" apply --target "$target_value"
     return 0
   fi
 

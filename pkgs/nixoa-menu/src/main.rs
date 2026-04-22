@@ -329,13 +329,13 @@ const MAINTENANCE_ACTIONS: [ActionItem; 7] = [
     ActionItem {
         kind: ActionKind::ApplyConfiguration,
         title: "Apply Configuration",
-        detail: "Run apply-config.sh for the current host and refresh console state after completion.",
+        detail: "Run nxcli apply for the current host and refresh console state after completion.",
         shortcut: Some('a'),
     },
     ActionItem {
         kind: ActionKind::RollbackGeneration,
         title: "Rollback Generation",
-        detail: "Run apply-config.sh --rollback interactively for the current host.",
+        detail: "Run nxcli rollback interactively for the current host.",
         shortcut: Some('0'),
     },
     ActionItem {
@@ -1821,16 +1821,16 @@ fn open_modal(app: &mut App, action: InputAction, title: &str, help: &str, initi
 
 fn run_apply_configuration(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Apply Configuration", {
-        let mut command = Command::new(app.repo_root.join("scripts/apply-config.sh"));
-        command.args(["--hostname", app.snapshot.hostname.as_str()]);
+        let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
+        command.args(["apply", "--target", app.snapshot.hostname.as_str()]);
         command
     })
 }
 
 fn run_rollback_generation(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Rollback Generation", {
-        let mut command = Command::new(app.repo_root.join("scripts/apply-config.sh"));
-        command.args(["--hostname", app.snapshot.hostname.as_str(), "--rollback"]);
+        let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
+        command.args(["rollback", "--target", app.snapshot.hostname.as_str()]);
         command
     })
 }
@@ -2846,7 +2846,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Apply the current repository state to this host.",
             "The active host configuration is rebuilt from the current flake and switched in after the command exits.",
             "Applying configuration changes the running system state immediately. Review the current build status before proceeding.",
-            "Enter runs ./scripts/apply-config.sh for this host.",
+            "Enter runs nxcli apply for this host.",
             app,
         ),
         ActionKind::RollbackGeneration => render_maintenance_detail_page(
@@ -2856,7 +2856,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Restore the previous NixOS generation for this host.",
             "Use this when the last switch introduced a regression and the prior generation should be made active again.",
             "Rollback changes the running system state. Confirm that the previous generation is the one you want to restore.",
-            "Enter runs ./scripts/apply-config.sh --hostname <host> --rollback.",
+            "Enter runs nxcli rollback --target <host>.",
             app,
         ),
         ActionKind::RunGarbageCollection => render_maintenance_detail_page(

@@ -7,25 +7,24 @@ NiXOA is installed directly from this repo.
 ```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
 cd ~/nixoa
-./scripts/bootstrap.sh --first-switch
+nix run .#nxcli -- host add --first-switch
 ```
 
-Bootstrap creates a concrete host directory under `host/<hostname>/`, writes
-the selected values into Den-shaped host files, updates
+`nxcli host add` creates a concrete host directory under `host/<hostname>/`,
+writes the selected values into Den-shaped host files, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` targets that host's
 VM output, validates the flake, and runs the first switch through `nh` when
-`--first-switch` is used.
+`--first-switch` is used. `scripts/bootstrap.sh` remains available as a
+checkout/bootstrap wrapper around the same flow.
 
 ## Manual Install
 
-1. Copy `host/_template/` to `host/<hostname>/`.
-2. Edit `host/<hostname>/_ctx/settings.nix`.
-3. Copy your machine's hardware config to `host/<hostname>/_nixos/hardware-configuration.nix`.
-4. Set `host/_automation/default.nix` so `vmHost = "<hostname>";`.
-5. Stage the tracked host files with `git add host/<hostname> host/_automation/default.nix`.
-6. Validate with `nix flake check --no-write-lock-file`.
-7. Apply with `nh os switch .#nixosConfigurations.<hostname>`.
-8. Build the stable VM alias with `nh os build .#nixosConfigurations.vm`.
+1. Prefer `nxcli host add <hostname>` from the repo root.
+2. Review `host/<hostname>/_ctx/settings.nix`.
+3. Confirm `host/_automation/default.nix` points `vmHost` at the intended host when you plan to use the stable `vm` target.
+4. Validate with `nix flake check --no-write-lock-file`.
+5. Apply with `nxcli apply --target <hostname>`.
+6. Use `nxcli boot --target vm` when you want the safer “activate on next reboot” path for the stable VM target.
 
 ## Reusable Den Import
 

@@ -1,6 +1,17 @@
 # Daily Operations
 
-Common commands for operating NiXOA systems from the unified repo.
+Common `nxcli` flows for operating NiXOA systems from the unified repo.
+
+## Status
+
+```bash
+cd ~/nixoa
+nxcli status
+```
+
+`nxcli status` reports the repo root, selected stable VM host, active target,
+XO service state, Redis/Valkey backend state, and whether tracked repo files
+are clean.
 
 ## Service Management
 
@@ -13,15 +24,14 @@ sudo systemctl status redis-xo.service
 ## Logs
 
 ```bash
-sudo journalctl -u xo-server -f
-sudo journalctl -u xo-server -n 200
+nxcli xo logs
 ```
 
-## Review Configuration Changes
+## Edit Host Configuration
 
 ```bash
 cd ~/nixoa
-./scripts/show-diff.sh
+nxcli host edit nixo-ce
 ```
 
 Edit the active host under `host/<hostname>/`, usually `_ctx/settings.nix`
@@ -29,38 +39,53 @@ and `_ctx/menu.nix`.
 
 ## Apply Configuration
 
-Preferred `nh` flow:
-
 ```bash
 cd ~/nixoa
-nh os switch .#nixosConfigurations.<hostname>
+nxcli apply --target <hostname>
 ```
 
-Wrapper script:
+Stable VM alias:
 
 ```bash
 cd ~/nixoa
-./scripts/apply-config.sh --hostname <hostname>
+nxcli apply --target vm
 ```
 
-Stable VM target:
+Preview without mutating:
 
 ```bash
 cd ~/nixoa
-nh os build .#nixosConfigurations.vm
-./scripts/apply-config.sh --hostname vm --build
+nxcli apply --target vm --dry-run
 ```
 
-## Build Without Switching
+Build without switching:
 
 ```bash
 cd ~/nixoa
-nh os build .#nixosConfigurations.<hostname>
+nxcli apply --target <hostname> --build
+```
+
+## Boot On Next Reboot
+
+```bash
+cd ~/nixoa
+nxcli boot --target vm
+```
+
+Use this when you want to stage a change for the next reboot instead of
+switching immediately.
+
+## Update Inputs
+
+```bash
+cd ~/nixoa
+nxcli update flake
+nxcli update xoa
 ```
 
 ## Rollback
 
 ```bash
 cd ~/nixoa
-./scripts/apply-config.sh --hostname <hostname> --rollback
+nxcli rollback --target <hostname>
 ```

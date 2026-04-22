@@ -15,6 +15,7 @@ in
     system:
     let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
+      nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix { };
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix { };
       nhPackages = den.lib.nh.denPackages {
         fromFlake = true;
@@ -36,6 +37,7 @@ in
       default = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
     }
     // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
+      nxcli = nxcli;
       nixoa-menu = nixoaMenu;
     }
     // {

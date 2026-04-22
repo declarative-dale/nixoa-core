@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, context, ... }:
 let
   overlay = final: _prev:
     let
@@ -11,6 +11,9 @@ let
           libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;
         }
         // inputs.nixpkgs.lib.optionalAttrs final.stdenv.hostPlatform.isLinux {
+          nxcli = final.callPackage ../../../../pkgs/nxcli/package.nix {
+            repoRootDefault = context.repoDir;
+          };
           nixoa-menu = final.callPackage ../../../../pkgs/nixoa-menu/package.nix { };
         };
     };

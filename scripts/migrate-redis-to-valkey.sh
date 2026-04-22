@@ -306,9 +306,9 @@ If you need to rollback to the old Redis data:
    # services.redis.package = pkgs.valkey;
 
 4. Rebuild from your NiXOA checkout:
-   ./scripts/apply-config.sh --hostname <hostname>
-   # or
-   nh os switch /path/to/nixoa#nixosConfigurations.<hostname>
+   nxcli apply --target <hostname>
+   # or use the stable VM alias:
+   nxcli apply --target vm
 
 Backup location: ${BACKUP_DIR}
 Export file: ${EXPORT_FILE}

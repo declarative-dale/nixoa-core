@@ -71,19 +71,26 @@ in
     system:
     let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
+      nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
     in
     {
+      nxcli = {
+        type = "app";
+        program = "${nxcli}/bin/nxcli";
+        meta.description = "Canonical NiXOA operator CLI";
+      };
+
       apply = mkRepoScriptApp pkgs {
         appName = "nixoa-apply";
         scriptName = "apply-config.sh";
-        description = "Apply a NiXOA host configuration through nh";
+        description = "Low-level helper for applying a NiXOA host configuration through nh";
       };
 
       bootstrap = mkRepoScriptApp pkgs {
         appName = "nixoa-bootstrap";
         scriptName = "bootstrap.sh";
-        description = "Bootstrap a NiXOA checkout and create a concrete host directory";
+        description = "Low-level bootstrap wrapper around nxcli host add";
       };
 
       commit = mkRepoScriptApp pkgs {

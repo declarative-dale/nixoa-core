@@ -16,8 +16,9 @@ Each concrete host uses the same Den-shaped layout as the template:
 `host/<hostname>/` directory.
 
 `host/_automation/default.nix` keeps the tracked VM-alias selection for the
-repo. Bootstrap updates `vmHost` there so `nixosConfigurations.vm` resolves to
-`nixosConfigurations.<hostname>-vm` without caller-side guessing.
+repo. `nxcli host add` and `nxcli host select-vm` update `vmHost` there so
+`nixosConfigurations.vm` resolves to `nixosConfigurations.<hostname>-vm`
+without caller-side guessing.
 
 ## Key Host Settings
 

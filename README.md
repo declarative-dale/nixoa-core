@@ -12,8 +12,8 @@ definitions under `host/<hostname>`.
 - `flake.denful.nixoaCore.appliance`
 - `nixosConfigurations.<hostname>` and `nixosConfigurations.<hostname>-vm`
 - `nixosConfigurations.vm` as the stable automation alias for the selected host VM
-- host-scoped `nh` apps plus repository apps such as `bootstrap`, `apply`, and `menu`
-- `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,nixoa-menu,metadata}`
+- host-scoped `nh` apps plus repository apps such as `nxcli` and `menu`
+- `packages.x86_64-linux.{nxcli,xen-orchestra-ce,libvhdi,nixoa-menu,metadata}`
 
 ## Quick Start
 
@@ -22,20 +22,21 @@ Bootstrap a real host from the unified repo:
 ```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
 cd ~/nixoa
-./scripts/bootstrap.sh --first-switch
+nix run .#nxcli -- host add nixo-ce --first-switch
 ```
 
-Bootstrap creates `host/<hostname>/` by copying `host/_template/`, writes the
-host-local settings into `_ctx/settings.nix`, updates
+`nxcli host add` creates `host/<hostname>/` by copying `host/_template/`,
+writes the host-local settings into `_ctx/settings.nix`, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` points at the new
 host's VM output, stages the tracked files, validates the flake, and optionally
-performs the first switch through `nh`.
+performs the first switch through `nh`. `scripts/bootstrap.sh` remains as a
+checkout/bootstrap convenience wrapper around the same host-add flow.
 
 You can also operate the repo through flake apps:
 
 ```bash
-nix run .#bootstrap
-nix run .#apply -- --hostname nixo-ce
+nix run .#nxcli -- status
+nix run .#nxcli -- apply --target vm --dry-run
 ```
 
 ## Layout
@@ -97,5 +98,5 @@ aspects and not this repo's host tree:
 - `host/_template/` is a template only and must not be edited in place for a real machine.
 - Concrete hosts keep host-owned values locally in `host/<hostname>/`.
 - `host/_automation/default.nix` selects which concrete VM output backs `nixosConfigurations.vm`.
-- `nh` is the primary operator interface for build and switch flows.
+- `nxcli` is the canonical operator interface. The lower-level scripts under `scripts/` remain available as internal helpers.
 - `flake.denful.nixoaCore` remains the primary reusable public surface.

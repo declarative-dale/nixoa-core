@@ -38,3 +38,9 @@ git add host/<hostname> host/_automation/default.nix
 Check `host/_automation/default.nix` and confirm `vmHost` points at the
 intended concrete host. The stable alias always resolves to
 `nixosConfigurations.<vmHost>-vm`.
+
+To update it through the supported CLI:
+
+```bash
+nxcli host select-vm <hostname>
+```

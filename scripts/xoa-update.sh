@@ -1,44 +1,83 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
+
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/lib/common.sh"
 
-nixoa_cd_root
+usage() {
+  cat <<'EOF'
+Usage: xoa-update.sh [--target TARGET | --hostname TARGET] [--ask]
+EOF
+}
 
-if ! command -v jq >/dev/null; then
-  echo "jq is required"; exit 1
+target_arg="$(nixoa_default_target)"
+ask=0
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --target|--hostname)
+      target_arg="$2"
+      shift 2
+      ;;
+    --ask)
+      ask=1
+      shift
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      nixoa_print_error "Unknown xoa update option: $1"
+      exit 1
+      ;;
+  esac
+done
+
+nixoa_cd_root
+target_arg="$(nixoa_require_target_output "$target_arg")"
+
+if [ "$ask" -eq 1 ] && ! nixoa_confirm "Update the xen-orchestra-ce flake input"; then
+  nixoa_print_warning "XOA update cancelled."
+  exit 1
 fi
 
-OLD=$(jq -r '.nodes."xen-orchestra-ce".locked.rev // empty' flake.lock 2>/dev/null || true)
+if ! command -v jq >/dev/null 2>&1; then
+  nixoa_print_error "jq is required for xoa-update.sh."
+  exit 1
+fi
 
-echo "Updating xen-orchestra-ce input..."
+old_rev="$(jq -r '.nodes."xen-orchestra-ce".locked.rev // empty' flake.lock 2>/dev/null || true)"
+
+nixoa_print_info "Updating xen-orchestra-ce input"
 nix flake lock --update-input xen-orchestra-ce --commit-lock-file
 
-NEW=$(jq -r '.nodes."xen-orchestra-ce".locked.rev // empty' flake.lock)
-if [[ -z "$NEW" ]]; then
-  echo "Could not read new rev from flake.lock"; exit 1
+new_rev="$(jq -r '.nodes."xen-orchestra-ce".locked.rev // empty' flake.lock)"
+if [ -z "$new_rev" ]; then
+  nixoa_print_error "Could not read the new xen-orchestra-ce revision from flake.lock."
+  exit 1
 fi
 
-echo "xen-orchestra-ce: ${OLD:-<none>} -> ${NEW}"
+printf 'xen-orchestra-ce: %s -> %s\n' "${old_rev:-<none>}" "$new_rev"
 
-# Show commit messages if possible
-if [[ -n "${OLD}" && "${OLD}" != "${NEW}" ]]; then
+if [ -n "$old_rev" ] && [ "$old_rev" != "$new_rev" ]; then
   echo
-  echo "Attempting to show commit messages between ${OLD}..${NEW} (best effort):"
-  TMP=$(mktemp -d)
-  git clone --depth 1 https://codeberg.org/NiXOA/xen-orchestra-ce.git "$TMP" >/dev/null 2>&1 || true
-  if git -C "$TMP" fetch --depth 100 origin "${NEW}" >/dev/null 2>&1 && git -C "$TMP" fetch --depth 100 origin "${OLD}" >/dev/null 2>&1; then
-    git -C "$TMP" log --oneline "${OLD}..${NEW}" || true
+  echo "Best-effort commit log between revisions:"
+  tmp_dir="$(mktemp -d)"
+  git clone --depth 1 https://codeberg.org/NiXOA/xen-orchestra-ce.git "$tmp_dir" >/dev/null 2>&1 || true
+  if git -C "$tmp_dir" fetch --depth 100 origin "$new_rev" >/dev/null 2>&1 \
+    && git -C "$tmp_dir" fetch --depth 100 origin "$old_rev" >/dev/null 2>&1
+  then
+    git -C "$tmp_dir" log --oneline "${old_rev}..${new_rev}" || true
   else
-    echo "(Tip: ensure you can reach codeberg.org and that the refs exist.)"
+    echo "(Skipping commit log; remote fetch was not available.)"
   fi
-  rm -rf "$TMP"
+  rm -rf "$tmp_dir"
 fi
 
 echo
-TARGET="$(nixoa_default_target)"
-echo "Done. Rebuild with:"
-echo "  ./scripts/apply-config.sh --hostname ${TARGET}"
-echo "  nh os switch ${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${TARGET}"
+nixoa_print_success "Updated xen-orchestra-ce."
+printf 'Next: nxcli apply --target %s\n' "$target_arg"
+printf 'Safer path: nxcli boot --target %s\n' "$target_arg"

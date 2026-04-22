@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Apply the NiXOA configuration through nh
+# Apply, build, boot, or roll back the NiXOA configuration
 
 set -euo pipefail
 
@@ -9,39 +9,56 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: apply-config.sh [--hostname HOSTNAME] [--build | --dry-run | --rollback] [--first-install] [extra nh args...]
+Usage: apply-config.sh [--target TARGET | --hostname TARGET] [--build | --boot | --dry-run | --rollback] [--first-install] [--ask] [--cores N] [--verbose] [--no-nom] [-- extra nh build args...]
 
 Options:
-  --hostname HOSTNAME  Use a specific flake output name. Pass vm for the stable VM alias.
-  --build              Build without switching.
-  --dry-run            Run a dry-build preview.
-  --rollback           Roll back to the previous system generation.
-  --first-install      Add Determinate first-install cache flags for the initial switch.
-  --help               Show this help text.
+  --target TARGET       Canonical target selector. Accepts <hostname>, <hostname>-vm, or vm.
+  --hostname TARGET     Legacy alias for --target.
+  --build               Build without switching.
+  --boot                Build and activate on the next reboot.
+  --dry-run             Preview the apply flow without mutating the system.
+  --rollback            Roll back the current system generation.
+  --first-install       Add Determinate first-install cache flags for the initial switch.
+  --ask                 Ask nh for confirmation before mutating actions.
+  --cores N             Pass through the requested core count to nh.
+  --verbose             Increase nh verbosity.
+  --no-nom              Disable nix-output-monitor integration in nh.
+  --help                Show this help text.
 EOF
 }
 
-hostname_arg="${NIXOA_HOSTNAME:-$(nixoa_default_target)}"
+target_arg="${NIXOA_HOSTNAME:-$(nixoa_default_target)}"
 rebuild_action="switch"
 record_action="switch"
 first_install=0
 rollback=0
 dry_run=0
-extra_args=()
+ask=0
+verbose=0
+no_nom=0
+cores=""
+declare -a extra_args=()
+declare -a build_extra_args=()
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --hostname)
-      hostname_arg="$2"
+    --target|--hostname)
+      target_arg="$2"
       shift 2
       ;;
     --build)
       rebuild_action="build"
+      record_action="build"
+      shift
+      ;;
+    --boot)
+      rebuild_action="boot"
+      record_action="boot"
       shift
       ;;
     --dry-run)
-      rebuild_action="build"
-      record_action="dry-build"
+      rebuild_action="switch"
+      record_action="dry-run"
       dry_run=1
       shift
       ;;
@@ -53,6 +70,22 @@ while [ $# -gt 0 ]; do
       ;;
     --first-install)
       first_install=1
+      shift
+      ;;
+    --ask)
+      ask=1
+      shift
+      ;;
+    --cores)
+      cores="$2"
+      shift 2
+      ;;
+    --verbose)
+      verbose=1
+      shift
+      ;;
+    --no-nom)
+      no_nom=1
       shift
       ;;
     --help)
@@ -72,32 +105,23 @@ while [ $# -gt 0 ]; do
 done
 
 nixoa_cd_root
-target_arg="$(nixoa_host_output_name "$hostname_arg")"
+target_arg="$(nixoa_require_target_output "$target_arg")"
 
-if [ "$rollback" -ne 1 ] && nixoa_has_changes; then
-  "$SCRIPT_DIR/commit-config.sh"
+if [ "$rollback" -eq 1 ]; then
+  if [ "$ask" -eq 1 ] && ! nixoa_confirm "Roll back the current system generation"; then
+    nixoa_print_warning "Rollback cancelled."
+    exit 1
+  fi
+else
+  if nixoa_has_changes; then
+    nixoa_print_warning "Tracked NiXOA files are dirty; proceeding with the current working tree."
+  fi
 fi
 
 current_head="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse HEAD 2>/dev/null || true)"
 
-if [ "$rollback" -eq 1 ]; then
-  rebuild_cmd=(
-    nixos-rebuild
-    switch
-    --rollback
-    -L
-  )
-else
-  rebuild_cmd=(
-    os
-    "$rebuild_action"
-    "$(nixoa_host_flake_ref "$target_arg")"
-    -L
-  )
-fi
-
 if [ "$first_install" -eq 1 ]; then
-  rebuild_cmd+=(
+  build_extra_args+=(
     --option
     extra-experimental-features
     "nix-command flakes"
@@ -110,11 +134,24 @@ if [ "$first_install" -eq 1 ]; then
   )
 fi
 
-if [ "$dry_run" -eq 1 ]; then
-  rebuild_cmd+=(--dry-run)
-fi
+build_extra_args+=("${extra_args[@]}")
 
-rebuild_cmd+=("${extra_args[@]}")
+if [ "$rollback" -eq 1 ]; then
+  rebuild_cmd=(
+    nixos-rebuild
+    switch
+    --rollback
+    -L
+  )
+else
+  nixoa_build_nh_command rebuild_cmd "$rebuild_action" "$target_arg" "$ask" "$cores" "$verbose" "$no_nom"
+  if [ "$dry_run" -eq 1 ]; then
+    rebuild_cmd+=(--dry)
+  fi
+  if [ "${#build_extra_args[@]}" -gt 0 ]; then
+    rebuild_cmd+=(-- "${build_extra_args[@]}")
+  fi
+fi
 
 printf 'Running:'
 if [ "$rollback" -eq 0 ]; then
@@ -129,7 +166,7 @@ printf ' %q' "${rebuild_cmd[@]}"
 printf '\n'
 
 if [ "$rollback" -eq 1 ]; then
-  run_rebuild=( "${rebuild_cmd[@]}" )
+  run_rebuild=("${rebuild_cmd[@]}")
 else
   run_rebuild=(nixoa_run_nh "${rebuild_cmd[@]}")
 fi
