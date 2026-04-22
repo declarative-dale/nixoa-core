@@ -305,8 +305,10 @@ If you need to rollback to the old Redis data:
    In modules/nixos/features/xen-orchestra/service/redis.nix, comment out the valkey override:
    # services.redis.package = pkgs.valkey;
 
-4. Rebuild:
-   sudo nixos-rebuild switch
+4. Rebuild from your NiXOA checkout:
+   ./scripts/apply-config.sh --hostname <hostname>
+   # or
+   nh os switch /path/to/nixoa#nixosConfigurations.<hostname>
 
 Backup location: ${BACKUP_DIR}
 Export file: ${EXPORT_FILE}

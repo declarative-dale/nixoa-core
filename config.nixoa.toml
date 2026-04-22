@@ -1,0 +1,91 @@
+# ==============================================================================
+# XO Server Configuration for NiXOA
+# ==============================================================================
+# This file is deployed to /etc/xo-server/config.nixoa.toml
+# XO will load both:
+#   1. config.toml (XO's built-in defaults)
+#   2. config.nixoa.toml (your overrides from this file)
+
+# ==============================================================================
+# REQUIRED NIXOA SETTINGS (uncommented - always included)
+# ==============================================================================
+
+# Redis - NixOA uses Unix socket instead of TCP
+[redis]
+socket = "/run/redis-xo/redis.sock"
+
+# Data paths - NixOA custom paths
+[dataStore]
+path = "/var/lib/xo/data"
+
+[tempDir]
+path = "/var/lib/xo/tmp"
+
+# Redirect HTTP to HTTPS
+[http]
+redirectToHttps = true
+
+# HTTP/HTTPS Ports - Change to override default ports
+[[http.listen]]
+port = 80
+
+[[http.listen]]
+port = 443
+cert = "/etc/ssl/xo/certificate.pem"
+key = "/etc/ssl/xo/key.pem"
+
+# HTTP mounts - Paths to built-from-source web UI
+[http.mounts]
+"/" = "/var/lib/xo/xen-orchestra/@xen-orchestra/web/dist"
+"/v5" = "/var/lib/xo/xen-orchestra/packages/xo-web/dist"
+"/v6" = "/var/lib/xo/xen-orchestra/@xen-orchestra/web/dist"
+
+# Remote storage - NixOS integration with sudo
+[remoteOptions]
+useSudo = true
+mountsDir = "/var/lib/xo/mounts"
+
+# ==============================================================================
+# OPTIONAL USER OVERRIDES (commented out - uncomment to enable)
+# ==============================================================================
+
+# Authentication - Change token validity
+# [authentication]
+# defaultTokenValidity = "7 days"
+
+# Logging - Increase verbosity for debugging
+# [logs]
+# level = "debug"
+
+# ==============================================================================
+# ADVANCED CONFIGURATION EXAMPLES
+# ==============================================================================
+
+# LDAP Authentication
+# [authentication.ldap]
+# uri = "ldap://ldap.example.com"
+# bind.dn = "cn=xo,ou=users,dc=example,dc=com"
+# bind.password = "secret"
+# base = "ou=users,dc=example,dc=com"
+# filter = "(uid={{name}})"
+
+# Email Configuration
+# [mail]
+# from = "xo@example.com"
+# transport = "smtp://smtp.example.com:587"
+# authUser = "xo@example.com"
+# authPass = "password"
+
+# Proxy Configuration
+# [http.proxies]
+# "/api/proxy" = "http://backend:3000"
+
+# CORS Configuration
+# [http.cors]
+# origin = "*"
+# credentials = true
+
+# Custom Backup Concurrency
+# [backups]
+# maxMergedDeltasPerRun = 2
+# maxExportsConcurrency = 2

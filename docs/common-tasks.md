@@ -1,20 +1,20 @@
-# Common Tasks (Core Consumers)
+# Common Tasks
 
-These edits happen in the downstream `system/` repo and are consumed by core.
+These changes are now made directly in `hosts/<hostname>/settings.nix`.
 
 ## Enable XO
 
-Edit `config/features.nix`:
-
 ```nix
-{ enableXO = true; }
+{ ... }:
+{
+  enableXO = true;
+}
 ```
 
 ## Configure TLS
 
-Edit `config/xo.nix`:
-
 ```nix
+{ ... }:
 {
   enableTLS = true;
   enableAutoCert = true;
@@ -23,16 +23,28 @@ Edit `config/xo.nix`:
 
 ## Open Firewall Ports
 
-Edit `config/platform.nix`:
-
 ```nix
-{ allowedTCPPorts = [ 80 443 ]; }
+{ ... }:
+{
+  allowedTCPPorts = [ 80 443 ];
+}
 ```
 
 ## Switch Boot Loader
 
-Edit `config/platform.nix`:
+```nix
+{ ... }:
+{
+  bootLoader = "grub";
+}
+```
+
+## Add Packages
 
 ```nix
-{ bootLoader = "grub"; }
+{ ... }:
+{
+  systemPackages = [ "vim" "curl" ];
+  userPackages = [ "git" "tmux" ];
+}
 ```

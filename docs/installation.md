@@ -1,17 +1,37 @@
-# Installation (Core)
+# Installation
 
-NiXOA core is not installed directly. It is a flake library consumed by a host
-flake such as `system/`, or by another Den flake that wants to import the
-NiXOA namespace.
+NiXOA is installed directly from this repo.
 
-Current release series: `v3.1.0`
+## Bootstrap Install
+
+```bash
+git clone https://codeberg.org/NiXOA/core.git ~/nixoa
+cd ~/nixoa
+./scripts/bootstrap.sh --first-switch
+```
+
+Bootstrap creates a concrete host directory under `hosts/<hostname>/`, writes
+the selected values into Den-shaped host files, validates the flake, and runs
+the first switch through `nh` when `--first-switch` is used.
+
+## Manual Install
+
+1. Copy `hosts/default/` to `hosts/<hostname>/`.
+2. Edit `hosts/<hostname>/settings.nix`.
+3. Copy your machine's hardware config to `hosts/<hostname>/hardware-configuration.nix`.
+4. Stage the host directory with `git add hosts/<hostname>`.
+5. Validate with `nix flake check --no-write-lock-file`.
+6. Apply with `nh os switch .#nixosConfigurations.<hostname>`.
+
+## Reusable Den Import
+
+If another flake wants only the NiXOA aspect namespace, import this repo as a
+normal Den source:
 
 ```nix
 inputs.den.url = "github:vic/den";
 inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 ```
-
-Then import the namespace:
 
 ```nix
 imports = [
@@ -20,23 +40,6 @@ imports = [
 ];
 ```
 
-Enable angle brackets if you want Den's terse namespace lookups:
-
 ```nix
 _module.args.__findFile = den.lib.__findFile;
-```
-
-Then include either the full appliance or the individual NiXOA aspects from
-your host aspect:
-
-```nix
-den.aspects.${context.hostname}.includes = [ <nixoa/appliance> ];
-```
-
-```nix
-den.aspects.${context.hostname}.includes = [
-  <nixoa/platform>
-  <nixoa/virtualization>
-  <nixoa/xen-orchestra>
-];
 ```

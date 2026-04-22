@@ -335,7 +335,7 @@ const MAINTENANCE_ACTIONS: [ActionItem; 7] = [
     ActionItem {
         kind: ActionKind::RollbackGeneration,
         title: "Rollback Generation",
-        detail: "Run nixos-rebuild switch --rollback interactively for the current host.",
+        detail: "Run apply-config.sh --rollback interactively for the current host.",
         shortcut: Some('0'),
     },
     ActionItem {
@@ -1830,7 +1830,7 @@ fn run_apply_configuration(terminal: &mut AppTerminal, app: &mut App) -> Result<
 fn run_rollback_generation(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Rollback Generation", {
         let mut command = Command::new(app.repo_root.join("scripts/apply-config.sh"));
-        command.arg("--rollback");
+        command.args(["--hostname", app.snapshot.hostname.as_str(), "--rollback"]);
         command
     })
 }
@@ -2852,7 +2852,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Restore the previous NixOS generation for this host.",
             "Use this when the last switch introduced a regression and the prior generation should be made active again.",
             "Rollback changes the running system state. Confirm that the previous generation is the one you want to restore.",
-            "Enter runs nixos-rebuild switch --rollback.",
+            "Enter runs ./scripts/apply-config.sh --hostname <host> --rollback.",
             app,
         ),
         ActionKind::RunGarbageCollection => render_maintenance_detail_page(

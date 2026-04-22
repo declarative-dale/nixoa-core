@@ -6,8 +6,8 @@
 }:
 {
   nixoa.appliance.includes = [
-    <nixoa/platform>
-    <nixoa/virtualization>
-    <nixoa/xen-orchestra>
+    nixoa.platform
+    nixoa.virtualization
+    nixoa.xen-orchestra
   ];
 }

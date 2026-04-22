@@ -1,59 +1,73 @@
 # Core Architecture
 
-NiXOA core is a reusable Den namespace. It keeps plain NixOS implementation
-modules under `modules/nixos/features/`, then exports those capabilities as a
-NiXOA aspect tree under `flake.denful.nixoa`.
+NiXOA core is both a reusable Den namespace and the concrete host flake for
+NiXOA machines. Reusable behavior stays under exported Den aspects, while
+host-owned data lives under `hosts/<hostname>/`.
 
 ## Repository Shape
 
 ```text
+hosts/
+├── default/
+│   ├── default.nix
+│   ├── context.nix
+│   ├── settings.nix
+│   ├── menu.nix
+│   ├── host.nix
+│   ├── user.nix
+│   ├── hardware-configuration.nix
+│   └── profiles/vm.nix
+├── nixo-ce-example/
+│   └── ...
 modules/
 ├── dendritic.nix
 ├── namespace.nix
 ├── aspects/
-│   ├── platform.nix
-│   ├── virtualization.nix
-│   ├── xen-orchestra.nix
-│   └── appliance.nix
+├── hosts/
 ├── outputs/
-│   └── packages.nix
-└── nixos/features/
-    ├── shared/
-    ├── platform/
-    ├── virtualization/
-    └── xen-orchestra/
+└── nixos/
 ```
 
 ## Exported Namespace
 
-`modules/namespace.nix` creates and exports the `nixoa` namespace:
+`modules/namespace.nix` exports the reusable `nixoa` namespace:
 
 - `flake.denful.nixoa.platform`
 - `flake.denful.nixoa.virtualization`
 - `flake.denful.nixoa.xen-orchestra`
 - `flake.denful.nixoa.appliance`
 
-Each aspect owns its NixOS-facing behavior directly:
+`modules/aspects/defaults.nix` also keeps the Den defaults Den-native:
 
-- `platform`: base OS policy and shared packages
-- `virtualization`: Xen guest and hardware integration
-- `xen-orchestra`: XO modules plus the internal `pkgs.nixoa.*` overlay wiring
-- `appliance`: includes the three reusable aspects above
+- `den.default.includes = [ <den/hostname> <den/define-user> ]`
+- `den.ctx.user.includes = [ <den/mutual-provider> ]`
 
-## Relationship To System
+## Host Assembly
 
-`system/` imports core as a flake input, merges `flake.denful.nixoa` into its
-local namespace, and includes the exported aspects from its host aspect:
+Concrete hosts are discovered from `hosts/` by `modules/hosts/default.nix`.
+Every directory under `hosts/` except `hosts/default/` is imported as a host
+owner module.
 
-- `imports = [ (inputs.den.namespace "nixoa" [ inputs.nixoaCore ]) ];`
-- `den.aspects.${context.hostname}.includes = [ <nixoa/appliance> ];`
+Each host's `default.nix`:
 
-Host policy stays in `system/config/*`, which composes into `context` and is
-passed to core's plain implementation modules through downstream NixOS
-evaluation.
+- loads host-local context from `context.nix`
+- declares `den.hosts.<system>.<hostname>`
+- includes `nixoa.appliance`
+- attaches host-owned behavior through `includes`
+- provides user-scoped behavior through `provides.to-users`
+- emits a companion `-vm` host when the base host is not already a VM profile
+
+This keeps composition inside Den's `includes` and `provides` model instead of
+recreating a separate manual host-composition framework.
 
 ## Supporting Outputs
 
-Core still publishes supporting packages from `modules/outputs/packages.nix`
-for consumers that need build artifacts outside the aspect tree, but those are
-secondary to the exported `nixoa` namespace.
+The flake also publishes:
+
+- `nixosConfigurations.<hostname>` for concrete hosts
+- repository and host-scoped `apps`
+- `devShells`
+- supporting `packages`
+
+These outputs are secondary to the Den model, but they make the unified repo
+operable without an additional wrapper flake.

@@ -2,6 +2,11 @@
 # SPDX-License-Identifier: Apache-2.0
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$SCRIPT_DIR/lib/common.sh"
+
+nixoa_cd_root
+
 if ! command -v jq >/dev/null; then
   echo "jq is required"; exit 1
 fi
@@ -33,6 +38,7 @@ if [[ -n "${OLD}" && "${OLD}" != "${NEW}" ]]; then
 fi
 
 echo
-HOSTNAME="$(hostname -s 2>/dev/null || printf '%s\n' nixoa)"
+HOSTNAME="$(nixoa_default_hostname)"
 echo "Done. Rebuild with:"
-echo "  ~/system/scripts/apply-config.sh --hostname ${HOSTNAME}"
+echo "  ./scripts/apply-config.sh --hostname ${HOSTNAME}"
+echo "  nh os switch ${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${HOSTNAME}"

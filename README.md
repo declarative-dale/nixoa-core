@@ -1,23 +1,65 @@
 # NiXOA Core
 
-NiXOA core is the **immutable Den-native aspect library** for NiXOA. It exports
-a reusable `nixoa` namespace through `flake.denful` and keeps host-specific
-policy in the separate `system/` flake.
+NiXOA core is the unified Den-native Xen Orchestra appliance flake. It exports
+the reusable `flake.denful.nixoa` namespace and also carries concrete host
+definitions under `hosts/<hostname>`.
 
-Current release series: `v3.1.0`
+## What It Provides
 
-## What Core Provides
-
-- `denful.nixoa.platform`
-- `denful.nixoa.virtualization`
-- `denful.nixoa.xen-orchestra`
-- `denful.nixoa.appliance`
+- `flake.denful.nixoa.platform`
+- `flake.denful.nixoa.virtualization`
+- `flake.denful.nixoa.xen-orchestra`
+- `flake.denful.nixoa.appliance`
+- `nixosConfigurations.<hostname>` outputs for concrete hosts under `hosts/`
+- host-scoped `nh` apps plus repository apps such as `bootstrap`, `apply`, and `menu`
 - `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,nixoa-menu,metadata}`
 
-## Recommended Use
+## Quick Start
 
-Use `system/` for real hosts. Import `core` directly only when you want the
-NiXOA aspects without the host-local workflow layered on top.
+Bootstrap a real host from the unified repo:
+
+```bash
+git clone https://codeberg.org/NiXOA/core.git ~/nixoa
+cd ~/nixoa
+./scripts/bootstrap.sh --first-switch
+```
+
+Bootstrap creates `hosts/<hostname>/` by copying `hosts/default/`, writes the
+host-local Den-shaped settings there, stages the new host directory so flake
+evaluation can see it, validates the flake, and optionally performs the first
+switch through `nh`.
+
+You can also operate the repo through flake apps:
+
+```bash
+nix run .#bootstrap
+nix run .#apply -- --hostname nixo-ce
+```
+
+## Layout
+
+```text
+core/
+├── hosts/
+│   ├── default/            # pristine Den-shaped host template
+│   └── nixo-ce-example/    # example concrete host
+├── modules/
+│   ├── dendritic.nix       # installs Den's dendritic flake module
+│   ├── namespace.nix       # exports the `nixoa` namespace
+│   ├── aspects/            # reusable NiXOA aspect trees
+│   ├── hosts/              # imports concrete hosts from hosts/
+│   ├── outputs/            # packages, apps, dev shells
+│   └── nixos/              # implementation modules behind aspects
+├── lib/                    # shared helpers
+├── docs/                   # operator-facing docs
+├── scripts/                # bootstrap and maintenance helpers
+└── flake.nix
+```
+
+## Reusable Consumption
+
+NiXOA still works as a reusable Den namespace when another flake wants only the
+aspects and not this repo's host tree:
 
 ```nix
 {
@@ -43,25 +85,9 @@ NiXOA aspects without the host-local workflow layered on top.
 }
 ```
 
-## Layout
-
-```text
-core/
-├── modules/
-│   ├── dendritic.nix   # installs Den's dendritic flake module
-│   ├── namespace.nix   # creates and exports the `nixoa` namespace
-│   ├── aspects/        # exported NiXOA aspect trees
-│   ├── outputs/        # supporting package outputs
-│   └── nixos/          # plain implementation modules behind aspects
-├── lib/                # shared helpers
-├── docs/               # consumer-facing docs
-├── scripts/            # XO maintenance helpers
-└── flake.nix
-```
-
 ## Notes
 
-- Host bootstrap and install workflow belong in `system/`, not in `core`.
-- XO service identity defaults live in core as `nixoa.xo.user` and `nixoa.xo.group`.
-- `flake.denful.nixoa` is the primary public interface.
-- `system/` is the recommended entrypoint for actual NiXOA hosts.
+- `hosts/default/` is a template only and must not be edited in place for a real machine.
+- Concrete hosts keep host-owned values locally in `hosts/<hostname>/`.
+- `nh` is the primary operator interface for build and switch flows.
+- `flake.denful.nixoa` remains the primary reusable public surface.

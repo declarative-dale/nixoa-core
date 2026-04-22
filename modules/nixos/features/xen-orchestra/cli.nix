@@ -16,6 +16,7 @@ let
       coreutils
       gnused
       gawk
+      nh
       nixos-rebuild
       nix
     ];
@@ -43,7 +44,7 @@ let
                           COMPREPLY=($(compgen -W "$config_subcommands" -- "$cur"))
                           ;;
                       rebuild)
-                          COMPREPLY=($(compgen -W "switch test boot" -- "$cur"))
+                          COMPREPLY=($(compgen -W "switch build" -- "$cur"))
                           ;;
                   esac
                   ;;

@@ -4,27 +4,23 @@
 
 set -euo pipefail
 
-VERSION="3.1.0"
+VERSION="3.2.0"
 
-if [ -n "${SUDO_USER:-}" ]; then
+if [ -n "${NIXOA_SYSTEM_ROOT:-}" ]; then
+  REPO_ROOT="$NIXOA_SYSTEM_ROOT"
+elif [ -n "${SUDO_USER:-}" ]; then
   REAL_HOME="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
-  CONFIG_DIR="${REAL_HOME}/system"
+  REPO_ROOT="${REAL_HOME}/nixoa"
 else
-  CONFIG_DIR="${HOME}/system"
+  REPO_ROOT="${HOME}/nixoa"
 fi
 
-TRACKED_PATHS=(
-  config
-  config.nixoa.toml
-  docs
-  flake.lock
-  flake.nix
-  hardware-configuration.nix
-  modules
-  scripts
-  README.md
-  AGENTS.md
-)
+if [ ! -f "$REPO_ROOT/scripts/lib/common.sh" ]; then
+  echo "error: NiXOA checkout not found at $REPO_ROOT" >&2
+  exit 1
+fi
+
+. "$REPO_ROOT/scripts/lib/common.sh"
 
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -37,44 +33,22 @@ print_info() { printf '%b\n' "${BLUE}info:${NC} $1"; }
 print_success() { printf '%b\n' "${GREEN}ok:${NC} $1"; }
 print_warning() { printf '%b\n' "${YELLOW}warn:${NC} $1"; }
 
-default_hostname() {
-  local file
-  local value
-
-  for file in \
-    "$CONFIG_DIR/config/overrides.nix" \
-    "$CONFIG_DIR/config/site.nix"
-  do
-    [ -f "$file" ] || continue
-    value="$(sed -nE 's/^[[:space:]]*hostname[[:space:]]*=[[:space:]]*"([^"]*)"[[:space:]]*;.*$/\1/p' "$file" | tail -n 1)"
-    if [ -n "$value" ]; then
-      printf '%s\n' "$value"
-      return 0
-    fi
-  done
-
-  printf '%s\n' "nixoa"
-}
-
 ensure_config_dir() {
-  if [ ! -d "$CONFIG_DIR" ]; then
-    print_error "System checkout not found at $CONFIG_DIR"
+  if [ ! -d "$REPO_ROOT" ]; then
+    print_error "Checkout not found at $REPO_ROOT"
     exit 1
   fi
 }
 
 ensure_git_repo() {
-  if [ ! -d "$CONFIG_DIR/.git" ]; then
-    print_error "No git repository found at $CONFIG_DIR"
+  if [ ! -d "$REPO_ROOT/.git" ]; then
+    print_error "No git repository found at $REPO_ROOT"
     exit 1
   fi
 }
 
-run_config_script() {
-  local script="$1"
-  shift
-  ensure_config_dir
-  exec "$CONFIG_DIR/scripts/$script" "$@"
+default_hostname() {
+  nixoa_default_hostname
 }
 
 show_usage() {
@@ -85,71 +59,58 @@ Usage:
   nixoa <command> [options]
 
 Commands:
-  config commit <message>          Commit system repository changes
-  config apply [--first-install]   Apply the current host configuration
-  config show                      Show repository diffs
-  config diff                      Alias for config show
-  config history                   Show repository history
-  config edit                      Edit the common config fragments
-  config status                    Show git status for the system repo
-  rebuild [switch|test|boot]       Run nixos-rebuild against the system flake
-  update                           Run nix flake update in the system repo
-  rollback                         Roll back to the previous NixOS generation
-  list-generations                 List NixOS generations
-  status                           Show host and service status
-  version                          Show CLI and NixOS version
-  help                             Show this message
+  config commit [message]         Commit NiXOA repository changes
+  config apply [--first-install]  Apply the current host configuration
+  config show                     Show repository diffs
+  config diff                     Alias for config show
+  config history                  Show repository history
+  config edit                     Edit the active host files
+  config status                   Show git status for the NiXOA repo
+  rebuild [switch|build]          Run the active host through apply-config.sh
+  update                          Run nix flake update in the NiXOA repo
+  rollback                        Roll back to the previous NixOS generation
+  list-generations                List NixOS generations
+  status                          Show host and service status
+  version                         Show CLI and NixOS version
+  help                            Show this message
 EOF
 }
 
 config_commit() {
-  if [ $# -eq 0 ]; then
-    print_error "Commit message required"
-    exit 1
-  fi
-
   ensure_config_dir
-  "$CONFIG_DIR/scripts/commit-config.sh" "$1"
+  "$REPO_ROOT/scripts/commit-config.sh" "$@"
 }
 
 config_apply() {
   ensure_config_dir
-  "$CONFIG_DIR/scripts/apply-config.sh" "$@"
+  "$REPO_ROOT/scripts/apply-config.sh" "$@"
 }
 
 config_show() {
   ensure_config_dir
-  "$CONFIG_DIR/scripts/show-diff.sh"
+  "$REPO_ROOT/scripts/show-diff.sh"
 }
 
 config_history() {
   ensure_config_dir
-  "$CONFIG_DIR/scripts/history.sh"
+  "$REPO_ROOT/scripts/history.sh"
 }
 
 config_edit() {
   ensure_config_dir
   local editor="${EDITOR:-nano}"
-  local files=(
-    "$CONFIG_DIR/config/site.nix"
-    "$CONFIG_DIR/config/platform.nix"
-    "$CONFIG_DIR/config/features.nix"
-    "$CONFIG_DIR/config/packages.nix"
-    "$CONFIG_DIR/config/xo.nix"
-    "$CONFIG_DIR/config/storage.nix"
-  )
+  local host="${1:-$(default_hostname)}"
 
-  if [ -f "$CONFIG_DIR/config/overrides.nix" ]; then
-    files+=("$CONFIG_DIR/config/overrides.nix")
-  fi
-
-  exec "$editor" "${files[@]}"
+  exec "$editor" \
+    "$(nixoa_host_settings_file "$host")" \
+    "$(nixoa_host_menu_file "$host")" \
+    "$REPO_ROOT/config.nixoa.toml"
 }
 
 config_status() {
   ensure_config_dir
   ensure_git_repo
-  git -C "$CONFIG_DIR" status -- "${TRACKED_PATHS[@]}"
+  git -C "$REPO_ROOT" status -- "${NIXOA_TRACKED_PATHS[@]}"
 }
 
 rebuild_system() {
@@ -157,32 +118,34 @@ rebuild_system() {
 
   local mode="${1:-switch}"
   case "$mode" in
-    switch|test|boot)
+    switch)
+      exec "$REPO_ROOT/scripts/apply-config.sh" --hostname "$(default_hostname)"
+      ;;
+    build)
+      exec "$REPO_ROOT/scripts/apply-config.sh" --hostname "$(default_hostname)" --build
       ;;
     *)
       print_error "Invalid rebuild mode: $mode"
       exit 1
       ;;
   esac
-
-  exec sudo nixos-rebuild "$mode" --flake "$CONFIG_DIR#$(default_hostname)" -L
 }
 
 update_flake() {
   ensure_config_dir
   ensure_git_repo
 
-  print_info "Updating flake inputs in $CONFIG_DIR"
+  print_info "Updating flake inputs in $REPO_ROOT"
   (
-    cd "$CONFIG_DIR"
+    cd "$REPO_ROOT"
     nix flake update
   )
   print_success "Flake inputs updated"
-  print_info "Apply with: $CONFIG_DIR/scripts/apply-config.sh"
+  print_info "Apply with: $REPO_ROOT/scripts/apply-config.sh --hostname $(default_hostname)"
 }
 
 rollback_system() {
-  exec sudo nixos-rebuild switch --rollback
+  exec "$REPO_ROOT/scripts/apply-config.sh" --hostname "$(default_hostname)" --rollback
 }
 
 list_generations() {
@@ -194,16 +157,17 @@ show_status() {
 
   echo "Host: $(hostname)"
   echo "NixOS: $(nixos-version)"
-  echo "Config: $CONFIG_DIR"
+  echo "Config: $REPO_ROOT"
+  echo "Active host: $(default_hostname)"
   echo ""
   echo "Services:"
   systemctl is-active xo-server.service >/dev/null 2>&1 && echo "  xo-server: active" || echo "  xo-server: inactive"
   systemctl is-active redis-xo.service >/dev/null 2>&1 && echo "  redis-xo: active" || echo "  redis-xo: inactive"
 
-  if [ -d "$CONFIG_DIR/.git" ]; then
+  if [ -d "$REPO_ROOT/.git" ]; then
     echo ""
     echo "Repository:"
-    git -C "$CONFIG_DIR" status --short -- "${TRACKED_PATHS[@]}"
+    git -C "$REPO_ROOT" status --short -- "${NIXOA_TRACKED_PATHS[@]}"
   fi
 }
 
@@ -237,16 +201,14 @@ main() {
           config_history
           ;;
         edit)
-          config_edit
+          shift
+          config_edit "$@"
           ;;
         status)
           config_status
           ;;
-        help|"")
-          show_usage
-          ;;
         *)
-          print_error "Unknown config subcommand: $1"
+          show_usage
           exit 1
           ;;
       esac
@@ -261,13 +223,13 @@ main() {
     rollback)
       rollback_system
       ;;
-    list-generations|generations)
+    list-generations)
       list_generations
       ;;
     status)
       show_status
       ;;
-    version|--version|-v)
+    version)
       show_version
       ;;
     help|--help|-h)
@@ -275,6 +237,7 @@ main() {
       ;;
     *)
       print_error "Unknown command: $1"
+      show_usage
       exit 1
       ;;
   esac

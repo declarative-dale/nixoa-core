@@ -1,10 +1,41 @@
-# Getting Started (Core)
+# Getting Started
 
-The recommended way to use core is through the separate `system/` host flake.
-If you want to consume core directly, add it as an input and import the NiXOA
-namespace into your own Den flake.
+NiXOA is now used directly from the unified `core` repo.
 
-Current release series: `v3.1.0`
+## Bootstrap A Host
+
+```bash
+git clone https://codeberg.org/NiXOA/core.git ~/nixoa
+cd ~/nixoa
+./scripts/bootstrap.sh
+```
+
+The bootstrap flow prompts for hostname, username, timezone, state version,
+SSH keys, repo path, and deployment profile. It then:
+
+- copies `hosts/default/` to `hosts/<hostname>/`
+- writes host-local settings into `hosts/<hostname>/settings.nix`
+- copies `hardware-configuration.nix` into the host directory
+- stages `hosts/<hostname>/` so flake evaluation sees the new host
+- validates the flake
+- optionally performs the first switch through `nh`
+
+The suggested hostname during bootstrap is `nixo-ce`. The repo also ships a
+sample concrete host at `hosts/nixo-ce-example/`.
+
+## Operate A Host
+
+From the repo root:
+
+```bash
+./scripts/show-diff.sh
+./scripts/apply-config.sh --hostname nixo-ce
+nh os switch .#nixosConfigurations.nixo-ce
+```
+
+## Reuse The Namespace Elsewhere
+
+Another Den flake can still import the reusable namespace directly:
 
 ```nix
 {
@@ -27,17 +58,5 @@ Current release series: `v3.1.0`
         })
       ];
     }).config.flake;
-}
-```
-
-For more granular composition, include any of the named aspects directly:
-
-```nix
-{
-  den.aspects.my-host.includes = [
-    <nixoa/platform>
-    <nixoa/virtualization>
-    <nixoa/xen-orchestra>
-  ];
 }
 ```

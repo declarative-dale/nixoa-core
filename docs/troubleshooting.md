@@ -1,13 +1,11 @@
-# Troubleshooting (Core)
-
-Most runtime issues are resolved in the downstream `system/` repository.
+# Troubleshooting
 
 ## XO Not Starting
 
-Check:
+Check the active host's `hosts/<hostname>/settings.nix` for:
 
-- `enableXO = true` in `config/features.nix`
-- XO runtime and TLS settings in `config/xo.nix`
+- `enableXO = true`
+- correct XO runtime and TLS settings
 
 Then inspect:
 
@@ -18,8 +16,19 @@ journalctl -u xo-server -n 200
 
 ## SSH Access Missing
 
-Ensure `sshKeys` is populated in `config/site.nix` or `config/overrides.nix`.
+Ensure `sshKeys` is populated in `hosts/<hostname>/settings.nix`.
 
 ## Firewall Ports Blocked
 
-Update `config/platform.nix` in the host repository.
+Update `allowedTCPPorts` or `allowedUDPPorts` in `hosts/<hostname>/settings.nix`
+and re-apply the host.
+
+## New Host Does Not Resolve In The Flake
+
+Ensure the host directory exists at `hosts/<hostname>/` and includes
+`default.nix`. If the repo is still in a git worktree evaluation path, stage
+the new directory with:
+
+```bash
+git add hosts/<hostname>
+```

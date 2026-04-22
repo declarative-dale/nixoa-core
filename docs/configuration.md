@@ -1,35 +1,58 @@
-# Configuration Reference (Core)
+# Configuration Reference
 
-Core does not store host policy. It consumes values provided by the downstream
-host flake through `context`.
+Host-owned configuration now lives inside `hosts/<hostname>/`.
 
-## Expected Host Configuration Shape
+## Host Directory Shape
 
-Core is designed around the current `system/` layout:
+Each concrete host uses the same Den-shaped layout as the template:
 
-- `config/site.nix`
-- `config/platform.nix`
-- `config/features.nix`
-- `config/packages.nix`
-- `config/xo.nix`
-- `config/storage.nix`
-- optional `config/overrides.nix`
+- `default.nix`: declares the concrete Den host and attaches aspects
+- `context.nix`: merges host-local settings sources
+- `settings.nix`: durable host-owned values
+- `menu.nix`: TUI-managed overrides
+- `host.nix`: final host-owner NixOS imports
+- `user.nix`: final user-owner Home Manager imports
+- `hardware-configuration.nix`: machine-specific hardware config
+- `profiles/vm.nix`: VM profile implementation
 
-These fragments are merged by `system/config/context.nix` and passed through the
-host evaluation as `context`.
+`hosts/default/` is only a template. Real machines should use their own
+`hosts/<hostname>/` directory.
 
-## Key Context Values Consumed By Core
+## Key Host Settings
 
+`settings.nix` is the main host-owned context input. Important values include:
+
+- `hostname`
+- `username`
+- `timezone`
+- `stateVersion`
+- `sshKeys`
+- `deploymentProfile`
+- `bootLoader`
+- `allowedTCPPorts`
+- `allowedUDPPorts`
 - `enableXO`
 - `enableXenGuest`
-- `xoConfigFile`
-- `xoHttpHost`
 - `enableTLS`
 - `enableAutoCert`
+- `systemPackages`
+- `userPackages`
 - `enableNFS`
 - `enableCIFS`
 - `enableVHD`
 - `mountsDir`
 
-XO service identity now defaults inside core through `nixoa.xo.user` and
-`nixoa.xo.group`, rather than being configured through downstream `context`.
+## Den-Native Split
+
+Reusable defaults stay in exported NiXOA namespaces and aspects. Host-owned
+values stay local to `hosts/<hostname>/`.
+
+That means:
+
+- reusable behavior belongs in `modules/aspects/` or supporting modules
+- host-local overrides belong in `hosts/<hostname>/`
+- `includes` and `provides` handle composition
+- `imports` stay limited to the final host-owner and user-owner modules
+
+XO service identity still defaults inside core through `nixoa.xo.user` and
+`nixoa.xo.group`.

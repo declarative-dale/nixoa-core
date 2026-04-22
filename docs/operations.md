@@ -1,6 +1,6 @@
 # Daily Operations
 
-Common commands for operating NiXOA systems (from the host).
+Common commands for operating NiXOA systems from the unified repo.
 
 ## Service Management
 
@@ -17,25 +17,42 @@ sudo journalctl -u xo-server -f
 sudo journalctl -u xo-server -n 200
 ```
 
-## Configuration Changes
+## Review Configuration Changes
 
 ```bash
-cd ~/system
+cd ~/nixoa
 ./scripts/show-diff.sh
-./scripts/apply-config.sh
 ```
 
-Edit host policy under `config/` in the system repo.
+Edit the active host under `hosts/<hostname>/`, usually `settings.nix` and
+`menu.nix`.
 
-## Manual Rebuild
+## Apply Configuration
+
+Preferred `nh` flow:
 
 ```bash
-cd ~/system
-sudo nixos-rebuild switch --flake .#<configured-hostname> -L
+cd ~/nixoa
+nh os switch .#nixosConfigurations.<hostname>
+```
+
+Wrapper script:
+
+```bash
+cd ~/nixoa
+./scripts/apply-config.sh --hostname <hostname>
+```
+
+## Build Without Switching
+
+```bash
+cd ~/nixoa
+nh os build .#nixosConfigurations.<hostname>
 ```
 
 ## Rollback
 
 ```bash
-sudo nixos-rebuild switch --rollback
+cd ~/nixoa
+./scripts/apply-config.sh --hostname <hostname> --rollback
 ```
