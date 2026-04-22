@@ -66,17 +66,106 @@ nixoa_print_cli_command() {
   printf '\n'
 }
 
+nixoa_print_shell_command() {
+  local prefix="$1"
+
+  shift
+
+  printf '%s ' "$prefix"
+  while [ $# -gt 0 ]; do
+    printf '%q' "$1"
+    shift
+    if [ $# -gt 0 ]; then
+      printf ' '
+    fi
+  done
+  printf '\n'
+}
+
+nixoa_user_exists() {
+  local username="${1:-}"
+
+  [ -n "$username" ] || return 1
+  [ "$username" != "root" ] || return 1
+  id -u "$username" >/dev/null 2>&1
+}
+
+nixoa_host_execution_user() {
+  local target="${1:-}"
+  local host_name=""
+  local username=""
+  local repo_owner=""
+
+  if nixoa_user_exists "${NIXOA_NH_USER:-}"; then
+    printf '%s\n' "$NIXOA_NH_USER"
+    return 0
+  fi
+
+  if [ -n "$target" ]; then
+    host_name="$(nixoa_resolve_target_host "$target" 2>/dev/null || true)"
+    if [ -n "$host_name" ]; then
+      username="$(nixoa_config_string username "$host_name" || true)"
+      if nixoa_user_exists "$username"; then
+        printf '%s\n' "$username"
+        return 0
+      fi
+    fi
+  fi
+
+  if nixoa_user_exists "${SUDO_USER:-}"; then
+    printf '%s\n' "$SUDO_USER"
+    return 0
+  fi
+
+  repo_owner="$(stat -c %U "$NIXOA_SYSTEM_ROOT" 2>/dev/null || true)"
+  if nixoa_user_exists "$repo_owner"; then
+    printf '%s\n' "$repo_owner"
+    return 0
+  fi
+
+  return 1
+}
+
+nixoa_append_first_install_nix_options() {
+  local -n out_ref="$1"
+
+  out_ref+=(
+    --option
+    extra-experimental-features
+    "nix-command flakes"
+    --option
+    extra-substituters
+    "https://install.determinate.systems"
+    --option
+    extra-trusted-public-keys
+    "cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
+  )
+}
+
 nixoa_print_first_switch_commands() {
   local target="$1"
   local resolved_target=""
   local flake_ref=""
+  local execution_user=""
+  local cli_command=""
+  local -a raw_cmd=()
 
   resolved_target="$(nixoa_host_output_name "$target")"
   flake_ref="path:${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${resolved_target}"
+  execution_user="$(nixoa_host_execution_user "$resolved_target" || true)"
+  cli_command="$(nixoa_cli_command)"
+  raw_cmd=(nix shell nixpkgs#nh -c nh os switch "$flake_ref" --)
+  nixoa_append_first_install_nix_options raw_cmd
 
   printf 'Manual switch commands:\n'
-  nixoa_print_cli_command "  Repo helper:" apply --target "$resolved_target" --first-install
-  printf '  nh via nix shell: nix shell nixpkgs#nh -c nh os switch %q\n' "$flake_ref"
+  if [ -n "$execution_user" ] && [ "$(id -u)" -eq 0 ]; then
+    nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install
+    nixoa_print_shell_command "  nh via nix shell:" sudo -H -u "$execution_user" "${raw_cmd[@]}"
+    return 0
+  fi
+
+  nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install
+  nixoa_print_shell_command "  nh via nix shell:" "${raw_cmd[@]}"
 }
 
 nixoa_nix_quote() {
@@ -375,6 +464,29 @@ nixoa_run_as_root() {
 }
 
 nixoa_run_nh() {
+  local nh_user=""
+  local sudo_bin=""
+
+  if [ "$(id -u)" -eq 0 ]; then
+    nh_user="$(nixoa_host_execution_user "${NIXOA_NH_TARGET:-}" || true)"
+    if [ -n "$nh_user" ]; then
+      sudo_bin="$(nixoa_sudo_bin)" || {
+        nixoa_print_error "nh needs to run as ${nh_user}, but sudo is not available."
+        return 1
+      }
+
+      if command -v nh >/dev/null 2>&1; then
+        "$sudo_bin" -H -u "$nh_user" nh "$@"
+        return $?
+      fi
+
+      "$sudo_bin" -H -u "$nh_user" nix shell nixpkgs#nh -c nh "$@"
+      return $?
+    fi
+
+    nixoa_print_warning "Could not resolve a non-root operator user for nh; attempting to run it as root."
+  fi
+
   if command -v nh >/dev/null 2>&1; then
     nh "$@"
     return $?

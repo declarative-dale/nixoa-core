@@ -121,20 +121,18 @@ fi
 current_head="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse HEAD 2>/dev/null || true)"
 
 if [ "$first_install" -eq 1 ]; then
-  build_extra_args+=(
-    --option
-    extra-experimental-features
-    "nix-command flakes"
-    --option
-    extra-substituters
-    "https://install.determinate.systems"
-    --option
-    extra-trusted-public-keys
-    "cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
-  )
+  nixoa_append_first_install_nix_options build_extra_args
 fi
 
 build_extra_args+=("${extra_args[@]}")
+
+if [ "$rollback" -eq 0 ] && [ "$EUID" -eq 0 ] && [ -z "${NIXOA_NH_USER:-}" ]; then
+  nh_user="$(nixoa_host_execution_user "$target_arg" || true)"
+  if [ -n "$nh_user" ]; then
+    export NIXOA_NH_USER="$nh_user"
+  fi
+  export NIXOA_NH_TARGET="$target_arg"
+fi
 
 if [ "$rollback" -eq 1 ]; then
   rebuild_cmd=(

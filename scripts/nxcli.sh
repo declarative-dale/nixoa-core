@@ -458,7 +458,11 @@ host_add() {
 
   if [ "$switch_now" -eq 1 ]; then
     nixoa_print_info "Switching to the new flake now. This uses nh and falls back to 'nix shell nixpkgs#nh -c nh' if nh is not installed yet."
-    "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+    if nixoa_user_exists "$username_arg"; then
+      NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+    else
+      "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+    fi
   fi
 
   nixoa_print_success "Created host/$hostname_arg."
