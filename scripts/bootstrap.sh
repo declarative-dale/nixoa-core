@@ -172,6 +172,7 @@ enable_flakes=0
 hostname_arg=""
 username_arg=""
 declare -a host_add_args=()
+host_add_args+=(--no-nom)
 
 while [ $# -gt 0 ]; do
   case "$1" in

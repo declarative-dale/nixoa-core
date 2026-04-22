@@ -275,12 +275,12 @@
     },
     "nixpkgs_3": {
       "locked": {
-        "lastModified": 1775305101,
-        "narHash": "sha256-/74n1oQPtKG52Yw41cbToxspxHbYz6O3vi+XEw16Qe8=",
-        "rev": "36a601196c4ebf49e035270e10b2d103fe39076b",
-        "revCount": 910628,
+        "lastModified": 1776560675,
+        "narHash": "sha256-p68udKWWh7+V4ZPpcMDq0gTHWNZJnr4JPI+kHPPE40o=",
+        "rev": "e07580dae39738e46609eaab8b154de2488133ce",
+        "revCount": 911303,
         "type": "tarball",
-        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2511.910628%2Brev-36a601196c4ebf49e035270e10b2d103fe39076b/019d616a-caa3-7e84-833f-8d5b5de18429/source.tar.gz"
+        "url": "https://api.flakehub.com/f/pinned/NixOS/nixpkgs/0.2511.911303%2Brev-e07580dae39738e46609eaab8b154de2488133ce/019db12b-b7e1-7762-aadd-382b14c5b218/source.tar.gz"
       },
       "original": {
         "type": "tarball",
@@ -340,11 +340,11 @@
         "nixpkgs": "nixpkgs_4"
       },
       "locked": {
-        "lastModified": 1775294109,
-        "narHash": "sha256-lQI4Y7yGpVLOg/abHwJcJvoZb9X1L1j5r3rqid+/nOk=",
+        "lastModified": 1776195272,
+        "narHash": "sha256-I1Gq0hcDMufI06ZOKo+yvZ0wYO82MLfitGV58ni73Ug=",
         "ref": "refs/tags/latest",
-        "rev": "8beb42578b8c6f58b93e7a62e40127e820366848",
-        "revCount": 45,
+        "rev": "5abf95be389527d5daee0abd4ece53c4d6e1e339",
+        "revCount": 48,
         "type": "git",
         "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       },

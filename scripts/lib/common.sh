@@ -144,6 +144,7 @@ nixoa_append_first_install_nix_options() {
 
 nixoa_print_first_switch_commands() {
   local target="$1"
+  local no_nom="${2:-0}"
   local resolved_target=""
   local flake_ref=""
   local execution_user=""
@@ -154,17 +155,29 @@ nixoa_print_first_switch_commands() {
   flake_ref="path:${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${resolved_target}"
   execution_user="$(nixoa_host_execution_user "$resolved_target" || true)"
   cli_command="$(nixoa_cli_command)"
-  raw_cmd=(nix shell nixpkgs#nh -c nh os switch "$flake_ref" --)
+  raw_cmd=(nix shell nixpkgs#nh -c nh os switch "$flake_ref" -L)
+  if [ "$no_nom" -eq 1 ]; then
+    raw_cmd+=(--no-nom)
+  fi
+  raw_cmd+=(--)
   nixoa_append_first_install_nix_options raw_cmd
 
   printf 'Manual switch commands:\n'
   if [ -n "$execution_user" ] && [ "$(id -u)" -eq 0 ]; then
-    nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install
+    if [ "$no_nom" -eq 1 ]; then
+      nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install --no-nom
+    else
+      nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install
+    fi
     nixoa_print_shell_command "  nh via nix shell:" sudo -H -u "$execution_user" "${raw_cmd[@]}"
     return 0
   fi
 
-  nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install
+  if [ "$no_nom" -eq 1 ]; then
+    nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install --no-nom
+  else
+    nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install
+  fi
   nixoa_print_shell_command "  nh via nix shell:" "${raw_cmd[@]}"
 }
 

@@ -117,6 +117,7 @@ Options:
   --skip-hardware-copy     Do not copy the local hardware profile.
   --set-vm-alias           Update host/_automation/default.nix to point vm at this host. Default: yes.
   --no-set-vm-alias        Leave the stable vm alias unchanged.
+  --no-nom                 Use --no-nom for the optional first switch after host creation.
   --username NAME          Primary username. Default: nixoa.
   --git-name NAME          Git user.name override. Default: NiXOA Admin.
   --git-email EMAIL        Git user.email override. Default: nixoa@nixoa.
@@ -251,6 +252,7 @@ host_add() {
   local set_vm_alias=1
   local skip_check=0
   local first_switch=0
+  local no_nom=0
   local switch_now=0
   local extra_ssh_key=""
   local template_dir=""
@@ -315,6 +317,10 @@ host_add() {
         ;;
       --first-switch)
         first_switch=1
+        shift
+        ;;
+      --no-nom)
+        no_nom=1
         shift
         ;;
       --help)
@@ -459,9 +465,17 @@ host_add() {
   if [ "$switch_now" -eq 1 ]; then
     nixoa_print_info "Switching to the new flake now. This uses nh and falls back to 'nix shell nixpkgs#nh -c nh' if nh is not installed yet."
     if nixoa_user_exists "$username_arg"; then
-      NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+      if [ "$no_nom" -eq 1 ]; then
+        NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install --no-nom
+      else
+        NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+      fi
     else
-      "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+      if [ "$no_nom" -eq 1 ]; then
+        "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install --no-nom
+      else
+        "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
+      fi
     fi
   fi
 
@@ -471,7 +485,7 @@ host_add() {
     printf 'Initial apply completed for target %s.\n' "$hostname_arg"
   else
     nixoa_print_info "Initial switch skipped."
-    nixoa_print_first_switch_commands "$hostname_arg"
+    nixoa_print_first_switch_commands "$hostname_arg" "$no_nom"
   fi
   nixoa_print_cli_command "Stable vm target:" apply --target vm
 }
