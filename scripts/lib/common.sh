@@ -437,7 +437,7 @@ nixoa_host_output_name() {
 
 nixoa_host_flake_ref() {
   local hostname="${1:-}"
-  printf '.#nixosConfigurations.%s\n' "$(nixoa_host_output_name "$hostname")"
+  printf 'path:%s#nixosConfigurations.%s\n' "$NIXOA_SYSTEM_ROOT" "$(nixoa_host_output_name "$hostname")"
 }
 
 nixoa_cd_root() {
