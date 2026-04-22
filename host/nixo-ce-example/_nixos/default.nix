@@ -10,11 +10,12 @@ let
     if (context.deploymentProfile or "physical") == "vm" then
       [ ./profiles/vm.nix ]
     else
-      [ ./hardware-configuration.nix ];
+      [ ];
 in
 {
   imports = [
     (inputs.import-tree ../../../modules/_nixos/runtime)
     (inputs.import-tree ../../../modules/_nixos/host)
+    ./hardware-configuration.nix
   ] ++ profileImports;
 }

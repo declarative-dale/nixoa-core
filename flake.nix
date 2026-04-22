@@ -26,13 +26,6 @@
       nixosConfigurations = baseNixosConfigurations // vmAlias;
     };
 
-  nixConfig = {
-    extra-substituters = [ "https://xen-orchestra-ce.cachix.org" ];
-    extra-trusted-public-keys = [
-      "xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
-    ];
-  };
-
   inputs = {
     den.url = "github:denful/den/v0.16.0";
     determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/*";

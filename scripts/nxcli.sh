@@ -113,8 +113,8 @@ Usage: nxcli host add [hostname] [options]
 
 Options:
   --profile NAME           Deployment profile: physical or vm. Defaults from virtualization detection.
-  --copy-hardware          Copy /etc/nixos/hardware-configuration.nix into the new host tree.
-  --skip-hardware-copy     Do not copy the local hardware profile.
+  --copy-hardware          Copy /etc/nixos/hardware-configuration.nix into the new host tree. Default: yes.
+  --skip-hardware-copy     Do not copy the local hardware profile. Use only when you intend to replace the generated placeholder manually.
   --set-vm-alias           Update host/_automation/default.nix to point vm at this host. Default: yes.
   --no-set-vm-alias        Leave the stable vm alias unchanged.
   --no-nom                 Use --no-nom for the optional first switch after host creation.
@@ -354,11 +354,7 @@ host_add() {
   profile_arg="$(nixoa_normalize_profile "$profile_arg")"
 
   if [ -z "$copy_hardware" ]; then
-    if [ "$profile_arg" = "physical" ]; then
-      copy_hardware=1
-    else
-      copy_hardware=0
-    fi
+    copy_hardware=1
   fi
 
   if [ -z "$username_arg" ]; then
@@ -402,6 +398,13 @@ host_add() {
     exit 1
   fi
 
+  if [ "$copy_hardware" -eq 1 ] && [ ! -f /etc/nixos/hardware-configuration.nix ]; then
+    nixoa_print_error "/etc/nixos/hardware-configuration.nix was not found."
+    nixoa_print_error "Bootstrap expects to copy the machine's hardware configuration into ${hardware_file#"$NIXOA_SYSTEM_ROOT/"}."
+    nixoa_print_error "If you really want to proceed without it, rerun with --skip-hardware-copy and replace the placeholder file manually."
+    exit 1
+  fi
+
   if [ -e "$host_dir" ]; then
     nixoa_print_error "Host directory ${host_dir#"$NIXOA_SYSTEM_ROOT/"} already exists."
     exit 1
@@ -438,11 +441,7 @@ host_add() {
     ssh_keys
 
   if [ "$copy_hardware" -eq 1 ]; then
-    if [ -f /etc/nixos/hardware-configuration.nix ]; then
-      install -m 0644 /etc/nixos/hardware-configuration.nix "$hardware_file"
-    else
-      nixoa_print_warning "/etc/nixos/hardware-configuration.nix was not found; leaving the template file in place."
-    fi
+    install -m 0644 /etc/nixos/hardware-configuration.nix "$hardware_file"
   fi
 
   if [ "$set_vm_alias" -eq 1 ]; then
