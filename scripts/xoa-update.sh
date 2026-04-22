@@ -79,5 +79,5 @@ fi
 
 echo
 nixoa_print_success "Updated xen-orchestra-ce."
-printf 'Next: nxcli apply --target %s\n' "$target_arg"
-printf 'Safer path: nxcli boot --target %s\n' "$target_arg"
+nixoa_print_cli_command "Next:" apply --target "$target_arg"
+nixoa_print_cli_command "Safer path:" boot --target "$target_arg"

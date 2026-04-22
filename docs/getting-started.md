@@ -29,15 +29,18 @@ also clones or refreshes a checkout before handing off to `nxcli host add`.
 From the repo root:
 
 ```bash
-nxcli status
-nxcli apply --target nixo-ce
-nxcli apply --target vm --dry-run
-nxcli boot --target vm
+./scripts/nxcli.sh status
+./scripts/nxcli.sh apply --target nixo-ce
+./scripts/nxcli.sh apply --target vm --dry-run
+./scripts/nxcli.sh boot --target vm
 ```
 
 `--target vm` always resolves through `host/_automation/default.nix`, so it is
 the stable automation target for VM/XO workflows. Use concrete host names when
 you need to pin an operation to one specific host output.
+
+After the first successful apply, `nxcli` is installed on the host and the same
+commands can be run as `nxcli ...` without the repo-local launcher path.
 
 ## Reuse The Namespace Elsewhere
 

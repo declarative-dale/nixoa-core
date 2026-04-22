@@ -42,6 +42,30 @@ nixoa_print_success() {
   printf 'ok: %s\n' "$1"
 }
 
+nixoa_cli_command() {
+  if command -v nxcli >/dev/null 2>&1; then
+    printf 'nxcli\n'
+  else
+    printf '%s/scripts/nxcli.sh\n' "$NIXOA_SYSTEM_ROOT"
+  fi
+}
+
+nixoa_print_cli_command() {
+  local prefix="$1"
+  local cli_command=""
+
+  shift
+  cli_command="$(nixoa_cli_command)"
+
+  printf '%s ' "$prefix"
+  printf '%q' "$cli_command"
+  while [ $# -gt 0 ]; do
+    printf ' %q' "$1"
+    shift
+  done
+  printf '\n'
+}
+
 nixoa_nix_quote() {
   printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"
 }

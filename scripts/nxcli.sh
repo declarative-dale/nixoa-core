@@ -452,13 +452,13 @@ host_add() {
   fi
 
   nixoa_print_success "Created host/$hostname_arg."
-  printf 'Next: nxcli host show %s\n' "$hostname_arg"
+  nixoa_print_cli_command "Next:" host show "$hostname_arg"
   if [ "$first_switch" -eq 1 ]; then
     printf 'Initial apply completed for target %s.\n' "$hostname_arg"
   else
-    printf 'Apply with: nxcli apply --target %s\n' "$hostname_arg"
+    nixoa_print_cli_command "Apply with:" apply --target "$hostname_arg"
   fi
-  printf 'Stable vm target: nxcli apply --target vm\n'
+  nixoa_print_cli_command "Stable vm target:" apply --target vm
 }
 
 update_flake() {
@@ -497,8 +497,8 @@ update_flake() {
   nixoa_cd_root
   nix flake update
   nixoa_print_success "Flake inputs updated."
-  printf 'Next: nxcli apply --target %s\n' "$target_arg"
-  printf 'Safer path: nxcli boot --target %s\n' "$target_arg"
+  nixoa_print_cli_command "Next:" apply --target "$target_arg"
+  nixoa_print_cli_command "Safer path:" boot --target "$target_arg"
 }
 
 update_xoa() {

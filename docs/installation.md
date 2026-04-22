@@ -23,8 +23,9 @@ checkout/bootstrap wrapper around the same flow.
 2. Review `host/<hostname>/_ctx/settings.nix`.
 3. Confirm `host/_automation/default.nix` points `vmHost` at the intended host when you plan to use the stable `vm` target.
 4. Validate with `nix flake check --no-write-lock-file`.
-5. Apply with `nxcli apply --target <hostname>`.
-6. Use `nxcli boot --target vm` when you want the safer “activate on next reboot” path for the stable VM target.
+5. Before the first apply, run `./scripts/nxcli.sh apply --target <hostname>` from the repo checkout.
+6. Use `./scripts/nxcli.sh boot --target vm` when you want the safer “activate on next reboot” path for the stable VM target.
+7. After the first successful apply, `nxcli` is installed on the host and can be used directly without the repo-local launcher path.
 
 ## Reusable Den Import
 
