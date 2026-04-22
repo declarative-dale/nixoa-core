@@ -2,6 +2,21 @@
 
 NiXOA is installed directly from this repo.
 
+## Fresh Base Install Prep
+
+On a fresh NixOS install, run this once as the `nixos` user before bootstrap so
+the XO Cachix cache and first-install keys are trusted by the daemon:
+
+```bash
+sudo install -d -m 0755 /etc/nix
+sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'install.determinate.systems' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-substituters = https://install.determinate.systems https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
+```
+
 ## Bootstrap Install
 
 ```bash

@@ -2,6 +2,22 @@
 
 NiXOA is now used directly from the unified `core` repo.
 
+## Fresh NixOS Prep
+
+On a fresh machine where you are still operating as the stock `nixos` user, run
+this once before bootstrap so Nix trusts the XO cache and the first-install
+substituter:
+
+```bash
+sudo install -d -m 0755 /etc/nix
+sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'install.determinate.systems' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-substituters = https://install.determinate.systems https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
+```
+
 ## Bootstrap A Host
 
 ```bash
