@@ -22,12 +22,14 @@ in
       # shellcheck source=/var/lib/nixoa/rebuild-on-boot.env
       . "$queue_file"
 
-      if [ -z "''${repo_root:-}" ] || [ -z "''${hostname:-}" ]; then
-        echo "Queued NiXOA rebuild is missing repo_root or hostname." >&2
+      rebuild_target="''${target:-''${hostname:-}}"
+
+      if [ -z "''${repo_root:-}" ] || [ -z "$rebuild_target" ]; then
+        echo "Queued NiXOA rebuild is missing repo_root or target." >&2
         exit 1
       fi
 
-      "$repo_root/scripts/apply-config.sh" --hostname "$hostname"
+      "$repo_root/scripts/apply-config.sh" --hostname "$rebuild_target"
       rm -f "$queue_file"
     '';
   };

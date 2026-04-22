@@ -13,15 +13,16 @@ cd ~/nixoa
 The bootstrap flow prompts for hostname, username, timezone, state version,
 SSH keys, repo path, and deployment profile. It then:
 
-- copies `hosts/_template/` to `hosts/<hostname>/`
-- writes host-local settings into `hosts/<hostname>/_ctx/settings.nix`
-- copies `hardware-configuration.nix` into `hosts/<hostname>/_nixos/`
-- stages `hosts/<hostname>/` so flake evaluation sees the new host
+- copies `host/_template/` to `host/<hostname>/`
+- writes host-local settings into `host/<hostname>/_ctx/settings.nix`
+- copies `hardware-configuration.nix` into `host/<hostname>/_nixos/`
+- updates `host/_automation/default.nix` so `nixosConfigurations.vm` targets the selected host VM
+- stages the tracked `host/` files so flake evaluation sees the new host
 - validates the flake
 - optionally performs the first switch through `nh`
 
 The suggested hostname during bootstrap is `nixo-ce`. The repo also ships a
-sample concrete host at `hosts/nixo-ce-example/`.
+sample concrete host at `host/nixo-ce-example/`.
 
 ## Operate A Host
 
@@ -31,6 +32,7 @@ From the repo root:
 ./scripts/show-diff.sh
 ./scripts/apply-config.sh --hostname nixo-ce
 nh os switch .#nixosConfigurations.nixo-ce
+nh os build .#nixosConfigurations.vm
 ```
 
 ## Reuse The Namespace Elsewhere

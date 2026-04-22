@@ -2,12 +2,13 @@
 
 NiXOA core is both a reusable Den namespace and the concrete host flake for
 NiXOA machines. Reusable behavior stays under exported Den aspects, while
-host-owned data lives under `hosts/<hostname>/`.
+host-owned data lives under `host/<hostname>/`.
 
 ## Repository Shape
 
 ```text
-hosts/
+host/
+├── _automation/
 ├── _template/
 │   ├── default.nix
 │   ├── _ctx/
@@ -18,7 +19,7 @@ hosts/
 modules/
 ├── dendritic.nix
 ├── den-defaults.nix
-├── hosts.nix
+├── host.nix
 ├── namespace.nix
 ├── nixoaCore/
 ├── schema.nix
@@ -50,10 +51,11 @@ The preferred consumption paths are:
 
 ## Host Assembly
 
-Concrete hosts are discovered from `hosts/` by `modules/hosts.nix`
+Concrete hosts are discovered from `host/` by `modules/host.nix`
 through `inputs.import-tree`. Only non-underscored host owner modules are
-loaded, so `hosts/_template/` and host-local `_ctx`, `_nixos`, and
-`_homeManager` trees stay hidden until Den resolves them for a class.
+loaded, so `host/_template/`, `host/_automation/`, and host-local `_ctx`,
+`_nixos`, and `_homeManager` trees stay hidden until Den resolves them for a
+class.
 
 Each host's `default.nix`:
 
@@ -63,7 +65,10 @@ Each host's `default.nix`:
 - includes `(den._.import-tree ./.)` so host-owned `_nixos` and `_homeManager` trees project by class
 - attaches host-owned behavior through `includes`
 - provides user-scoped behavior through `provides.to-users`, keeping the host-owned Home Manager projection explicit for compatibility with the GitHub-released Den API
-- emits a companion `-vm` host when the base host is not already a VM profile
+- emits both the concrete host and a companion `-vm` host
+
+`host/_automation/default.nix` selects which concrete `-vm` output is re-exported
+as the stable `nixosConfigurations.vm` automation target.
 
 This keeps composition inside Den's `includes` and `provides` model instead of
 recreating a separate manual host-composition framework.
@@ -73,6 +78,8 @@ recreating a separate manual host-composition framework.
 The flake also publishes:
 
 - `nixosConfigurations.<hostname>` for concrete hosts
+- `nixosConfigurations.<hostname>-vm` for per-host VM variants
+- `nixosConfigurations.vm` for automation that should not depend on a concrete host name
 - repository and host-scoped `apps`
 - `devShells`
 - supporting `packages`

@@ -13,8 +13,9 @@ let
   ];
 
   userModule = import (hostRoot + "/_homeManager/default.nix");
+  hostImports = den._.import-tree hostRoot;
 
-  mkHost =
+  mkHostDefinition =
     hostContext:
     let
       hostName = hostContext.hostname;
@@ -39,7 +40,7 @@ let
       den.aspects.${hostName} = {
         includes = [
           <nixoaCore/appliance>
-          (den._.import-tree hostRoot)
+          hostImports
           {
             nixos.home-manager = {
               useGlobalPkgs = true;
@@ -73,6 +74,6 @@ let
   };
 in
 lib.mkMerge [
-  (mkHost context)
-  (lib.optionalAttrs ((context.deploymentProfile or "physical") != "vm") (mkHost vmContext))
+  (mkHostDefinition context)
+  (mkHostDefinition vmContext)
 ]

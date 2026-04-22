@@ -3,12 +3,28 @@
 
   outputs =
     inputs:
-    (
-      inputs.nixpkgs.lib.evalModules {
-        modules = [ (inputs.import-tree ./modules) ];
-        specialArgs = { inherit inputs; };
-      }
-    ).config.flake;
+    let
+      baseFlake =
+        (
+          inputs.nixpkgs.lib.evalModules {
+            modules = [ (inputs.import-tree ./modules) ];
+            specialArgs = { inherit inputs; };
+          }
+        ).config.flake;
+      automation = import ./host/_automation/default.nix { };
+      selectedVmHost = automation.vmHost or null;
+      selectedVmOutput = if selectedVmHost == null then null else "${selectedVmHost}-vm";
+      baseNixosConfigurations = baseFlake.nixosConfigurations or { };
+      vmAlias =
+        if selectedVmOutput != null && builtins.hasAttr selectedVmOutput baseNixosConfigurations then
+          { vm = baseNixosConfigurations.${selectedVmOutput}; }
+        else
+          { };
+    in
+    baseFlake
+    // {
+      nixosConfigurations = baseNixosConfigurations // vmAlias;
+    };
 
   nixConfig = {
     extra-substituters = [ "https://xen-orchestra-ce.cachix.org" ];

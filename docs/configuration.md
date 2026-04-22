@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Host-owned configuration now lives inside `hosts/<hostname>/`.
+Host-owned configuration now lives inside `host/<hostname>/`.
 
 ## Host Directory Shape
 
@@ -12,8 +12,12 @@ Each concrete host uses the same Den-shaped layout as the template:
 - `_nixos/`: host-owned NixOS modules loaded through Den import-tree
 - `_homeManager/`: host-owned Home Manager modules loaded through Den import-tree
 
-`hosts/_template/` is only a template. Real machines should use their own
-`hosts/<hostname>/` directory.
+`host/_template/` is only a template. Real machines should use their own
+`host/<hostname>/` directory.
+
+`host/_automation/default.nix` keeps the tracked VM-alias selection for the
+repo. Bootstrap updates `vmHost` there so `nixosConfigurations.vm` resolves to
+`nixosConfigurations.<hostname>-vm` without caller-side guessing.
 
 ## Key Host Settings
 
@@ -42,14 +46,14 @@ Each concrete host uses the same Den-shaped layout as the template:
 ## Den-Native Split
 
 Reusable defaults stay in exported NiXOA namespaces and aspects. Host-owned
-values stay local to `hosts/<hostname>/`.
+values stay local to `host/<hostname>/`.
 
 That means:
 
 - reusable behavior belongs in `modules/nixoaCore/` or supporting modules
-- host-local overrides belong in `hosts/<hostname>/`
+- host-local overrides belong in `host/<hostname>/`
 - `includes` and `provides` handle composition
-- host-owned `_nixos` and `_homeManager` trees are imported through `den.provides.import-tree`
+- host-owned `_nixos` and `_homeManager` trees are imported through `den._.import-tree`
 
 XO service identity still defaults inside core through `nixoa.xo.user` and
 `nixoa.xo.group`.

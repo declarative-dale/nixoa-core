@@ -2,7 +2,7 @@
 
 NiXOA core is the unified Den-native Xen Orchestra appliance flake. It exports
 the reusable `flake.denful.nixoaCore` namespace and also carries concrete host
-definitions under `hosts/<hostname>`.
+definitions under `host/<hostname>`.
 
 ## What It Provides
 
@@ -10,7 +10,8 @@ definitions under `hosts/<hostname>`.
 - `flake.denful.nixoaCore.virtualization`
 - `flake.denful.nixoaCore."xen-orchestra"`
 - `flake.denful.nixoaCore.appliance`
-- `nixosConfigurations.<hostname>` outputs for concrete hosts under `hosts/`
+- `nixosConfigurations.<hostname>` and `nixosConfigurations.<hostname>-vm`
+- `nixosConfigurations.vm` as the stable automation alias for the selected host VM
 - host-scoped `nh` apps plus repository apps such as `bootstrap`, `apply`, and `menu`
 - `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,nixoa-menu,metadata}`
 
@@ -24,10 +25,11 @@ cd ~/nixoa
 ./scripts/bootstrap.sh --first-switch
 ```
 
-Bootstrap creates `hosts/<hostname>/` by copying `hosts/_template/`, writes the
-host-local settings into `_ctx/settings.nix`, stages the new host directory so
-flake evaluation can see it, validates the flake, and optionally performs the
-first switch through `nh`.
+Bootstrap creates `host/<hostname>/` by copying `host/_template/`, writes the
+host-local settings into `_ctx/settings.nix`, updates
+`host/_automation/default.nix` so `nixosConfigurations.vm` points at the new
+host's VM output, stages the tracked files, validates the flake, and optionally
+performs the first switch through `nh`.
 
 You can also operate the repo through flake apps:
 
@@ -40,13 +42,14 @@ nix run .#apply -- --hostname nixo-ce
 
 ```text
 core/
-├── hosts/
+├── host/
+│   ├── _automation/        # tracked automation aliases such as nixosConfigurations.vm
 │   ├── _template/          # pristine Den-shaped host template
 │   └── nixo-ce-example/    # example concrete host
 ├── modules/
 │   ├── dendritic.nix       # installs Den's dendritic flake module
 │   ├── den-defaults.nix    # keeps Den defaults and routing batteries enabled
-│   ├── hosts.nix           # imports concrete hosts from hosts/
+│   ├── host.nix            # imports concrete hosts from host/
 │   ├── namespace.nix       # exports the `nixoaCore` namespace
 │   ├── nixoaCore/          # reusable exported NiXOA aspects
 │   ├── schema.nix          # user schema defaults
@@ -91,7 +94,8 @@ aspects and not this repo's host tree:
 ## Notes
 
 - Use `<nixoaCore/platform>`, `<nixoaCore/virtualization>`, `<nixoaCore/xen-orchestra>`, and `<nixoaCore/appliance>` as the public aspect paths.
-- `hosts/_template/` is a template only and must not be edited in place for a real machine.
-- Concrete hosts keep host-owned values locally in `hosts/<hostname>/`.
+- `host/_template/` is a template only and must not be edited in place for a real machine.
+- Concrete hosts keep host-owned values locally in `host/<hostname>/`.
+- `host/_automation/default.nix` selects which concrete VM output backs `nixosConfigurations.vm`.
 - `nh` is the primary operator interface for build and switch flows.
 - `flake.denful.nixoaCore` remains the primary reusable public surface.

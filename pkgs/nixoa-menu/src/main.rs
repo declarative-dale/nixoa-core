@@ -275,13 +275,13 @@ const CONFIGURE_ACTIONS: [ActionItem; 4] = [
     ActionItem {
         kind: ActionKind::EditHostname,
         title: "Hostname",
-        detail: "Write a new hostname into config/menu.nix and commit the change immediately.",
+        detail: "Write a new hostname into host/<hostname>/_ctx/menu.nix and commit the change immediately.",
         shortcut: Some('1'),
     },
     ActionItem {
         kind: ActionKind::EditUsername,
         title: "Username",
-        detail: "Write a new primary username into config/menu.nix and commit the change immediately.",
+        detail: "Write a new primary username into host/<hostname>/_ctx/menu.nix and commit the change immediately.",
         shortcut: Some('2'),
     },
     ActionItem {
@@ -302,19 +302,19 @@ const SOFTWARE_ACTIONS: [ActionItem; 3] = [
     ActionItem {
         kind: ActionKind::AddSystemPackage,
         title: "System Packages",
-        detail: "Append a nixpkgs attribute path to extraSystemPackages in config/menu.nix.",
+        detail: "Append a nixpkgs attribute path to extraSystemPackages in host/<hostname>/_ctx/menu.nix.",
         shortcut: Some('5'),
     },
     ActionItem {
         kind: ActionKind::AddUserPackage,
         title: "User Packages",
-        detail: "Append a nixpkgs attribute path to extraUserPackages in config/menu.nix.",
+        detail: "Append a nixpkgs attribute path to extraUserPackages in host/<hostname>/_ctx/menu.nix.",
         shortcut: Some('6'),
     },
     ActionItem {
         kind: ActionKind::AddService,
         title: "Services",
-        detail: "Enable a service by dotted NixOS option path in config/menu.nix.",
+        detail: "Enable a service by dotted NixOS option path in host/<hostname>/_ctx/menu.nix.",
         shortcut: Some('7'),
     },
 ];
@@ -2279,21 +2279,25 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
 
     let ascii = Paragraph::new(vec![
         Line::from(Span::styled(
-            " _  _ ___  _____   _   ",
+            " _   _   _  __  ___   ",
             Style::default()
                 .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            " | \\| (_) \\/ / _ \\ /_\\  ",
+            "| \\ | | (_)/ / / _ \\  ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            " | .` | |>  < (_) / _ \\ ",
+            "|  \\| | | |> < | | | | ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
         Line::from(Span::styled(
-            " |_|\\_|_/_/\\_\\___/_/ \\_\\",
+            "| |\\  | | |/ . \\| |_| |",
+            Style::default().fg(COLOR_FG_MAIN),
+        )),
+        Line::from(Span::styled(
+            "|_| \\_| |_/_/ \\_\\\\___/ ",
             Style::default().fg(COLOR_FG_MAIN),
         )),
     ]);
@@ -2696,7 +2700,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
             &[
                 format!("Current hostname: {}", app.snapshot.hostname),
                 "Press Enter to open an edit modal and commit the new hostname.".to_string(),
-                "The change is written into config/menu.nix immediately.".to_string(),
+                "The change is written into host/<hostname>/_ctx/menu.nix immediately.".to_string(),
             ],
             false,
             PanelTone::Info,
@@ -2708,7 +2712,7 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
             &[
                 format!("Current username: {}", app.snapshot.username),
                 "Press Enter to open an edit modal and commit the new username.".to_string(),
-                "The change is written into config/menu.nix immediately.".to_string(),
+                "The change is written into host/<hostname>/_ctx/menu.nix immediately.".to_string(),
             ],
             false,
             PanelTone::Info,
@@ -2784,7 +2788,7 @@ fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
         Line::from("d delete selected key"),
         Line::from("Esc/Left returns to actions"),
         Line::from(""),
-        Line::from("Each successful action commits only config/menu.nix."),
+        Line::from("Each successful action commits only host/<hostname>/_ctx/menu.nix."),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(help, help_inner);

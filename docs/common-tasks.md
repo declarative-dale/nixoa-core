@@ -1,6 +1,6 @@
 # Common Tasks
 
-These changes are now made directly in `hosts/<hostname>/_ctx/settings.nix`.
+These changes are now made directly in `host/<hostname>/_ctx/settings.nix`.
 
 ## Enable XO
 

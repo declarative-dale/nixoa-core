@@ -12,7 +12,7 @@ usage() {
 Usage: apply-config.sh [--hostname HOSTNAME] [--build | --dry-run | --rollback] [--first-install] [extra nh args...]
 
 Options:
-  --hostname HOSTNAME  Use a specific flake host output name.
+  --hostname HOSTNAME  Use a specific flake output name. Pass vm for the stable VM alias.
   --build              Build without switching.
   --dry-run            Run a dry-build preview.
   --rollback           Roll back to the previous system generation.
@@ -21,7 +21,7 @@ Options:
 EOF
 }
 
-hostname_arg="${NIXOA_HOSTNAME:-$(nixoa_default_hostname)}"
+hostname_arg="${NIXOA_HOSTNAME:-$(nixoa_default_target)}"
 rebuild_action="switch"
 record_action="switch"
 first_install=0
@@ -72,6 +72,7 @@ while [ $# -gt 0 ]; do
 done
 
 nixoa_cd_root
+target_arg="$(nixoa_host_output_name "$hostname_arg")"
 
 if [ "$rollback" -ne 1 ] && nixoa_has_changes; then
   "$SCRIPT_DIR/commit-config.sh"
@@ -90,7 +91,7 @@ else
   rebuild_cmd=(
     os
     "$rebuild_action"
-    "$(nixoa_host_flake_ref "$hostname_arg")"
+    "$(nixoa_host_flake_ref "$target_arg")"
     -L
   )
 fi
@@ -134,9 +135,9 @@ else
 fi
 
 if "${run_rebuild[@]}"; then
-  nixoa_write_apply_state "success" "$record_action" "$hostname_arg" "$current_head" "$first_install" "0"
+  nixoa_write_apply_state "success" "$record_action" "$target_arg" "$current_head" "$first_install" "0"
 else
   exit_code="$?"
-  nixoa_write_apply_state "failed" "$record_action" "$hostname_arg" "$current_head" "$first_install" "$exit_code"
+  nixoa_write_apply_state "failed" "$record_action" "$target_arg" "$current_head" "$first_install" "$exit_code"
   exit "$exit_code"
 fi

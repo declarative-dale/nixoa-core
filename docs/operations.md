@@ -24,7 +24,7 @@ cd ~/nixoa
 ./scripts/show-diff.sh
 ```
 
-Edit the active host under `hosts/<hostname>/`, usually `_ctx/settings.nix`
+Edit the active host under `host/<hostname>/`, usually `_ctx/settings.nix`
 and `_ctx/menu.nix`.
 
 ## Apply Configuration
@@ -41,6 +41,14 @@ Wrapper script:
 ```bash
 cd ~/nixoa
 ./scripts/apply-config.sh --hostname <hostname>
+```
+
+Stable VM target:
+
+```bash
+cd ~/nixoa
+nh os build .#nixosConfigurations.vm
+./scripts/apply-config.sh --hostname vm --build
 ```
 
 ## Build Without Switching

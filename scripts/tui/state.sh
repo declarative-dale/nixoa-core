@@ -72,7 +72,7 @@ load_rebuild_queue() {
     # shellcheck source=/dev/null
     . "$rebuild_queue_file"
     rebuild_queued_at="${scheduled_at:-}"
-    rebuild_queued_hostname="${hostname:-}"
+    rebuild_queued_hostname="${target:-${hostname:-}}"
   fi
 }
 

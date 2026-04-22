@@ -5,7 +5,7 @@
   lib,
   ...
 }:
-(import ../../lib/mk-host.nix) {
+(import ../../lib/host.nix) {
   inherit __findFile den inputs lib;
   hostRoot = ./.;
 }

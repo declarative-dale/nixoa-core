@@ -2,8 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 readonly NIXOA_SYSTEM_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-readonly NIXOA_HOSTS_ROOT="$NIXOA_SYSTEM_ROOT/hosts"
-readonly NIXOA_TEMPLATE_HOST="default"
+readonly NIXOA_HOST_ROOT="$NIXOA_SYSTEM_ROOT/host"
+readonly NIXOA_TEMPLATE_HOST="_template"
+readonly NIXOA_AUTOMATION_DIR="_automation"
+readonly NIXOA_VM_ALIAS_NAME="vm"
 readonly NIXOA_DEFAULT_HOSTNAME="nixo-ce"
 readonly NIXOA_DEFAULT_USERNAME="nixoa"
 readonly NIXOA_DEFAULT_TIMEZONE="Europe/Paris"
@@ -17,7 +19,7 @@ readonly -a NIXOA_TRACKED_PATHS=(
   docs
   flake.lock
   flake.nix
-  hosts
+  host
   lib
   modules
   nixoa-cli.sh
@@ -52,8 +54,13 @@ nixoa_rebuild_queue_file() {
   printf '%s\n' "${NIXOA_REBUILD_QUEUE_FILE:-$(nixoa_shared_state_dir)/rebuild-on-boot.env}"
 }
 
+nixoa_vm_alias_file() {
+  printf '%s\n' "$NIXOA_HOST_ROOT/$NIXOA_AUTOMATION_DIR/default.nix"
+}
+
 nixoa_existing_host_dirs() {
-  find "$NIXOA_HOSTS_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name "$NIXOA_TEMPLATE_HOST" | sort
+  [ -d "$NIXOA_HOST_ROOT" ] || return 0
+  find "$NIXOA_HOST_ROOT" -mindepth 1 -maxdepth 1 -type d ! -name '_*' | sort
 }
 
 nixoa_read_string_file() {
@@ -64,27 +71,61 @@ nixoa_read_string_file() {
   sed -nE "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"([^\"]*)\"[[:space:]]*;.*$/\\1/p" "$file" | tail -n 1
 }
 
+nixoa_vm_alias_host() {
+  local alias_host
+
+  alias_host="$(nixoa_read_string_file vmHost "$(nixoa_vm_alias_file)" || true)"
+  [ -n "$alias_host" ] || return 1
+  printf '%s\n' "$alias_host"
+}
+
+nixoa_vm_alias_output_name() {
+  local alias_host
+
+  alias_host="$(nixoa_vm_alias_host || true)"
+  [ -n "$alias_host" ] || return 1
+  printf '%s-vm\n' "$alias_host"
+}
+
 nixoa_resolve_host_dir() {
   local host_ref="${1:-}"
   local dir=""
   local current_hostname=""
+  local alias_host=""
+  local alias_output=""
 
   if [ -n "$host_ref" ] && [ -d "$host_ref" ]; then
     printf '%s\n' "$host_ref"
     return 0
   fi
 
-  if [ -n "$host_ref" ] && [ -d "$NIXOA_HOSTS_ROOT/$host_ref" ]; then
-    printf '%s\n' "$NIXOA_HOSTS_ROOT/$host_ref"
+  alias_host="$(nixoa_vm_alias_host || true)"
+  alias_output="$(nixoa_vm_alias_output_name || true)"
+
+  if [ -n "$host_ref" ] && [ "$host_ref" = "$NIXOA_VM_ALIAS_NAME" ] && [ -n "$alias_host" ]; then
+    host_ref="$alias_host"
+  fi
+
+  if [ -n "$host_ref" ] && [ -n "$alias_output" ] && [ "$host_ref" = "$alias_output" ] && [ -n "$alias_host" ]; then
+    host_ref="$alias_host"
+  fi
+
+  if [ -n "$host_ref" ] && [[ "$host_ref" == *-vm ]] && [ -d "$NIXOA_HOST_ROOT/${host_ref%-vm}" ]; then
+    printf '%s\n' "$NIXOA_HOST_ROOT/${host_ref%-vm}"
+    return 0
+  fi
+
+  if [ -n "$host_ref" ] && [ -d "$NIXOA_HOST_ROOT/$host_ref" ]; then
+    printf '%s\n' "$NIXOA_HOST_ROOT/$host_ref"
     return 0
   fi
 
   if [ -n "$host_ref" ]; then
     while IFS= read -r dir; do
       [ -n "$dir" ] || continue
-      current_hostname="$(nixoa_read_string_file hostname "$dir/menu.nix" || true)"
+      current_hostname="$(nixoa_read_string_file hostname "$dir/_ctx/menu.nix" || true)"
       if [ -z "$current_hostname" ]; then
-        current_hostname="$(nixoa_read_string_file hostname "$dir/settings.nix" || true)"
+        current_hostname="$(nixoa_read_string_file hostname "$dir/_ctx/settings.nix" || true)"
       fi
       if [ "$current_hostname" = "$host_ref" ]; then
         printf '%s\n' "$dir"
@@ -110,8 +151,8 @@ nixoa_default_host_dir() {
     nixoa_resolve_host_dir "$runtime_hostname" && return 0
   fi
 
-  if [ -d "$NIXOA_HOSTS_ROOT/$NIXOA_DEFAULT_HOSTNAME" ]; then
-    printf '%s\n' "$NIXOA_HOSTS_ROOT/$NIXOA_DEFAULT_HOSTNAME"
+  if [ -d "$NIXOA_HOST_ROOT/$NIXOA_DEFAULT_HOSTNAME" ]; then
+    printf '%s\n' "$NIXOA_HOST_ROOT/$NIXOA_DEFAULT_HOSTNAME"
     return 0
   fi
 
@@ -128,14 +169,14 @@ nixoa_host_settings_file() {
   local host_dir
 
   host_dir="$(nixoa_resolve_host_dir "${1:-}" 2>/dev/null || nixoa_default_host_dir)"
-  printf '%s/settings.nix\n' "$host_dir"
+  printf '%s/_ctx/settings.nix\n' "$host_dir"
 }
 
 nixoa_host_menu_file() {
   local host_dir
 
   host_dir="$(nixoa_resolve_host_dir "${1:-}" 2>/dev/null || nixoa_default_host_dir)"
-  printf '%s/menu.nix\n' "$host_dir"
+  printf '%s/_ctx/menu.nix\n' "$host_dir"
 }
 
 nixoa_host_relpath() {
@@ -175,6 +216,38 @@ nixoa_default_hostname() {
   nixoa_config_string hostname || printf '%s\n' "$NIXOA_DEFAULT_HOSTNAME"
 }
 
+nixoa_default_target() {
+  local runtime_hostname=""
+  local alias_output=""
+  local host_dir=""
+
+  if [ -n "${NIXOA_HOSTNAME:-}" ]; then
+    nixoa_host_output_name "$NIXOA_HOSTNAME"
+    return 0
+  fi
+
+  runtime_hostname="$(hostname -s 2>/dev/null || true)"
+  alias_output="$(nixoa_vm_alias_output_name || true)"
+
+  if [ -n "$runtime_hostname" ] && [ -n "$alias_output" ] && [ "$runtime_hostname" = "$alias_output" ]; then
+    printf '%s\n' "$NIXOA_VM_ALIAS_NAME"
+    return 0
+  fi
+
+  if [ -n "$runtime_hostname" ] && nixoa_resolve_host_dir "$runtime_hostname" >/dev/null 2>&1; then
+    printf '%s\n' "$runtime_hostname"
+    return 0
+  fi
+
+  host_dir="$(nixoa_default_host_dir 2>/dev/null || true)"
+  if [ -n "$host_dir" ]; then
+    printf '%s\n' "$(basename "$host_dir")"
+    return 0
+  fi
+
+  printf '%s\n' "$NIXOA_DEFAULT_HOSTNAME"
+}
+
 nixoa_git_user_name() {
   nixoa_config_string gitName || printf '%s\n' "$NIXOA_DEFAULT_GIT_NAME"
 }
@@ -183,9 +256,31 @@ nixoa_git_user_email() {
   nixoa_config_string gitEmail || printf '%s\n' "$NIXOA_DEFAULT_GIT_EMAIL"
 }
 
+nixoa_host_output_name() {
+  local host_ref="${1:-}"
+  local alias_output=""
+
+  if [ -z "$host_ref" ]; then
+    host_ref="$(nixoa_default_target)"
+  fi
+
+  if [ "$host_ref" = "$NIXOA_VM_ALIAS_NAME" ]; then
+    printf '%s\n' "$NIXOA_VM_ALIAS_NAME"
+    return 0
+  fi
+
+  alias_output="$(nixoa_vm_alias_output_name || true)"
+  if [ -n "$alias_output" ] && [ "$host_ref" = "$alias_output" ]; then
+    printf '%s\n' "$NIXOA_VM_ALIAS_NAME"
+    return 0
+  fi
+
+  printf '%s\n' "$host_ref"
+}
+
 nixoa_host_flake_ref() {
-  local hostname="$1"
-  printf '.#nixosConfigurations.%s\n' "$hostname"
+  local hostname="${1:-}"
+  printf '.#nixosConfigurations.%s\n' "$(nixoa_host_output_name "$hostname")"
 }
 
 nixoa_cd_root() {
@@ -405,10 +500,11 @@ nixoa_write_apply_state() {
 
 nixoa_schedule_rebuild_on_boot() {
   local repo_root="$1"
-  local hostname="$2"
+  local target="$2"
   local queue_file
   local queue_dir
 
+  target="$(nixoa_host_output_name "$target")"
   queue_file="$(nixoa_rebuild_queue_file)"
   queue_dir="$(dirname "$queue_file")"
 
@@ -416,7 +512,8 @@ nixoa_schedule_rebuild_on_boot() {
     install -d -m 0755 "$queue_dir"
     {
       printf 'repo_root=%q\n' "$repo_root"
-      printf 'hostname=%q\n' "$hostname"
+      printf 'target=%q\n' "$target"
+      printf 'hostname=%q\n' "$target"
       printf 'scheduled_at=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     } > "$queue_file"
     return 0
@@ -425,7 +522,8 @@ nixoa_schedule_rebuild_on_boot() {
   nixoa_run_as_root install -d -m 0755 "$queue_dir"
   {
     printf 'repo_root=%q\n' "$repo_root"
-    printf 'hostname=%q\n' "$hostname"
+    printf 'target=%q\n' "$target"
+    printf 'hostname=%q\n' "$target"
     printf 'scheduled_at=%q\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } | nixoa_run_as_root tee "$queue_file" >/dev/null
 }

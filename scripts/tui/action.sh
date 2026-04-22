@@ -75,15 +75,16 @@ prompt_yes_no() {
 }
 
 prompt_rebuild_policy() {
-  local hostname_value="$1"
+  local target_value="${1:-$(nixoa_default_target)}"
+  target_value="$(nixoa_host_output_name "$target_value")"
 
   if prompt_yes_no "Rebuild now"; then
-    "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --hostname "$hostname_value"
+    "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --hostname "$target_value"
     return 0
   fi
 
   if prompt_yes_no "Queue rebuild for next boot"; then
-    nixoa_schedule_rebuild_on_boot "$NIXOA_SYSTEM_ROOT" "$hostname_value"
+    nixoa_schedule_rebuild_on_boot "$NIXOA_SYSTEM_ROOT" "$target_value"
     echo "Queued a rebuild for the next boot."
     return 0
   fi
@@ -98,7 +99,7 @@ update_input_and_prompt() {
   "$@"
 
   if commit_lock_if_changed "$commit_message"; then
-    prompt_rebuild_policy "$hostname_value"
+    prompt_rebuild_policy "$(nixoa_default_target)"
   fi
 }
 
@@ -264,7 +265,7 @@ command_name="$1"
 shift
 
 load_state
-host_menu_relpath="$(nixoa_host_relpath)/menu.nix"
+host_menu_relpath="$(nixoa_host_relpath)/_ctx/menu.nix"
 
 case "$command_name" in
   set-hostname)

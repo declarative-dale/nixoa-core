@@ -6,6 +6,9 @@
 }:
 let
   systems = lib.unique ([ "x86_64-linux" ] ++ builtins.attrNames den.hosts);
+  automation = import ../../host/_automation/default.nix { };
+  selectedVmHost = automation.vmHost or null;
+  selectedVmOutput = if selectedVmHost == null then null else "${selectedVmHost}-vm";
   mkRepoScriptApp =
     pkgs:
     {
@@ -48,6 +51,7 @@ let
         fromFlake = true;
         fromPath = ".";
       } pkgs;
+      hostAppAttrs = lib.listToAttrs (map toApp hostApps);
       toApp = drv: {
         name = drv.name;
         value = {
@@ -57,7 +61,10 @@ let
         };
       };
     in
-    lib.listToAttrs (map toApp hostApps);
+    hostAppAttrs
+    // lib.optionalAttrs (selectedVmOutput != null && hostAppAttrs ? "${selectedVmOutput}") {
+      vm = hostAppAttrs.${selectedVmOutput};
+    };
 in
 {
   flake.apps = lib.genAttrs systems (

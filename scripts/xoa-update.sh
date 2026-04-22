@@ -38,7 +38,7 @@ if [[ -n "${OLD}" && "${OLD}" != "${NEW}" ]]; then
 fi
 
 echo
-HOSTNAME="$(nixoa_default_hostname)"
+TARGET="$(nixoa_default_target)"
 echo "Done. Rebuild with:"
-echo "  ./scripts/apply-config.sh --hostname ${HOSTNAME}"
-echo "  nh os switch ${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${HOSTNAME}"
+echo "  ./scripts/apply-config.sh --hostname ${TARGET}"
+echo "  nh os switch ${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${TARGET}"
