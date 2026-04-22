@@ -13,9 +13,9 @@ cd ~/nixoa
 The bootstrap flow prompts for hostname, username, timezone, state version,
 SSH keys, repo path, and deployment profile. It then:
 
-- copies `hosts/default/` to `hosts/<hostname>/`
-- writes host-local settings into `hosts/<hostname>/settings.nix`
-- copies `hardware-configuration.nix` into the host directory
+- copies `hosts/_template/` to `hosts/<hostname>/`
+- writes host-local settings into `hosts/<hostname>/_ctx/settings.nix`
+- copies `hardware-configuration.nix` into `hosts/<hostname>/_nixos/`
 - stages `hosts/<hostname>/` so flake evaluation sees the new host
 - validates the flake
 - optionally performs the first switch through `nh`
@@ -39,7 +39,7 @@ Another Den flake can still import the reusable namespace directly:
 
 ```nix
 {
-  inputs.den.url = "github:vic/den";
+  inputs.den.url = "github:denful/den";
   inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 
   outputs = inputs:
@@ -48,13 +48,13 @@ Another Den flake can still import the reusable namespace directly:
         ({ den, ... }: {
           imports = [
             inputs.den.flakeModules.dendritic
-            (inputs.den.namespace "nixoa" [ inputs.nixoaCore ])
+            (inputs.den.namespace "nixoaCore" [ inputs.nixoaCore ])
           ];
 
           _module.args.__findFile = den.lib.__findFile;
 
           den.hosts.x86_64-linux.my-host = { };
-          den.aspects.my-host.includes = [ <nixoa/appliance> ];
+          den.aspects.my-host.includes = [ <nixoaCore/appliance> ];
         })
       ];
     }).config.flake;

@@ -129,11 +129,6 @@ validate_hostname() {
     exit 1
   fi
 
-  if [ "$hostname" = "default" ]; then
-    echo "Hostname 'default' is reserved for the host template." >&2
-    exit 1
-  fi
-
   if [[ ! "$hostname" =~ ^[a-zA-Z0-9][a-zA-Z0-9-]*$ ]]; then
     echo "Hostname '$hostname' is invalid. Use letters, numbers, and dashes only." >&2
     exit 1
@@ -527,10 +522,10 @@ else
   git clone --branch "$branch" "$repo_url" "$repo_dir"
 fi
 
-template_dir="$repo_dir/hosts/default"
+template_dir="$repo_dir/hosts/_template"
 host_dir="$repo_dir/hosts/$hostname_arg"
-settings_file="$host_dir/settings.nix"
-hardware_file="$host_dir/hardware-configuration.nix"
+settings_file="$host_dir/_ctx/settings.nix"
+hardware_file="$host_dir/_nixos/hardware-configuration.nix"
 
 if [ ! -d "$template_dir" ]; then
   echo "Error: host template not found at $template_dir" >&2
@@ -543,7 +538,7 @@ if [ -e "$host_dir" ]; then
 fi
 
 cp -r "$template_dir" "$host_dir"
-echo "Created $host_dir from hosts/default"
+echo "Created $host_dir from hosts/_template"
 
 write_host_settings "$settings_file"
 echo "Wrote $settings_file"
@@ -571,7 +566,7 @@ echo "Repository: $repo_dir"
 echo "Configured host: $hostname_arg"
 echo "Configured user: $username_arg"
 echo "Next steps:"
-echo "  1. Review $repo_dir/hosts/$hostname_arg/settings.nix."
+echo "  1. Review $repo_dir/hosts/$hostname_arg/_ctx/settings.nix."
 echo "  2. Run $repo_dir/scripts/show-diff.sh"
 if [ "$first_switch" -eq 1 ]; then
   echo "  3. The initial apply already ran during bootstrap."

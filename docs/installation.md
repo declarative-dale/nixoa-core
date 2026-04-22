@@ -16,9 +16,9 @@ the first switch through `nh` when `--first-switch` is used.
 
 ## Manual Install
 
-1. Copy `hosts/default/` to `hosts/<hostname>/`.
-2. Edit `hosts/<hostname>/settings.nix`.
-3. Copy your machine's hardware config to `hosts/<hostname>/hardware-configuration.nix`.
+1. Copy `hosts/_template/` to `hosts/<hostname>/`.
+2. Edit `hosts/<hostname>/_ctx/settings.nix`.
+3. Copy your machine's hardware config to `hosts/<hostname>/_nixos/hardware-configuration.nix`.
 4. Stage the host directory with `git add hosts/<hostname>`.
 5. Validate with `nix flake check --no-write-lock-file`.
 6. Apply with `nh os switch .#nixosConfigurations.<hostname>`.
@@ -29,14 +29,14 @@ If another flake wants only the NiXOA aspect namespace, import this repo as a
 normal Den source:
 
 ```nix
-inputs.den.url = "github:vic/den";
+inputs.den.url = "github:denful/den";
 inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 ```
 
 ```nix
 imports = [
   inputs.den.flakeModules.dendritic
-  (inputs.den.namespace "nixoa" [ inputs.nixoaCore ])
+  (inputs.den.namespace "nixoaCore" [ inputs.nixoaCore ])
 ];
 ```
 

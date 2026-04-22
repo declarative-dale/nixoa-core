@@ -5,14 +5,7 @@
     inputs:
     (
       inputs.nixpkgs.lib.evalModules {
-        modules = [
-          ./modules/dendritic.nix
-          ./modules/schema
-          ./modules/namespace.nix
-          ./modules/aspects
-          ./modules/hosts
-          ./modules/outputs
-        ];
+        modules = [ (inputs.import-tree ./modules) ];
         specialArgs = { inherit inputs; };
       }
     ).config.flake;
@@ -25,12 +18,13 @@
   };
 
   inputs = {
-    den.url = "github:vic/den";
+    den.url = "github:denful/den/v0.16.0";
     determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "https://flakehub.com/f/nix-community/home-manager/0";
     };
+    import-tree.url = "github:vic/import-tree";
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
     snitch = {
       inputs.nixpkgs.follows = "nixpkgs";

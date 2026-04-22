@@ -1,15 +1,15 @@
 # NiXOA Core
 
 NiXOA core is the unified Den-native Xen Orchestra appliance flake. It exports
-the reusable `flake.denful.nixoa` namespace and also carries concrete host
+the reusable `flake.denful.nixoaCore` namespace and also carries concrete host
 definitions under `hosts/<hostname>`.
 
 ## What It Provides
 
-- `flake.denful.nixoa.platform`
-- `flake.denful.nixoa.virtualization`
-- `flake.denful.nixoa.xen-orchestra`
-- `flake.denful.nixoa.appliance`
+- `flake.denful.nixoaCore.platform`
+- `flake.denful.nixoaCore.virtualization`
+- `flake.denful.nixoaCore."xen-orchestra"`
+- `flake.denful.nixoaCore.appliance`
 - `nixosConfigurations.<hostname>` outputs for concrete hosts under `hosts/`
 - host-scoped `nh` apps plus repository apps such as `bootstrap`, `apply`, and `menu`
 - `packages.x86_64-linux.{xen-orchestra-ce,libvhdi,nixoa-menu,metadata}`
@@ -24,10 +24,10 @@ cd ~/nixoa
 ./scripts/bootstrap.sh --first-switch
 ```
 
-Bootstrap creates `hosts/<hostname>/` by copying `hosts/default/`, writes the
-host-local Den-shaped settings there, stages the new host directory so flake
-evaluation can see it, validates the flake, and optionally performs the first
-switch through `nh`.
+Bootstrap creates `hosts/<hostname>/` by copying `hosts/_template/`, writes the
+host-local settings into `_ctx/settings.nix`, stages the new host directory so
+flake evaluation can see it, validates the flake, and optionally performs the
+first switch through `nh`.
 
 You can also operate the repo through flake apps:
 
@@ -41,15 +41,18 @@ nix run .#apply -- --hostname nixo-ce
 ```text
 core/
 ├── hosts/
-│   ├── default/            # pristine Den-shaped host template
+│   ├── _template/          # pristine Den-shaped host template
 │   └── nixo-ce-example/    # example concrete host
 ├── modules/
 │   ├── dendritic.nix       # installs Den's dendritic flake module
-│   ├── namespace.nix       # exports the `nixoa` namespace
-│   ├── aspects/            # reusable NiXOA aspect trees
-│   ├── hosts/              # imports concrete hosts from hosts/
-│   ├── outputs/            # packages, apps, dev shells
-│   └── nixos/              # implementation modules behind aspects
+│   ├── den-defaults.nix    # keeps Den defaults and routing batteries enabled
+│   ├── hosts.nix           # imports concrete hosts from hosts/
+│   ├── namespace.nix       # exports the `nixoaCore` namespace
+│   ├── nixoaCore/          # reusable exported NiXOA aspects
+│   ├── schema.nix          # user schema defaults
+│   ├── _nixos/             # shared hidden NixOS implementation trees
+│   ├── _homeManager/       # shared hidden Home Manager implementation trees
+│   └── outputs/            # packages, apps, dev shells
 ├── lib/                    # shared helpers
 ├── docs/                   # operator-facing docs
 ├── scripts/                # bootstrap and maintenance helpers
@@ -63,7 +66,7 @@ aspects and not this repo's host tree:
 
 ```nix
 {
-  inputs.den.url = "github:vic/den";
+  inputs.den.url = "github:denful/den";
   inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
 
   outputs = inputs:
@@ -72,13 +75,13 @@ aspects and not this repo's host tree:
         ({ den, ... }: {
           imports = [
             inputs.den.flakeModules.dendritic
-            (inputs.den.namespace "nixoa" [ inputs.nixoaCore ])
+            (inputs.den.namespace "nixoaCore" [ inputs.nixoaCore ])
           ];
 
           _module.args.__findFile = den.lib.__findFile;
 
           den.hosts.x86_64-linux.my-host = { };
-          den.aspects.my-host.includes = [ <nixoa/appliance> ];
+          den.aspects.my-host.includes = [ <nixoaCore/appliance> ];
         })
       ];
     }).config.flake;
@@ -87,7 +90,8 @@ aspects and not this repo's host tree:
 
 ## Notes
 
-- `hosts/default/` is a template only and must not be edited in place for a real machine.
+- Use `<nixoaCore/platform>`, `<nixoaCore/virtualization>`, `<nixoaCore/xen-orchestra>`, and `<nixoaCore/appliance>` as the public aspect paths.
+- `hosts/_template/` is a template only and must not be edited in place for a real machine.
 - Concrete hosts keep host-owned values locally in `hosts/<hostname>/`.
 - `nh` is the primary operator interface for build and switch flows.
-- `flake.denful.nixoa` remains the primary reusable public surface.
+- `flake.denful.nixoaCore` remains the primary reusable public surface.

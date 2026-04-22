@@ -24,8 +24,8 @@ cd ~/nixoa
 ./scripts/show-diff.sh
 ```
 
-Edit the active host under `hosts/<hostname>/`, usually `settings.nix` and
-`menu.nix`.
+Edit the active host under `hosts/<hostname>/`, usually `_ctx/settings.nix`
+and `_ctx/menu.nix`.
 
 ## Apply Configuration
 

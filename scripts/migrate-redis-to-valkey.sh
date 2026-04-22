@@ -302,7 +302,7 @@ If you need to rollback to the old Redis data:
    sudo cp -a ${BACKUP_DIR}/redis-data/* ${REDIS_DATA_DIR}/
 
 3. Temporarily switch back to Redis in your NixOS config:
-   In modules/nixos/features/xen-orchestra/service/redis.nix, comment out the valkey override:
+   In modules/_nixos/features/xen-orchestra/service/redis.nix, comment out the valkey override:
    # services.redis.package = pkgs.valkey;
 
 4. Rebuild from your NiXOA checkout:

@@ -2,7 +2,7 @@
 
 ## XO Not Starting
 
-Check the active host's `hosts/<hostname>/settings.nix` for:
+Check the active host's `hosts/<hostname>/_ctx/settings.nix` for:
 
 - `enableXO = true`
 - correct XO runtime and TLS settings
@@ -16,11 +16,11 @@ journalctl -u xo-server -n 200
 
 ## SSH Access Missing
 
-Ensure `sshKeys` is populated in `hosts/<hostname>/settings.nix`.
+Ensure `sshKeys` is populated in `hosts/<hostname>/_ctx/settings.nix`.
 
 ## Firewall Ports Blocked
 
-Update `allowedTCPPorts` or `allowedUDPPorts` in `hosts/<hostname>/settings.nix`
+Update `allowedTCPPorts` or `allowedUDPPorts` in `hosts/<hostname>/_ctx/settings.nix`
 and re-apply the host.
 
 ## New Host Does Not Resolve In The Flake

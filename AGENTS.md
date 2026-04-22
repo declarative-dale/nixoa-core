@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is the NiXOA core aspect namespace. Den bootstrap and namespace wiring live in `modules/dendritic.nix` and `modules/namespace.nix`, reusable aspect trees live under `modules/aspects/`, and plain NixOS implementation modules live under `modules/nixos/features/`. Shared helpers live in `lib/`, and operational XO maintenance scripts live in `scripts/`.
+This repository is the NiXOA core aspect namespace. Den bootstrap and namespace wiring live in `modules/dendritic.nix`, `modules/den-defaults.nix`, and `modules/namespace.nix`. Reusable exported aspects live under `modules/nixoaCore/`, while shared hidden implementation modules live under `modules/_nixos/` and `modules/_homeManager/`. Shared helpers live in `lib/`, and operational XO maintenance scripts live in `scripts/`.
 
 ## Build, Test, and Development Commands
 - `nix flake check --no-write-lock-file`: Validate flake evaluation.
