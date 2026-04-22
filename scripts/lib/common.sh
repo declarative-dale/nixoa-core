@@ -155,7 +155,7 @@ nixoa_build_first_install_switch_command() {
     nixos-rebuild
     switch
     --flake
-    "$(nixoa_host_flake_ref "$target")"
+    "$(nixoa_nixos_rebuild_flake_ref "$target")"
     -L
   )
   nixoa_append_first_install_nix_options "$out_name"
@@ -475,6 +475,11 @@ nixoa_host_output_name() {
 nixoa_host_flake_ref() {
   local hostname="${1:-}"
   printf 'path:%s#nixosConfigurations.%s\n' "$NIXOA_SYSTEM_ROOT" "$(nixoa_host_output_name "$hostname")"
+}
+
+nixoa_nixos_rebuild_flake_ref() {
+  local hostname="${1:-}"
+  printf 'path:%s#%s\n' "$NIXOA_SYSTEM_ROOT" "$(nixoa_host_output_name "$hostname")"
 }
 
 nixoa_cd_root() {
