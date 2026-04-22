@@ -146,6 +146,40 @@ nixoa_append_first_install_nix_options() {
   )
 }
 
+nixoa_build_first_install_switch_command() {
+  local out_name="$1"
+  local -n out_ref="$out_name"
+  local target="$2"
+
+  out_ref=(
+    nixos-rebuild
+    switch
+    --flake
+    "$(nixoa_host_flake_ref "$target")"
+    -L
+  )
+  nixoa_append_first_install_nix_options "$out_name"
+}
+
+nixoa_run_first_install_flake_check() {
+  local -a check_cmd=(
+    nix
+    flake
+    check
+    --no-write-lock-file
+    "path:$NIXOA_SYSTEM_ROOT"
+  )
+
+  nixoa_append_first_install_nix_options check_cmd
+
+  if [ "$(id -u)" -eq 0 ]; then
+    "${check_cmd[@]}"
+    return $?
+  fi
+
+  nixoa_run_as_root "${check_cmd[@]}"
+}
+
 nixoa_print_first_switch_commands() {
   local target="$1"
   local no_nom="${2:-0}"
@@ -159,12 +193,7 @@ nixoa_print_first_switch_commands() {
   flake_ref="path:${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${resolved_target}"
   execution_user="$(nixoa_host_execution_user "$resolved_target" || true)"
   cli_command="$(nixoa_cli_command)"
-  raw_cmd=(nix shell nixpkgs#nh -c nh os switch "$flake_ref" -L)
-  if [ "$no_nom" -eq 1 ]; then
-    raw_cmd+=(--no-nom)
-  fi
-  raw_cmd+=(--)
-  nixoa_append_first_install_nix_options raw_cmd
+  nixoa_build_first_install_switch_command raw_cmd "$resolved_target"
 
   printf 'Manual switch commands:\n'
   if [ -n "$execution_user" ] && [ "$(id -u)" -eq 0 ]; then
@@ -173,7 +202,7 @@ nixoa_print_first_switch_commands() {
     else
       nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install
     fi
-    nixoa_print_shell_command "  nh via nix shell:" sudo -H -u "$execution_user" "${raw_cmd[@]}"
+    nixoa_print_shell_command "  nixos-rebuild:" "${raw_cmd[@]}"
     return 0
   fi
 
@@ -182,7 +211,11 @@ nixoa_print_first_switch_commands() {
   else
     nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install
   fi
-  nixoa_print_shell_command "  nh via nix shell:" "${raw_cmd[@]}"
+  if [ "$(id -u)" -eq 0 ]; then
+    nixoa_print_shell_command "  nixos-rebuild:" "${raw_cmd[@]}"
+  else
+    nixoa_print_shell_command "  nixos-rebuild:" sudo "${raw_cmd[@]}"
+  fi
 }
 
 nixoa_nix_quote() {

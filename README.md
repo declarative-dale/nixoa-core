@@ -17,8 +17,8 @@ definitions under `host/<hostname>`.
 
 ## Quick Start
 
-On a fresh NixOS base install, run this once as `nixos` before bootstrap so the
-XO cache and first-install substituter are trusted:
+On a fresh NixOS base install, you can persist the XO and first-install cache
+settings ahead of time as `nixos`:
 
 ```bash
 sudo install -d -m 0755 /etc/nix
@@ -28,7 +28,6 @@ sudo grep -q 'install.determinate.systems' /etc/nix/nix.conf 2>/dev/null \
   || echo 'extra-substituters = https://install.determinate.systems https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
 sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
   || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo systemctl restart nix-daemon.service nix-daemon.socket
 ```
 
 Bootstrap a real host from the unified repo:
@@ -43,7 +42,8 @@ nix run .#nxcli -- host add nixo-ce --first-switch
 writes the host-local settings into `_ctx/settings.nix`, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` points at the new
 host's VM output, stages the tracked files, validates the flake, and optionally
-performs the first switch through `nh`. `scripts/bootstrap.sh` remains as a
+performs the first switch through `nixos-rebuild` with the first-install cache
+options. `scripts/bootstrap.sh` remains as a
 checkout/bootstrap convenience wrapper around the same host-add flow.
 
 You can also operate the repo through flake apps:

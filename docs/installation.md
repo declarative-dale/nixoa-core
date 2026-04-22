@@ -4,8 +4,8 @@ NiXOA is installed directly from this repo.
 
 ## Fresh Base Install Prep
 
-On a fresh NixOS install, run this once as the `nixos` user before bootstrap so
-the XO Cachix cache and first-install keys are trusted by the daemon:
+On a fresh NixOS install, you can persist the XO Cachix cache and first-install
+keys ahead of time as the `nixos` user:
 
 ```bash
 sudo install -d -m 0755 /etc/nix
@@ -15,7 +15,6 @@ sudo grep -q 'install.determinate.systems' /etc/nix/nix.conf 2>/dev/null \
   || echo 'extra-substituters = https://install.determinate.systems https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
 sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
   || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo systemctl restart nix-daemon.service nix-daemon.socket
 ```
 
 ## Bootstrap Install
@@ -29,8 +28,9 @@ nix run .#nxcli -- host add --first-switch
 `nxcli host add` creates a concrete host directory under `host/<hostname>/`,
 writes the selected values into Den-shaped host files, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` targets that host's
-VM output, validates the flake, and runs the first switch through `nh` when
-`--first-switch` is used. `scripts/bootstrap.sh` remains available as a
+VM output, validates the flake, and runs the first switch through
+`nixos-rebuild` with the first-install cache options when `--first-switch` is
+used. `scripts/bootstrap.sh` remains available as a
 checkout/bootstrap wrapper around the same flow.
 
 ## Manual Install

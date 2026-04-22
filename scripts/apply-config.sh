@@ -31,6 +31,7 @@ target_arg="${NIXOA_HOSTNAME:-$(nixoa_default_target)}"
 rebuild_action="switch"
 record_action="switch"
 first_install=0
+first_install_switch=0
 rollback=0
 dry_run=0
 ask=0
@@ -120,13 +121,15 @@ fi
 
 current_head="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse HEAD 2>/dev/null || true)"
 
-if [ "$first_install" -eq 1 ]; then
+if [ "$first_install" -eq 1 ] && [ "$rollback" -eq 0 ] && [ "$dry_run" -eq 0 ] && [ "$rebuild_action" = "switch" ]; then
+  first_install_switch=1
+elif [ "$first_install" -eq 1 ]; then
   nixoa_append_first_install_nix_options build_extra_args
 fi
 
 build_extra_args+=("${extra_args[@]}")
 
-if [ "$rollback" -eq 0 ] && [ "$EUID" -eq 0 ] && [ -z "${NIXOA_NH_USER:-}" ]; then
+if [ "$rollback" -eq 0 ] && [ "$first_install_switch" -eq 0 ] && [ "$EUID" -eq 0 ] && [ -z "${NIXOA_NH_USER:-}" ]; then
   nh_user="$(nixoa_host_execution_user "$target_arg" || true)"
   if [ -n "$nh_user" ]; then
     export NIXOA_NH_USER="$nh_user"
@@ -141,6 +144,11 @@ if [ "$rollback" -eq 1 ]; then
     --rollback
     -L
   )
+elif [ "$first_install_switch" -eq 1 ]; then
+  nixoa_build_first_install_switch_command rebuild_cmd "$target_arg"
+  if [ "${#extra_args[@]}" -gt 0 ]; then
+    rebuild_cmd+=("${extra_args[@]}")
+  fi
 else
   nixoa_build_nh_command rebuild_cmd "$rebuild_action" "$target_arg" "$ask" "$cores" "$verbose" "$no_nom"
   if [ "$dry_run" -eq 1 ]; then
@@ -152,7 +160,7 @@ else
 fi
 
 printf 'Running:'
-if [ "$rollback" -eq 0 ]; then
+if [ "$rollback" -eq 0 ] && [ "$first_install_switch" -eq 0 ]; then
   printf ' %q' nh
 else
   if [ "$EUID" -ne 0 ]; then
@@ -163,7 +171,7 @@ fi
 printf ' %q' "${rebuild_cmd[@]}"
 printf '\n'
 
-if [ "$rollback" -eq 1 ]; then
+if [ "$rollback" -eq 1 ] || [ "$first_install_switch" -eq 1 ]; then
   run_rebuild=("${rebuild_cmd[@]}")
 else
   run_rebuild=(nixoa_run_nh "${rebuild_cmd[@]}")

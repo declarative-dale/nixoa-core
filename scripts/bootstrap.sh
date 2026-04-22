@@ -247,33 +247,6 @@ nix_conf_ensure_tokens() {
   rm -f "$temp_file"
 }
 
-restart_nix_daemon_if_needed() {
-  local systemctl_bin=""
-  local service_present=0
-  local socket_present=0
-
-  systemctl_bin="$(command -v systemctl 2>/dev/null || true)"
-  [ -n "$systemctl_bin" ] || return 0
-
-  nixoa_print_info "Restarting nix-daemon so the new trusted cache settings take effect"
-
-  if nixoa_run_as_root "$systemctl_bin" cat nix-daemon.service >/dev/null 2>&1; then
-    service_present=1
-  fi
-
-  if nixoa_run_as_root "$systemctl_bin" cat nix-daemon.socket >/dev/null 2>&1; then
-    socket_present=1
-  fi
-
-  if [ "$service_present" -eq 1 ]; then
-    nixoa_run_as_root "$systemctl_bin" restart nix-daemon.service
-  fi
-
-  if [ "$socket_present" -eq 1 ]; then
-    nixoa_run_as_root "$systemctl_bin" restart nix-daemon.socket
-  fi
-}
-
 prepare_first_switch_nix_access() {
   local operator_user="$1"
   local target_user="$2"
@@ -300,7 +273,6 @@ prepare_first_switch_nix_access() {
   nix_conf_ensure_tokens "$nix_conf" extra-trusted-public-keys \
     "$NIXOA_DETERMINATE_PUBLIC_KEY" \
     "$NIXOA_XO_PUBLIC_KEY"
-  restart_nix_daemon_if_needed
 }
 
 repo_url="https://codeberg.org/NiXOA/core.git"

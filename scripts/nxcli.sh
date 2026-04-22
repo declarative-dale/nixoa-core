@@ -453,8 +453,13 @@ host_add() {
   fi
 
   if [ "$skip_check" -eq 0 ]; then
-    nixoa_print_info "Running nix flake check --no-write-lock-file"
-    nix flake check --no-write-lock-file "path:$NIXOA_SYSTEM_ROOT"
+    if [ "$first_switch" -eq 1 ]; then
+      nixoa_print_info "Running nix flake check --no-write-lock-file with first-install cache options"
+      nixoa_run_first_install_flake_check
+    else
+      nixoa_print_info "Running nix flake check --no-write-lock-file"
+      nix flake check --no-write-lock-file "path:$NIXOA_SYSTEM_ROOT"
+    fi
   fi
 
   if [ "$first_switch" -eq 1 ]; then
@@ -466,7 +471,7 @@ host_add() {
   fi
 
   if [ "$switch_now" -eq 1 ]; then
-    nixoa_print_info "Switching to the new flake now. This uses nh and falls back to 'nix shell nixpkgs#nh -c nh' if nh is not installed yet."
+    nixoa_print_info "Switching to the new flake now. The initial install uses nixos-rebuild with first-install cache settings; later applies use nh."
     if nixoa_user_exists "$username_arg"; then
       if [ "$no_nom" -eq 1 ]; then
         NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install --no-nom
