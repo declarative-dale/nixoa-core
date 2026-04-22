@@ -164,6 +164,117 @@ enable_flakes_now() {
   } >> "$target_file"
 }
 
+nix_conf_read_setting() {
+  local file="$1"
+  local key="$2"
+
+  [ -f "$file" ] || return 1
+  sed -nE "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*(.*)$/\\1/p" "$file" | tail -n 1
+}
+
+nix_conf_ensure_tokens() {
+  local file="$1"
+  local key="$2"
+  shift 2
+
+  local current=""
+  local merged=()
+  local token=""
+  local existing=""
+  local found=0
+  local merged_line=""
+  local temp_file=""
+  local file_mode="0644"
+
+  current="$(nix_conf_read_setting "$file" "$key" || true)"
+
+  if [ -n "$current" ]; then
+    for token in $current; do
+      found=0
+      for existing in "${merged[@]}"; do
+        if [ "$existing" = "$token" ]; then
+          found=1
+          break
+        fi
+      done
+      if [ "$found" -eq 0 ]; then
+        merged+=("$token")
+      fi
+    done
+  fi
+
+  for token in "$@"; do
+    found=0
+    for existing in "${merged[@]}"; do
+      if [ "$existing" = "$token" ]; then
+        found=1
+        break
+      fi
+    done
+    if [ "$found" -eq 0 ]; then
+      merged+=("$token")
+    fi
+  done
+
+  merged_line="${key} = ${merged[*]}"
+  if [ "$current" = "${merged[*]}" ]; then
+    return 0
+  fi
+
+  temp_file="$(mktemp)"
+  if [ -f "$file" ]; then
+    awk -v key="$key" -v line="$merged_line" '
+      $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+        if (!replaced) {
+          print line
+          replaced = 1
+        }
+        next
+      }
+      { print }
+      END {
+        if (!replaced) {
+          print line
+        }
+      }
+    ' "$file" > "$temp_file"
+    file_mode="$(stat -c '%a' "$file" 2>/dev/null || printf '0644')"
+  else
+    printf '%s\n' "$merged_line" > "$temp_file"
+  fi
+
+  nixoa_run_as_root install -m "$file_mode" "$temp_file" "$file"
+  rm -f "$temp_file"
+}
+
+prepare_first_switch_nix_access() {
+  local operator_user="$1"
+  local target_user="$2"
+  local nix_conf="/etc/nix/nix.conf"
+  local users_to_trust=(
+    root
+    @wheel
+  )
+
+  if [ -n "$operator_user" ]; then
+    users_to_trust+=("$operator_user")
+  fi
+
+  if [ -n "$target_user" ] && [ "$target_user" != "$operator_user" ]; then
+    users_to_trust+=("$target_user")
+  fi
+
+  nixoa_print_info "Preparing trusted Nix cache settings for the initial switch"
+  nixoa_run_as_root install -d -m 0755 /etc/nix
+  nix_conf_ensure_tokens "$nix_conf" trusted-users "${users_to_trust[@]}"
+  nix_conf_ensure_tokens "$nix_conf" extra-substituters \
+    "$NIXOA_DETERMINATE_SUBSTITUTER" \
+    "$NIXOA_XO_SUBSTITUTER"
+  nix_conf_ensure_tokens "$nix_conf" extra-trusted-public-keys \
+    "$NIXOA_DETERMINATE_PUBLIC_KEY" \
+    "$NIXOA_XO_PUBLIC_KEY"
+}
+
 repo_url="https://codeberg.org/NiXOA/core.git"
 branch=""
 repo_dir=""
@@ -172,6 +283,7 @@ enable_flakes=0
 hostname_arg=""
 username_arg=""
 username_arg_explicit=0
+first_switch_requested=0
 declare -a host_add_args=()
 host_add_args+=(--no-nom)
 
@@ -238,6 +350,7 @@ while [ $# -gt 0 ]; do
       ;;
     --first-switch)
       host_add_args+=(--first-switch)
+      first_switch_requested=1
       shift
       ;;
     --help)
@@ -280,6 +393,12 @@ if [ "$enable_flakes" -eq 1 ]; then
 fi
 
 bootstrap_target_user="${username_arg:-$NIXOA_DEFAULT_USERNAME}"
+bootstrap_operator="${SUDO_USER:-$(bootstrap_operator_user)}"
+
+if [ "$first_switch_requested" -eq 1 ]; then
+  prepare_first_switch_nix_access "$bootstrap_operator" "$bootstrap_target_user"
+fi
+
 prepare_repo_checkout_parent "$repo_dir" "$bootstrap_target_user"
 
 if [ -d "$repo_dir/.git" ]; then

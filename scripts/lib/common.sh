@@ -11,6 +11,10 @@ readonly NIXOA_DEFAULT_USERNAME="nixoa"
 readonly NIXOA_DEFAULT_TIMEZONE="Europe/Paris"
 readonly NIXOA_DEFAULT_GIT_NAME="NiXOA Admin"
 readonly NIXOA_DEFAULT_GIT_EMAIL="nixoa@nixoa"
+readonly NIXOA_DETERMINATE_SUBSTITUTER="https://install.determinate.systems"
+readonly NIXOA_XO_SUBSTITUTER="https://xen-orchestra-ce.cachix.org"
+readonly NIXOA_DETERMINATE_PUBLIC_KEY="cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
+readonly NIXOA_XO_PUBLIC_KEY="xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
 readonly -a NIXOA_TRACKED_PATHS=(
   AGENTS.md
   CHANGELOG.md
@@ -135,10 +139,10 @@ nixoa_append_first_install_nix_options() {
     "nix-command flakes"
     --option
     extra-substituters
-    "https://install.determinate.systems"
+    "${NIXOA_DETERMINATE_SUBSTITUTER} ${NIXOA_XO_SUBSTITUTER}"
     --option
     extra-trusted-public-keys
-    "cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
+    "${NIXOA_DETERMINATE_PUBLIC_KEY} ${NIXOA_XO_PUBLIC_KEY}"
   )
 }
 
