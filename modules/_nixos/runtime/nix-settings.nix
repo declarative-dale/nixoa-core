@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
-# Nix settings aligned with Determinate Nix (use extra-* to avoid overrides)
+# Shared Nix settings for all hosts, including Determinate Nix
 { ... }:
 {
   nix.settings = {
-    # Determinate Nix provides its own cache; use extra-* to append.
     extra-substituters = [
       "https://xen-orchestra-ce.cachix.org"
     ];
