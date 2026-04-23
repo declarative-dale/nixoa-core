@@ -30,7 +30,7 @@
 
   enableExtras = false;
   enableXO = true;
-  enableXenGuest = true;
+  enableXenGuest = false;
 
   systemPackages = [
     # Examples:

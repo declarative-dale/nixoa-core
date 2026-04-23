@@ -68,8 +68,8 @@ let
   vmContext = context // {
     hostname = "${context.hostname}-vm";
     deploymentProfile = "vm";
-    bootLoader = "none";
-    efiCanTouchVariables = false;
+    bootLoader = "systemd-boot";
+    efiCanTouchVariables = true;
     grubDevice = "";
   };
 in
