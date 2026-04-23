@@ -341,7 +341,7 @@ const MAINTENANCE_ACTIONS: [ActionItem; 7] = [
     ActionItem {
         kind: ActionKind::RunGarbageCollection,
         title: "Run Garbage Collection",
-        detail: "Run nix-collect-garbage -d interactively for a full manual store cleanup.",
+        detail: "Run nh clean all interactively for a full manual store cleanup.",
         shortcut: Some('g'),
     },
     ActionItem {
@@ -1837,8 +1837,9 @@ fn run_rollback_generation(terminal: &mut AppTerminal, app: &mut App) -> Result<
 
 fn run_garbage_collection(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Run Garbage Collection", {
-        let mut command = sudo_command();
-        command.args(["nix-collect-garbage", "-d"]);
+        let mut command = nh_command();
+        command.args(["clean", "all", "--ask"]);
+        command.args(["--elevation-strategy", sudo_program()]);
         command
     })
 }
@@ -2866,7 +2867,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Delete old generations and unreachable store paths.",
             "This reclaims disk space and reduces retained history in the Nix store.",
             "Garbage collection is destructive. It may remove rollback targets you still expect to use later.",
-            "Enter runs nix-collect-garbage -d.",
+            "Enter runs nh clean all --ask.",
             app,
         ),
         ActionKind::RebootSystem => render_maintenance_detail_page(
@@ -3397,10 +3398,22 @@ fn last_apply_label(snapshot: &Snapshot) -> String {
 }
 
 fn sudo_command() -> Command {
+    Command::new(sudo_program())
+}
+
+fn sudo_program() -> &'static str {
     if Path::new("/run/wrappers/bin/sudo").exists() {
-        Command::new("/run/wrappers/bin/sudo")
+        "/run/wrappers/bin/sudo"
     } else {
-        Command::new("sudo")
+        "sudo"
+    }
+}
+
+fn nh_command() -> Command {
+    if Path::new("/run/current-system/sw/bin/nh").exists() {
+        Command::new("/run/current-system/sw/bin/nh")
+    } else {
+        Command::new("nh")
     }
 }
 

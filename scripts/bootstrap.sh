@@ -285,7 +285,6 @@ username_arg=""
 username_arg_explicit=0
 first_switch_requested=0
 declare -a host_add_args=()
-host_add_args+=(--no-nom)
 
 while [ $# -gt 0 ]; do
   case "$1" in

@@ -70,8 +70,8 @@ Usage:
   nxcli help
   nxcli version
   nxcli status
-  nxcli apply [--target <hostname|vm>] [--build|--dry-run|--first-install] [--ask] [--cores N] [--verbose] [--no-nom] [-- ...]
-  nxcli boot [--target <hostname|vm>] [--ask] [--cores N] [--verbose] [--no-nom] [-- ...]
+  nxcli apply [--target <hostname|vm>] [--build|--dry-run|--first-install] [--ask] [--cores N] [--verbose] [-- ...]
+  nxcli boot [--target <hostname|vm>] [--ask] [--cores N] [--verbose] [-- ...]
   nxcli rollback [--target <hostname|vm>]
   nxcli host add [hostname] [--profile physical|vm] [--copy-hardware|--skip-hardware-copy] [--set-vm-alias|--no-set-vm-alias]
   nxcli host list
@@ -88,7 +88,6 @@ Shared rebuild flags:
   --ask                    Ask nh for confirmation before mutating actions.
   --cores N                Pass through a core limit to nh.
   --verbose                Increase nh verbosity.
-  --no-nom                 Disable nix-output-monitor for nh.
 
 Notes:
   - host/_automation/default.nix is the stable vm selector behind --target vm.
@@ -117,7 +116,6 @@ Options:
   --skip-hardware-copy     Do not copy the local hardware profile. Use only when you intend to replace the generated placeholder manually.
   --set-vm-alias           Update host/_automation/default.nix to point vm at this host. Default: yes.
   --no-set-vm-alias        Leave the stable vm alias unchanged.
-  --no-nom                 Use --no-nom for the optional first switch after host creation.
   --username NAME          Primary username. Default: nixoa.
   --git-name NAME          Git user.name override. Default: NiXOA Admin.
   --git-email EMAIL        Git user.email override. Default: nixoa@nixoa.
@@ -252,7 +250,6 @@ host_add() {
   local set_vm_alias=1
   local skip_check=0
   local first_switch=0
-  local no_nom=0
   local switch_now=0
   local extra_ssh_key=""
   local template_dir=""
@@ -320,10 +317,6 @@ host_add() {
         ;;
       --first-switch)
         first_switch=1
-        shift
-        ;;
-      --no-nom)
-        no_nom=1
         shift
         ;;
       --help)
@@ -472,17 +465,9 @@ host_add() {
   if [ "$switch_now" -eq 1 ]; then
     nixoa_print_info "Switching to the new flake now. The initial install uses nixos-rebuild with first-install cache settings; later applies use nh."
     if nixoa_user_exists "$username_arg"; then
-      if [ "$no_nom" -eq 1 ]; then
-        NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install --no-nom
-      else
-        NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
-      fi
+      NIXOA_NH_USER="$username_arg" "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
     else
-      if [ "$no_nom" -eq 1 ]; then
-        "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install --no-nom
-      else
-        "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
-      fi
+      "$NIXOA_SYSTEM_ROOT/scripts/apply-config.sh" --target "$hostname_arg" --first-install
     fi
   fi
 
@@ -492,7 +477,7 @@ host_add() {
     printf 'Initial apply completed for target %s.\n' "$hostname_arg"
   else
     nixoa_print_info "Initial switch skipped."
-    nixoa_print_first_switch_commands "$hostname_arg" "$no_nom"
+    nixoa_print_first_switch_commands "$hostname_arg"
   fi
   nixoa_print_cli_command "Stable vm target:" apply --target vm
 }

@@ -182,35 +182,24 @@ nixoa_run_first_install_flake_check() {
 
 nixoa_print_first_switch_commands() {
   local target="$1"
-  local no_nom="${2:-0}"
   local resolved_target=""
-  local flake_ref=""
   local execution_user=""
   local cli_command=""
   local -a raw_cmd=()
 
   resolved_target="$(nixoa_host_output_name "$target")"
-  flake_ref="path:${NIXOA_SYSTEM_ROOT}#nixosConfigurations.${resolved_target}"
   execution_user="$(nixoa_host_execution_user "$resolved_target" || true)"
   cli_command="$(nixoa_cli_command)"
   nixoa_build_first_install_switch_command raw_cmd "$resolved_target"
 
   printf 'Manual switch commands:\n'
   if [ -n "$execution_user" ] && [ "$(id -u)" -eq 0 ]; then
-    if [ "$no_nom" -eq 1 ]; then
-      nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install --no-nom
-    else
-      nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install
-    fi
+    nixoa_print_shell_command "  Repo helper:" sudo -H -u "$execution_user" "$cli_command" apply --target "$resolved_target" --first-install
     nixoa_print_shell_command "  nixos-rebuild:" "${raw_cmd[@]}"
     return 0
   fi
 
-  if [ "$no_nom" -eq 1 ]; then
-    nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install --no-nom
-  else
-    nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install
-  fi
+  nixoa_print_shell_command "  Repo helper:" "$cli_command" apply --target "$resolved_target" --first-install
   if [ "$(id -u)" -eq 0 ]; then
     nixoa_print_shell_command "  nixos-rebuild:" "${raw_cmd[@]}"
   else
@@ -1040,8 +1029,8 @@ nixoa_build_nh_command() {
   local ask="$4"
   local cores="$5"
   local verbose="$6"
-  local no_nom="$7"
-  shift 7
+  local sudo_bin=""
+  shift 6
 
   out_ref=(
     os
@@ -1049,6 +1038,14 @@ nixoa_build_nh_command() {
     "$(nixoa_host_flake_ref "$target")"
     -L
   )
+
+  sudo_bin="$(nixoa_sudo_bin || true)"
+  if [ -n "$sudo_bin" ]; then
+    out_ref+=(
+      --elevation-strategy
+      "$sudo_bin"
+    )
+  fi
 
   if [ "$ask" -eq 1 ]; then
     out_ref+=(--ask)
@@ -1060,10 +1057,6 @@ nixoa_build_nh_command() {
 
   if [ "$verbose" -eq 1 ]; then
     out_ref+=(--verbose)
-  fi
-
-  if [ "$no_nom" -eq 1 ]; then
-    out_ref+=(--no-nom)
   fi
 
   out_ref+=("$@")

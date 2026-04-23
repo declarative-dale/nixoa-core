@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
   cat <<'EOF'
-Usage: apply-config.sh [--target TARGET | --hostname TARGET] [--build | --boot | --dry-run | --rollback] [--first-install] [--ask] [--cores N] [--verbose] [--no-nom] [-- extra nh build args...]
+Usage: apply-config.sh [--target TARGET | --hostname TARGET] [--build | --boot | --dry-run | --rollback] [--first-install] [--ask] [--cores N] [--verbose] [-- extra nh build args...]
 
 Options:
   --target TARGET       Canonical target selector. Accepts <hostname>, <hostname>-vm, or vm.
@@ -22,7 +22,6 @@ Options:
   --ask                 Ask nh for confirmation before mutating actions.
   --cores N             Pass through the requested core count to nh.
   --verbose             Increase nh verbosity.
-  --no-nom              Disable nix-output-monitor integration in nh.
   --help                Show this help text.
 EOF
 }
@@ -36,7 +35,6 @@ rollback=0
 dry_run=0
 ask=0
 verbose=0
-no_nom=0
 cores=""
 declare -a extra_args=()
 declare -a build_extra_args=()
@@ -83,10 +81,6 @@ while [ $# -gt 0 ]; do
       ;;
     --verbose)
       verbose=1
-      shift
-      ;;
-    --no-nom)
-      no_nom=1
       shift
       ;;
     --help)
@@ -150,7 +144,7 @@ elif [ "$first_install_switch" -eq 1 ]; then
     rebuild_cmd+=("${extra_args[@]}")
   fi
 else
-  nixoa_build_nh_command rebuild_cmd "$rebuild_action" "$target_arg" "$ask" "$cores" "$verbose" "$no_nom"
+  nixoa_build_nh_command rebuild_cmd "$rebuild_action" "$target_arg" "$ask" "$cores" "$verbose"
   if [ "$dry_run" -eq 1 ]; then
     rebuild_cmd+=(--dry)
   fi
