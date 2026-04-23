@@ -30,11 +30,18 @@ sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJn
   || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
 ```
 
-Bootstrap a real host from the unified repo:
+Bootstrap a real host from `mono-preview` with the streamed one-liner:
+
+```bash
+bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/mono-preview/scripts/bootstrap.sh) --enable-flakes --first-switch
+```
+
+If you want an explicit checkout first instead, use:
 
 ```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
 cd ~/nixoa
+git switch mono-preview
 nix run .#nxcli -- host add nixo-ce --first-switch
 ```
 

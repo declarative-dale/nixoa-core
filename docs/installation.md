@@ -20,8 +20,15 @@ sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJn
 ## Bootstrap Install
 
 ```bash
+bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/mono-preview/scripts/bootstrap.sh) --enable-flakes --first-switch
+```
+
+If you prefer to clone the repo first:
+
+```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
 cd ~/nixoa
+git switch mono-preview
 nix run .#nxcli -- host add --first-switch
 ```
 

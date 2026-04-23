@@ -4,8 +4,131 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-. "$SCRIPT_DIR/lib/common.sh"
+readonly NIXOA_BOOTSTRAP_SOURCE_BRANCH="mono-preview"
+
+resolve_bootstrap_repo_root() {
+  local candidate=""
+  local search_dir=""
+  local script_dir=""
+  local git_root=""
+
+  if [ -n "${NIXOA_SYSTEM_ROOT:-}" ] && [ -f "${NIXOA_SYSTEM_ROOT}/scripts/lib/common.sh" ]; then
+    printf '%s\n' "$NIXOA_SYSTEM_ROOT"
+    return 0
+  fi
+
+  if [ -n "${BASH_SOURCE[0]:-}" ]; then
+    script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    candidate="$(cd "$script_dir/.." && pwd)"
+    if [ -f "$candidate/scripts/lib/common.sh" ]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+    if [ -f "$git_root/scripts/lib/common.sh" ]; then
+      printf '%s\n' "$git_root"
+      return 0
+    fi
+  fi
+
+  search_dir="${PWD:-}"
+  while [ -n "$search_dir" ] && [ "$search_dir" != "/" ]; do
+    if [ -f "$search_dir/scripts/lib/common.sh" ]; then
+      printf '%s\n' "$search_dir"
+      return 0
+    fi
+    search_dir="$(dirname "$search_dir")"
+  done
+
+  return 1
+}
+
+BOOTSTRAP_REPO_ROOT="$(resolve_bootstrap_repo_root || true)"
+if [ -n "$BOOTSTRAP_REPO_ROOT" ] && [ -f "$BOOTSTRAP_REPO_ROOT/scripts/lib/common.sh" ]; then
+  export NIXOA_SYSTEM_ROOT="$BOOTSTRAP_REPO_ROOT"
+  . "$BOOTSTRAP_REPO_ROOT/scripts/lib/common.sh"
+else
+  readonly NIXOA_DEFAULT_USERNAME="nixoa"
+  readonly NIXOA_DETERMINATE_SUBSTITUTER="https://install.determinate.systems"
+  readonly NIXOA_XO_SUBSTITUTER="https://xen-orchestra-ce.cachix.org"
+  readonly NIXOA_DETERMINATE_PUBLIC_KEY="cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
+  readonly NIXOA_XO_PUBLIC_KEY="xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
+
+  nixoa_print_error() {
+    printf 'error: %s\n' "$1" >&2
+  }
+
+  nixoa_print_info() {
+    printf 'info: %s\n' "$1"
+  }
+
+  nixoa_prompt_with_default() {
+    local prompt="$1"
+    local default_value="$2"
+    local reply=""
+
+    if [ ! -t 0 ]; then
+      printf '%s\n' "$default_value"
+      return 0
+    fi
+
+    read -r -p "$prompt [$default_value]: " reply
+    printf '%s\n' "${reply:-$default_value}"
+  }
+
+  nixoa_user_exists() {
+    local username="${1:-}"
+
+    [ -n "$username" ] || return 1
+    [ "$username" != "root" ] || return 1
+    id -u "$username" >/dev/null 2>&1
+  }
+
+  nixoa_validate_username() {
+    local username="$1"
+
+    if [ -z "$username" ] || [[ "$username" =~ [[:space:]] ]]; then
+      nixoa_print_error "Username must be non-empty and contain no whitespace."
+      exit 1
+    fi
+  }
+
+  nixoa_sudo_bin() {
+    if [ -x /run/wrappers/bin/sudo ]; then
+      printf '%s\n' /run/wrappers/bin/sudo
+      return 0
+    fi
+
+    command -v sudo 2>/dev/null || return 1
+  }
+
+  nixoa_run_as_root() {
+    local sudo_bin=""
+
+    if [ "$(id -u)" -eq 0 ]; then
+      "$@"
+      return $?
+    fi
+
+    sudo_bin="$(nixoa_sudo_bin)" || {
+      echo "Error: root access is required for this step, but sudo is not available." >&2
+      return 1
+    }
+
+    "$sudo_bin" "$@"
+  }
+
+  nixoa_system_root() {
+    if [ -n "$BOOTSTRAP_REPO_ROOT" ]; then
+      printf '%s\n' "$BOOTSTRAP_REPO_ROOT"
+      return 0
+    fi
+
+    return 1
+  }
+fi
 
 usage() {
   cat <<'EOF'
@@ -15,7 +138,8 @@ Options:
   --repo-dir PATH       Checkout directory. Defaults to the managed user's home plus /nixoa.
   --repo-url URL        Repository URL. Defaults to the unified core repository.
   --branch NAME         Optional branch override. Defaults to the current branch of the
-                        checkout running bootstrap.
+                        checkout running bootstrap, or to the source branch when
+                        bootstrap is streamed directly from a branch URL.
   --enable-flakes       Persist nix-command + flakes before validation.
   --hostname NAME       Hostname to create with nxcli host add.
   --username NAME       Primary username passed through to nxcli host add.
@@ -379,11 +503,17 @@ if [ -z "$repo_dir" ]; then
 fi
 
 if [ -z "$branch" ]; then
-  branch="$(git -C "$(nixoa_system_root)" branch --show-current 2>/dev/null || true)"
+  if repo_root="$(nixoa_system_root 2>/dev/null || true)" && [ -n "$repo_root" ]; then
+    branch="$(git -C "$repo_root" branch --show-current 2>/dev/null || true)"
+  fi
+fi
+
+if [ -z "$branch" ] && [ -n "${NIXOA_BOOTSTRAP_SOURCE_BRANCH:-}" ]; then
+  branch="$NIXOA_BOOTSTRAP_SOURCE_BRANCH"
 fi
 
 if [ -z "$branch" ]; then
-  nixoa_print_error "Bootstrap must run from a named branch checkout or receive --branch explicitly."
+  nixoa_print_error "Bootstrap must run from a named branch checkout, a branch-tagged streamed script, or receive --branch explicitly."
   exit 1
 fi
 
