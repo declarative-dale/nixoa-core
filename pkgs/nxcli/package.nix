@@ -14,7 +14,6 @@
   nix,
   nixos-rebuild,
   nh,
-  sudo,
   systemd,
   symlinkJoin,
   util-linux,
@@ -57,7 +56,6 @@ symlinkJoin {
           nix
           nixos-rebuild
           nh
-          sudo
           systemd
           util-linux
         ]

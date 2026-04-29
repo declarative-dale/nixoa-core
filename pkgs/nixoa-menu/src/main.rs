@@ -3544,9 +3544,29 @@ fn truncate_end(value: &str, max_width: usize) -> String {
 
 fn open_shell() -> ! {
     let shell = env::var("SHELL").unwrap_or_else(|_| "/run/current-system/sw/bin/bash".to_string());
-    let error = Command::new(shell)
-        .arg("-l")
-        .env("NIXOA_TUI_BYPASS", "1")
-        .exec();
+    let mut command = Command::new(shell);
+    command.arg("-l").env("NIXOA_TUI_BYPASS", "1");
+    if let Some(path) = login_shell_path() {
+        command.env("PATH", path);
+    }
+
+    let error = command.exec();
     panic!("failed to exec shell: {error}");
+}
+
+fn login_shell_path() -> Option<std::ffi::OsString> {
+    let current_path = env::var_os("PATH")?;
+    let cleaned_paths = env::split_paths(&current_path)
+        .filter(|path| !is_direct_store_bin(path))
+        .collect::<Vec<_>>();
+
+    env::join_paths(cleaned_paths).ok()
+}
+
+fn is_direct_store_bin(path: &Path) -> bool {
+    path.starts_with("/nix/store")
+        && path
+            .file_name()
+            .map(|file_name| file_name == "bin")
+            .unwrap_or(false)
 }

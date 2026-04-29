@@ -11,7 +11,6 @@
   makeWrapper,
   nix,
   rustPlatform,
-  sudo,
 }:
 
 rustPlatform.buildRustPackage {
@@ -39,7 +38,6 @@ rustPlatform.buildRustPackage {
           inetutils
           iproute2
           nix
-          sudo
         ]
       }
   '';
