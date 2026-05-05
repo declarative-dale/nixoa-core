@@ -54,7 +54,6 @@ in
         XDG_CACHE_HOME = cfg.cacheDir;
         NODE_ENV = "production";
         LD_LIBRARY_PATH = lib.makeLibraryPath [
-          pkgs.fuse3
           pkgs.fuse
           pkgs.libguestfs
           pkgs.stdenv.cc.cc.lib

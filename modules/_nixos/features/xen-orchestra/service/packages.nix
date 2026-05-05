@@ -25,7 +25,6 @@ in
       rsync
       openssl
       fuse
-      fuse3
       lvm2
       libguestfs
       ntfs3g

@@ -29,3 +29,4 @@ pkgs/nixoa-menu/target/
 # Logs
 *.log
 .claude/
+.codex
