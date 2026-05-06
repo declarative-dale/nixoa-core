@@ -33,15 +33,15 @@ modules/
 `modules/namespace.nix` exports the reusable `nixoaCore` namespace:
 
 - `flake.denful.nixoaCore.platform`
-- `flake.denful.nixoaCore.virtualization`
-- `flake.denful.nixoaCore."xen-orchestra"`
+- `flake.denful.nixoaCore.xcp-ng-guest`
+- `flake.denful.nixoaCore.xo`
 - `flake.denful.nixoaCore.appliance`
 
 The preferred consumption paths are:
 
 - `<nixoaCore/platform>`
-- `<nixoaCore/virtualization>`
-- `<nixoaCore/xen-orchestra>`
+- `<nixoaCore/xcp-ng-guest>`
+- `<nixoaCore/xo>`
 - `<nixoaCore/appliance>`
 
 `modules/den-defaults.nix` also keeps the Den defaults Den-native:
@@ -72,6 +72,19 @@ as the stable `nixosConfigurations.vm` automation target.
 
 This keeps composition inside Den's `includes` and `provides` model instead of
 recreating a separate manual host-composition framework.
+
+## Appliance Policy
+
+The appliance is mutable by default for operator-owned settings, package lists,
+Home Manager modules, Flatpaks, and host-local NixOS modules. Set
+`immutability.enable = true` in the host context to switch user management to a
+declarative policy while leaving runtime state writable for XO, Valkey, TLS,
+SSH host keys, Flatpaks, logs, and queued rebuild state.
+
+XO configuration is generated into `/etc/xo-server/config.nixoa.toml` from the
+declarative `xoConfig.toml` string in host settings. The default TOML preserves
+the Valkey socket, XO data and temp paths, public `80` and `443` listeners, TLS
+paths, web mounts, and remote storage mount directory.
 
 ## Supporting Outputs
 

@@ -10,6 +10,7 @@
 let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
+  storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 
   startScript = config.nixoa.xo.internal.startScript;
 in
@@ -82,40 +83,35 @@ in
         ProtectHome = true;
         PrivateDevices = false;
 
-        # Capabilities for HTTP/HTTPS ports and sudo operations
+        # XO binds public 80/443 directly. Broader mount-related privileges are
+        # only available to root children reached through sudo's validated helper.
         AmbientCapabilities = [
           "CAP_NET_BIND_SERVICE"
-          "CAP_SETUID"
-          "CAP_SETGID"
-          "CAP_SETPCAP"
-          "CAP_SYS_ADMIN"
-          "CAP_DAC_OVERRIDE"
         ];
         CapabilityBoundingSet = [
           "CAP_NET_BIND_SERVICE"
           "CAP_SETUID"
           "CAP_SETGID"
-          "CAP_SETPCAP"
           "CAP_SYS_ADMIN"
           "CAP_DAC_OVERRIDE"
         ];
 
-        ReadOnlyPaths = lib.optionals context.enableTLS [ cfg.tls.dir ];
+        ReadOnlyPaths =
+          [ "/etc/xo-server/config.nixoa.toml" ]
+          ++ lib.optionals context.enableTLS [ cfg.tls.dir ];
 
-        ReadWritePaths = [
-          cfg.home
-          cfg.cacheDir
-          cfg.dataDir
-          cfg.tempDir
-          "/etc/xo-server"
-          "/var/lib/xo-server"
-          context.mountsDir
-          "/run/lock"
-          "/run/redis-xo"
-          "/dev"
-          "/sys"
-          "/var/log"
-        ];
+        ReadWritePaths =
+          [
+            cfg.home
+            cfg.cacheDir
+            cfg.dataDir
+            cfg.tempDir
+            "/var/lib/xo-server"
+            "/var/log/xo"
+            "/run/lock"
+            "/run/redis-xo"
+          ]
+          ++ lib.optionals storageEnabled [ context.mountsDir ];
 
         LimitNOFILE = "1048576";
       };

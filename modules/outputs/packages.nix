@@ -6,9 +6,8 @@
 }:
 let
   systems = lib.unique ([ "x86_64-linux" ] ++ builtins.attrNames den.hosts);
-  automation = import ../../host/_automation/default.nix { };
-  selectedVmHost = automation.vmHost or null;
-  selectedVmOutput = if selectedVmHost == null then null else "${selectedVmHost}-vm";
+  outputAliases = import ../../lib/output-aliases.nix { inherit lib; };
+  selectedVmOutput = outputAliases.selectedVmOutput ../..;
 in
 {
   flake.packages = lib.genAttrs systems (
@@ -21,16 +20,9 @@ in
         fromFlake = true;
         fromPath = ".";
       } pkgs;
-      vmAliasPackage =
-        if selectedVmOutput != null && nhPackages ? "${selectedVmOutput}" then
-          nhPackages.${selectedVmOutput}
-        else
-          null;
     in
     nhPackages
-    // lib.optionalAttrs (vmAliasPackage != null) {
-      vm = vmAliasPackage;
-    }
+    // outputAliases.vmAlias nhPackages selectedVmOutput
     // {
       xen-orchestra-ce = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
       libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;

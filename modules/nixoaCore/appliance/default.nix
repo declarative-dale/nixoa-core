@@ -6,7 +6,7 @@
 {
   nixoaCore.appliance.includes = [
     <nixoaCore/platform>
-    <nixoaCore/virtualization>
-    <nixoaCore/xen-orchestra>
+    <nixoaCore/xcp-ng-guest>
+    <nixoaCore/xo>
   ];
 }

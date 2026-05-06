@@ -310,28 +310,7 @@
         "home-manager": "home-manager",
         "import-tree": "import-tree",
         "nixpkgs": "nixpkgs_3",
-        "snitch": "snitch",
         "xen-orchestra-ce": "xen-orchestra-ce"
-      }
-    },
-    "snitch": {
-      "inputs": {
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1775575712,
-        "narHash": "sha256-NkvahAinKZpe81bkeTXoSD8vQppct7LQaIHy33a4SoI=",
-        "owner": "karol-broda",
-        "repo": "snitch",
-        "rev": "401988dca4c71668a8227bd85e4f6e95a7178822",
-        "type": "github"
-      },
-      "original": {
-        "owner": "karol-broda",
-        "repo": "snitch",
-        "type": "github"
       }
     },
     "xen-orchestra-ce": {

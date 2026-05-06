@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # User packages
 {
-  inputs,
   lib,
   pkgs,
   context,
@@ -19,8 +18,6 @@ let
       item;
 in
 {
-  # Keep heavier user tooling behind the extras switch.
-  # snitch is sourced from its flake input and only evaluated when enabled.
   home.packages =
     map resolvePackage (context.userPackages or [ ])
     ++ map resolvePackage (context.extraUserPackages or [ ])
@@ -44,6 +41,5 @@ in
       pkgs.tealdeer
       pkgs.lazygit
       pkgs.gh
-      inputs.snitch.packages.${pkgs.stdenv.hostPlatform.system}.default
     ];
 }

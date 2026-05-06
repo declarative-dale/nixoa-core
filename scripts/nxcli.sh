@@ -234,8 +234,7 @@ host_edit() {
 
   exec "$editor" \
     "$(nixoa_host_settings_file "$host_name")" \
-    "$(nixoa_host_menu_file "$host_name")" \
-    "$NIXOA_SYSTEM_ROOT/config.nixoa.toml"
+    "$(nixoa_host_menu_file "$host_name")"
 }
 
 host_add() {

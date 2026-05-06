@@ -5,6 +5,10 @@ let
   queueFile = "/var/lib/nixoa/rebuild-on-boot.env";
 in
 {
+  systemd.tmpfiles.rules = [
+    "d /var/lib/nixoa 0750 root root - -"
+  ];
+
   systemd.services.nixoa-rebuild = {
     description = "Apply queued NiXOA rebuild on boot";
     wantedBy = [ "multi-user.target" ];

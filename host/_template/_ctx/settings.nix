@@ -29,6 +29,7 @@
   allowedUDPPorts = [ ];
 
   enableExtras = false;
+  shell = null; # null preserves bash by default, zsh when enableExtras is true.
   enableXO = true;
   enableXenGuest = false;
 
@@ -44,7 +45,50 @@
     # "tmux"
   ];
 
-  xoConfigFile = ../../../config.nixoa.toml;
+  flatpaks = [ ];
+  flatpakRemotes = [
+    {
+      name = "flathub";
+      location = "https://flathub.org/repo/flathub.flatpakrepo";
+    }
+  ];
+
+  extraNixosModules = [ ];
+  extraNixosConfig = { };
+  extraHomeManagerModules = [ ];
+
+  immutability.enable = false;
+
+  xoConfig.toml = ''
+    [redis]
+    socket = "/run/redis-xo/redis.sock"
+
+    [dataStore]
+    path = "/var/lib/xo/data"
+
+    [tempDir]
+    path = "/var/lib/xo/tmp"
+
+    [http]
+    redirectToHttps = true
+
+    [[http.listen]]
+    port = 80
+
+    [[http.listen]]
+    port = 443
+    cert = "/etc/ssl/xo/certificate.pem"
+    key = "/etc/ssl/xo/key.pem"
+
+    [http.mounts]
+    "/" = "/var/lib/xo/xen-orchestra/@xen-orchestra/web/dist"
+    "/v5" = "/var/lib/xo/xen-orchestra/packages/xo-web/dist"
+    "/v6" = "/var/lib/xo/xen-orchestra/@xen-orchestra/web/dist"
+
+    [remoteOptions]
+    useSudo = true
+    mountsDir = "/var/lib/xo/mounts"
+  '';
   xoHttpHost = "0.0.0.0";
   enableTLS = true;
   enableAutoCert = true;

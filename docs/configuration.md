@@ -35,14 +35,49 @@ without caller-side guessing.
 - `allowedUDPPorts`
 - `enableXO`
 - `enableXenGuest`
+- `shell`
 - `enableTLS`
 - `enableAutoCert`
 - `systemPackages`
 - `userPackages`
+- `flatpaks`
+- `flatpakRemotes`
+- `extraNixosModules`
+- `extraNixosConfig`
+- `extraHomeManagerModules`
+- `immutability.enable`
+- `xoConfig`
 - `enableNFS`
 - `enableCIFS`
 - `enableVHD`
 - `mountsDir`
+
+`shell = null` preserves the default behavior: `bash` normally and `zsh` when
+`enableExtras = true`. Set `shell = "bash";`, `shell = "zsh";`, or another Den
+user-shell name to choose explicitly.
+
+`immutability.enable = false` keeps the operator-friendly mutable mode. When set
+to `true`, NixOS manages users declaratively and locks the admin account to
+SSH-key access while preserving appliance runtime state.
+
+XO config is declared as literal TOML inside `_ctx/settings.nix`:
+
+```nix
+xoConfig.toml = ''
+  [redis]
+  socket = "/run/redis-xo/redis.sock"
+
+  [http]
+  redirectToHttps = true
+
+  [[http.listen]]
+  port = 80
+'';
+```
+
+The string is the complete `/etc/xo-server/config.nixoa.toml` content and is
+validated as TOML during builds. This keeps XO configuration declarative while
+making edits feel like editing a normal TOML file.
 
 ## Den-Native Split
 

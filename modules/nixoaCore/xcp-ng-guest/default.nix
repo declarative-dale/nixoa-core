@@ -4,7 +4,7 @@
   ...
 }:
 {
-  nixoaCore."xen-orchestra" = {
+  nixoaCore.xcp-ng-guest = {
     includes = [ (den._.import-tree ./. ) ];
   };
 }

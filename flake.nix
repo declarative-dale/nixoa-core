@@ -4,6 +4,7 @@
   outputs =
     inputs:
     let
+      outputAliases = import ./lib/output-aliases.nix { lib = inputs.nixpkgs.lib; };
       baseFlake =
         (
           inputs.nixpkgs.lib.evalModules {
@@ -11,15 +12,9 @@
             specialArgs = { inherit inputs; };
           }
         ).config.flake;
-      automation = import ./host/_automation/default.nix { };
-      selectedVmHost = automation.vmHost or null;
-      selectedVmOutput = if selectedVmHost == null then null else "${selectedVmHost}-vm";
+      selectedVmOutput = outputAliases.selectedVmOutput ./.;
       baseNixosConfigurations = baseFlake.nixosConfigurations or { };
-      vmAlias =
-        if selectedVmOutput != null && builtins.hasAttr selectedVmOutput baseNixosConfigurations then
-          { vm = baseNixosConfigurations.${selectedVmOutput}; }
-        else
-          { };
+      vmAlias = outputAliases.vmAlias baseNixosConfigurations selectedVmOutput;
     in
     baseFlake
     // {
@@ -35,10 +30,6 @@
     };
     import-tree.url = "github:vic/import-tree";
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
-    snitch = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "github:karol-broda/snitch";
-    };
     xen-orchestra-ce.url = "git+https://github.com/declarative-dale/xo-nixpkg.git?ref=refs/tags/latest";
   };
 }

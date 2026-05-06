@@ -3,7 +3,6 @@
 {
   config,
   lib,
-  pkgs,
   context,
   ...
 }:
@@ -14,16 +13,6 @@ let
 in
 {
   config = mkIf storageEnabled {
-    security.wrappers = lib.mkIf context.enableCIFS {
-      "mount.cifs" = {
-        program = "mount.cifs";
-        source = "${lib.getBin pkgs.cifs-utils}/bin/mount.cifs";
-        owner = "root";
-        group = "root";
-        setuid = true;
-      };
-    };
-
     security.sudo.extraConfig = ''
       Defaults !use_pty
       Defaults !log_subcmds

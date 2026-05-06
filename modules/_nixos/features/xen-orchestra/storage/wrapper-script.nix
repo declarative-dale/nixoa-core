@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO storage sudo wrapper script
 {
+  config,
   lib,
   pkgs,
   context,
@@ -16,8 +17,31 @@ let
     #!/${pkgs.bash}/bin/bash
     set -euo pipefail
 
+    storage_helper="${config.nixoa.xo.internal.storageHelper}/bin/xo-storage-helper"
+
+    sudo_opts=()
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        -n|-E|-H)
+          sudo_opts+=("$1")
+          shift
+          ;;
+        --)
+          shift
+          break
+          ;;
+        -*)
+          break
+          ;;
+        *)
+          break
+          ;;
+      esac
+    done
+
     # Special case: sudo mount ... -t cifs ...
-    # Everything else passes through to real sudo unchanged
+    # CIFS credentials are provided by XO in the service environment, so inject
+    # them before sudo resets the environment and then call the root helper.
     if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
       shift
 
@@ -68,14 +92,13 @@ let
 
       # Reassemble and call real sudo + mount
       if [ -n "$opts" ]; then
-        exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount -o "$opts" "''${args[@]}"
+        exec /run/wrappers/bin/sudo "''${sudo_opts[@]}" "$storage_helper" mount -o "$opts" "''${args[@]}"
       else
-        exec /run/wrappers/bin/sudo /run/current-system/sw/bin/mount "''${args[@]}"
+        exec /run/wrappers/bin/sudo "''${sudo_opts[@]}" "$storage_helper" mount "''${args[@]}"
       fi
     fi
 
-    # Non-mount commands pass straight through
-    exec /run/wrappers/bin/sudo "$@"
+    exec /run/wrappers/bin/sudo "''${sudo_opts[@]}" "$storage_helper" "$@"
     EOF
         chmod +x $out/bin/sudo
   '';

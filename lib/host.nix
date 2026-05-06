@@ -7,7 +7,24 @@
   ...
 }:
 let
+  contextDefaults = {
+    extraHomeManagerModules = [ ];
+    extraNixosConfig = { };
+    extraNixosModules = [ ];
+    flatpakRemotes = [
+      {
+        name = "flathub";
+        location = "https://flathub.org/repo/flathub.flatpakrepo";
+      }
+    ];
+    flatpaks = [ ];
+    immutability.enable = false;
+    shell = null;
+    xoConfig = { };
+  };
+
   context = lib.foldl' lib.recursiveUpdate { } [
+    contextDefaults
     (import (hostRoot + "/_ctx/settings.nix") { })
     (import (hostRoot + "/_ctx/menu.nix") { })
   ];
@@ -19,7 +36,14 @@ let
     hostContext:
     let
       hostName = hostContext.hostname;
-      userShell = if hostContext.enableExtras then "zsh" else "bash";
+      configuredShell = hostContext.shell or null;
+      userShell =
+        if configuredShell != null then
+          configuredShell
+        else if hostContext.enableExtras then
+          "zsh"
+        else
+          "bash";
     in
     {
       den.hosts.${hostContext.hostSystem}.${hostName} = {
@@ -60,7 +84,9 @@ let
             (den._.user-shell userShell)
           ];
 
-          homeManager = userModule;
+          homeManager = {
+            imports = [ userModule ] ++ (hostContext.extraHomeManagerModules or [ ]);
+          };
         };
       };
     };

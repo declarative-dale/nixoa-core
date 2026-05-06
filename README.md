@@ -7,8 +7,8 @@ definitions under `host/<hostname>`.
 ## What It Provides
 
 - `flake.denful.nixoaCore.platform`
-- `flake.denful.nixoaCore.virtualization`
-- `flake.denful.nixoaCore."xen-orchestra"`
+- `flake.denful.nixoaCore.xcp-ng-guest`
+- `flake.denful.nixoaCore.xo`
 - `flake.denful.nixoaCore.appliance`
 - `nixosConfigurations.<hostname>` and `nixosConfigurations.<hostname>-vm`
 - `nixosConfigurations.vm` as the stable automation alias for the selected host VM
@@ -115,9 +115,10 @@ aspects and not this repo's host tree:
 
 ## Notes
 
-- Use `<nixoaCore/platform>`, `<nixoaCore/virtualization>`, `<nixoaCore/xen-orchestra>`, and `<nixoaCore/appliance>` as the public aspect paths.
+- Use `<nixoaCore/platform>`, `<nixoaCore/xcp-ng-guest>`, `<nixoaCore/xo>`, and `<nixoaCore/appliance>` as the public aspect paths.
 - `host/_template/` is a template only and must not be edited in place for a real machine.
 - Concrete hosts keep host-owned values locally in `host/<hostname>/`.
+- XO renders `/etc/xo-server/config.nixoa.toml` from the declarative `xoConfig.toml` string in host settings; edit it like TOML without importing a separate file.
 - `host/_automation/default.nix` selects which concrete VM output backs `nixosConfigurations.vm`.
 - `nxcli` is the canonical operator interface. The lower-level scripts under `scripts/` remain available as internal helpers.
 - `flake.denful.nixoaCore` remains the primary reusable public surface.

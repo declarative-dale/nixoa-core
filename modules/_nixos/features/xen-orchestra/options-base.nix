@@ -48,6 +48,14 @@ in
       description = "Additional environment variables for xo-server";
     };
 
+    config = {
+      toml = mkOption {
+        type = types.lines;
+        default = "";
+        description = "Complete TOML rendered to /etc/xo-server/config.nixoa.toml.";
+      };
+    };
+
     # Internal options (set by other modules, not user-facing)
     internal = {
       sudoWrapper = mkOption {
@@ -55,6 +63,13 @@ in
         default = null;
         internal = true;
         description = "Sudo wrapper package for CIFS credential injection (set by storage)";
+      };
+
+      storageHelper = mkOption {
+        type = types.nullOr types.package;
+        default = null;
+        internal = true;
+        description = "Root storage helper package for validated XO mount operations";
       };
 
       startScript = mkOption {
