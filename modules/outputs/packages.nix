@@ -12,6 +12,7 @@ in {
     system: let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       xenOrchestraCe = import ../../lib/xen-orchestra-ce-package.nix {
+        inherit pkgs;
         xenOrchestraCe = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
       };
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};

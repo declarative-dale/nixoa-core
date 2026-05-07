@@ -6,6 +6,7 @@
   overlay = final: _prev: let
     system = final.stdenv.hostPlatform.system;
     xenOrchestraCe = import ../../../../lib/xen-orchestra-ce-package.nix {
+      pkgs = final;
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.${system}.xen-orchestra-ce;
     };
   in {
