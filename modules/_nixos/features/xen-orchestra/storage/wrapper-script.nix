@@ -43,8 +43,8 @@
     done
 
     # Special case: sudo mount ... -t cifs ...
-    # CIFS credentials are provided by XO in the service environment, so inject
-    # them before sudo resets the environment and then call the root helper.
+    # CIFS credentials are provided by XO in the service environment. Send them
+    # to the root helper on stdin so they never appear in mount argv.
     if [ "$#" -ge 1 ] && [ "$1" = "mount" ]; then
       shift
 
@@ -55,12 +55,14 @@
       # Parse mount arguments to extract -t and -o
       while [ "$#" -gt 0 ]; do
         case "$1" in
-          -t)
+          -t|--types)
+            [ "$#" -ge 2 ] || { echo "sudo: $1 requires an argument" >&2; exit 1; }
             fstype="$2"
-            args+=("-t" "$2")
+            args+=("$1" "$2")
             shift 2
             ;;
-          -o)
+          -o|--options)
+            [ "$#" -ge 2 ] || { echo "sudo: $1 requires an argument" >&2; exit 1; }
             opts="$2"
             shift 2
             ;;
@@ -71,19 +73,18 @@
         esac
       done
 
-      # Handle CIFS mounts - inject credentials and ownership
       if [ "$fstype" = "cifs" ] && [ -n "''${USER:-}" ] && [ -n "''${PASSWD:-}" ]; then
-        XO_UID=$(${pkgs.coreutils}/bin/id -u xo 2>/dev/null || echo "993")
-        XO_GID=$(${pkgs.coreutils}/bin/id -g xo 2>/dev/null || echo "990")
-
         CLEAN_USER=$(trim "''${USER}")
-        CLEAN_PASSWD=$(trim "''${PASSWD}")
+        CLEAN_PASSWD="''${PASSWD}"
 
         if [ -n "$opts" ]; then
-          opts="$opts,username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
+          printf '%s\n%s\n' "$CLEAN_USER" "$CLEAN_PASSWD" \
+            | /run/wrappers/bin/sudo "''${sudo_opts[@]}" "$storage_helper" mount-cifs-with-credentials -o "$opts" "''${args[@]}"
         else
-          opts="username=$CLEAN_USER,password=$CLEAN_PASSWD,uid=$XO_UID,gid=$XO_GID"
+          printf '%s\n%s\n' "$CLEAN_USER" "$CLEAN_PASSWD" \
+            | /run/wrappers/bin/sudo "''${sudo_opts[@]}" "$storage_helper" mount-cifs-with-credentials "''${args[@]}"
         fi
+        exit $?
       fi
 
       # Reassemble and call real sudo + mount

@@ -35,6 +35,7 @@ without caller-side guessing.
 - `allowedUDPPorts`
 - `enableXO`
 - `enableXenGuest`
+- `enableXenHardware`
 - `shell`
 - `enableTLS`
 - `enableAutoCert`

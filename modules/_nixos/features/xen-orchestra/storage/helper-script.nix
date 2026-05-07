@@ -35,11 +35,27 @@
         mounts_dir=${lib.escapeShellArg context.mountsDir}
         data_dir=${lib.escapeShellArg cfg.dataDir}
         temp_dir=${lib.escapeShellArg cfg.tempDir}
+        cifs_credentials_dir="/run/xo-server/cifs-credentials"
+        xo_user=${lib.escapeShellArg cfg.user}
 
         fail() {
           echo "xo-storage-helper: $*" >&2
           exit 1
         }
+
+        canonical_path() {
+          local path="''${1:-}"
+          [ -n "$path" ] || fail "missing path"
+          case "$path" in
+            /*) ;;
+            *) fail "path must be absolute: $path" ;;
+          esac
+          realpath -m -- "$path"
+        }
+
+        mounts_dir="$(canonical_path "$mounts_dir")"
+        data_dir="$(canonical_path "$data_dir")"
+        temp_dir="$(canonical_path "$temp_dir")"
 
         is_under() {
           local root="$1"
@@ -52,15 +68,34 @@
 
         validate_mount_target() {
           local path="''${1:-}"
-          [ -n "$path" ] || fail "missing mount target"
-          is_under "$mounts_dir" "$path" || fail "mount target must be under $mounts_dir: $path"
+          local canonical
+          canonical="$(canonical_path "$path")"
+          is_under "$mounts_dir" "$canonical" || fail "mount target must be under $mounts_dir: $path"
         }
 
         validate_runtime_path() {
           local path="''${1:-}"
-          [ -n "$path" ] || fail "missing path"
-          is_under "$mounts_dir" "$path" || is_under "$data_dir" "$path" || is_under "$temp_dir" "$path" \
+          local canonical
+          canonical="$(canonical_path "$path")"
+          is_under "$mounts_dir" "$canonical" || is_under "$data_dir" "$canonical" || is_under "$temp_dir" "$canonical" \
             || fail "path must be under $mounts_dir, $data_dir, or $temp_dir: $path"
+        }
+
+        reject_cifs_secret_options() {
+          local opts="''${1:-}"
+          local old_ifs="$IFS"
+          local opt key
+          IFS=,
+          for opt in $opts; do
+            key="''${opt%%=*}"
+            key="''${key,,}"
+            case "$key" in
+              user|username|pass|password|password2|cred|credentials)
+                fail "CIFS credential option is not allowed in mount options: $key"
+                ;;
+            esac
+          done
+          IFS="$old_ifs"
         }
 
         run_mount() {
@@ -103,6 +138,10 @@
             *) fail "mount filesystem type is not allowed: ''${fstype:-<unset>} (allowed: ${allowedMountTypeList})" ;;
           esac
 
+          if [ "$fstype" = "cifs" ]; then
+            reject_cifs_secret_options "$opts"
+          fi
+
           if { [ "$fstype" = "nfs" ] || [ "$fstype" = "nfs4" ]; } && [ -z "$opts" ]; then
             opts="rw,soft,timeo=600,retrans=2"
           fi
@@ -112,6 +151,77 @@
           else
             exec mount "''${args[@]}"
           fi
+        }
+
+        run_mount_cifs_with_credentials() {
+          local fstype=""
+          local opts=""
+          local args=()
+          local positional=()
+
+          while [ "$#" -gt 0 ]; do
+            case "$1" in
+              -t|--types)
+                [ "$#" -ge 2 ] || fail "$1 requires an argument"
+                fstype="$2"
+                args+=("$1" "$2")
+                shift 2
+                ;;
+              -o|--options)
+                [ "$#" -ge 2 ] || fail "$1 requires an argument"
+                opts="$2"
+                shift 2
+                ;;
+              -*)
+                args+=("$1")
+                shift
+                ;;
+              *)
+                positional+=("$1")
+                args+=("$1")
+                shift
+                ;;
+            esac
+          done
+
+          [ "$fstype" = "cifs" ] || fail "internal CIFS mount requires -t cifs"
+          [ "''${#positional[@]}" -ge 2 ] || fail "mount requires source and target"
+          local target="''${positional[$((''${#positional[@]} - 1))]}"
+          validate_mount_target "$target"
+          reject_cifs_secret_options "$opts"
+
+          local cifs_user=""
+          local cifs_password=""
+          IFS= read -r cifs_user || fail "missing CIFS username on stdin"
+          IFS= read -r cifs_password || fail "missing CIFS password on stdin"
+          [ -n "$cifs_user" ] || fail "missing CIFS username"
+
+          mkdir -p "$cifs_credentials_dir"
+          chown root:root "$cifs_credentials_dir"
+          chmod 0700 "$cifs_credentials_dir"
+
+          local credentials_file
+          credentials_file="$(mktemp "$cifs_credentials_dir/credentials.XXXXXX")"
+          CIFS_CREDENTIALS_FILE="$credentials_file"
+          trap 'rm -f -- "''${CIFS_CREDENTIALS_FILE:-}"' EXIT
+          chmod 0600 "$credentials_file"
+          {
+            printf 'username=%s\n' "$cifs_user"
+            printf 'password=%s\n' "$cifs_password"
+          } > "$credentials_file"
+
+          local xo_uid xo_gid
+          xo_uid="$(id -u "$xo_user")"
+          xo_gid="$(id -g "$xo_user")"
+
+          local credential_opts="credentials=$credentials_file,uid=$xo_uid,gid=$xo_gid"
+          if [ -n "$opts" ]; then
+            opts="$opts,$credential_opts"
+          else
+            opts="$credential_opts"
+          fi
+
+          mount -o "$opts" "''${args[@]}"
         }
 
         run_umount() {
@@ -239,6 +349,10 @@
 
         case "$command" in
           mount) run_mount "$@" ;;
+          mount-cifs-with-credentials)
+            ${lib.optionalString (!context.enableCIFS) ''fail "CIFS mounting is disabled"''}
+            run_mount_cifs_with_credentials "$@"
+            ;;
           umount) run_umount "$@" ;;
           findmnt) run_findmnt "$@" ;;
           vhdimount)

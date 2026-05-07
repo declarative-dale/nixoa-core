@@ -5,18 +5,14 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
-in
-{
+in {
   config = mkIf storageEnabled {
     security.sudo.extraConfig = ''
-      Defaults !use_pty
-      Defaults !log_subcmds
-      Defaults:${cfg.user} !use_pty,!syslog
+      Defaults:${cfg.user} !use_pty,!log_subcmds,!syslog
     '';
   };
 }

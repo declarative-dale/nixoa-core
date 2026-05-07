@@ -4,14 +4,13 @@
   lib,
   pkgs,
   ...
-}:
-let
-  inherit (lib)
+}: let
+  inherit
+    (lib)
     mkOption
     types
     ;
-in
-{
+in {
   options.nixoa.xo = {
     user = mkOption {
       type = types.str;
@@ -32,19 +31,13 @@ in
       defaultText = lib.literalExpression "pkgs.nixoa.xen-orchestra-ce";
       description = ''
         The Xen Orchestra package to run.
-
-        To enable the optional yarn chmod sanitizer build workaround:
-
-          nixoa.xo.package = pkgs.nixoa.xen-orchestra-ce.override { enableChmodSanitizer = true; };
-
-        (Keep it off unless you hit EPERM chmod failures during build.)
       '';
     };
 
     # Advanced environment customization
     extraServerEnv = mkOption {
       type = types.attrsOf types.str;
-      default = { };
+      default = {};
       description = "Additional environment variables for xo-server";
     };
 

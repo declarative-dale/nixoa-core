@@ -1094,10 +1094,12 @@ nixoa_write_host_settings() {
   local boot_loader="systemd-boot"
   local efi_touch="true"
   local enable_xen_guest="false"
+  local enable_xen_hardware="false"
   local ssh_key=""
 
   if [ "$profile" = "vm" ]; then
     enable_xen_guest="true"
+    enable_xen_hardware="true"
   fi
 
   {
@@ -1133,6 +1135,7 @@ nixoa_write_host_settings() {
     echo "  shell = null;"
     echo "  enableXO = true;"
     echo "  enableXenGuest = ${enable_xen_guest};"
+    echo "  enableXenHardware = ${enable_xen_hardware};"
     echo ""
     echo "  systemPackages = [ ];"
     echo "  userPackages = [ ];"

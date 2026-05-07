@@ -1,21 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # Xen Guest Agent configuration for better VM integration
-
 {
   config,
   lib,
   pkgs,
   context,
   ...
-}:
-
-let
+}: let
   inherit (lib) mkIf;
-in
-{
-  config = mkIf context.enableXenGuest {
+in {
+  config = mkIf (context.enableXenGuest or false) {
     # Xen guest agent for better VM integration
-    systemd.packages = [ pkgs.xen-guest-agent ];
-    systemd.services.xen-guest-agent.wantedBy = [ "multi-user.target" ];
+    systemd.packages = [pkgs.xen-guest-agent];
+    systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
   };
 }

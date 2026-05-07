@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Host-owned NiXOA context values
-{ ... }:
-{
+{...}: {
   hostSystem = "x86_64-linux";
   hostname = "nixo-ce-template"; # Placeholder only; bootstrap rewrites this file.
   deploymentProfile = "physical"; # Options: "physical" or "vm"
@@ -26,12 +25,13 @@
     80
     443
   ];
-  allowedUDPPorts = [ ];
+  allowedUDPPorts = [];
 
   enableExtras = false;
   shell = null; # null preserves bash by default, zsh when enableExtras is true.
   enableXO = true;
   enableXenGuest = false;
+  enableXenHardware = false;
 
   systemPackages = [
     # Examples:
@@ -45,7 +45,7 @@
     # "tmux"
   ];
 
-  flatpaks = [ ];
+  flatpaks = [];
   flatpakRemotes = [
     {
       name = "flathub";
@@ -53,9 +53,9 @@
     }
   ];
 
-  extraNixosModules = [ ];
-  extraNixosConfig = { };
-  extraHomeManagerModules = [ ];
+  extraNixosModules = [];
+  extraNixosConfig = {};
+  extraHomeManagerModules = [];
 
   immutability.enable = false;
 
