@@ -6,15 +6,13 @@
   pkgs,
   context,
   ...
-}:
-let
-  inherit (lib) mkIf;
+}: let
+  inherit (lib) mkIf optional optionals;
   cfg = config.nixoa.xo;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
 
   startScript = config.nixoa.xo.internal.startScript;
-in
-{
+in {
   config = mkIf context.enableXO {
     systemd.services.xo-server = {
       description = "Xen Orchestra Server";
@@ -30,36 +28,37 @@ in
         "network-online.target"
         "redis-xo.service"
       ];
-      wantedBy = [ "multi-user.target" ];
-      requires = [ "redis-xo.service" ];
+      wantedBy = ["multi-user.target"];
+      requires = ["redis-xo.service"];
 
       # Sudo wrapper must be first in path to intercept sudo calls
       # (defined in storage/wrapper-script.nix via nixoa.xo.internal.sudoWrapper)
       path =
-        lib.optional (config.nixoa.xo.internal.sudoWrapper != null) config.nixoa.xo.internal.sudoWrapper
+        optional (config.nixoa.xo.internal.sudoWrapper != null) config.nixoa.xo.internal.sudoWrapper
         ++ (with pkgs; [
-          nodejs_24
           util-linux
           git
           openssl
           lvm2
           coreutils
-          nfs-utils
-          cifs-utils
           xen
-        ]);
+        ])
+        ++ optionals context.enableNFS [pkgs.nfs-utils]
+        ++ optionals context.enableCIFS [pkgs.cifs-utils];
 
-      environment = cfg.extraServerEnv // {
-        HOME = cfg.home;
-        XDG_CONFIG_HOME = "${cfg.home}/.config";
-        XDG_CACHE_HOME = cfg.cacheDir;
-        NODE_ENV = "production";
-        LD_LIBRARY_PATH = lib.makeLibraryPath [
-          pkgs.fuse
-          pkgs.libguestfs
-          pkgs.stdenv.cc.cc.lib
-        ];
-      };
+      environment =
+        cfg.extraServerEnv
+        // {
+          HOME = cfg.home;
+          XDG_CONFIG_HOME = "${cfg.home}/.config";
+          XDG_CACHE_HOME = cfg.cacheDir;
+          NODE_ENV = "production";
+          LD_LIBRARY_PATH = lib.makeLibraryPath [
+            pkgs.fuse
+            pkgs.libguestfs
+            pkgs.stdenv.cc.cc.lib
+          ];
+        };
 
       serviceConfig = {
         User = cfg.user;
@@ -97,8 +96,8 @@ in
         ];
 
         ReadOnlyPaths =
-          [ "/etc/xo-server/config.nixoa.toml" ]
-          ++ lib.optionals context.enableTLS [ cfg.tls.dir ];
+          ["/etc/xo-server/config.nixoa.toml"]
+          ++ lib.optionals context.enableTLS [cfg.tls.dir];
 
         ReadWritePaths =
           [
@@ -111,7 +110,7 @@ in
             "/run/lock"
             "/run/redis-xo"
           ]
-          ++ lib.optionals storageEnabled [ context.mountsDir ];
+          ++ lib.optionals storageEnabled [context.mountsDir];
 
         LimitNOFILE = "1048576";
       };
