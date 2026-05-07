@@ -409,12 +409,6 @@ nixoa_default_target() {
     return 0
   fi
 
-  alias_output="$(nixoa_vm_alias_output_name || true)"
-  if [ -n "$alias_output" ]; then
-    printf '%s\n' "$NIXOA_VM_ALIAS_NAME"
-    return 0
-  fi
-
   runtime_hostname="$(hostname -s 2>/dev/null || true)"
 
   if [ -n "$runtime_hostname" ] && nixoa_resolve_host_dir "$runtime_hostname" >/dev/null 2>&1; then
@@ -424,6 +418,12 @@ nixoa_default_target() {
 
   if host_dir="$(nixoa_default_host_dir 2>/dev/null || true)" && [ -n "$host_dir" ]; then
     printf '%s\n' "$(basename "$host_dir")"
+    return 0
+  fi
+
+  alias_output="$(nixoa_vm_alias_output_name || true)"
+  if [ -n "$alias_output" ]; then
+    printf '%s\n' "$NIXOA_VM_ALIAS_NAME"
     return 0
   fi
 
