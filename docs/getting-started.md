@@ -5,16 +5,18 @@ NiXOA is now used directly from the unified `core` repo.
 ## Fresh NixOS Prep
 
 On a fresh machine where you are still operating as the stock `nixos` user, you
-can persist the XO cache and first-install substituter settings ahead of time:
+can persist the XO Cachix cache and trusted users ahead of time. Determinate
+cache settings are passed only as first-switch command-line options; Determinate
+Nix manages its own persistent substitution settings after activation.
 
 ```bash
 sudo install -d -m 0755 /etc/nix
 sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
   || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'install.determinate.systems' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-substituters = https://install.determinate.systems https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'xen-orchestra-ce.cachix.org' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-substituters = https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
 sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
+  || echo 'extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
 ```
 
 ## Bootstrap A Host
