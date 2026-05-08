@@ -2,6 +2,9 @@
 
 Common `nxcli` flows for operating NiXOA systems from the unified repo.
 
+For complete syntax, options, and behavior notes, see the
+[nxcli reference](nxcli.md).
+
 ## Status
 
 ```bash

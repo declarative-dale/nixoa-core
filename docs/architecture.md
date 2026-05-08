@@ -4,6 +4,9 @@ NiXOA core is both a reusable Den namespace and the concrete host flake for
 NiXOA machines. Reusable behavior stays under exported Den aspects, while
 host-owned data lives under `host/<hostname>/`.
 
+For operator workflows, start with [Daily Operations](operations.md) and the
+[nxcli reference](nxcli.md).
+
 ## Repository Shape
 
 ```text

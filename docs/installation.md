@@ -2,6 +2,9 @@
 
 NiXOA is installed directly from this repo.
 
+For a shorter overview, start with the root [README](../README.md). For command
+details, see the [nxcli reference](nxcli.md).
+
 ## Fresh Base Install Prep
 
 On a fresh NixOS install, you can persist the XO and libvhdi Cachix caches and

@@ -6,7 +6,10 @@
 Date: 2026-05-08
 
 This release is a breaking operator-surface refactor. It turns `nixoa-menu`
-into an xsconsole-style SSH console, makes `nxcli` the single supported command surface for repository and host operations, and removes the older duplicate script entrypoints that previously owned apply, commit, diff, history, log, and XOA update flows.
+into an xsconsole-style SSH console, makes `nxcli` the single supported command
+surface for repository and host operations, and removes the older duplicate
+script entrypoints that previously owned apply, commit, diff, history, log, and
+XOA update flows.
 
 ### ✨ Added
 
@@ -15,6 +18,7 @@ into an xsconsole-style SSH console, makes `nxcli` the single supported command 
 - **Apply-time dirty-worktree commit prompt** in `nixoa-menu`; dirty tracked files are listed before apply, operators can enter a commit message, and an automatic dated message is generated when the prompt is left blank
 - **`nixoaMenuAutoStart` host context setting**, defaulting to `false`, to make SSH console autostart explicitly opt-in
 - **`nxcli` parity commands** for `commit`, `diff`, `history`, `status --json`, host JSON output, flake update previewing, and XOA-specific input updates
+- **Full `nxcli` reference documentation** covering every command, option, example, and flake app wrapper
 - **Baseline Bash operator quality-of-life defaults** such as persistent history, readline search/completion behavior, and core Git/system aliases without requiring extras
 
 ### 🔄 Changed
@@ -25,7 +29,7 @@ into an xsconsole-style SSH console, makes `nxcli` the single supported command 
 - **`nixoa-menu` uses `nxcli` for apply, rollback, and commit flows**, keeping TUI host-context edits in `scripts/tui/` and repository/system actions in the CLI
 - **SSH login behavior changed** so Bash and Zsh start `nixoa-menu` only when `nixoaMenuAutoStart = true;`, while preserving `NIXOA_TUI_BYPASS` and `NIXOA_TUI_ACTIVE` guards
 - **TUI update actions use `nix flake update <input>`** instead of deprecated `nix flake lock --update-input` commands
-- **Documentation now describes the current operator model**, including manual `nixoa-menu`, `nxcli commit` for saving flake changes, XOA input updates, and the reduced role of direct scripts
+- **Documentation now describes the current operator model**, including a streamlined README, manual `nixoa-menu`, `nxcli commit` for saving flake changes, XOA input updates, and the reduced role of direct scripts
 - **`nixoa-menu` package version advanced to `0.6.0`** and `nxcli` reports version `4.1.0`
 
 ### 🗑️ Removed

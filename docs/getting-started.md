@@ -72,6 +72,9 @@ commands can be run as `nxcli ...` without the repo-local launcher path.
 autostarts on SSH login unless the host context sets
 `nixoaMenuAutoStart = true;`; otherwise start it manually with `nixoa-menu`.
 
+For complete command syntax and options, see the
+[nxcli reference](nxcli.md).
+
 ## Reuse The Namespace Elsewhere
 
 Another Den flake can still import the reusable namespace directly:

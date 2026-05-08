@@ -1,6 +1,8 @@
 # Configuration Reference
 
 Host-owned configuration now lives inside `host/<hostname>/`.
+Use [Common Tasks](common-tasks.md) for short examples and the
+[nxcli reference](nxcli.md) for applying and committing changes.
 
 ## Host Directory Shape
 

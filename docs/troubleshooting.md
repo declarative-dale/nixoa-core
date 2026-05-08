@@ -1,5 +1,8 @@
 # Troubleshooting
 
+Most operational checks use `nxcli`; see the [nxcli reference](nxcli.md) for
+full command syntax.
+
 ## XO Not Starting
 
 Check the active host's `host/<hostname>/_ctx/settings.nix` for:
