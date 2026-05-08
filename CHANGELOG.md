@@ -5,8 +5,16 @@
 
 Date: 2026-05-08
 
-This release is a breaking operator-surface refactor. It turns `nixoa-menu`
-into an xsconsole-style SSH console, makes `nxcli` the single supported command surface for repository and host operations, and removes the older duplicate script entrypoints that previously owned apply, commit, diff, history, log, and XOA update flows.
+This release is a breaking repository and operator-surface refactor. NiXOA is
+now operated directly from the `core` repo: reusable aspects, host templates,
+concrete host definitions, packages, apps, `nxcli`, and `nixoa-menu` all live in
+one flake. The previous model, where a separate system flake consumed `core` as
+an input and owned host operations, is deprecated.
+
+The release also turns `nixoa-menu` into an xsconsole-style SSH console, makes
+`nxcli` the single supported command surface for repository and host operations,
+and removes the older duplicate script entrypoints that previously owned apply,
+commit, diff, history, log, and XOA update flows.
 
 ### ✨ Added
 
@@ -20,6 +28,8 @@ into an xsconsole-style SSH console, makes `nxcli` the single supported command 
 
 ### 🔄 Changed
 
+- **Core is now the operational repo**, not only a reusable input; concrete host directories, automation aliases, packages, apps, CLI behavior, and console behavior are consolidated into this flake
+- **Host-owned state now lives under `core/host/<hostname>/`** with `host/_automation/default.nix` selecting the stable `nixosConfigurations.vm` output
 - **`nxcli` is now the canonical operator interface** for host creation, apply, boot, rollback, commit, diff, history, status, flake updates, XOA input updates, and XO log tailing
 - **Flake apps now route through packaged `nxcli`** for apply, commit, diff, and history instead of resolving repo-local helper scripts at runtime
 - **`nxcli` packaging now uses `writeShellApplication`** with explicit Nix-provided runtime inputs, removing ambient tool and script-local `nix shell nixpkgs#nh` fallback behavior
@@ -28,6 +38,11 @@ into an xsconsole-style SSH console, makes `nxcli` the single supported command 
 - **TUI update actions use `nix flake update <input>`** instead of deprecated `nix flake lock --update-input` commands
 - **Documentation now describes the current operator model**, including a streamlined README, manual `nixoa-menu`, `nxcli commit` for saving flake changes, XOA input updates, and the reduced role of direct scripts
 - **`nixoa-menu` package version advanced to `0.6.0`** and `nxcli` reports version `4.1.0`
+
+### ⚠️ Deprecated
+
+- **The old split `core` input plus separate `system` flake model** for day-to-day NiXOA operation; new installations and operators should use the unified `core` flake directly
+- **System-flake-owned host operations** such as applying, committing, updating, and launching the console from outside `core`; these are now `nxcli` and `nixoa-menu` responsibilities inside this repo
 
 ### 🗑️ Removed
 
