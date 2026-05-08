@@ -5,9 +5,8 @@
   pkgs,
   context,
   ...
-}:
-{
-  environment.shells = [ pkgs.bashInteractive ] ++ lib.optionals context.enableExtras [ pkgs.zsh ];
+}: {
+  environment.shells = [pkgs.bashInteractive] ++ lib.optionals context.enableExtras [pkgs.zsh];
 
   programs.zsh.enable = context.enableExtras;
   programs.git.enable = context.enableExtras;

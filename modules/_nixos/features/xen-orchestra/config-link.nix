@@ -6,12 +6,11 @@
   pkgs,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
   tlsCfg = cfg.tls;
-  contextConfig = context.xoConfig or { };
+  contextConfig = context.xoConfig or {};
 
   defaultToml = ''
     [redis]
@@ -45,19 +44,17 @@ let
   '';
 
   contextToml =
-    if builtins.isString contextConfig then
-      contextConfig
-    else if contextConfig ? toml then
-      contextConfig.toml
-    else
-      defaultToml;
+    if builtins.isString contextConfig
+    then contextConfig
+    else if contextConfig ? toml
+    then contextConfig.toml
+    else defaultToml;
   renderedToml = pkgs.writeText "xo-config.nixoa.toml" cfg.config.toml;
-  renderedConfig = pkgs.runCommand "config.nixoa.toml" { } ''
+  renderedConfig = pkgs.runCommand "config.nixoa.toml" {} ''
     cp ${renderedToml} $out
     ${pkgs.remarshal}/bin/remarshal -if toml -of json "$out" >/dev/null
   '';
-in
-{
+in {
   config = mkIf context.enableXO {
     nixoa.xo.config.toml = contextToml;
 

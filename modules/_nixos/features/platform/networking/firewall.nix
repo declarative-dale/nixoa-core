@@ -1,10 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Firewall defaults
-{
-  lib,
-  ...
-}:
-{
+{lib, ...}: {
   networking.firewall = {
     enable = true;
     allowPing = true;

@@ -4,13 +4,11 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   homeDir = "/home/${context.username}";
   repoDir = context.repoDir or "${homeDir}/nixoa";
   immutable = context.immutability.enable or false;
-in
-{
+in {
   # Preserve existing installer/cloud-init users during the live cutover.
   # This avoids deleting the active bootstrap account mid-switch.
   users.mutableUsers = !immutable;
@@ -20,7 +18,7 @@ in
     "d ${homeDir}/.ssh 0700 ${context.username} users -"
   ];
 
-  system.activationScripts.nixoa-managed-home = lib.stringAfter [ "users" ] ''
+  system.activationScripts.nixoa-managed-home = lib.stringAfter ["users"] ''
     if [ -d ${lib.escapeShellArg homeDir} ]; then
       chown ${context.username}:users ${lib.escapeShellArg homeDir}
     fi

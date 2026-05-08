@@ -5,23 +5,21 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
-in
-{
+in {
   config = mkIf storageEnabled {
     security.sudo = {
       enable = true;
       extraRules = [
         {
-          users = [ cfg.user ];
+          users = [cfg.user];
           commands = [
             {
               command = "${cfg.internal.storageHelper}/bin/xo-storage-helper";
-              options = [ "NOPASSWD" ];
+              options = ["NOPASSWD"];
             }
           ];
         }

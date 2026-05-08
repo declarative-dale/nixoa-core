@@ -3,117 +3,111 @@
   inputs,
   lib,
   ...
-}:
-let
-  systems = lib.unique ([ "x86_64-linux" ] ++ builtins.attrNames den.hosts);
-  outputAliases = import ../../lib/output-aliases.nix { inherit lib; };
+}: let
+  systems = lib.unique (["x86_64-linux"] ++ builtins.attrNames den.hosts);
+  outputAliases = import ../../lib/output-aliases.nix {inherit lib;};
   selectedVmOutput = outputAliases.selectedVmOutput ../..;
-  mkRepoScriptApp =
-    pkgs:
-    {
-      appName,
-      scriptName,
-      description,
-    }:
-    {
-      type = "app";
-      program = toString (
-        pkgs.writeShellScript appName ''
-          set -euo pipefail
+  mkRepoScriptApp = pkgs: {
+    appName,
+    scriptName,
+    description,
+  }: {
+    type = "app";
+    program = toString (
+      pkgs.writeShellScript appName ''
+        set -euo pipefail
 
-          repo_root="''${NIXOA_SYSTEM_ROOT:-}"
-          if [ -z "$repo_root" ]; then
-            if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-              repo_root="$git_root"
-            else
-              repo_root="$PWD"
-            fi
+        repo_root="''${NIXOA_SYSTEM_ROOT:-}"
+        if [ -z "$repo_root" ]; then
+          if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+            repo_root="$git_root"
+          else
+            repo_root="$PWD"
           fi
+        fi
 
-          script="$repo_root/scripts/${scriptName}"
-          if [ ! -x "$script" ]; then
-            echo "Could not find $script" >&2
-            echo "Run this app from a NiXOA checkout or set NIXOA_SYSTEM_ROOT." >&2
-            exit 1
-          fi
+        script="$repo_root/scripts/${scriptName}"
+        if [ ! -x "$script" ]; then
+          echo "Could not find $script" >&2
+          echo "Run this app from a NiXOA checkout or set NIXOA_SYSTEM_ROOT." >&2
+          exit 1
+        fi
 
-          exec "$script" "$@"
-        ''
-      );
-      meta.description = description;
-    };
-  mkHostApps =
-    system:
-    let
-      pkgs = inputs.nixpkgs.legacyPackages.${system};
-      hostApps = den.lib.nh.hostApps {
+        exec "$script" "$@"
+      ''
+    );
+    meta.description = description;
+  };
+  mkHostApps = system: let
+    pkgs = inputs.nixpkgs.legacyPackages.${system};
+    hostApps =
+      den.lib.nh.hostApps {
         fromFlake = true;
         fromPath = ".";
-      } pkgs;
-      hostAppAttrs = lib.listToAttrs (map toApp hostApps);
-      toApp = drv: {
-        name = drv.name;
-        value = {
-          type = "app";
-          program = "${drv}/bin/${drv.name}";
-          meta.description = "Operate the ${drv.name} NiXOA host through nh";
-        };
+      }
+      pkgs;
+    hostAppAttrs = lib.listToAttrs (map toApp hostApps);
+    toApp = drv: {
+      name = drv.name;
+      value = {
+        type = "app";
+        program = "${drv}/bin/${drv.name}";
+        meta.description = "Operate the ${drv.name} NiXOA host through nh";
       };
-    in
+    };
+  in
     hostAppAttrs
     // outputAliases.vmAlias hostAppAttrs selectedVmOutput;
-in
-{
+in {
   flake.apps = lib.genAttrs systems (
-    system:
-    let
+    system: let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
     in
-    {
-      nxcli = {
-        type = "app";
-        program = "${nxcli}/bin/nxcli";
-        meta.description = "Canonical NiXOA operator CLI";
-      };
+      {
+        nxcli = {
+          type = "app";
+          program = "${nxcli}/bin/nxcli";
+          meta.description = "Canonical NiXOA operator CLI";
+        };
 
-      apply = mkRepoScriptApp pkgs {
-        appName = "nixoa-apply";
-        scriptName = "apply-config.sh";
-        description = "Low-level helper for applying a NiXOA host configuration through nh";
-      };
+        apply = mkRepoScriptApp pkgs {
+          appName = "nixoa-apply";
+          scriptName = "apply-config.sh";
+          description = "Low-level helper for applying a NiXOA host configuration through nh";
+        };
 
-      bootstrap = mkRepoScriptApp pkgs {
-        appName = "nixoa-bootstrap";
-        scriptName = "bootstrap.sh";
-        description = "Low-level bootstrap wrapper around nxcli host add";
-      };
+        bootstrap = mkRepoScriptApp pkgs {
+          appName = "nixoa-bootstrap";
+          scriptName = "bootstrap.sh";
+          description = "Low-level bootstrap wrapper around nxcli host add";
+        };
 
-      commit = mkRepoScriptApp pkgs {
-        appName = "nixoa-commit";
-        scriptName = "commit-config.sh";
-        description = "Commit NiXOA repository changes";
-      };
+        commit = mkRepoScriptApp pkgs {
+          appName = "nixoa-commit";
+          scriptName = "commit-config.sh";
+          description = "Commit NiXOA repository changes";
+        };
 
-      diff = mkRepoScriptApp pkgs {
-        appName = "nixoa-diff";
-        scriptName = "show-diff.sh";
-        description = "Show NiXOA repository changes";
-      };
+        diff = mkRepoScriptApp pkgs {
+          appName = "nixoa-diff";
+          scriptName = "show-diff.sh";
+          description = "Show NiXOA repository changes";
+        };
 
-      history = mkRepoScriptApp pkgs {
-        appName = "nixoa-history";
-        scriptName = "history.sh";
-        description = "Show NiXOA repository history";
-      };
+        history = mkRepoScriptApp pkgs {
+          appName = "nixoa-history";
+          scriptName = "history.sh";
+          description = "Show NiXOA repository history";
+        };
 
-      menu = {
-        type = "app";
-        program = "${nixoaMenu}/bin/nixoa-menu";
-        meta.description = "Launch the NiXOA SSH administration TUI";
-      };
-    }
-    // mkHostApps system
+        menu = {
+          type = "app";
+          program = "${nixoaMenu}/bin/nixoa-menu";
+          meta.description = "Launch the NiXOA SSH administration TUI";
+        };
+      }
+      // mkHostApps system
   );
 }

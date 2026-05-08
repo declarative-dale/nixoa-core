@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Default host networking: systemd-networkd with DHCP on Ethernet links
-{ lib, ... }:
-{
+{lib, ...}: {
   networking.useDHCP = lib.mkForce false;
   networking.dhcpcd.enable = lib.mkForce false;
 

@@ -5,28 +5,26 @@
   pkgs,
   context,
   ...
-}:
-let
+}: let
   fdSearchCmd = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
-in
-{
+in {
   programs.direnv = lib.mkIf context.enableExtras {
     enable = true;
     nix-direnv.enable = true;
+    enableBashIntegration = false;
     enableZshIntegration = true;
-    enableBashIntegration = true;
   };
 
   programs.zoxide = lib.mkIf context.enableExtras {
     enable = true;
+    enableBashIntegration = false;
     enableZshIntegration = true;
-    enableBashIntegration = true;
   };
 
   programs.fzf = lib.mkIf context.enableExtras {
     enable = true;
+    enableBashIntegration = false;
     enableZshIntegration = true;
-    enableBashIntegration = true;
     defaultCommand = fdSearchCmd;
     fileWidgetCommand = fdSearchCmd;
     defaultOptions = [
@@ -38,7 +36,7 @@ in
 
   programs.oh-my-posh = lib.mkIf context.enableExtras {
     enable = true;
-    enableBashIntegration = true;
+    enableBashIntegration = false;
     enableZshIntegration = true;
     useTheme = "night-owl";
   };

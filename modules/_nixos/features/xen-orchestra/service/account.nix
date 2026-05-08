@@ -5,13 +5,11 @@
   lib,
   pkgs,
   ...
-}:
-let
+}: let
   cfg = config.nixoa.xo;
-in
-{
-  users.groups.${cfg.group} = { };
-  users.groups.fuse = { };
+in {
+  users.groups.${cfg.group} = {};
+  users.groups.fuse = {};
 
   users.users.${cfg.user} = {
     isSystemUser = true;
@@ -20,6 +18,6 @@ in
     group = cfg.group;
     home = cfg.home;
     shell = lib.mkDefault "${pkgs.shadow}/bin/nologin";
-    extraGroups = [ "fuse" ];
+    extraGroups = ["fuse"];
   };
 }

@@ -1,10 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Base platform packages
-{
-  pkgs,
-  ...
-}:
-{
+{pkgs, ...}: {
   environment.systemPackages = with pkgs; [
     # Core utilities
     vim

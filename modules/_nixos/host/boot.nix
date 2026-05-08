@@ -4,12 +4,13 @@
   lib,
   context,
   ...
-}:
-{
+}: {
   boot.loader.systemd-boot.enable = context.bootLoader == "systemd-boot";
-  boot.loader.efi.canTouchEfiVariables = lib.mkIf (
-    context.bootLoader == "systemd-boot"
-  ) context.efiCanTouchVariables;
+  boot.loader.efi.canTouchEfiVariables =
+    lib.mkIf (
+      context.bootLoader == "systemd-boot"
+    )
+    context.efiCanTouchVariables;
 
   boot.loader.grub = lib.mkIf (context.bootLoader == "grub") {
     enable = true;

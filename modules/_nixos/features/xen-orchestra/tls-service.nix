@@ -6,8 +6,7 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
 
   cfg = config.nixoa.xo;
@@ -48,18 +47,17 @@ let
 
     echo "Certificate generation complete."
   '';
-in
-{
+in {
   config = mkIf context.enableAutoCert {
     # Systemd service to generate/renew certificates at boot
     systemd.services.xo-autocert = {
       description = "Generate XO TLS certificates if missing or expired";
-      wantedBy = [ "multi-user.target" ];
+      wantedBy = ["multi-user.target"];
       after = [
         "local-fs.target"
         "systemd-tmpfiles-setup.service"
       ];
-      before = [ "xo-server.service" ];
+      before = ["xo-server.service"];
 
       serviceConfig = {
         Type = "oneshot";

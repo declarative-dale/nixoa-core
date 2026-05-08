@@ -5,22 +5,19 @@
   pkgs,
   context,
   ...
-}:
-let
-  resolvePackage =
-    item:
-    if builtins.isString item then
+}: let
+  resolvePackage = item:
+    if builtins.isString item
+    then
       lib.attrByPath
-        (lib.splitString "." item)
-        (throw "NiXOA user package '${item}' was not found in pkgs")
-        pkgs
-    else
-      item;
-in
-{
+      (lib.splitString "." item)
+      (throw "NiXOA user package '${item}' was not found in pkgs")
+      pkgs
+    else item;
+in {
   home.packages =
-    map resolvePackage (context.userPackages or [ ])
-    ++ map resolvePackage (context.extraUserPackages or [ ])
+    map resolvePackage (context.userPackages or [])
+    ++ map resolvePackage (context.extraUserPackages or [])
     ++ lib.optionals context.enableExtras [
       pkgs.bat
       pkgs.eza

@@ -19,9 +19,7 @@
   util-linux,
   writeShellScriptBin,
   repoRootDefault ? null,
-}:
-
-let
+}: let
   version = "4.0.0";
 
   nxcliScript = writeShellScriptBin "nxcli" ''
@@ -34,14 +32,14 @@ let
     ${builtins.readFile ../../scripts/nxcli.sh}
   '';
 in
-symlinkJoin {
-  name = "nxcli-${version}";
-  paths = [ nxcliScript ];
-  nativeBuildInputs = [ makeWrapper ];
+  symlinkJoin {
+    name = "nxcli-${version}";
+    paths = [nxcliScript];
+    nativeBuildInputs = [makeWrapper];
 
-  postBuild = ''
-    wrapProgram "$out/bin/nxcli" \
-      --prefix PATH : ${
+    postBuild = ''
+      wrapProgram "$out/bin/nxcli" \
+        --prefix PATH : ${
         lib.makeBinPath [
           bash
           coreutils
@@ -60,13 +58,13 @@ symlinkJoin {
           util-linux
         ]
       }
-  '';
+    '';
 
-  meta = {
-    description = "Canonical NiXOA operator CLI";
-    homepage = "https://codeberg.org/NiXOA/core";
-    license = lib.licenses.asl20;
-    mainProgram = "nxcli";
-    platforms = lib.platforms.linux;
-  };
-}
+    meta = {
+      description = "Canonical NiXOA operator CLI";
+      homepage = "https://codeberg.org/NiXOA/core";
+      license = lib.licenses.asl20;
+      mainProgram = "nxcli";
+      platforms = lib.platforms.linux;
+    };
+  }

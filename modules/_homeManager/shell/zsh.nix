@@ -6,14 +6,13 @@
   pkgs,
   context,
   ...
-}:
-{
+}: {
   programs.zsh = lib.mkIf context.enableExtras {
     enable = true;
     enableCompletion = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
-    loginExtra = ''
+    loginExtra = lib.optionalString (context.nixoaMenuAutoStart or false) ''
       if [[ -n "''${SSH_TTY:-}" ]] && [[ -o interactive ]] && [[ -t 0 ]] && [[ -t 1 ]] && [[ -z "''${NIXOA_TUI_BYPASS:-}" ]] && [[ -z "''${NIXOA_TUI_ACTIVE:-}" ]]; then
         export NIXOA_TUI_ACTIVE=1
         export NIXOA_SYSTEM_ROOT="''${NIXOA_SYSTEM_ROOT:-${context.repoDir or "/home/${context.username}/nixoa"}}"
@@ -45,33 +44,34 @@
       ];
     };
 
-    shellAliases = {
-      ".." = "cd ..";
-      "..." = "cd ../..";
+    shellAliases =
+      {
+        ".." = "cd ..";
+        "..." = "cd ../..";
 
-      gs = "git status";
-      ga = "git add";
-      gc = "git commit";
-      gp = "git push";
-      gl = "git log --oneline --graph --decorate";
-      gd = "git diff";
+        gs = "git status";
+        ga = "git add";
+        gc = "git commit";
+        gp = "git push";
+        gl = "git log --oneline --graph --decorate";
+        gd = "git diff";
 
-      syslog = "journalctl -xe";
-      sysfail = "systemctl --failed";
-      sysrestart = "sudo systemctl restart";
-      sysstatus = "sudo systemctl status";
-      menu = "nixoa-menu";
-    }
-    // lib.optionalAttrs context.enableExtras {
-      ls = "eza --icons --group-directories-first";
-      ll = "eza -l --icons --group-directories-first --git";
-      la = "eza -la --icons --group-directories-first --git";
-      lt = "eza --tree --level=2 --icons";
-      cat = "bat --style=changes,header";
-      catn = "bat --style=numbers,changes,header";
-      cd = "z";
-      cdi = "zi";
-    };
+        syslog = "journalctl -xe";
+        sysfail = "systemctl --failed";
+        sysrestart = "sudo systemctl restart";
+        sysstatus = "sudo systemctl status";
+        menu = "nixoa-menu";
+      }
+      // lib.optionalAttrs context.enableExtras {
+        ls = "eza --icons --group-directories-first";
+        ll = "eza -l --icons --group-directories-first --git";
+        la = "eza -la --icons --group-directories-first --git";
+        lt = "eza --tree --level=2 --icons";
+        cat = "bat --style=changes,header";
+        catn = "bat --style=numbers,changes,header";
+        cd = "z";
+        cdi = "zi";
+      };
 
     initContent = ''
       export FZF_DEFAULT_OPTS="--height 40% --layout=reverse --border --preview '${pkgs.bat}/bin/bat --color=always --style=numbers --line-range=:500 {}'"

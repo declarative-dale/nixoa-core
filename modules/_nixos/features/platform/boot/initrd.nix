@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Initrd and filesystem support
-{ ... }:
-{
+{...}: {
   # Ensure NFS client utilities and services are available in initrd
-  boot.initrd.supportedFilesystems = [ "nfs" ];
-  boot.initrd.kernelModules = [ "nfs" ];
+  boot.initrd.supportedFilesystems = ["nfs"];
+  boot.initrd.kernelModules = ["nfs"];
 
   # Enable systemd in initrd (required for repart)
   boot.initrd.systemd.enable = true;

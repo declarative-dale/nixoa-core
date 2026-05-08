@@ -1,19 +1,17 @@
 # SPDX-License-Identifier: Apache-2.0
 # Rebuild the host once on the next boot if the TUI has queued it.
-{ pkgs, ... }:
-let
+{pkgs, ...}: let
   queueFile = "/var/lib/nixoa/rebuild-on-boot.env";
-in
-{
+in {
   systemd.tmpfiles.rules = [
     "d /var/lib/nixoa 0750 root root - -"
   ];
 
   systemd.services.nixoa-rebuild = {
     description = "Apply queued NiXOA rebuild on boot";
-    wantedBy = [ "multi-user.target" ];
-    wants = [ "network-online.target" ];
-    after = [ "network-online.target" ];
+    wantedBy = ["multi-user.target"];
+    wants = ["network-online.target"];
+    after = ["network-online.target"];
     unitConfig.ConditionPathExists = queueFile;
     serviceConfig = {
       Type = "oneshot";

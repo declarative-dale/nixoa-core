@@ -2,9 +2,8 @@
   den,
   nixoaCore,
   ...
-}:
-{
+}: {
   nixoaCore.platform = {
-    includes = [ (den._.import-tree ./. ) ];
+    includes = [(den._.import-tree ./.)];
   };
 }

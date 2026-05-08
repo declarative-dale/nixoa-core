@@ -1,13 +1,8 @@
 # SPDX-License-Identifier: Apache-2.0
 # Xen Orchestra runtime limits
-{
-  config,
-  ...
-}:
-let
+{config, ...}: let
   cfg = config.nixoa.xo;
-in
-{
+in {
   security.pam.loginLimits = [
     {
       domain = cfg.user;

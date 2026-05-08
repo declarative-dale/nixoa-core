@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # Host time settings
-{
-  context,
-  ...
-}:
-{
+{context, ...}: {
   time.timeZone = context.timezone;
 }

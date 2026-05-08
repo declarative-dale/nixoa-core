@@ -2,12 +2,11 @@
   inputs,
   lib,
   ...
-}:
-{
-  imports = [ inputs.den.flakeModules.dendritic ];
+}: {
+  imports = [inputs.den.flakeModules.dendritic];
 
   options.flake-file.inputs = lib.mkOption {
-    default = { };
+    default = {};
     defaultText = lib.literalExpression "{ }";
     type = lib.types.lazyAttrsOf lib.types.raw;
     internal = true;

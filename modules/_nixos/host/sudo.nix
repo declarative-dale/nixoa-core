@@ -4,22 +4,20 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   sudoNoPassword = context.sudoNoPassword or true;
-in
-{
+in {
   security.sudo = {
     enable = true;
     wheelNeedsPassword = !sudoNoPassword;
 
     extraRules = lib.optionals sudoNoPassword [
       {
-        users = [ context.username ];
+        users = [context.username];
         commands = [
           {
             command = "ALL";
-            options = [ "NOPASSWD" ];
+            options = ["NOPASSWD"];
           }
         ];
       }

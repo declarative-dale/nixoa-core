@@ -5,13 +5,11 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
-in
-{
+in {
   config = mkIf storageEnabled {
     systemd.tmpfiles.rules = [
       "d ${context.mountsDir} 0750 ${cfg.user} ${cfg.group} - -"

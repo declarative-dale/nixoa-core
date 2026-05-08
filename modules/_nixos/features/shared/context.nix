@@ -2,13 +2,11 @@
 # Shared module arguments for context-aware aspect modules
 {
   lib,
-  context ? { },
+  context ? {},
   ...
-}:
-let
-  utils = import ../../../../lib/utils.nix { inherit lib; };
-in
-{
+}: let
+  utils = import ../../../../lib/utils.nix {inherit lib;};
+in {
   _module.args = {
     inherit context;
     nixoaUtils = utils;

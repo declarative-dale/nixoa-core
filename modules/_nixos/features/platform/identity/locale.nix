@@ -1,9 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Locale defaults
-{
-  ...
-}:
-{
+{...}: {
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
     LC_TIME = "en_US.UTF-8";

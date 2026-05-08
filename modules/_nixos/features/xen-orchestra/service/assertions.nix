@@ -5,12 +5,10 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
-in
-{
+in {
   config = mkIf context.enableXO {
     assertions = [
       {

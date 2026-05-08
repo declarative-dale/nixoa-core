@@ -4,28 +4,26 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf optionals;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
-in
-{
+in {
   config = mkIf storageEnabled {
     programs.fuse.userAllowOther = true;
 
     boot.kernelModules =
-      [ "fuse" ]
+      ["fuse"]
       ++ optionals context.enableNFS [
         "nfs"
         "nfsv4"
       ]
-      ++ optionals context.enableCIFS [ "cifs" ];
+      ++ optionals context.enableCIFS ["cifs"];
 
     boot.supportedFilesystems =
       optionals context.enableNFS [
         "nfs"
         "nfs4"
       ]
-      ++ optionals context.enableCIFS [ "cifs" ];
+      ++ optionals context.enableCIFS ["cifs"];
   };
 }

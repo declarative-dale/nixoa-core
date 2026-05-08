@@ -5,17 +5,17 @@
   inputs,
   lib,
   ...
-}:
-let
-  extraNixosModules = context.extraNixosModules or [ ];
-  extraNixosConfig = context.extraNixosConfig or { };
-in
-{
-  imports = [
-    (inputs.import-tree ../../../modules/_nixos/runtime)
-    (inputs.import-tree ../../../modules/_nixos/host)
-    ./hardware-configuration.nix
-  ] ++ extraNixosModules;
+}: let
+  extraNixosModules = context.extraNixosModules or [];
+  extraNixosConfig = context.extraNixosConfig or {};
+in {
+  imports =
+    [
+      (inputs.import-tree ../../../modules/_nixos/runtime)
+      (inputs.import-tree ../../../modules/_nixos/host)
+      ./hardware-configuration.nix
+    ]
+    ++ extraNixosModules;
 
-  config = lib.mkIf (extraNixosConfig != { }) extraNixosConfig;
+  config = lib.mkIf (extraNixosConfig != {}) extraNixosConfig;
 }

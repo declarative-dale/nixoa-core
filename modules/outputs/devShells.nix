@@ -3,17 +3,13 @@
   inputs,
   lib,
   ...
-}:
-let
-  systems = lib.unique ([ "x86_64-linux" ] ++ builtins.attrNames den.hosts);
-in
-{
+}: let
+  systems = lib.unique (["x86_64-linux"] ++ builtins.attrNames den.hosts);
+in {
   flake.devShells = lib.genAttrs systems (
-    system:
-    let
+    system: let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
-    in
-    {
+    in {
       default = pkgs.mkShell {
         packages = with pkgs; [
           curl

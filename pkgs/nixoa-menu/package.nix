@@ -12,10 +12,9 @@
   nix,
   rustPlatform,
 }:
-
 rustPlatform.buildRustPackage {
   pname = "nixoa-menu";
-  version = "0.4.3";
+  version = "0.5.0";
 
   src = lib.cleanSource ./.;
 
@@ -23,23 +22,23 @@ rustPlatform.buildRustPackage {
     lockFile = ./Cargo.lock;
   };
 
-  nativeBuildInputs = [ makeWrapper ];
+  nativeBuildInputs = [makeWrapper];
 
   postInstall = ''
     wrapProgram "$out/bin/nixoa-menu" \
       --prefix PATH : ${
-        lib.makeBinPath [
-          bash
-          coreutils
-          gawk
-          git
-          gnugrep
-          gnused
-          inetutils
-          iproute2
-          nix
-        ]
-      }
+      lib.makeBinPath [
+        bash
+        coreutils
+        gawk
+        git
+        gnugrep
+        gnused
+        inetutils
+        iproute2
+        nix
+      ]
+    }
   '';
 
   meta = {

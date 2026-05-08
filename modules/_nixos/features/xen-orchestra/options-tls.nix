@@ -1,16 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO Server TLS path options
-{
-  lib,
-  ...
-}:
-let
-  inherit (lib)
+{lib, ...}: let
+  inherit
+    (lib)
     mkOption
     types
     ;
-in
-{
+in {
   options.nixoa.xo.tls = {
     dir = mkOption {
       type = types.path;

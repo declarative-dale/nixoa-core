@@ -18,6 +18,7 @@
     ];
     flatpaks = [];
     immutability.enable = false;
+    nixoaMenuAutoStart = false;
     shell = null;
     xoConfig = {};
   };

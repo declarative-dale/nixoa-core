@@ -4,8 +4,7 @@
   lib,
   context,
   ...
-}:
-{
+}: {
   services.openssh = {
     enable = true;
     openFirewall = true;
@@ -15,7 +14,7 @@
       PasswordAuthentication = false;
       KbdInteractiveAuthentication = false;
       PubkeyAuthentication = true;
-      AllowUsers = lib.unique ([ context.username ] ++ lib.optional (context.username != "nixos") "nixos");
+      AllowUsers = lib.unique ([context.username] ++ lib.optional (context.username != "nixos") "nixos");
 
       X11Forwarding = false;
       PermitEmptyPasswords = false;

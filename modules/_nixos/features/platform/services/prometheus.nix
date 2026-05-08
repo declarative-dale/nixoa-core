@@ -1,10 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Prometheus node exporter (optional)
-{
-  lib,
-  ...
-}:
-{
+{lib, ...}: {
   services.prometheus.exporters.node = {
     enable = lib.mkDefault false;
     port = 9100;

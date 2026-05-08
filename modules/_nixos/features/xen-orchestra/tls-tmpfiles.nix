@@ -5,12 +5,10 @@
   lib,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   tlsCfg = config.nixoa.xo.tls;
-in
-{
+in {
   config = mkIf context.enableAutoCert {
     systemd.tmpfiles.rules = [
       "d ${tlsCfg.dir} 0755 root root - -"

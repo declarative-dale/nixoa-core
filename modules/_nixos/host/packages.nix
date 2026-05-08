@@ -6,23 +6,20 @@
   pkgs,
   context,
   ...
-}:
-let
-  resolvePackage =
-    item:
-    if builtins.isString item then
+}: let
+  resolvePackage = item:
+    if builtins.isString item
+    then
       lib.attrByPath
-        (lib.splitString "." item)
-        (throw "NiXOA system package '${item}' was not found in pkgs")
-        pkgs
-    else
-      item;
+      (lib.splitString "." item)
+      (throw "NiXOA system package '${item}' was not found in pkgs")
+      pkgs
+    else item;
   nixoaMenu = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixoa-menu;
-in
-{
+in {
   environment.systemPackages =
-    map resolvePackage (context.systemPackages or [ ])
-    ++ map resolvePackage (context.extraSystemPackages or [ ])
+    map resolvePackage (context.systemPackages or [])
+    ++ map resolvePackage (context.extraSystemPackages or [])
     ++ [
       nixoaMenu
       pkgs.nh

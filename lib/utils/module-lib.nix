@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Common lib imports for modules
-{ lib, ... }:
-{
+{lib, ...}: {
   moduleLib = {
-    inherit (lib)
+    inherit
+      (lib)
       mkOption
       mkDefault
       mkEnableOption

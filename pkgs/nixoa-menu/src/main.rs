@@ -54,7 +54,6 @@ struct ActionItem {
     kind: ActionKind,
     title: &'static str,
     detail: &'static str,
-    shortcut: Option<char>,
 }
 
 #[derive(Clone, Debug)]
@@ -62,7 +61,6 @@ struct UpdateItem {
     title: &'static str,
     detail: &'static str,
     backend: &'static str,
-    shortcut: char,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -129,21 +127,20 @@ enum UpdateStatus {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {
-    Dashboard,
-    Configure,
-    Software,
+    Status,
+    HostSetup,
+    Access,
+    Packages,
+    Updates,
     Maintenance,
     Logs,
+    Shell,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Focus {
-    TopNav,
-    MainActions,
-    DashboardAlerts,
-    ConfigureSshKeys,
-    MaintenanceFlakeInputs,
-    LogsView,
+    PrimaryMenu,
+    Options,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -153,7 +150,9 @@ enum ActionKind {
     EditHostname,
     EditUsername,
     ToggleExtras,
-    ManageSshKeys,
+    AddSshKey,
+    ReplaceSshKeys,
+    DeleteSelectedSshKey,
     AddSystemPackage,
     AddUserPackage,
     AddService,
@@ -165,6 +164,27 @@ enum ActionKind {
     CleanupUnmanagedUsers,
     FilterLogs,
     ClearLogFilter,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LogOption {
+    Filter,
+    ClearFilter,
+    Newer,
+    Older,
+    PageNewer,
+    PageOlder,
+    Newest,
+    Oldest,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MenuOption {
+    Action(ActionKind),
+    Update(usize),
+    SshKey(usize),
+    Log(LogOption),
+    OpenShell,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -187,20 +207,11 @@ enum Severity {
     Error,
 }
 
-#[derive(Debug, Clone, Copy)]
-enum AlertCommand {
-    OpenMaintenance,
-    CheckForUpdates,
-    ApplyConfiguration,
-    OpenLogs,
-}
-
 #[derive(Debug, Clone)]
 struct AlertItem {
     severity: Severity,
     message: String,
     action_label: Option<&'static str>,
-    action: Option<AlertCommand>,
 }
 
 #[derive(Debug, Clone)]
@@ -240,7 +251,7 @@ struct App {
     update_rx: Option<Receiver<UpdateStatus>>,
     page: Page,
     focus: Focus,
-    page_selection: [usize; 5],
+    page_selection: [usize; 8],
     selected_update: usize,
     selected_key: usize,
     selected_alert: usize,
@@ -256,111 +267,103 @@ struct App {
     tick: usize,
 }
 
-const DASHBOARD_ACTIONS: [ActionItem; 2] = [
+const STATUS_ACTIONS: [ActionItem; 2] = [
     ActionItem {
         kind: ActionKind::RefreshSnapshot,
         title: "Refresh Snapshot",
         detail: "Reload host state, repository status, and current appliance health.",
-        shortcut: Some('r'),
     },
     ActionItem {
         kind: ActionKind::CheckForUpdates,
         title: "Check for Updates",
-        detail: "Open the Flake Inputs update submenu in Maintenance and re-run the lock check.",
-        shortcut: Some('u'),
+        detail: "Open Updates and re-run the flake input lock check.",
     },
 ];
 
-const CONFIGURE_ACTIONS: [ActionItem; 4] = [
+const HOST_SETUP_ACTIONS: [ActionItem; 3] = [
     ActionItem {
         kind: ActionKind::EditHostname,
         title: "Hostname",
         detail: "Write a new hostname into host/<hostname>/_ctx/menu.nix and commit the change immediately.",
-        shortcut: Some('1'),
     },
     ActionItem {
         kind: ActionKind::EditUsername,
         title: "Username",
         detail: "Write a new primary username into host/<hostname>/_ctx/menu.nix and commit the change immediately.",
-        shortcut: Some('2'),
     },
     ActionItem {
         kind: ActionKind::ToggleExtras,
         title: "Extras",
         detail: "Enable or disable the extras feature set and commit the resulting menu override.",
-        shortcut: Some('3'),
-    },
-    ActionItem {
-        kind: ActionKind::ManageSshKeys,
-        title: "SSH Keys",
-        detail: "Manage the authorized SSH public keys tracked by the console override layer.",
-        shortcut: Some('4'),
     },
 ];
 
-const SOFTWARE_ACTIONS: [ActionItem; 3] = [
+const ACCESS_ACTIONS: [ActionItem; 3] = [
+    ActionItem {
+        kind: ActionKind::AddSshKey,
+        title: "Add SSH Key",
+        detail: "Append a public key to the managed SSH authorized key list.",
+    },
+    ActionItem {
+        kind: ActionKind::ReplaceSshKeys,
+        title: "Replace SSH Keys",
+        detail: "Replace the managed SSH key list with a single public key line.",
+    },
+    ActionItem {
+        kind: ActionKind::DeleteSelectedSshKey,
+        title: "Delete Selected Key",
+        detail: "Remove the currently selected managed SSH public key.",
+    },
+];
+
+const PACKAGE_ACTIONS: [ActionItem; 3] = [
     ActionItem {
         kind: ActionKind::AddSystemPackage,
         title: "System Packages",
         detail: "Append a nixpkgs attribute path to extraSystemPackages in host/<hostname>/_ctx/menu.nix.",
-        shortcut: Some('5'),
     },
     ActionItem {
         kind: ActionKind::AddUserPackage,
         title: "User Packages",
         detail: "Append a nixpkgs attribute path to extraUserPackages in host/<hostname>/_ctx/menu.nix.",
-        shortcut: Some('6'),
     },
     ActionItem {
         kind: ActionKind::AddService,
         title: "Services",
         detail: "Enable a service by dotted NixOS option path in host/<hostname>/_ctx/menu.nix.",
-        shortcut: Some('7'),
     },
 ];
 
-const MAINTENANCE_ACTIONS: [ActionItem; 7] = [
-    ActionItem {
-        kind: ActionKind::CheckForUpdates,
-        title: "Check for Updates",
-        detail: "Inspect flake input updates for nixpkgs, Home Manager, XOA, or the full system.",
-        shortcut: Some('8'),
-    },
+const MAINTENANCE_ACTIONS: [ActionItem; 6] = [
     ActionItem {
         kind: ActionKind::ApplyConfiguration,
         title: "Apply Configuration",
         detail: "Run nxcli apply for the current host and refresh console state after completion.",
-        shortcut: Some('a'),
     },
     ActionItem {
         kind: ActionKind::RollbackGeneration,
         title: "Rollback Generation",
         detail: "Run nxcli rollback interactively for the current host.",
-        shortcut: Some('0'),
     },
     ActionItem {
         kind: ActionKind::RunGarbageCollection,
         title: "Run Garbage Collection",
         detail: "Run nh clean all interactively for a full manual store cleanup.",
-        shortcut: Some('g'),
     },
     ActionItem {
         kind: ActionKind::RebootSystem,
         title: "Reboot System",
         detail: "Run systemctl reboot through wrapper sudo for a clean systemd-managed reboot.",
-        shortcut: Some('b'),
     },
     ActionItem {
         kind: ActionKind::ShutdownSystem,
         title: "Shut Down System",
         detail: "Run systemctl poweroff through wrapper sudo for a clean systemd-managed shutdown.",
-        shortcut: Some('s'),
     },
     ActionItem {
         kind: ActionKind::CleanupUnmanagedUsers,
         title: "Cleanup Unmanaged Users",
         detail: "Remove non-system users outside the flake-managed admin account and delete their home data after confirmation.",
-        shortcut: Some('x'),
     },
 ];
 
@@ -369,13 +372,12 @@ const LOG_ACTIONS: [ActionItem; 2] = [
         kind: ActionKind::FilterLogs,
         title: "Filter Logs",
         detail: "Set a substring filter for Recent Activity and the dedicated Logs page.",
-        shortcut: Some('/'),
     },
     ActionItem {
         kind: ActionKind::ClearLogFilter,
         title: "Clear Log Filter",
-        detail: "Clear the current activity log filter and reset log scrolling to the newest entries.",
-        shortcut: Some('c'),
+        detail:
+            "Clear the current activity log filter and reset log scrolling to the newest entries.",
     },
 ];
 
@@ -384,31 +386,26 @@ const UPDATE_ACTIONS: [UpdateItem; 5] = [
         title: "Update nixpkgs",
         detail: "Refresh only the nixpkgs lock entry and then choose whether to rebuild now or on reboot.",
         backend: "update-nixpkgs",
-        shortcut: '1',
     },
     UpdateItem {
         title: "Update Home Manager",
         detail: "Refresh only the home-manager lock entry and then choose whether to rebuild now or on reboot.",
         backend: "update-home-manager",
-        shortcut: '2',
     },
     UpdateItem {
         title: "Update Determinate",
         detail: "Refresh only the determinate lock entry and then choose whether to rebuild now or on reboot.",
         backend: "update-determinate",
-        shortcut: '3',
     },
     UpdateItem {
         title: "Update XOA",
         detail: "Check the latest xen-orchestra-ce tag, refresh that input lock, and then choose whether to rebuild now or on reboot.",
         backend: "update-xoa",
-        shortcut: '4',
     },
     UpdateItem {
         title: "Update all",
         detail: "Run a full nix flake update and then choose whether to rebuild now or on reboot.",
         backend: "update-all",
-        shortcut: '5',
     },
 ];
 
@@ -419,9 +416,9 @@ impl App {
             snapshot,
             update_status: UpdateStatus::Idle,
             update_rx: None,
-            page: Page::Dashboard,
-            focus: Focus::MainActions,
-            page_selection: [0; 5],
+            page: Page::Status,
+            focus: Focus::PrimaryMenu,
+            page_selection: [0; 8],
             selected_update: 0,
             selected_key: 0,
             selected_alert: 0,
@@ -431,8 +428,7 @@ impl App {
             quit_confirm: false,
             logs: vec![
                 "NiXOA console ready.".to_string(),
-                "Use arrows or h/j/k/l for navigation, Tab for focus cycling, and [ ] for pages."
-                    .to_string(),
+                "Use Up/Down to choose, Enter to advance, and Esc to go back.".to_string(),
             ],
             log_filter: String::new(),
             log_scroll: 0,
@@ -446,22 +442,19 @@ impl App {
 
     fn page_index(page: Page) -> usize {
         match page {
-            Page::Dashboard => 0,
-            Page::Configure => 1,
-            Page::Software => 2,
-            Page::Maintenance => 3,
-            Page::Logs => 4,
+            Page::Status => 0,
+            Page::HostSetup => 1,
+            Page::Access => 2,
+            Page::Packages => 3,
+            Page::Updates => 4,
+            Page::Maintenance => 5,
+            Page::Logs => 6,
+            Page::Shell => 7,
         }
     }
 
     fn current_page_actions(&self) -> &'static [ActionItem] {
-        match self.page {
-            Page::Dashboard => &DASHBOARD_ACTIONS,
-            Page::Configure => &CONFIGURE_ACTIONS,
-            Page::Software => &SOFTWARE_ACTIONS,
-            Page::Maintenance => &MAINTENANCE_ACTIONS,
-            Page::Logs => &LOG_ACTIONS,
-        }
+        page_actions(self.page)
     }
 
     fn current_selection(&self) -> usize {
@@ -472,150 +465,132 @@ impl App {
         &mut self.page_selection[Self::page_index(self.page)]
     }
 
-    fn sidebar_len(&self) -> usize {
-        self.current_page_actions().len() + 1
+    fn option_len(&self) -> usize {
+        self.menu_options().len()
     }
 
-    fn selected_page_action(&self) -> Option<&'static ActionItem> {
-        let actions = self.current_page_actions();
-        actions.get(self.current_selection())
-    }
-
-    fn selected_action_kind(&self) -> Option<ActionKind> {
-        self.selected_page_action().map(|item| item.kind)
-    }
-
-    fn selected_sidebar_title(&self) -> &'static str {
-        self.selected_page_action()
-            .map(|item| item.title)
-            .unwrap_or("Open Shell")
-    }
-
-    fn selected_sidebar_detail(&self) -> &'static str {
-        self.selected_page_action()
-            .map(|item| item.detail)
-            .unwrap_or("Leave the TUI and exec the configured login shell with TUI bypass enabled.")
-    }
-
-    fn page_title(&self) -> &'static str {
+    fn menu_options(&self) -> Vec<MenuOption> {
         match self.page {
-            Page::Dashboard => "Dashboard",
-            Page::Configure => "Configure",
-            Page::Software => "Software",
-            Page::Maintenance => "Maintenance",
-            Page::Logs => "Logs",
+            Page::Status | Page::HostSetup | Page::Packages | Page::Maintenance => self
+                .current_page_actions()
+                .iter()
+                .map(|action| MenuOption::Action(action.kind))
+                .collect(),
+            Page::Access => {
+                let mut options = ACCESS_ACTIONS
+                    .iter()
+                    .map(|action| MenuOption::Action(action.kind))
+                    .collect::<Vec<_>>();
+                options.extend((0..self.snapshot.ssh_keys.len()).map(MenuOption::SshKey));
+                options
+            }
+            Page::Updates => (0..UPDATE_ACTIONS.len()).map(MenuOption::Update).collect(),
+            Page::Logs => vec![
+                MenuOption::Log(LogOption::Filter),
+                MenuOption::Log(LogOption::ClearFilter),
+                MenuOption::Log(LogOption::Newer),
+                MenuOption::Log(LogOption::Older),
+                MenuOption::Log(LogOption::PageNewer),
+                MenuOption::Log(LogOption::PageOlder),
+                MenuOption::Log(LogOption::Newest),
+                MenuOption::Log(LogOption::Oldest),
+            ],
+            Page::Shell => vec![MenuOption::OpenShell],
         }
     }
 
+    fn selected_menu_option(&self) -> Option<MenuOption> {
+        self.menu_options().get(self.current_selection()).copied()
+    }
+
+    fn selected_page_action(&self) -> Option<&'static ActionItem> {
+        match self.selected_menu_option() {
+            Some(MenuOption::Action(kind)) => action_item(kind),
+            _ => None,
+        }
+    }
+
+    fn selected_sidebar_title(&self) -> String {
+        match self.selected_menu_option() {
+            Some(MenuOption::Action(kind)) => action_item(kind)
+                .map(|item| item.title.to_string())
+                .unwrap_or_else(|| "Action".to_string()),
+            Some(MenuOption::Update(index)) => UPDATE_ACTIONS
+                .get(index)
+                .map(|item| item.title.to_string())
+                .unwrap_or_else(|| "Update target".to_string()),
+            Some(MenuOption::SshKey(index)) => format!("SSH Key {}", index + 1),
+            Some(MenuOption::Log(option)) => log_option_title(option).to_string(),
+            Some(MenuOption::OpenShell) | None => "Open Shell".to_string(),
+        }
+    }
+
+    fn selected_sidebar_detail(&self) -> String {
+        match self.selected_menu_option() {
+            Some(MenuOption::Action(kind)) => action_item(kind)
+                .map(|item| item.detail.to_string())
+                .unwrap_or_else(|| "Run the selected action.".to_string()),
+            Some(MenuOption::Update(index)) => UPDATE_ACTIONS
+                .get(index)
+                .map(|item| item.detail.to_string())
+                .unwrap_or_else(|| "Run the selected flake input update.".to_string()),
+            Some(MenuOption::SshKey(index)) => self
+                .snapshot
+                .ssh_keys
+                .get(index)
+                .map(|key| truncate_middle(key, 96))
+                .unwrap_or_else(|| "No SSH key selected.".to_string()),
+            Some(MenuOption::Log(option)) => log_option_detail(option).to_string(),
+            Some(MenuOption::OpenShell) | None => {
+                "Leave the TUI and exec the configured login shell with TUI bypass enabled."
+                    .to_string()
+            }
+        }
+    }
+
+    fn page_title(&self) -> &'static str {
+        page_label(self.page)
+    }
+
     fn set_page(&mut self, page: Page) {
-        let keep_top_nav = self.focus == Focus::TopNav;
+        let keep_primary = self.focus == Focus::PrimaryMenu;
         self.page = page;
         self.clamp_selection_state();
-        self.focus = if keep_top_nav {
-            Focus::TopNav
+        self.focus = if keep_primary {
+            Focus::PrimaryMenu
         } else {
-            Focus::MainActions
+            Focus::Options
         };
-        self.ensure_focus_valid();
     }
 
     fn next_page(&mut self) {
         self.set_page(match self.page {
-            Page::Dashboard => Page::Configure,
-            Page::Configure => Page::Software,
-            Page::Software => Page::Maintenance,
+            Page::Status => Page::HostSetup,
+            Page::HostSetup => Page::Access,
+            Page::Access => Page::Packages,
+            Page::Packages => Page::Updates,
+            Page::Updates => Page::Maintenance,
             Page::Maintenance => Page::Logs,
-            Page::Logs => Page::Dashboard,
+            Page::Logs => Page::Shell,
+            Page::Shell => Page::Status,
         });
     }
 
     fn previous_page(&mut self) {
         self.set_page(match self.page {
-            Page::Dashboard => Page::Logs,
-            Page::Configure => Page::Dashboard,
-            Page::Software => Page::Configure,
-            Page::Maintenance => Page::Software,
+            Page::Status => Page::Shell,
+            Page::HostSetup => Page::Status,
+            Page::Access => Page::HostSetup,
+            Page::Packages => Page::Access,
+            Page::Updates => Page::Packages,
+            Page::Maintenance => Page::Updates,
             Page::Logs => Page::Maintenance,
+            Page::Shell => Page::Logs,
         });
-    }
-
-    fn is_focus_valid(&self, focus: Focus) -> bool {
-        match focus {
-            Focus::TopNav | Focus::MainActions => true,
-            Focus::DashboardAlerts => self.page == Page::Dashboard,
-            Focus::ConfigureSshKeys => {
-                self.page == Page::Configure
-                    && self.selected_action_kind() == Some(ActionKind::ManageSshKeys)
-            }
-            Focus::MaintenanceFlakeInputs => {
-                self.page == Page::Maintenance
-                    && self.selected_action_kind() == Some(ActionKind::CheckForUpdates)
-            }
-            Focus::LogsView => self.page == Page::Logs,
-        }
-    }
-
-    fn ensure_focus_valid(&mut self) {
-        if !self.is_focus_valid(self.focus) {
-            self.focus = Focus::MainActions;
-        }
     }
 
     fn set_focus(&mut self, focus: Focus) {
         self.focus = focus;
-        self.ensure_focus_valid();
-    }
-
-    fn action_child_focus(&self) -> Option<Focus> {
-        if self.current_selection() >= self.current_page_actions().len() {
-            return None;
-        }
-
-        match self.page {
-            Page::Dashboard => Some(Focus::DashboardAlerts),
-            Page::Configure if self.selected_action_kind() == Some(ActionKind::ManageSshKeys) => {
-                Some(Focus::ConfigureSshKeys)
-            }
-            Page::Maintenance
-                if self.selected_action_kind() == Some(ActionKind::CheckForUpdates) =>
-            {
-                Some(Focus::MaintenanceFlakeInputs)
-            }
-            Page::Logs => Some(Focus::LogsView),
-            _ => None,
-        }
-    }
-
-    fn parent_focus(&self) -> Option<Focus> {
-        match self.focus {
-            Focus::DashboardAlerts
-            | Focus::ConfigureSshKeys
-            | Focus::MaintenanceFlakeInputs
-            | Focus::LogsView => Some(Focus::MainActions),
-            Focus::TopNav | Focus::MainActions => None,
-        }
-    }
-
-    fn focus_order(&self) -> Vec<Focus> {
-        let mut order = vec![Focus::TopNav, Focus::MainActions];
-        if let Some(child) = self.action_child_focus() {
-            order.push(child);
-        }
-        order
-    }
-
-    fn cycle_focus_forward(&mut self) {
-        let order = self.focus_order();
-        let index = order.iter().position(|focus| *focus == self.focus).unwrap_or(0);
-        let next = (index + 1) % order.len();
-        self.focus = order[next];
-    }
-
-    fn cycle_focus_backward(&mut self) {
-        let order = self.focus_order();
-        let index = order.iter().position(|focus| *focus == self.focus).unwrap_or(0);
-        let next = (index + order.len() - 1) % order.len();
-        self.focus = order[next];
     }
 
     fn move_sidebar_up(&mut self) -> bool {
@@ -629,11 +604,19 @@ impl App {
 
     fn move_sidebar_down(&mut self) -> bool {
         let next = self.current_selection() + 1;
-        if next >= self.sidebar_len() {
+        if next >= self.option_len() {
             false
         } else {
             *self.current_selection_mut() = next;
             true
+        }
+    }
+
+    fn sync_selected_option_state(&mut self) {
+        match self.selected_menu_option() {
+            Some(MenuOption::Update(index)) => self.selected_update = index,
+            Some(MenuOption::SshKey(index)) => self.selected_key = index,
+            _ => {}
         }
     }
 
@@ -686,9 +669,9 @@ impl App {
     }
 
     fn clamp_selection_state(&mut self) {
-        let sidebar_len = self.sidebar_len();
-        if self.current_selection() >= sidebar_len {
-            *self.current_selection_mut() = sidebar_len.saturating_sub(1);
+        let option_len = self.option_len();
+        if self.current_selection() >= option_len {
+            *self.current_selection_mut() = option_len.saturating_sub(1);
         }
 
         self.selected_update = min(self.selected_update, UPDATE_ACTIONS.len().saturating_sub(1));
@@ -713,7 +696,7 @@ impl App {
             self.log_scroll = min(self.log_scroll, filtered_count.saturating_sub(1));
         }
 
-        self.ensure_focus_valid();
+        self.sync_selected_option_state();
     }
 
     fn push_log(&mut self, message: impl Into<String>) {
@@ -736,16 +719,15 @@ impl App {
                     self.snapshot.dirty_count
                 ),
                 action_label: Some("Open Logs"),
-                action: Some(AlertCommand::OpenLogs),
             });
         }
 
         if self.snapshot.rebuild_needed {
             alerts.push(AlertItem {
                 severity: Severity::Warning,
-                message: "Current repository state has not been switched onto the host.".to_string(),
+                message: "Current repository state has not been switched onto the host."
+                    .to_string(),
                 action_label: Some("Apply now"),
-                action: Some(AlertCommand::ApplyConfiguration),
             });
         }
 
@@ -754,7 +736,6 @@ impl App {
                 severity: Severity::Info,
                 message: "A rebuild has been queued for the next boot.".to_string(),
                 action_label: Some("Maintenance"),
-                action: Some(AlertCommand::OpenMaintenance),
             });
         }
 
@@ -770,7 +751,6 @@ impl App {
                     self.snapshot.behind
                 ),
                 action_label: Some("Check updates"),
-                action: Some(AlertCommand::CheckForUpdates),
             });
         }
 
@@ -782,7 +762,6 @@ impl App {
                     self.snapshot.ahead
                 ),
                 action_label: Some("Open Logs"),
-                action: Some(AlertCommand::OpenLogs),
             });
         }
 
@@ -798,7 +777,6 @@ impl App {
                     )
                 ),
                 action_label: None,
-                action: None,
             });
         } else if self.snapshot.memory_used_percent >= 75 {
             alerts.push(AlertItem {
@@ -812,7 +790,6 @@ impl App {
                     )
                 ),
                 action_label: None,
-                action: None,
             });
         }
 
@@ -828,7 +805,6 @@ impl App {
                     )
                 ),
                 action_label: None,
-                action: None,
             });
         } else if self.snapshot.storage_used_percent >= 75 {
             alerts.push(AlertItem {
@@ -842,7 +818,6 @@ impl App {
                     )
                 ),
                 action_label: None,
-                action: None,
             });
         }
 
@@ -851,7 +826,6 @@ impl App {
                 severity: Severity::Warning,
                 message: "No primary IPv4 address was detected.".to_string(),
                 action_label: None,
-                action: None,
             });
         }
 
@@ -860,13 +834,11 @@ impl App {
                 severity: Severity::Info,
                 message: format!("{count} flake input lock entries can be updated."),
                 action_label: Some("Check updates"),
-                action: Some(AlertCommand::CheckForUpdates),
             }),
             UpdateStatus::Error(message) => alerts.push(AlertItem {
                 severity: Severity::Error,
                 message: format!("Flake input check failed: {message}"),
                 action_label: Some("Check updates"),
-                action: Some(AlertCommand::CheckForUpdates),
             }),
             UpdateStatus::Idle | UpdateStatus::Checking | UpdateStatus::UpToDate => {}
         }
@@ -880,7 +852,6 @@ impl App {
                         last_apply.action, last_apply.timestamp, last_apply.exit_code
                     ),
                     action_label: Some("Open Logs"),
-                    action: Some(AlertCommand::OpenLogs),
                 });
             }
         } else {
@@ -888,7 +859,6 @@ impl App {
                 severity: Severity::Warning,
                 message: "No successful host switch has been recorded yet.".to_string(),
                 action_label: Some("Apply now"),
-                action: Some(AlertCommand::ApplyConfiguration),
             });
         }
 
@@ -897,7 +867,6 @@ impl App {
                 severity: Severity::Info,
                 message: "No outstanding alerts.".to_string(),
                 action_label: None,
-                action: None,
             });
         }
 
@@ -919,33 +888,43 @@ impl App {
     fn palette_entries(&self) -> Vec<PaletteEntry> {
         let mut entries = vec![
             PaletteEntry {
-                title: "Go to Dashboard".to_string(),
-                detail: "Switch to the Dashboard page.".to_string(),
-                action: PaletteAction::SwitchPage(Page::Dashboard),
+                title: "Go to Status".to_string(),
+                detail: "Switch to the Status section.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Status),
             },
             PaletteEntry {
-                title: "Go to Configure".to_string(),
-                detail: "Switch to the Configure page.".to_string(),
-                action: PaletteAction::SwitchPage(Page::Configure),
+                title: "Go to Host Setup".to_string(),
+                detail: "Switch to the Host Setup section.".to_string(),
+                action: PaletteAction::SwitchPage(Page::HostSetup),
             },
             PaletteEntry {
-                title: "Go to Software".to_string(),
-                detail: "Switch to the Software page.".to_string(),
-                action: PaletteAction::SwitchPage(Page::Software),
+                title: "Go to Access".to_string(),
+                detail: "Switch to the Access section.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Access),
+            },
+            PaletteEntry {
+                title: "Go to Packages".to_string(),
+                detail: "Switch to the Packages section.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Packages),
+            },
+            PaletteEntry {
+                title: "Go to Updates".to_string(),
+                detail: "Switch to the Updates section.".to_string(),
+                action: PaletteAction::SwitchPage(Page::Updates),
             },
             PaletteEntry {
                 title: "Go to Maintenance".to_string(),
-                detail: "Switch to the Maintenance page.".to_string(),
+                detail: "Switch to the Maintenance section.".to_string(),
                 action: PaletteAction::SwitchPage(Page::Maintenance),
             },
             PaletteEntry {
                 title: "Go to Logs".to_string(),
-                detail: "Switch to the Logs page.".to_string(),
+                detail: "Switch to the Logs section.".to_string(),
                 action: PaletteAction::SwitchPage(Page::Logs),
             },
             PaletteEntry {
                 title: "Open Help".to_string(),
-                detail: "Show the full shortcut and navigation reference.".to_string(),
+                detail: "Show the full navigation reference.".to_string(),
                 action: PaletteAction::OpenHelp,
             },
             PaletteEntry {
@@ -956,9 +935,11 @@ impl App {
         ];
 
         for page in [
-            Page::Dashboard,
-            Page::Configure,
-            Page::Software,
+            Page::Status,
+            Page::HostSetup,
+            Page::Access,
+            Page::Packages,
+            Page::Updates,
             Page::Maintenance,
             Page::Logs,
         ] {
@@ -993,21 +974,101 @@ impl App {
 
 fn page_actions(page: Page) -> &'static [ActionItem] {
     match page {
-        Page::Dashboard => &DASHBOARD_ACTIONS,
-        Page::Configure => &CONFIGURE_ACTIONS,
-        Page::Software => &SOFTWARE_ACTIONS,
+        Page::Status => &STATUS_ACTIONS,
+        Page::HostSetup => &HOST_SETUP_ACTIONS,
+        Page::Access => &ACCESS_ACTIONS,
+        Page::Packages => &PACKAGE_ACTIONS,
+        Page::Updates => &[],
         Page::Maintenance => &MAINTENANCE_ACTIONS,
         Page::Logs => &LOG_ACTIONS,
+        Page::Shell => &[],
+    }
+}
+
+fn primary_pages() -> &'static [Page] {
+    &[
+        Page::Status,
+        Page::HostSetup,
+        Page::Access,
+        Page::Packages,
+        Page::Updates,
+        Page::Maintenance,
+        Page::Logs,
+        Page::Shell,
+    ]
+}
+
+fn action_item(kind: ActionKind) -> Option<&'static ActionItem> {
+    primary_pages()
+        .iter()
+        .flat_map(|page| page_actions(*page).iter())
+        .find(|item| item.kind == kind)
+}
+
+fn log_option_title(option: LogOption) -> &'static str {
+    match option {
+        LogOption::Filter => "Filter Logs",
+        LogOption::ClearFilter => "Clear Filter",
+        LogOption::Newer => "Scroll Newer",
+        LogOption::Older => "Scroll Older",
+        LogOption::PageNewer => "Page Newer",
+        LogOption::PageOlder => "Page Older",
+        LogOption::Newest => "Newest Entry",
+        LogOption::Oldest => "Oldest Entry",
+    }
+}
+
+fn log_option_detail(option: LogOption) -> &'static str {
+    match option {
+        LogOption::Filter => "Set a substring filter for the recent activity log.",
+        LogOption::ClearFilter => "Clear the current activity filter and return to newest entries.",
+        LogOption::Newer => "Move the log preview one entry toward newer activity.",
+        LogOption::Older => "Move the log preview one entry toward older activity.",
+        LogOption::PageNewer => "Move the log preview one page toward newer activity.",
+        LogOption::PageOlder => "Move the log preview one page toward older activity.",
+        LogOption::Newest => "Jump the log preview to the newest matching activity.",
+        LogOption::Oldest => "Jump the log preview to the oldest matching activity.",
+    }
+}
+
+fn option_label(app: &App, option: MenuOption) -> (String, String) {
+    match option {
+        MenuOption::Action(kind) => (
+            action_item(kind)
+                .map(|item| item.title.to_string())
+                .unwrap_or_else(|| "Action".to_string()),
+            "  ".to_string(),
+        ),
+        MenuOption::Update(index) => (
+            UPDATE_ACTIONS
+                .get(index)
+                .map(|item| item.title.to_string())
+                .unwrap_or_else(|| "Update target".to_string()),
+            "  ".to_string(),
+        ),
+        MenuOption::SshKey(index) => (
+            app.snapshot
+                .ssh_keys
+                .get(index)
+                .map(|key| truncate_middle(key, 28))
+                .unwrap_or_else(|| "SSH key".to_string()),
+            "  ".to_string(),
+        ),
+        MenuOption::Log(option) => (log_option_title(option).to_string(), "  ".to_string()),
+        MenuOption::OpenShell => ("Return to Shell".to_string(), "  ".to_string()),
     }
 }
 
 fn page_label(page: Page) -> &'static str {
     match page {
-        Page::Dashboard => "Dashboard",
-        Page::Configure => "Configure",
-        Page::Software => "Software",
+        Page::Status => "Status",
+        Page::HostSetup => "Host Setup",
+        Page::Access => "Access",
+        Page::Packages => "Packages",
+        Page::Updates => "Updates",
         Page::Maintenance => "Maintenance",
         Page::Logs => "Logs",
+        Page::Shell => "Shell",
     }
 }
 
@@ -1140,14 +1201,6 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
         return handle_quit_confirm_key(app, key);
     }
 
-    if key.modifiers.contains(KeyModifiers::CONTROL) && matches!(key.code, KeyCode::Char('p')) {
-        app.command_palette = Some(CommandPalette {
-            query: String::new(),
-            selected: 0,
-        });
-        return Ok(());
-    }
-
     match key.code {
         KeyCode::Char(':') => {
             app.command_palette = Some(CommandPalette {
@@ -1160,135 +1213,32 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
             app.help_open = true;
             return Ok(());
         }
-        KeyCode::Char('q') | KeyCode::Char('9') => {
-            app.should_open_shell = true;
-            return Ok(());
-        }
         KeyCode::Esc => {
-            if let Some(parent) = app.parent_focus() {
-                app.focus = parent;
-            } else if app.focus == Focus::TopNav {
-                app.focus = Focus::MainActions;
-            } else if app.focus == Focus::MainActions {
+            if app.focus == Focus::Options {
+                app.focus = Focus::PrimaryMenu;
+            } else {
                 app.quit_confirm = true;
             }
-            return Ok(());
-        }
-        KeyCode::Char('r') => {
-            app.refresh_snapshot()?;
-            app.start_update_check();
-            app.push_log("Refreshed repository snapshot.");
-            return Ok(());
-        }
-        KeyCode::Char('u') => {
-            app.start_update_check();
-            app.push_log("Started a new flake input update check.");
-            return Ok(());
-        }
-        KeyCode::Tab => {
-            app.cycle_focus_forward();
-            return Ok(());
-        }
-        KeyCode::BackTab => {
-            app.cycle_focus_backward();
-            return Ok(());
-        }
-        KeyCode::Char('[') => {
-            app.previous_page();
-            return Ok(());
-        }
-        KeyCode::Char(']') => {
-            app.next_page();
             return Ok(());
         }
         _ => {}
     }
 
     match app.focus {
-        Focus::TopNav => handle_top_nav_key(app, key),
-        Focus::MainActions => handle_main_actions_key(terminal, app, key),
-        Focus::DashboardAlerts => handle_dashboard_alerts_key(terminal, app, key),
-        Focus::ConfigureSshKeys => handle_configure_ssh_keys_key(app, key),
-        Focus::MaintenanceFlakeInputs => handle_maintenance_flake_inputs_key(terminal, app, key),
-        Focus::LogsView => handle_logs_view_key(app, key),
+        Focus::PrimaryMenu => handle_primary_menu_key(app, key),
+        Focus::Options => handle_options_key(terminal, app, key),
     }
 }
 
-fn handle_top_nav_key(app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_primary_menu_key(app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
-        KeyCode::Left | KeyCode::Char('h') => app.previous_page(),
-        KeyCode::Right | KeyCode::Char('l') => app.next_page(),
-        KeyCode::Down | KeyCode::Char('j') => app.focus = Focus::MainActions,
-        _ => {}
-    }
-    Ok(())
-}
-
-fn handle_main_actions_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
-    if let KeyCode::Char(ch) = key.code {
-        if ch == '9' || ch == 'q' {
-            app.should_open_shell = true;
-            return Ok(());
-        }
-
-        if let Some(index) = app
-            .current_page_actions()
-            .iter()
-            .position(|item| item.shortcut == Some(ch))
-        {
-            *app.current_selection_mut() = index;
-            activate_sidebar_selection(terminal, app)?;
-            return Ok(());
-        }
-    }
-
-    match key.code {
-        KeyCode::Left | KeyCode::Char('h') => {
-            app.focus = Focus::TopNav;
-        }
-        KeyCode::Up | KeyCode::Char('k') => {
-            if !app.move_sidebar_up() {
-                app.focus = Focus::TopNav;
-            }
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            let _ = app.move_sidebar_down();
-        }
-        KeyCode::Right | KeyCode::Char('l') => {
-            if let Some(child) = app.action_child_focus() {
-                app.focus = child;
-            }
-        }
-        KeyCode::Enter => activate_sidebar_selection(terminal, app)?,
-        _ => {}
-    }
-
-    Ok(())
-}
-
-fn handle_dashboard_alerts_key(
-    terminal: &mut AppTerminal,
-    app: &mut App,
-    key: KeyEvent,
-) -> Result<()> {
-    let alerts = app.alerts();
-    match key.code {
-        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
-        KeyCode::Up | KeyCode::Char('k') => {
-            if !alerts.is_empty() && app.selected_alert > 0 {
-                app.selected_alert -= 1;
-            }
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            if !alerts.is_empty() {
-                app.selected_alert = min(app.selected_alert + 1, alerts.len() - 1);
-            }
-        }
+        KeyCode::Up => app.previous_page(),
+        KeyCode::Down => app.next_page(),
         KeyCode::Enter => {
-            if let Some(alert) = alerts.get(app.selected_alert) {
-                if let Some(action) = alert.action {
-                    run_alert_action(terminal, app, action)?;
-                }
+            if app.page == Page::Shell {
+                app.quit_confirm = true;
+            } else {
+                app.focus = Focus::Options;
             }
         }
         _ => {}
@@ -1296,113 +1246,20 @@ fn handle_dashboard_alerts_key(
     Ok(())
 }
 
-fn handle_configure_ssh_keys_key(app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_options_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
     match key.code {
-        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
-        KeyCode::Up | KeyCode::Char('k') => {
-            if !app.snapshot.ssh_keys.is_empty() && app.selected_key > 0 {
-                app.selected_key -= 1;
-            }
+        KeyCode::Up => {
+            let _ = app.move_sidebar_up();
+            app.sync_selected_option_state();
         }
-        KeyCode::Down | KeyCode::Char('j') => {
-            if !app.snapshot.ssh_keys.is_empty() {
-                app.selected_key = min(app.selected_key + 1, app.snapshot.ssh_keys.len() - 1);
-            }
+        KeyCode::Down => {
+            let _ = app.move_sidebar_down();
+            app.sync_selected_option_state();
         }
-        KeyCode::Char('a') => open_modal(
-            app,
-            InputAction::AddKey,
-            "Add SSH key",
-            "Paste a full public key line.",
-            "",
-        ),
-        KeyCode::Char('e') => open_modal(
-            app,
-            InputAction::SetPrimaryKey,
-            "Replace SSH keys",
-            "Replace the managed key list with a single public key line.",
-            "",
-        ),
-        KeyCode::Delete | KeyCode::Backspace | KeyCode::Char('d') => {
-            if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
-                run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
-            }
-        }
+        KeyCode::Enter => activate_selected_option(terminal, app)?,
         _ => {}
     }
-    Ok(())
-}
 
-fn handle_maintenance_flake_inputs_key(
-    terminal: &mut AppTerminal,
-    app: &mut App,
-    key: KeyEvent,
-) -> Result<()> {
-    match key.code {
-        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
-        KeyCode::Up | KeyCode::Char('k') => {
-            if app.selected_update > 0 {
-                app.selected_update -= 1;
-            }
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            app.selected_update = min(app.selected_update + 1, UPDATE_ACTIONS.len() - 1);
-        }
-        KeyCode::Enter => activate_selected_update(terminal, app)?,
-        KeyCode::Char(ch) => {
-            if let Some(index) = UPDATE_ACTIONS.iter().position(|item| item.shortcut == ch) {
-                app.selected_update = index;
-                activate_selected_update(terminal, app)?;
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
-
-fn handle_logs_view_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    let total = app.filtered_logs().len();
-    match key.code {
-        KeyCode::Left | KeyCode::Char('h') => app.focus = Focus::MainActions,
-        KeyCode::Up | KeyCode::Char('k') => {
-            if total > 0 && app.log_scroll < total.saturating_sub(1) {
-                app.log_scroll = min(app.log_scroll + 1, total.saturating_sub(1));
-            }
-        }
-        KeyCode::Down | KeyCode::Char('j') => {
-            app.log_scroll = app.log_scroll.saturating_sub(1);
-        }
-        KeyCode::PageUp => {
-            if total > 0 {
-                app.log_scroll = min(app.log_scroll + 10, total.saturating_sub(1));
-            }
-        }
-        KeyCode::PageDown => {
-            app.log_scroll = app.log_scroll.saturating_sub(10);
-        }
-        KeyCode::Home => {
-            if total > 0 {
-                app.log_scroll = total - 1;
-            }
-        }
-        KeyCode::End => app.log_scroll = 0,
-        KeyCode::Char('/') => {
-            let current = app.log_filter.clone();
-            open_modal(
-                app,
-                InputAction::SetLogFilter,
-                "Filter logs",
-                "Enter a substring to filter Recent Activity entries.",
-                current.as_str(),
-            )
-        }
-        KeyCode::Char('c') => {
-            app.log_filter.clear();
-            app.log_scroll = 0;
-            app.push_log("Cleared log filter.");
-        }
-        _ => {}
-    }
     Ok(())
 }
 
@@ -1433,7 +1290,7 @@ fn handle_quit_confirm_key(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => app.quit_confirm = false,
         KeyCode::Char('y') | KeyCode::Char('Y') => {
             app.quit_confirm = false;
-            app.should_quit = true;
+            app.should_open_shell = true;
         }
         _ => {}
     }
@@ -1506,34 +1363,8 @@ fn run_palette_action(app: &mut App, action: PaletteAction) -> Result<()> {
     match action {
         PaletteAction::SwitchPage(page) => app.set_page(page),
         PaletteAction::RunAction(kind) => run_quick_action(app, kind)?,
-        PaletteAction::OpenShell => app.should_open_shell = true,
+        PaletteAction::OpenShell => app.quit_confirm = true,
         PaletteAction::OpenHelp => app.help_open = true,
-    }
-    Ok(())
-}
-
-fn run_alert_action(terminal: &mut AppTerminal, app: &mut App, action: AlertCommand) -> Result<()> {
-    match action {
-        AlertCommand::OpenMaintenance => {
-            app.set_page(Page::Maintenance);
-            *app.current_selection_mut() = 0;
-            app.set_focus(Focus::MainActions);
-        }
-        AlertCommand::CheckForUpdates => {
-            app.set_page(Page::Maintenance);
-            *app.current_selection_mut() = 0;
-            app.set_focus(Focus::MaintenanceFlakeInputs);
-            app.start_update_check();
-        }
-        AlertCommand::ApplyConfiguration => {
-            app.set_page(Page::Maintenance);
-            *app.current_selection_mut() = 1;
-            run_apply_configuration(terminal, app)?;
-        }
-        AlertCommand::OpenLogs => {
-            app.set_page(Page::Logs);
-            app.set_focus(Focus::LogsView);
-        }
     }
     Ok(())
 }
@@ -1546,11 +1377,11 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
             app.push_log("Refreshed repository snapshot.");
         }
         ActionKind::CheckForUpdates => {
-            app.set_page(Page::Maintenance);
+            app.set_page(Page::Updates);
             *app.current_selection_mut() = 0;
-            app.set_focus(Focus::MaintenanceFlakeInputs);
+            app.set_focus(Focus::Options);
             app.start_update_check();
-            app.push_log("Opened Flake Inputs update view.");
+            app.push_log("Opened Updates.");
         }
         ActionKind::EditHostname => {
             let current = app.snapshot.hostname.clone();
@@ -1573,10 +1404,26 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
             );
         }
         ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
-        ActionKind::ManageSshKeys => {
-            app.set_page(Page::Configure);
-            *app.current_selection_mut() = 3;
-            app.set_focus(Focus::ConfigureSshKeys);
+        ActionKind::AddSshKey => open_modal(
+            app,
+            InputAction::AddKey,
+            "Add SSH key",
+            "Paste a full public key line.",
+            "",
+        ),
+        ActionKind::ReplaceSshKeys => open_modal(
+            app,
+            InputAction::SetPrimaryKey,
+            "Replace SSH keys",
+            "Replace the managed key list with a single public key line.",
+            "",
+        ),
+        ActionKind::DeleteSelectedSshKey => {
+            if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
+                run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
+            } else {
+                app.push_log("No SSH key selected for removal.");
+            }
         }
         ActionKind::AddSystemPackage => open_modal(
             app,
@@ -1627,95 +1474,172 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
     Ok(())
 }
 
-fn activate_sidebar_selection(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
-    if let Some(action) = app.selected_page_action() {
-        match action.kind {
-            ActionKind::RefreshSnapshot => {
-                app.refresh_snapshot()?;
-                app.start_update_check();
-                app.push_log("Refreshed repository snapshot.");
-            }
-            ActionKind::CheckForUpdates => {
-                app.start_update_check();
-                app.set_page(Page::Maintenance);
-                *app.current_selection_mut() = 0;
-                app.set_focus(Focus::MaintenanceFlakeInputs);
-            }
-            ActionKind::EditHostname => {
-                let current = app.snapshot.hostname.clone();
-                open_modal(
-                    app,
-                    InputAction::SetHostname,
-                    "Edit hostname",
-                    "Press Enter to write and commit the new hostname.",
-                    current.as_str(),
-                );
-            }
-            ActionKind::EditUsername => {
-                let current = app.snapshot.username.clone();
-                open_modal(
-                    app,
-                    InputAction::SetUsername,
-                    "Edit username",
-                    "Press Enter to write and commit the new username.",
-                    current.as_str(),
-                );
-            }
-            ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
-            ActionKind::ManageSshKeys => app.set_focus(Focus::ConfigureSshKeys),
-            ActionKind::AddSystemPackage => open_modal(
-                app,
-                InputAction::AddSystemPackage,
-                "Add system package",
-                "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
-                "",
-            ),
-            ActionKind::AddUserPackage => open_modal(
-                app,
-                InputAction::AddUserPackage,
-                "Add user package",
-                "Enter a nixpkgs attribute path for the user package list.",
-                "",
-            ),
-            ActionKind::AddService => open_modal(
-                app,
-                InputAction::AddService,
-                "Add service",
-                "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
-                "",
-            ),
-            ActionKind::ApplyConfiguration => run_apply_configuration(terminal, app)?,
-            ActionKind::RollbackGeneration => run_rollback_generation(terminal, app)?,
-            ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
-            ActionKind::RebootSystem => run_reboot_system(terminal, app)?,
-            ActionKind::ShutdownSystem => run_shutdown_system(terminal, app)?,
-            ActionKind::CleanupUnmanagedUsers => open_modal(
-                app,
-                InputAction::ConfirmCleanupUnmanagedUsers,
-                "Cleanup unmanaged users",
-                "Type WIPE to remove unmanaged users under /home and delete their home data.",
-                "",
-            ),
-            ActionKind::FilterLogs => {
-                let current = app.log_filter.clone();
-                open_modal(
-                    app,
-                    InputAction::SetLogFilter,
-                    "Filter logs",
-                    "Enter a substring to filter Recent Activity entries.",
-                    current.as_str(),
-                )
-            }
-            ActionKind::ClearLogFilter => {
-                app.log_filter.clear();
-                app.log_scroll = 0;
-                app.push_log("Cleared log filter.");
-            }
+fn activate_selected_option(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    match app.selected_menu_option() {
+        Some(MenuOption::Action(kind)) => activate_action_kind(terminal, app, kind)?,
+        Some(MenuOption::Update(index)) => {
+            app.selected_update = index;
+            activate_selected_update(terminal, app)?;
         }
-    } else {
-        app.should_open_shell = true;
+        Some(MenuOption::SshKey(index)) => {
+            app.selected_key = index;
+        }
+        Some(MenuOption::Log(option)) => run_log_option(app, option),
+        Some(MenuOption::OpenShell) | None => {
+            app.quit_confirm = true;
+        }
     }
     Ok(())
+}
+
+fn activate_action_kind(terminal: &mut AppTerminal, app: &mut App, kind: ActionKind) -> Result<()> {
+    match kind {
+        ActionKind::RefreshSnapshot => {
+            app.refresh_snapshot()?;
+            app.start_update_check();
+            app.push_log("Refreshed repository snapshot.");
+        }
+        ActionKind::CheckForUpdates => {
+            app.start_update_check();
+            app.set_page(Page::Updates);
+            *app.current_selection_mut() = 0;
+            app.set_focus(Focus::Options);
+        }
+        ActionKind::EditHostname => {
+            let current = app.snapshot.hostname.clone();
+            open_modal(
+                app,
+                InputAction::SetHostname,
+                "Edit hostname",
+                "Press Enter to write and commit the new hostname.",
+                current.as_str(),
+            );
+        }
+        ActionKind::EditUsername => {
+            let current = app.snapshot.username.clone();
+            open_modal(
+                app,
+                InputAction::SetUsername,
+                "Edit username",
+                "Press Enter to write and commit the new username.",
+                current.as_str(),
+            );
+        }
+        ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+        ActionKind::AddSshKey => open_modal(
+            app,
+            InputAction::AddKey,
+            "Add SSH key",
+            "Paste a full public key line.",
+            "",
+        ),
+        ActionKind::ReplaceSshKeys => open_modal(
+            app,
+            InputAction::SetPrimaryKey,
+            "Replace SSH keys",
+            "Replace the managed key list with a single public key line.",
+            "",
+        ),
+        ActionKind::DeleteSelectedSshKey => {
+            if let Some(selected_key) = app.snapshot.ssh_keys.get(app.selected_key).cloned() {
+                run_action_capture(app, &["remove-ssh-key", selected_key.as_str()])?;
+            } else {
+                app.push_log("No SSH key selected for removal.");
+            }
+        }
+        ActionKind::AddSystemPackage => open_modal(
+            app,
+            InputAction::AddSystemPackage,
+            "Add system package",
+            "Enter a nixpkgs attribute path such as tailscale or unstable.myPkg.",
+            "",
+        ),
+        ActionKind::AddUserPackage => open_modal(
+            app,
+            InputAction::AddUserPackage,
+            "Add user package",
+            "Enter a nixpkgs attribute path for the user package list.",
+            "",
+        ),
+        ActionKind::AddService => open_modal(
+            app,
+            InputAction::AddService,
+            "Add service",
+            "Enter a dotted NixOS service path such as tailscale or prometheus.exporters.node.",
+            "",
+        ),
+        ActionKind::ApplyConfiguration => run_apply_configuration(terminal, app)?,
+        ActionKind::RollbackGeneration => run_rollback_generation(terminal, app)?,
+        ActionKind::RunGarbageCollection => run_garbage_collection(terminal, app)?,
+        ActionKind::RebootSystem => run_reboot_system(terminal, app)?,
+        ActionKind::ShutdownSystem => run_shutdown_system(terminal, app)?,
+        ActionKind::CleanupUnmanagedUsers => open_modal(
+            app,
+            InputAction::ConfirmCleanupUnmanagedUsers,
+            "Cleanup unmanaged users",
+            "Type WIPE to remove unmanaged users under /home and delete their home data.",
+            "",
+        ),
+        ActionKind::FilterLogs => {
+            let current = app.log_filter.clone();
+            open_modal(
+                app,
+                InputAction::SetLogFilter,
+                "Filter logs",
+                "Enter a substring to filter Recent Activity entries.",
+                current.as_str(),
+            )
+        }
+        ActionKind::ClearLogFilter => {
+            app.log_filter.clear();
+            app.log_scroll = 0;
+            app.push_log("Cleared log filter.");
+        }
+    }
+    Ok(())
+}
+
+fn run_log_option(app: &mut App, option: LogOption) {
+    let total = app.filtered_logs().len();
+    match option {
+        LogOption::Filter => {
+            let current = app.log_filter.clone();
+            open_modal(
+                app,
+                InputAction::SetLogFilter,
+                "Filter logs",
+                "Enter a substring to filter Recent Activity entries.",
+                current.as_str(),
+            );
+        }
+        LogOption::ClearFilter => {
+            app.log_filter.clear();
+            app.log_scroll = 0;
+            app.push_log("Cleared log filter.");
+        }
+        LogOption::Newer => {
+            app.log_scroll = app.log_scroll.saturating_sub(1);
+        }
+        LogOption::Older => {
+            if total > 0 && app.log_scroll < total.saturating_sub(1) {
+                app.log_scroll = min(app.log_scroll + 1, total.saturating_sub(1));
+            }
+        }
+        LogOption::PageNewer => {
+            app.log_scroll = app.log_scroll.saturating_sub(10);
+        }
+        LogOption::PageOlder => {
+            if total > 0 {
+                app.log_scroll = min(app.log_scroll + 10, total.saturating_sub(1));
+            }
+        }
+        LogOption::Newest => app.log_scroll = 0,
+        LogOption::Oldest => {
+            if total > 0 {
+                app.log_scroll = total - 1;
+            }
+        }
+    }
 }
 
 fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()> {
@@ -1739,9 +1663,9 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty SSH key.");
             } else {
                 run_action_capture(app, &["set-ssh-key", value.as_str()])?;
-                app.set_page(Page::Configure);
-                *app.current_selection_mut() = 3;
-                app.set_focus(Focus::ConfigureSshKeys);
+                app.set_page(Page::Access);
+                *app.current_selection_mut() = ACCESS_ACTIONS.len();
+                app.set_focus(Focus::Options);
             }
         }
         InputAction::AddKey => {
@@ -1749,9 +1673,9 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty SSH key.");
             } else {
                 run_action_capture(app, &["add-ssh-key", value.as_str()])?;
-                app.set_page(Page::Configure);
-                *app.current_selection_mut() = 3;
-                app.set_focus(Focus::ConfigureSshKeys);
+                app.set_page(Page::Access);
+                *app.current_selection_mut() = ACCESS_ACTIONS.len();
+                app.set_focus(Focus::Options);
             }
         }
         InputAction::AddSystemPackage => {
@@ -1759,7 +1683,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty package path.");
             } else {
                 run_action_capture(app, &["add-system-package", value.as_str()])?;
-                app.set_page(Page::Software);
+                app.set_page(Page::Packages);
                 *app.current_selection_mut() = 0;
             }
         }
@@ -1768,7 +1692,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty package path.");
             } else {
                 run_action_capture(app, &["add-user-package", value.as_str()])?;
-                app.set_page(Page::Software);
+                app.set_page(Page::Packages);
                 *app.current_selection_mut() = 1;
             }
         }
@@ -1777,7 +1701,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log("Ignored empty service path.");
             } else {
                 run_action_capture(app, &["add-service", value.as_str()])?;
-                app.set_page(Page::Software);
+                app.set_page(Page::Packages);
                 *app.current_selection_mut() = 2;
             }
         }
@@ -1785,7 +1709,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
             if value == "WIPE" {
                 run_action_capture(app, &["cleanup-unmanaged-users"])?;
                 app.set_page(Page::Maintenance);
-                *app.current_selection_mut() = 6;
+                *app.current_selection_mut() = 5;
             } else {
                 app.push_log("Cleanup canceled. Type WIPE to confirm unmanaged-user removal.");
             }
@@ -1794,7 +1718,7 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
             app.log_filter = value;
             app.log_scroll = 0;
             app.set_page(Page::Logs);
-            app.set_focus(Focus::LogsView);
+            app.set_focus(Focus::Options);
             if app.log_filter.is_empty() {
                 app.push_log("Cleared log filter.");
             } else {
@@ -2063,7 +1987,11 @@ fn format_storage_capacity(used_bytes: u64, total_bytes: u64) -> String {
     if total_bytes == 0 || used_bytes > total_bytes {
         "unavailable".to_string()
     } else {
-        format!("{:.1} / {:.1}", format_gib(used_bytes), format_gib(total_bytes))
+        format!(
+            "{:.1} / {:.1}",
+            format_gib(used_bytes),
+            format_gib(total_bytes)
+        )
     }
 }
 
@@ -2104,12 +2032,14 @@ fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Bloc
     };
 
     Block::default()
-        .title(Line::from(if focused {
-            format!(" ● {title} ")
-        } else {
-            format!(" {title} ")
-        })
-        .style(title_style))
+        .title(
+            Line::from(if focused {
+                format!(" ● {title} ")
+            } else {
+                format!(" {title} ")
+            })
+            .style(title_style),
+        )
         .borders(Borders::ALL)
         .border_set(border::ROUNDED)
         .border_style(
@@ -2127,15 +2057,6 @@ fn panel_block(title: impl Into<String>, focused: bool, tone: PanelTone) -> Bloc
         } else {
             COLOR_BG_INNER
         }))
-}
-
-fn action_row_width(actions: &[ActionItem]) -> u16 {
-    let max_label = actions
-        .iter()
-        .map(|action| action.title.chars().count() + 6)
-        .max()
-        .unwrap_or(16);
-    (max_label as u16).saturating_add(6)
 }
 
 fn inset_rect(area: Rect, x: u16, y: u16) -> Rect {
@@ -2164,7 +2085,10 @@ fn draw_panel(
 
 fn render(frame: &mut Frame, app: &App) {
     let area = frame.area();
-    frame.render_widget(Block::default().style(Style::default().bg(COLOR_BG_OUTER)), area);
+    frame.render_widget(
+        Block::default().style(Style::default().bg(COLOR_BG_OUTER)),
+        area,
+    );
 
     let outer = inset_rect(area, 1, 1);
     if outer.width < 80 || outer.height < 22 {
@@ -2187,7 +2111,6 @@ fn render(frame: &mut Frame, app: &App) {
     let vertical = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(6),
             Constraint::Length(3),
             Constraint::Min(10),
             Constraint::Length(3),
@@ -2195,36 +2118,33 @@ fn render(frame: &mut Frame, app: &App) {
         .split(outer);
 
     render_header(frame, vertical[0], app);
-    render_tabs(frame, vertical[1], app);
 
-    let body = if app.page == Page::Maintenance {
-        let sidebar_width = action_row_width(&MAINTENANCE_ACTIONS);
+    let body = if outer.width >= 120 {
         Layout::default()
             .direction(Direction::Horizontal)
             .constraints([
-                Constraint::Length(sidebar_width),
+                Constraint::Length(34),
                 Constraint::Length(1),
                 Constraint::Min(40),
             ])
-            .split(vertical[2])
-    } else if outer.width >= 120 {
-        Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(33), Constraint::Min(40)])
-            .split(vertical[2])
+            .split(vertical[1])
     } else {
         Layout::default()
             .direction(Direction::Horizontal)
-            .constraints([Constraint::Length(29), Constraint::Min(30)])
-            .split(vertical[2])
+            .constraints([
+                Constraint::Length(30),
+                Constraint::Length(1),
+                Constraint::Min(30),
+            ])
+            .split(vertical[1])
     };
 
     let sidebar_area = body[0];
-    let page_area = if app.page == Page::Maintenance { body[2] } else { body[1] };
+    let page_area = body[2];
 
     render_sidebar(frame, inset_rect(sidebar_area, 0, 0), app);
     render_page(frame, inset_rect(page_area, 0, 0), app);
-    render_footer(frame, vertical[3], app);
+    render_footer(frame, vertical[2], app);
 
     if let Some(modal) = &app.modal {
         render_input_modal(frame, outer, modal);
@@ -2241,13 +2161,7 @@ fn render(frame: &mut Frame, app: &App) {
 }
 
 fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(
-        frame,
-        area,
-        "NiXOA Console",
-        true,
-        PanelTone::Info,
-    );
+    let inner = draw_panel(frame, area, "NiXOA Console", true, PanelTone::Info);
     let text = vec![
         Line::from(vec![
             Span::styled("Host: ", Style::default().fg(COLOR_MUTED_2)),
@@ -2262,7 +2176,7 @@ fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
         ]),
         Line::from(""),
         Line::from("Increase terminal size for the full multi-pane console."),
-        Line::from("Esc unwinds to the main menu. Esc on the main menu prompts to quit."),
+        Line::from("Esc unwinds to the main menu. Esc there prompts to return to shell."),
     ];
 
     let paragraph = Paragraph::new(text)
@@ -2272,52 +2186,21 @@ fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_header(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(frame, area, "NiXOA", false, PanelTone::Info);
-    let sections = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(52), Constraint::Min(24)])
-        .split(inner);
-
-    let ascii = Paragraph::new(vec![
-        Line::from(Span::styled(
-            "_|      _|  _|  _|      _|    _|_|      _|_|    ",
-            Style::default()
-                .fg(COLOR_FG_MAIN)
-                .add_modifier(Modifier::BOLD),
-        )),
-        Line::from(Span::styled(
-            "_|_|    _|        _|  _|    _|    _|  _|    _|  ",
-            Style::default().fg(COLOR_FG_MAIN),
-        )),
-        Line::from(Span::styled(
-            "_|  _|  _|  _|      _|      _|    _|  _|_|_|_|  ",
-            Style::default().fg(COLOR_FG_MAIN),
-        )),
-        Line::from(Span::styled(
-            "_|    _|_|  _|    _|  _|    _|    _|  _|    _|  ",
-            Style::default().fg(COLOR_FG_MAIN),
-        )),
-        Line::from(Span::styled(
-            "_|      _|  _|  _|      _|    _|_|    _|    _|  ",
-            Style::default().fg(COLOR_FG_MAIN),
-        )),
-    ]);
-    frame.render_widget(ascii, sections[0]);
-
+    let inner = draw_panel(frame, area, "", false, PanelTone::Info);
     let upstream = app
         .snapshot
         .upstream
         .clone()
         .unwrap_or_else(|| "no upstream".to_string());
-
-    let meta_rows = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Length(1), Constraint::Min(0)])
-        .split(sections[1]);
-    let meta_columns = Layout::default()
+    let (repo_text, repo_color) = repo_status(&app.snapshot);
+    let columns = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
-        .split(meta_rows[0]);
+        .constraints([
+            Constraint::Percentage(34),
+            Constraint::Percentage(32),
+            Constraint::Percentage(34),
+        ])
+        .split(inner);
 
     frame.render_widget(
         Paragraph::new(vec![
@@ -2326,157 +2209,151 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
                 &format!("{}@{}", app.snapshot.username, app.snapshot.hostname),
                 COLOR_ACCENT,
             ),
-            header_key_value_line("Page", app.page_title(), COLOR_FG_MAIN),
+            header_key_value_line("Focus", focus_label(app.focus), COLOR_FG_MAIN),
         ]),
-        meta_columns[0],
+        columns[0],
     );
+
+    frame.render_widget(
+        Paragraph::new(vec![
+            Line::from(Span::styled(
+                "NiXO-CE",
+                Style::default()
+                    .fg(COLOR_FG_MAIN)
+                    .add_modifier(Modifier::BOLD),
+            )),
+            Line::from(Span::styled(
+                app.page_title(),
+                Style::default().fg(COLOR_ACCENT),
+            )),
+        ])
+        .alignment(Alignment::Center),
+        columns[1],
+    );
+
     frame.render_widget(
         Paragraph::new(vec![
             header_key_value_line(
                 "Branch",
-                &format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
+                &format!(
+                    "{} [{}]",
+                    app.snapshot.branch,
+                    short_sha(&app.snapshot.head)
+                ),
                 COLOR_FG_MAIN,
             ),
-            header_key_value_line("Focus", focus_label(app.focus), COLOR_ACCENT),
-        ]),
-        meta_columns[1],
+            Line::from(vec![
+                Span::styled(
+                    format!("{:<width$}", "Upstream", width = HEADER_LABEL_WIDTH),
+                    Style::default().fg(COLOR_MUTED_2),
+                ),
+                Span::raw("  "),
+                Span::styled(truncate_end(&upstream, 20), Style::default().fg(COLOR_INFO)),
+                Span::raw("  "),
+                Span::styled(repo_text, Style::default().fg(repo_color)),
+            ]),
+        ])
+        .alignment(Alignment::Right)
+        .wrap(Wrap { trim: true }),
+        columns[2],
     );
-    frame.render_widget(
-        Paragraph::new(vec![header_key_value_line("Upstream", &upstream, COLOR_INFO)])
-            .wrap(Wrap { trim: true }),
-        meta_rows[1],
-    );
-}
-
-fn render_tabs(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(
-        frame,
-        area,
-        "Main Menu",
-        app.focus_is(Focus::TopNav),
-        PanelTone::Neutral,
-    );
-
-    let mut spans = Vec::new();
-    for page in [
-        Page::Dashboard,
-        Page::Configure,
-        Page::Software,
-        Page::Maintenance,
-        Page::Logs,
-    ] {
-        if !spans.is_empty() {
-            spans.push(Span::raw("  "));
-        }
-        let active = app.page == page;
-        let style = if active {
-            Style::default()
-                .fg(COLOR_FG_MAIN)
-                .bg(COLOR_ACCENT)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(COLOR_MUTED).bg(COLOR_BG_INNER)
-        };
-        spans.push(Span::styled(format!(" {} ", page_label(page)), style));
-    }
-
-    let paragraph = Paragraph::new(Line::from(spans))
-        .alignment(Alignment::Left)
-        .style(Style::default().bg(COLOR_BG_INNER));
-    frame.render_widget(paragraph, inner);
 }
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
-    let actions = app.current_page_actions();
-    let visible_items = actions.len() as u16 + 2;
-    let selection_height = if app.page == Page::Dashboard { 7 } else { 6 };
-    let action_height = visible_items
-        .saturating_add(2)
-        .max(5)
-        .min(area.height.saturating_sub(selection_height).max(5));
     let sections = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(action_height),
-            Constraint::Length(selection_height),
+            Constraint::Length(12),
+            Constraint::Min(8),
             Constraint::Min(0),
         ])
         .split(area);
 
-    let list_inner = draw_panel(
+    let primary_inner = draw_panel(
         frame,
         sections[0],
-        format!("{} Actions", app.page_title()),
-        app.focus_is(Focus::MainActions),
+        "Main Menu",
+        app.focus_is(Focus::PrimaryMenu),
         PanelTone::Neutral,
     );
-    let mut items: Vec<ListItem> = actions
+
+    let primary_items: Vec<ListItem> = primary_pages()
         .iter()
-        .enumerate()
-        .map(|(idx, action)| {
-            let prefix = if idx == app.current_selection() { "›" } else { " " };
-            let shortcut = action
-                .shortcut
-                .map(|ch| format!("[{ch}] "))
-                .unwrap_or_default();
+        .map(|page| {
+            let prefix = if *page == app.page { ">" } else { " " };
             ListItem::new(Line::from(vec![
                 Span::styled(prefix, Style::default().fg(COLOR_ACCENT)),
                 Span::raw(" "),
-                Span::styled(shortcut, Style::default().fg(COLOR_MUTED_2)),
-                Span::styled(action.title, Style::default().fg(COLOR_FG_MAIN)),
+                Span::styled("  ", Style::default().fg(COLOR_MUTED_2)),
+                Span::styled(page_label(*page), Style::default().fg(COLOR_FG_MAIN)),
             ]))
         })
         .collect();
 
-    items.push(ListItem::new(Line::from("")));
-    let shell_prefix = if app.current_selection() == actions.len() {
-        "›"
-    } else {
-        " "
-    };
-    items.push(ListItem::new(Line::from(vec![
-        Span::styled(shell_prefix, Style::default().fg(COLOR_ACCENT)),
-        Span::raw(" "),
-        Span::styled("[9] ", Style::default().fg(COLOR_MUTED_2)),
-        Span::styled("Open Shell", Style::default().fg(COLOR_FG_MAIN)),
-    ])));
+    let mut primary_state = ListState::default();
+    primary_state.select(Some(App::page_index(app.page)));
+    let primary_list = List::new(primary_items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(primary_list, primary_inner, &mut primary_state);
 
+    let option_inner = draw_panel(
+        frame,
+        sections[1],
+        "Options",
+        app.focus_is(Focus::Options),
+        PanelTone::Neutral,
+    );
+
+    let options = app.menu_options();
+    let items: Vec<ListItem> = options
+        .iter()
+        .map(|option| {
+            let (label, meta) = option_label(app, *option);
+            ListItem::new(Line::from(vec![
+                Span::styled(meta, Style::default().fg(COLOR_MUTED_2)),
+                Span::styled(label, Style::default().fg(COLOR_FG_MAIN)),
+            ]))
+        })
+        .collect();
     let mut state = ListState::default();
-    state.select(Some(if app.current_selection() >= actions.len() {
-        actions.len() + 1
-    } else {
-        app.current_selection()
-    }));
-
+    if !items.is_empty() {
+        state.select(Some(app.current_selection()));
+    }
     let list = List::new(items).highlight_style(
         Style::default()
             .bg(COLOR_ACCENT_SOFT)
             .fg(COLOR_FG_MAIN)
             .add_modifier(Modifier::BOLD),
     );
-    frame.render_stateful_widget(list, list_inner, &mut state);
+    frame.render_stateful_widget(list, option_inner, &mut state);
 
-    let detail_inner = draw_panel(frame, sections[1], "Selection", false, PanelTone::Neutral);
+    let detail_inner = draw_panel(frame, sections[2], "Selection", false, PanelTone::Neutral);
     let detail_width = detail_inner.width.saturating_sub(1) as usize;
+    let title = app.selected_sidebar_title();
+    let detail_text = app.selected_sidebar_detail();
     let detail = Paragraph::new(vec![
         Line::from(Span::styled(
-            app.selected_sidebar_title(),
+            title,
             Style::default()
                 .fg(COLOR_FG_MAIN)
                 .add_modifier(Modifier::BOLD),
         )),
         Line::from(Span::styled(
-            truncate_end(app.selected_sidebar_detail(), detail_width.saturating_mul(2)),
+            truncate_end(&detail_text, detail_width.saturating_mul(3)),
             Style::default().fg(COLOR_MUTED),
         )),
         Line::from(""),
         Line::from(vec![
             Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("run or open", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("advance or run", Style::default().fg(COLOR_MUTED_2)),
         ]),
         Line::from(vec![
-            Span::styled("Left ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("return to Main Menu", Style::default().fg(COLOR_MUTED_2)),
+            Span::styled("Esc ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("back / shell prompt", Style::default().fg(COLOR_MUTED_2)),
         ]),
     ])
     .wrap(Wrap { trim: true });
@@ -2484,33 +2361,19 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_page(frame: &mut Frame, area: Rect, app: &App) {
-    if app.current_selection() >= app.current_page_actions().len() {
-        render_simple_detail(
-            frame,
-            area,
-            "Open Shell",
-            &[
-                "Leave the NiXOA console and exec the configured login shell.".to_string(),
-                "Use this to drop into a normal shell session with the TUI bypass enabled."
-                    .to_string(),
-                "Press Enter, q, or 9 to open the shell.".to_string(),
-            ],
-            false,
-            PanelTone::Info,
-        );
-        return;
-    }
-
     match app.page {
-        Page::Dashboard => render_dashboard(frame, area, app),
-        Page::Configure => render_configure(frame, area, app),
-        Page::Software => render_software(frame, area, app),
+        Page::Status => render_status(frame, area, app),
+        Page::HostSetup => render_host_setup(frame, area, app),
+        Page::Access => render_access(frame, area, app),
+        Page::Packages => render_packages(frame, area, app),
+        Page::Updates => render_updates(frame, area, app),
         Page::Maintenance => render_maintenance(frame, area, app),
         Page::Logs => render_logs_page(frame, area, app),
+        Page::Shell => render_shell_page(frame, area),
     }
 }
 
-fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
+fn render_status(frame: &mut Frame, area: Rect, app: &App) {
     let alert_count = app.alerts().len() as u16;
     let alert_height = (alert_count.saturating_add(3)).clamp(4, 7);
     let top_height = if area.height >= 20 { 10 } else { 9 };
@@ -2535,13 +2398,7 @@ fn render_dashboard(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_system_summary(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(
-        frame,
-        area,
-        "System Summary",
-        false,
-        PanelTone::Info,
-    );
+    let inner = draw_panel(frame, area, "System Summary", false, PanelTone::Info);
 
     let content = Paragraph::new(vec![
         key_value_line("Hostname", &app.snapshot.hostname, COLOR_ACCENT),
@@ -2568,7 +2425,11 @@ fn render_system_summary(frame: &mut Frame, area: Rect, app: &App) {
         key_value_line("Time zone", &app.snapshot.timezone, COLOR_FG_MAIN),
         key_value_line(
             "Extras",
-            if app.snapshot.extras { "enabled" } else { "disabled" },
+            if app.snapshot.extras {
+                "enabled"
+            } else {
+                "disabled"
+            },
             if app.snapshot.extras {
                 COLOR_SUCCESS
             } else {
@@ -2590,14 +2451,22 @@ fn render_repository_status(frame: &mut Frame, area: Rect, app: &App) {
     let content = Paragraph::new(vec![
         key_value_line(
             "Branch",
-            &format!("{} [{}]", app.snapshot.branch, short_sha(&app.snapshot.head)),
+            &format!(
+                "{} [{}]",
+                app.snapshot.branch,
+                short_sha(&app.snapshot.head)
+            ),
             COLOR_FG_MAIN,
         ),
         key_value_line("Repository Status", &repo_text, repo_color),
         key_value_line("Apply Status", &apply_text, apply_color),
         key_value_line("Upstream", &upstream_text, upstream_color),
         key_value_line("Flake Inputs", &inputs_text, inputs_color),
-        key_value_line("SSH Keys", &app.snapshot.ssh_keys.len().to_string(), COLOR_FG_MAIN),
+        key_value_line(
+            "SSH Keys",
+            &app.snapshot.ssh_keys.len().to_string(),
+            COLOR_FG_MAIN,
+        ),
         key_value_line(
             "Packages",
             &format!(
@@ -2607,20 +2476,18 @@ fn render_repository_status(frame: &mut Frame, area: Rect, app: &App) {
             ),
             COLOR_FG_MAIN,
         ),
-        key_value_line("Services", &app.snapshot.services.len().to_string(), COLOR_FG_MAIN),
+        key_value_line(
+            "Services",
+            &app.snapshot.services.len().to_string(),
+            COLOR_FG_MAIN,
+        ),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(content, inner);
 }
 
 fn render_alerts(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(
-        frame,
-        area,
-        "Alerts",
-        app.focus_is(Focus::DashboardAlerts),
-        PanelTone::Warning,
-    );
+    let inner = draw_panel(frame, area, "Alerts", false, PanelTone::Warning);
 
     let alerts = app.alerts();
     let items: Vec<ListItem> = alerts
@@ -2667,13 +2534,7 @@ fn render_alerts(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_recent_activity(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(
-        frame,
-        area,
-        "Recent Activity",
-        false,
-        PanelTone::Neutral,
-    );
+    let inner = draw_panel(frame, area, "Recent Activity", false, PanelTone::Neutral);
     let max_width = inner.width.saturating_sub(1) as usize;
     let max_lines = max(inner.height as usize, 1);
     let lines: Vec<Line> = app
@@ -2686,21 +2547,48 @@ fn render_recent_activity(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(paragraph, inner);
 }
 
-fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
+fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
     let action = app
         .selected_page_action()
         .map(|item| item.kind)
-        .unwrap_or(ActionKind::ManageSshKeys);
+        .unwrap_or(ActionKind::EditHostname);
+
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(9), Constraint::Min(6)])
+        .split(area);
+
+    let summary_inner = draw_panel(frame, rows[0], "Host Setup", false, PanelTone::Info);
+    let summary = Paragraph::new(vec![
+        key_value_line("Hostname", &app.snapshot.hostname, COLOR_ACCENT),
+        key_value_line("Username", &app.snapshot.username, COLOR_FG_MAIN),
+        key_value_line(
+            "Extras",
+            if app.snapshot.extras {
+                "enabled"
+            } else {
+                "disabled"
+            },
+            if app.snapshot.extras {
+                COLOR_SUCCESS
+            } else {
+                COLOR_WARNING
+            },
+        ),
+        key_value_line("Time zone", &app.snapshot.timezone, COLOR_FG_MAIN),
+        Line::from("Host setup actions write console overrides and commit the change immediately."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(summary, summary_inner);
 
     match action {
-        ActionKind::ManageSshKeys => render_ssh_keys(frame, area, app),
         ActionKind::EditHostname => render_simple_detail(
             frame,
-            area,
-            "Hostname",
+            rows[1],
+            "Selected Action",
             &[
                 format!("Current hostname: {}", app.snapshot.hostname),
-                "Press Enter to open an edit modal and commit the new hostname.".to_string(),
+                "Enter opens an edit modal for the hostname.".to_string(),
                 "The change is written into host/<hostname>/_ctx/menu.nix immediately.".to_string(),
             ],
             false,
@@ -2708,11 +2596,11 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
         ),
         ActionKind::EditUsername => render_simple_detail(
             frame,
-            area,
-            "Username",
+            rows[1],
+            "Selected Action",
             &[
                 format!("Current username: {}", app.snapshot.username),
-                "Press Enter to open an edit modal and commit the new username.".to_string(),
+                "Enter opens an edit modal for the primary admin username.".to_string(),
                 "The change is written into host/<hostname>/_ctx/menu.nix immediately.".to_string(),
             ],
             false,
@@ -2720,14 +2608,18 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
         ),
         ActionKind::ToggleExtras => render_simple_detail(
             frame,
-            area,
-            "Extras",
+            rows[1],
+            "Selected Action",
             &[
                 format!(
                     "Extras are currently {}.",
-                    if app.snapshot.extras { "enabled" } else { "disabled" }
+                    if app.snapshot.extras {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
                 ),
-                "Press Enter to toggle the extras feature set and commit the override.".to_string(),
+                "Enter toggles the extras feature set and commits the override.".to_string(),
             ],
             false,
             PanelTone::Info,
@@ -2736,66 +2628,61 @@ fn render_configure(frame: &mut Frame, area: Rect, app: &App) {
     }
 }
 
-fn render_ssh_keys(frame: &mut Frame, area: Rect, app: &App) {
-    let split = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(62), Constraint::Percentage(38)])
+fn render_access(frame: &mut Frame, area: Rect, app: &App) {
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(8), Constraint::Min(8)])
         .split(area);
 
-    let list_inner = draw_panel(
-        frame,
-        split[0],
-        "SSH Keys",
-        app.focus_is(Focus::ConfigureSshKeys),
-        PanelTone::Info,
-    );
-
-    let items: Vec<ListItem> = if app.snapshot.ssh_keys.is_empty() {
-        vec![ListItem::new("No SSH keys are currently configured.")]
-    } else {
-        app.snapshot
-            .ssh_keys
-            .iter()
-            .enumerate()
-            .map(|(index, key)| {
-                let prefix = if index == app.selected_key { "› " } else { "  " };
-                ListItem::new(Line::from(format!("{prefix}{}", truncate_middle(key, 96))))
-            })
-            .collect()
-    };
-
-    let mut state = ListState::default();
-    if !app.snapshot.ssh_keys.is_empty() {
-        state.select(Some(app.selected_key));
-    }
-    let list = List::new(items).highlight_style(
-        Style::default()
-            .bg(COLOR_ACCENT_SOFT)
-            .fg(COLOR_FG_MAIN)
-            .add_modifier(Modifier::BOLD),
-    );
-    frame.render_stateful_widget(list, list_inner, &mut state);
-
-    let help_inner = draw_panel(
-        frame,
-        split[1],
-        "Shortcuts",
-        false,
-        PanelTone::Neutral,
-    );
-    let help = Paragraph::new(vec![
-        Line::from("a add a key"),
-        Line::from("e replace all keys"),
-        Line::from("d delete selected key"),
-        Line::from("Esc/Left returns to actions"),
-        Line::from(""),
-        Line::from("Each successful action commits only host/<hostname>/_ctx/menu.nix."),
+    let summary_inner = draw_panel(frame, rows[0], "Access", false, PanelTone::Info);
+    let selected_key = app.snapshot.ssh_keys.get(app.selected_key);
+    let summary = Paragraph::new(vec![
+        key_value_line(
+            "SSH Keys",
+            &app.snapshot.ssh_keys.len().to_string(),
+            COLOR_FG_MAIN,
+        ),
+        key_value_line(
+            "Selected",
+            selected_key
+                .map(|key| truncate_middle(key, 54))
+                .unwrap_or_else(|| "none".to_string())
+                .as_str(),
+            if selected_key.is_some() {
+                COLOR_ACCENT
+            } else {
+                COLOR_MUTED
+            },
+        ),
+        Line::from("Key entries live in the left options list below the access actions."),
+        Line::from("Successful key changes commit only host/<hostname>/_ctx/menu.nix."),
     ])
     .wrap(Wrap { trim: true });
-    frame.render_widget(help, help_inner);
+    frame.render_widget(summary, summary_inner);
+
+    let option = app.selected_menu_option();
+    let lines = if let Some(MenuOption::SshKey(index)) = option {
+        vec![
+            format!("Selected key: {}", index + 1),
+            app.snapshot
+                .ssh_keys
+                .get(index)
+                .cloned()
+                .unwrap_or_else(|| "No key selected.".to_string()),
+            "Use Delete Selected Key from the left options list to remove this key.".to_string(),
+        ]
+    } else {
+        vec![
+            app.selected_sidebar_title(),
+            app.selected_sidebar_detail(),
+            "Enter runs the selected access action.".to_string(),
+        ]
+    };
+
+    render_simple_detail(frame, rows[1], "Details", &lines, false, PanelTone::Neutral);
 }
 
-fn render_software(frame: &mut Frame, area: Rect, app: &App) {
+fn render_packages(frame: &mut Frame, area: Rect, app: &App) {
     let action = app
         .selected_page_action()
         .map(|item| item.kind)
@@ -2837,9 +2724,8 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
     match app
         .selected_page_action()
         .map(|item| item.kind)
-        .unwrap_or(ActionKind::CheckForUpdates)
+        .unwrap_or(ActionKind::ApplyConfiguration)
     {
-        ActionKind::CheckForUpdates => render_updates(frame, area, app),
         ActionKind::ApplyConfiguration => render_maintenance_detail_page(
             frame,
             area,
@@ -2905,68 +2791,22 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
-    let min_detail_width = if area.width >= 80 { 26 } else { 22 };
-    let preferred_input_width = if area.width >= 96 { 39 } else { 35 };
-    let input_width = max(
-        24,
-        min(
-            preferred_input_width,
-            area.width.saturating_sub(min_detail_width + 1),
-        ),
-    );
-    let split = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(input_width),
-            Constraint::Length(1),
-            Constraint::Min(min_detail_width),
-        ])
+    let rows = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(8), Constraint::Min(8)])
         .split(area);
 
-    let list_inner = draw_panel(
-        frame,
-        split[0],
-        "Flake Inputs",
-        app.focus_is(Focus::MaintenanceFlakeInputs),
-        PanelTone::Neutral,
-    );
-
-    let items: Vec<ListItem> = UPDATE_ACTIONS
-        .iter()
-        .map(|action| {
-            ListItem::new(Line::from(vec![
-                Span::styled(
-                    format!("[{}] ", action.shortcut),
-                    Style::default().fg(COLOR_MUTED_2),
-                ),
-                Span::styled(action.title, Style::default().fg(COLOR_FG_MAIN)),
-            ]))
-        })
-        .collect();
-    let mut state = ListState::default();
-    state.select(Some(app.selected_update));
-    let list = List::new(items).highlight_style(
-        Style::default()
-            .bg(COLOR_ACCENT_SOFT)
-            .fg(COLOR_FG_MAIN)
-            .add_modifier(Modifier::BOLD),
-    );
-    frame.render_stateful_widget(list, list_inner, &mut state);
-
-    let detail_inner = draw_panel(
-        frame,
-        split[2],
-        "Update Details",
-        false,
-        PanelTone::Neutral,
-    );
-    let update = &UPDATE_ACTIONS[app.selected_update];
-    let content = Paragraph::new(vec![
-        Line::from(update.detail),
-        Line::from(""),
+    let status_inner = draw_panel(frame, rows[0], "Flake Input Status", false, PanelTone::Info);
+    let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
+    let status = Paragraph::new(vec![
+        key_value_line("Input status", &inputs_text, inputs_color),
         key_value_line(
             "Queued on boot",
-            if app.snapshot.rebuild_queued { "yes" } else { "no" },
+            if app.snapshot.rebuild_queued {
+                "yes"
+            } else {
+                "no"
+            },
             if app.snapshot.rebuild_queued {
                 COLOR_INFO
             } else {
@@ -2975,21 +2815,37 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
         ),
         key_value_line(
             "Needs rebuild",
-            if app.snapshot.rebuild_needed { "yes" } else { "no" },
+            if app.snapshot.rebuild_needed {
+                "yes"
+            } else {
+                "no"
+            },
             if app.snapshot.rebuild_needed {
                 COLOR_WARNING
             } else {
                 COLOR_FG_MAIN
             },
         ),
-        key_value_line(
-            "Input status",
-            &inputs_status(&app.update_status, app.tick).0,
-            inputs_status(&app.update_status, app.tick).1,
-        ),
+        Line::from("Update targets are selected from the left options list."),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(status, status_inner);
+
+    let detail_inner = draw_panel(frame, rows[1], "Selected Target", false, PanelTone::Neutral);
+    let update = &UPDATE_ACTIONS[app.selected_update];
+    let content = Paragraph::new(vec![
+        Line::from(Span::styled(
+            update.title,
+            Style::default()
+                .fg(COLOR_FG_MAIN)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(update.detail),
         Line::from(""),
         Line::from("Each update commits only flake.lock."),
-        Line::from("After a lock change, the backend asks whether to rebuild now or on the next boot."),
+        Line::from(
+            "After a lock change, the backend asks whether to rebuild now or on the next boot.",
+        ),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(content, detail_inner);
@@ -3017,23 +2873,20 @@ fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
                 COLOR_ACCENT
             },
         ),
-        key_value_line("Visible entries", &filtered_logs.len().to_string(), COLOR_FG_MAIN),
-        Line::from("Use / to set a filter, c to clear it, and arrows/jk to scroll."),
+        key_value_line(
+            "Visible entries",
+            &filtered_logs.len().to_string(),
+            COLOR_FG_MAIN,
+        ),
+        Line::from("Use the left log options to filter, clear, and scroll the preview."),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(meta, meta_inner);
 
-    let log_inner = draw_panel(
-        frame,
-        rows[1],
-        "Logs",
-        app.focus_is(Focus::LogsView),
-        PanelTone::Info,
-    );
+    let log_inner = draw_panel(frame, rows[1], "Logs", false, PanelTone::Info);
     if filtered_logs.is_empty() {
         frame.render_widget(
-            Paragraph::new("No log entries matched the current filter.")
-                .wrap(Wrap { trim: true }),
+            Paragraph::new("No log entries matched the current filter.").wrap(Wrap { trim: true }),
             log_inner,
         );
         return;
@@ -3052,22 +2905,34 @@ fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(paragraph, log_inner);
 }
 
+fn render_shell_page(frame: &mut Frame, area: Rect) {
+    render_simple_detail(
+        frame,
+        area,
+        "Shell",
+        &[
+            "Return to the configured login shell.".to_string(),
+            "The shell is started with NIXOA_TUI_BYPASS=1 so the console does not restart immediately.".to_string(),
+            "Press Enter on Shell or Esc from the main menu to open the Y/N prompt.".to_string(),
+        ],
+        false,
+        PanelTone::Info,
+    );
+}
+
 fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, area, "Shortcuts", false, PanelTone::Neutral);
     let (inputs_text, inputs_color) = inputs_status(&app.update_status, app.tick);
     let footer = Paragraph::new(vec![
         Line::from(vec![
-            Span::styled("Arrows/hjkl ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("move", Style::default().fg(COLOR_MUTED)),
+            Span::styled("Up/Down ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("choose", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("open or run", Style::default().fg(COLOR_MUTED)),
+            Span::styled("advance or run", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled("Esc ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("back", Style::default().fg(COLOR_MUTED)),
-            Span::raw("   "),
-            Span::styled("[ ] ", Style::default().fg(COLOR_ACCENT)),
-            Span::styled("pages", Style::default().fg(COLOR_MUTED)),
+            Span::styled("back / shell prompt", Style::default().fg(COLOR_MUTED)),
             Span::raw("   "),
             Span::styled(": ", Style::default().fg(COLOR_ACCENT)),
             Span::styled("palette", Style::default().fg(COLOR_MUTED)),
@@ -3080,7 +2945,10 @@ fn render_footer(frame: &mut Frame, area: Rect, app: &App) {
             Span::styled(inputs_text, Style::default().fg(inputs_color)),
             Span::raw("   "),
             Span::styled("Last apply: ", Style::default().fg(COLOR_MUTED_2)),
-            Span::styled(last_apply_label(&app.snapshot), Style::default().fg(COLOR_MUTED)),
+            Span::styled(
+                last_apply_label(&app.snapshot),
+                Style::default().fg(COLOR_MUTED),
+            ),
         ]),
     ])
     .wrap(Wrap { trim: true });
@@ -3135,7 +3003,11 @@ fn render_maintenance_detail_page(
         key_value_line("Host", &app.snapshot.hostname, COLOR_FG_MAIN),
         key_value_line(
             "Queued on boot",
-            if app.snapshot.rebuild_queued { "yes" } else { "no" },
+            if app.snapshot.rebuild_queued {
+                "yes"
+            } else {
+                "no"
+            },
             if app.snapshot.rebuild_queued {
                 COLOR_INFO
             } else {
@@ -3144,7 +3016,11 @@ fn render_maintenance_detail_page(
         ),
         key_value_line(
             "Needs rebuild",
-            if app.snapshot.rebuild_needed { "yes" } else { "no" },
+            if app.snapshot.rebuild_needed {
+                "yes"
+            } else {
+                "no"
+            },
             if app.snapshot.rebuild_needed {
                 COLOR_WARNING
             } else {
@@ -3160,7 +3036,13 @@ fn render_maintenance_detail_page(
     .wrap(Wrap { trim: true });
     frame.render_widget(state, state_inner);
 
-    let notes_inner = draw_panel(frame, lower[1], "Operational Notes", false, PanelTone::Neutral);
+    let notes_inner = draw_panel(
+        frame,
+        lower[1],
+        "Operational Notes",
+        false,
+        PanelTone::Neutral,
+    );
     let notes = Paragraph::new(vec![
         Line::from(Span::styled(
             "Risk",
@@ -3170,12 +3052,9 @@ fn render_maintenance_detail_page(
         )),
         Line::from(Span::styled(risk, Style::default().fg(COLOR_MUTED))),
         Line::from(""),
+        Line::from(Span::styled("Use ?", Style::default().fg(COLOR_ACCENT))),
         Line::from(Span::styled(
-            "Use ?",
-            Style::default().fg(COLOR_ACCENT),
-        )),
-        Line::from(Span::styled(
-            "for the full shortcut reference and workflow help.",
+            "for the full navigation reference and workflow help.",
             Style::default().fg(COLOR_MUTED),
         )),
     ])
@@ -3201,17 +3080,21 @@ fn render_item_list_page(
     let list_items: Vec<ListItem> = if items.is_empty() {
         vec![ListItem::new("No entries are currently configured.")]
     } else {
-        items.iter()
+        items
+            .iter()
             .map(|item| ListItem::new(truncate_middle(item, 100)))
             .collect()
     };
     frame.render_widget(List::new(list_items), list_inner);
 
-    let help_inner = draw_panel(frame, rows[1], "Details", details_focused, PanelTone::Neutral);
-    frame.render_widget(
-        Paragraph::new(help).wrap(Wrap { trim: true }),
-        help_inner,
+    let help_inner = draw_panel(
+        frame,
+        rows[1],
+        "Details",
+        details_focused,
+        PanelTone::Neutral,
     );
+    frame.render_widget(Paragraph::new(help).wrap(Wrap { trim: true }), help_inner);
 }
 
 fn render_input_modal(frame: &mut Frame, area: Rect, modal: &InputModal) {
@@ -3232,11 +3115,11 @@ fn render_input_modal(frame: &mut Frame, area: Rect, modal: &InputModal) {
 fn render_quit_confirm(frame: &mut Frame, area: Rect) {
     let popup = centered_rect(44, 24, area);
     frame.render_widget(Clear, popup);
-    let inner = draw_panel(frame, popup, "Exit Console?", true, PanelTone::Danger);
+    let inner = draw_panel(frame, popup, "Return to Shell?", true, PanelTone::Danger);
     let paragraph = Paragraph::new(vec![
-        Line::from("Close the TUI and return to the shell?"),
+        Line::from("Leave the console and exec the login shell?"),
         Line::from(""),
-        Line::from("Press Y to exit."),
+        Line::from("Press Y to return to shell."),
         Line::from("Press N or Esc to stay in the console."),
     ])
     .wrap(Wrap { trim: true });
@@ -3249,7 +3132,11 @@ fn render_command_palette(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, popup, "Command Palette", true, PanelTone::Info);
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(3), Constraint::Min(6), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(6),
+            Constraint::Length(3),
+        ])
         .split(inner);
 
     let query = app
@@ -3317,23 +3204,21 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, popup, "Help", true, PanelTone::Info);
     let help = Paragraph::new(vec![
         Line::from("Global navigation"),
-        Line::from("  Up/Down or j/k move inside the focused list or menu."),
-        Line::from("  Left/Right or h/l switch pages in the main menu, or move between an action pane and its child pane."),
-        Line::from("  Enter only runs, confirms, or opens the selected item."),
-        Line::from("  Esc unwinds back to the main actions pane. Esc on the main actions pane opens a Y/N quit prompt."),
-        Line::from("  Tab / Shift-Tab still provide an optional deterministic focus cycle. [ and ] still switch pages."),
-        Line::from("  ? opens this help modal. q or 9 exec the configured login shell."),
+        Line::from("  Up/Down move through the focused main menu or options list."),
+        Line::from("  Enter advances from the main menu into options, or runs the selected option."),
+        Line::from("  Esc returns from options to the main menu."),
+        Line::from("  Esc on the main menu opens a Y/N prompt to return to the login shell."),
+        Line::from("  ? opens this help modal. : opens the command palette."),
         Line::from(""),
         Line::from("Page model"),
-        Line::from("  Dashboard: Main Actions -> Alerts."),
-        Line::from("  Configure: Main Actions -> SSH Keys only for the SSH Keys action."),
-        Line::from("  Software: Main Actions only; package/service details are read-only."),
-        Line::from("  Maintenance: Main Actions -> Flake Inputs only for Check for Updates."),
-        Line::from("  Logs: Main Actions -> Logs."),
+        Line::from("  The left rail always contains the primary menu and the selected section options."),
+        Line::from("  The right side is contextual and read-only until an option opens a modal or command."),
+        Line::from("  SSH keys, update targets, and log controls stay in the left options list."),
+        Line::from("  From a regular SSH shell, run nixoa-menu manually to open this console."),
         Line::from(""),
         Line::from("Current page"),
         Line::from(format!("  {}", app.page_title())),
-        Line::from(format!("  Selected action: {}", app.selected_sidebar_title())),
+        Line::from(format!("  Selected option: {}", app.selected_sidebar_title())),
         Line::from(format!("  Focus: {}", focus_label(app.focus))),
         Line::from(""),
         Line::from("Esc closes this help modal."),
@@ -3368,12 +3253,8 @@ fn header_key_value_line(label: &str, value: &str, color: Color) -> Line<'static
 
 fn focus_label(focus: Focus) -> &'static str {
     match focus {
-        Focus::TopNav => "Top Nav",
-        Focus::MainActions => "Main Actions",
-        Focus::DashboardAlerts => "Alerts",
-        Focus::ConfigureSshKeys => "SSH Keys",
-        Focus::MaintenanceFlakeInputs => "Flake Inputs",
-        Focus::LogsView => "Logs",
+        Focus::PrimaryMenu => "Main Menu",
+        Focus::Options => "Options",
     }
 }
 
@@ -3569,4 +3450,104 @@ fn is_direct_store_bin(path: &Path) -> bool {
             .file_name()
             .map(|file_name| file_name == "bin")
             .unwrap_or(false)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::backend::TestBackend;
+
+    fn sample_snapshot() -> Snapshot {
+        Snapshot {
+            hostname: "nixo-ce-test".to_string(),
+            username: "nixoa".to_string(),
+            timezone: "UTC".to_string(),
+            extras: false,
+            ssh_keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey nixo-ce-test".to_string()],
+            system_packages: vec!["vim".to_string(), "curl".to_string()],
+            user_packages: vec!["git".to_string()],
+            services: vec!["openssh".to_string()],
+            dirty_count: 0,
+            head: "0123456789abcdef".to_string(),
+            branch: "main".to_string(),
+            upstream: Some("origin/main".to_string()),
+            ahead: 0,
+            behind: 0,
+            memory_total_bytes: 8 * 1024 * 1024 * 1024,
+            memory_used_bytes: 3 * 1024 * 1024 * 1024,
+            memory_used_percent: 38,
+            storage_total_bytes: 64 * 1024 * 1024 * 1024,
+            storage_used_bytes: 12 * 1024 * 1024 * 1024,
+            storage_used_percent: 19,
+            primary_ip: Some("192.0.2.10".to_string()),
+            xen_orchestra_version: Some("test-version".to_string()),
+            web_ui_url: Some("https://192.0.2.10".to_string()),
+            rebuild_queued: false,
+            rebuild_needed: false,
+            last_apply: Some(ApplyState {
+                result: "success".to_string(),
+                action: "switch".to_string(),
+                hostname: "nixo-ce-test".to_string(),
+                head: "0123456789abcdef".to_string(),
+                first_install: false,
+                exit_code: 0,
+                timestamp: "2026-05-08T00:00:00Z".to_string(),
+            }),
+        }
+    }
+
+    fn render_text(app: &App) -> String {
+        let backend = TestBackend::new(132, 38);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal.draw(|frame| render(frame, app)).expect("draw");
+        terminal
+            .backend_mut()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect::<String>()
+    }
+
+    #[test]
+    fn header_uses_compact_title_without_ascii_art() {
+        let app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let text = render_text(&app);
+
+        assert!(text.contains("NiXO-CE"));
+        assert!(!text.contains("_|      _|"));
+        assert!(!text.contains("_|_|    _|"));
+    }
+
+    #[test]
+    fn primary_left_menu_labels_render() {
+        let app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let text = render_text(&app);
+
+        for label in [
+            "Status",
+            "Host Setup",
+            "Access",
+            "Packages",
+            "Updates",
+            "Maintenance",
+            "Logs",
+            "Shell",
+        ] {
+            assert!(text.contains(label), "missing primary menu label {label}");
+        }
+    }
+
+    #[test]
+    fn updates_section_keeps_targets_left_and_details_right() {
+        let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        app.set_page(Page::Updates);
+        app.set_focus(Focus::Options);
+        let text = render_text(&app);
+
+        assert!(text.contains("Update nixpkgs"));
+        assert!(text.contains("Update Home Manager"));
+        assert!(text.contains("Selected Target"));
+        assert!(text.contains("Each update commits only flake.lock."));
+    }
 }

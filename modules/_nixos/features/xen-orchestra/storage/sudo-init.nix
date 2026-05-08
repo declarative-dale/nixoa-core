@@ -6,18 +6,16 @@
   pkgs,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
   cfg = config.nixoa.xo;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
-in
-{
+in {
   config = mkIf storageEnabled {
     systemd.services.xo-sudo-init = {
       description = "Initialize sudo for XO user";
-      wantedBy = [ "multi-user.target" ];
-      after = [ "local-fs.target" ];
+      wantedBy = ["multi-user.target"];
+      after = ["local-fs.target"];
       serviceConfig = {
         Type = "oneshot";
         User = "root";

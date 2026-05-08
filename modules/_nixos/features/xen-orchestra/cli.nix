@@ -5,8 +5,7 @@
   pkgs,
   context,
   ...
-}:
-let
+}: let
   inherit (lib) mkIf;
 
   nxcli = pkgs.nixoa.nxcli;
@@ -51,8 +50,7 @@ let
       complete -F _nxcli_completion nxcli
     '';
   };
-in
-{
+in {
   config = mkIf context.enableXO {
     environment.systemPackages = [
       nxcli

@@ -5,8 +5,7 @@
   pkgs,
   context,
   ...
-}:
-{
+}: {
   programs.bat = lib.mkIf context.enableExtras {
     enable = true;
     config = {

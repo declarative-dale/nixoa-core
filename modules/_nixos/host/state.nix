@@ -1,9 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # Host state version
-{
-  context,
-  ...
-}:
-{
+{context, ...}: {
   system.stateVersion = context.stateVersion;
 }

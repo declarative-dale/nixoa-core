@@ -1,19 +1,15 @@
 # SPDX-License-Identifier: Apache-2.0
 # XO Server path options
-{
-  lib,
-  ...
-}:
-let
-  inherit (lib)
+{lib, ...}: let
+  inherit
+    (lib)
     mkOption
     types
     ;
 
   # Default home directory for XO service
   xoHome = "/var/lib/xo";
-in
-{
+in {
   options.nixoa.xo = {
     # Directory paths (advanced customization)
     home = mkOption {
