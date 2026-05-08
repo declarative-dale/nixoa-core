@@ -17,19 +17,19 @@ definitions under `host/<hostname>`.
 
 ## Quick Start
 
-On a fresh NixOS base install, you can persist the XO Cachix cache and trusted
-users ahead of time as `nixos`. Determinate cache settings are passed only as
-first-switch command-line options; Determinate Nix manages its own persistent
-substitution settings after activation.
+On a fresh NixOS base install, you can persist the XO and libvhdi Cachix caches
+and trusted users ahead of time as `nixos`. Determinate cache settings are
+passed only as first-switch command-line options; Determinate Nix manages its
+own persistent substitution settings after activation.
 
 ```bash
 sudo install -d -m 0755 /etc/nix
 sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
   || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'xen-orchestra-ce.cachix.org' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-substituters = https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'libvhdi-nixpkg.cachix.org' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-substituters = https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' | sudo tee -a /etc/nix/nix.conf >/dev/null
 ```
 
 Bootstrap a real host from `mono-preview` with the streamed one-liner:
@@ -46,8 +46,8 @@ sudo nixos-rebuild switch \
   --flake 'path:/home/nixoa/nixoa#nixo-ce' \
   -L \
   --option extra-experimental-features 'nix-command flakes' \
-  --option extra-substituters 'https://install.determinate.systems https://xen-orchestra-ce.cachix.org' \
-  --option extra-trusted-public-keys 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E='
+  --option extra-substituters 'https://install.determinate.systems https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' \
+  --option extra-trusted-public-keys 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4='
 ```
 
 If you want an explicit checkout first instead, use:

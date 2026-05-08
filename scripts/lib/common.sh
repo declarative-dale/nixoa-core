@@ -13,8 +13,10 @@ readonly NIXOA_DEFAULT_GIT_NAME="NiXOA Admin"
 readonly NIXOA_DEFAULT_GIT_EMAIL="nixoa@nixoa"
 readonly NIXOA_DETERMINATE_SUBSTITUTER="https://install.determinate.systems"
 readonly NIXOA_XO_SUBSTITUTER="https://xen-orchestra-ce.cachix.org"
+readonly NIXOA_LIBVHDI_SUBSTITUTER="https://libvhdi-nixpkg.cachix.org"
 readonly NIXOA_DETERMINATE_PUBLIC_KEY="cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
 readonly NIXOA_XO_PUBLIC_KEY="xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
+readonly NIXOA_LIBVHDI_PUBLIC_KEY="libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
 readonly -a NIXOA_TRACKED_PATHS=(
   AGENTS.md
   CHANGELOG.md
@@ -138,10 +140,10 @@ nixoa_append_first_install_nix_options() {
     "nix-command flakes"
     --option
     extra-substituters
-    "${NIXOA_DETERMINATE_SUBSTITUTER} ${NIXOA_XO_SUBSTITUTER}"
+    "${NIXOA_DETERMINATE_SUBSTITUTER} ${NIXOA_XO_SUBSTITUTER} ${NIXOA_LIBVHDI_SUBSTITUTER}"
     --option
     extra-trusted-public-keys
-    "${NIXOA_DETERMINATE_PUBLIC_KEY} ${NIXOA_XO_PUBLIC_KEY}"
+    "${NIXOA_DETERMINATE_PUBLIC_KEY} ${NIXOA_XO_PUBLIC_KEY} ${NIXOA_LIBVHDI_PUBLIC_KEY}"
   )
 }
 

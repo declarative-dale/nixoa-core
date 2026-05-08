@@ -52,7 +52,9 @@ if [ -n "$BOOTSTRAP_REPO_ROOT" ] && [ -f "$BOOTSTRAP_REPO_ROOT/scripts/lib/commo
 else
   readonly NIXOA_DEFAULT_USERNAME="nixoa"
   readonly NIXOA_XO_SUBSTITUTER="https://xen-orchestra-ce.cachix.org"
+  readonly NIXOA_LIBVHDI_SUBSTITUTER="https://libvhdi-nixpkg.cachix.org"
   readonly NIXOA_XO_PUBLIC_KEY="xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
+  readonly NIXOA_LIBVHDI_PUBLIC_KEY="libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
 
   nixoa_print_error() {
     printf 'error: %s\n' "$1" >&2
@@ -126,6 +128,14 @@ else
 
     return 1
   }
+fi
+
+if [ -z "${NIXOA_LIBVHDI_SUBSTITUTER+x}" ]; then
+  readonly NIXOA_LIBVHDI_SUBSTITUTER="https://libvhdi-nixpkg.cachix.org"
+fi
+
+if [ -z "${NIXOA_LIBVHDI_PUBLIC_KEY+x}" ]; then
+  readonly NIXOA_LIBVHDI_PUBLIC_KEY="libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
 fi
 
 usage() {
@@ -386,13 +396,15 @@ prepare_first_switch_nix_access() {
     users_to_trust+=("$target_user")
   fi
 
-  nixoa_print_info "Preparing trusted users and XO Cachix settings for the initial switch"
+  nixoa_print_info "Preparing trusted users and XO/libvhdi Cachix settings for the initial switch"
   nixoa_run_as_root install -d -m 0755 /etc/nix
   nix_conf_ensure_tokens "$nix_conf" trusted-users "${users_to_trust[@]}"
   nix_conf_ensure_tokens "$nix_conf" extra-substituters \
-    "$NIXOA_XO_SUBSTITUTER"
+    "$NIXOA_XO_SUBSTITUTER" \
+    "$NIXOA_LIBVHDI_SUBSTITUTER"
   nix_conf_ensure_tokens "$nix_conf" extra-trusted-public-keys \
-    "$NIXOA_XO_PUBLIC_KEY"
+    "$NIXOA_XO_PUBLIC_KEY" \
+    "$NIXOA_LIBVHDI_PUBLIC_KEY"
 }
 
 repo_url="https://codeberg.org/NiXOA/core.git"

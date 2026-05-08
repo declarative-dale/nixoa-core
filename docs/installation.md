@@ -4,19 +4,19 @@ NiXOA is installed directly from this repo.
 
 ## Fresh Base Install Prep
 
-On a fresh NixOS install, you can persist the XO Cachix cache and trusted users
-ahead of time as the `nixos` user. Determinate cache settings are passed only
-as first-switch command-line options; Determinate Nix manages its own
-persistent substitution settings after activation.
+On a fresh NixOS install, you can persist the XO and libvhdi Cachix caches and
+trusted users ahead of time as the `nixos` user. Determinate cache settings are
+passed only as first-switch command-line options; Determinate Nix manages its
+own persistent substitution settings after activation.
 
 ```bash
 sudo install -d -m 0755 /etc/nix
 sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
   || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'xen-orchestra-ce.cachix.org' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-substituters = https://xen-orchestra-ce.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'libvhdi-nixpkg.cachix.org' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-substituters = https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' | sudo tee -a /etc/nix/nix.conf >/dev/null
 ```
 
 ## Bootstrap Install
