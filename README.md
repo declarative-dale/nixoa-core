@@ -1,182 +1,95 @@
 # NiXOA Core
 
-NiXOA core is the **immutable module library** and package layer for NiXOA. It
-ships reusable NixOS modules, Xen Orchestra CE packages, and a dendritic
-flake-parts layout meant to be consumed by a host-specific flake.
+NiXOA Core is a NixOS appliance flake for running Xen Orchestra Community
+Edition. It gives you a reproducible host layout, a packaged XO build, a single operator CLI, and an SSH-friendly console for day-to-day administration.
 
-## Getting Started
+This repo can be used in two ways:
 
-Start with the ecosystem guide:
-- `../.profile/README.md`
+- as the concrete host flake for a NiXOA appliance
+- as a reusable Den namespace through `flake.denful.nixoaCore`
 
-It walks through cloning the system repo and applying your first configuration.
+## What You Get
 
-## What Core Provides
+- Xen Orchestra CE packaged from the pinned `xen-orchestra-ce` input
+- `nxcli`, the supported command line for host and repository operations
+- `nixoa-menu`, an xsconsole-style SSH operator console
+- a host template under `host/_template/`
+- concrete host outputs such as `nixosConfigurations.<hostname>` and `<hostname>-vm`
+- `nixosConfigurations.vm`, a stable VM alias selected by `host/_automation/default.nix`
+- reusable Den aspects: `<nixoaCore/platform>`, `<nixoaCore/xcp-ng-guest>`, `<nixoaCore/xo>`, and `<nixoaCore/appliance>`
 
-- `nixosModules.*` feature modules and stacks
-- `overlays.nixoa` exposing `pkgs.nixoa.*`
-- shared helpers under `lib/`
+## Quick Start
 
-## Quick Links
+On a fresh NixOS install, the streamed bootstrap path prepares a checkout,
+creates a host from the template, and can run the first switch:
 
-- [Getting Started](./docs/getting-started.md)
-- [Installation](./docs/installation.md)
-- [Configuration](./docs/configuration.md)
-- [Architecture](./docs/architecture.md)
-- [Operations](./docs/operations.md)
-- [Troubleshooting](./docs/troubleshooting.md)
-
-## Highlights
-
-- Declarative Xen Orchestra service configuration
-- HTTPS/TLS support with auto-generated certificates
-- NFS/CIFS storage helpers and VHD support
-- Xen guest agent and hardware defaults for VMs
-- Flake-parts + dendritic feature registry for composition
-
-## Feature Stacks
-
-Defined in `parts/registry/features.nix`:
-
-- **platform**: base platform only
-- **xo**: XO services only
-- **appliance**: platform + virtualization + xo
-
-## Full Tree (Core)
-
+```bash
+bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes --first-switch
 ```
+
+If you prefer to clone the repo first:
+
+```bash
+git clone https://codeberg.org/NiXOA/core.git ~/nixoa
+cd ~/nixoa
+nix run .#nxcli -- host add nixo-ce --first-switch
+```
+
+After the first successful apply, use the installed tools directly:
+
+```bash
+nxcli status
+nixoa-menu
+```
+
+SSH logins open a normal shell by default. Run `nixoa-menu` manually, or set
+`nixoaMenuAutoStart = true;` in the host context if SSH sessions should enter the console automatically.
+
+## Common Commands
+
+Before `nxcli` is installed on the host, prefix commands with
+`nix run .#nxcli --` from the repo checkout.
+
+```bash
+nxcli status
+nxcli apply --target vm
+nxcli boot --target vm
+nxcli diff
+nxcli commit "Describe the change"
+nxcli update flake --preview
+nxcli update xoa
+nxcli xo logs
+```
+
+See the full command reference in [docs/nxcli.md](docs/nxcli.md).
+
+## Documentation
+
+- [Installation](docs/installation.md): fresh install prep, bootstrap paths, and first apply
+- [Getting Started](docs/getting-started.md): first host creation and initial operating flow
+- [Daily Operations](docs/operations.md): status, logs, updates, commits, rollback, and `nixoa-menu`
+- [nxcli Reference](docs/nxcli.md): complete CLI syntax, options, examples, and behavior notes
+- [Configuration Reference](docs/configuration.md): host context values and editable files
+- [Common Tasks](docs/common-tasks.md): short examples for frequent host edits
+- [Troubleshooting](docs/troubleshooting.md): common operational failure modes
+- [Architecture](docs/architecture.md): Den namespace, host assembly, and exported outputs
+- [Changelog](CHANGELOG.md): release history and breaking changes
+
+## Repository Layout
+
+```text
 core/
-├── AGENTS.md                         # repo-specific guidance
-├── CHANGELOG.md                      # release history
-├── LICENSE                           # Apache-2.0
-├── README.md                         # this file
-├── flake.nix                         # generated entrypoint (flake-parts)
-├── flake.lock                        # pinned inputs
-├── nixoa-cli.sh                      # helper CLI
-├── docs/                             # library docs
-│   ├── architecture.md
-│   ├── common-tasks.md
-│   ├── configuration.md
-│   ├── getting-started.md
-│   ├── installation.md
-│   ├── operations.md
-│   └── troubleshooting.md
-├── legal/                            # legal and contribution docs
-│   ├── CONTRIBUTING.md
-│   ├── NOTICE
-│   └── headers/
-├── lib/                              # shared helpers
-│   ├── utils.nix
-│   └── utils/
-├── modules/
-│   └── features/
-│       ├── foundation/
-│       │   └── args.nix
-│       ├── platform/
-│       │   ├── boot/
-│       │   │   ├── initrd.nix
-│       │   │   └── loader.nix
-│       │   ├── identity/
-│       │   │   ├── hostname.nix
-│       │   │   ├── locale.nix
-│       │   │   ├── shells.nix
-│       │   │   └── state-version.nix
-│       │   ├── networking/
-│       │   │   ├── defaults.nix
-│       │   │   ├── firewall.nix
-│       │   │   └── nfs.nix
-│       │   ├── packages/
-│       │   │   └── base-packages.nix
-│       │   ├── services/
-│       │   │   ├── journald.nix
-│       │   │   └── prometheus.nix
-│       │   └── users/
-│       │       ├── accounts.nix
-│       │       ├── ssh.nix
-│       │       └── sudo.nix
-│       ├── virtualization/
-│       │   ├── xen-guest.nix
-│       │   └── xen-hardware.nix
-│       └── xo/
-│           ├── cli.nix
-│           ├── config-link.nix
-│           ├── dev-tools.nix
-│           ├── options-base.nix
-│           ├── options-paths.nix
-│           ├── options-tls.nix
-│           ├── tls-service.nix
-│           ├── tls-tmpfiles.nix
-│           ├── service/
-│           │   ├── assertions.nix
-│           │   ├── packages.nix
-│           │   ├── redis.nix
-│           │   ├── start-script.nix
-│           │   ├── tmpfiles.nix
-│           │   └── unit.nix
-│           └── storage/
-│               ├── assertions.nix
-│               ├── filesystems.nix
-│               ├── libvhdi-options.nix
-│               ├── packages.nix
-│               ├── sudo-config.nix
-│               ├── sudo-init.nix
-│               ├── sudo-rules.nix
-│               ├── tmpfiles.nix
-│               └── wrapper-script.nix
-├── parts/                            # flake-parts wiring
-│   ├── flake/
-│   │   ├── nixos-modules.nix
-│   │   ├── outputs.nix
-│   │   ├── overlays.nix
-│   │   ├── per-system.nix
-│   │   └── wiring.nix
-│   ├── inputs/
-│   │   └── base.nix
-│   ├── per-system/
-│   │   └── packages.nix
-│   └── registry/
-│       ├── composition.nix
-│       ├── features.nix
-│       └── features/
-│           ├── platform.nix
-│           ├── virtualization.nix
-│           └── xo.nix
-└── scripts/                          # maintenance utilities
-    ├── migrate-redis-to-valkey.sh
-    ├── xoa-install.sh
-    ├── xoa-logs.sh
-    └── xoa-update.sh
+├── host/       # host template, concrete hosts, and the stable VM alias
+├── modules/    # reusable aspects plus shared NixOS/Home Manager implementation
+├── lib/        # shared Nix helpers
+├── docs/       # operator and maintainer documentation
+├── scripts/    # nxcli source, bootstrap wrapper, shared helpers, and TUI backend
+└── flake.nix
 ```
 
-## Example (Direct Import)
+## Notes For Maintainers
 
-```nix
-{
-  inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core?ref=beta";
-
-  outputs = { nixoaCore, nixpkgs, ... }: {
-    nixosConfigurations.my-host = nixpkgs.lib.nixosSystem {
-      modules = [ nixoaCore.nixosModules.appliance ];
-    };
-  };
-}
-```
-
-## Notes
-
-- Core is **version controlled** and **not** host-specific.
-- User settings belong in the `system/` repo (`config/` files).
-
-## Important Notice
-
-This project is designed for homelab/testing environments. For production use,\nconsider the official Xen Orchestra Appliance from Vates.
-
-## Resources
-
-- Xen Orchestra docs: https://xen-orchestra.com/docs/
-- NixOS learn: https://nixos.org/learn.html
-- Core issues: https://codeberg.org/NiXOA/core/issues
-
-## License
-
-Apache-2.0
+- `nxcli` is the canonical operator interface. Direct script execution is for bootstrap and internal plumbing.
+- `nixoa-menu` uses `nxcli` for apply, rollback, and repository commits.
+- Host-owned values belong under `host/<hostname>/`, not reusable core aspects.
+- `flake.denful.nixoaCore` is the primary reusable public surface.

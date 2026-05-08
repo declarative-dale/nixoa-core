@@ -5,6 +5,7 @@ nixoa-vm-bundle.md
 # Build results
 result
 result-*
+pkgs/nixoa-menu/target/
 
 # Nix build artifacts
 .direnv/
@@ -28,4 +29,4 @@ result-*
 # Logs
 *.log
 .claude/
-AGENTS.md
+.codex

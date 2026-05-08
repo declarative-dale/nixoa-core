@@ -1,19 +1,18 @@
 # SPDX-License-Identifier: Apache-2.0
 # Systemd helpers
-{ lib, ... }:
-{
+{lib, ...}: {
   # Service template helper
-  mkSystemdService =
-    {
-      description,
-      after ? [ ],
-      requires ? [ ],
-      wantedBy ? [ "multi-user.target" ],
-      ...
-    }@args:
+  mkSystemdService = {
+    description,
+    after ? [],
+    requires ? [],
+    wantedBy ? ["multi-user.target"],
+    ...
+  } @ args:
     lib.filterAttrs (
       n: v: n != "description" && n != "after" && n != "requires" && n != "wantedBy"
-    ) args
+    )
+    args
     // {
       inherit
         description

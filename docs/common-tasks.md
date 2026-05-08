@@ -1,62 +1,52 @@
-# Common Tasks (Core Consumers)
+# Common Tasks
 
-These examples are applied in the **system** repo (host config) and consumed by
-core modules via `vars`.
+These changes are now made directly in `host/<hostname>/_ctx/settings.nix`.
+After editing, save the repo change with `nxcli commit` and apply with
+`nxcli apply --target <hostname>` or `nxcli apply --target vm`.
 
 ## Enable XO
 
-Edit `config/features.nix`:
-
 ```nix
-{ enableXO = true; }
-```
-
-## Enable storage backends
-
-Edit `config/storage.nix`:
-
-```nix
+{ ... }:
 {
-  enableNFS = true;
-  enableCIFS = true;
-  enableVHD = true;
+  enableXO = true;
 }
 ```
 
-## Configure XO TLS
-
-Edit `config/xo.nix`:
+## Configure TLS
 
 ```nix
+{ ... }:
 {
   enableTLS = true;
   enableAutoCert = true;
 }
 ```
 
-## Open firewall ports
-
-Edit `config/networking.nix`:
+## Open Firewall Ports
 
 ```nix
-{ allowedTCPPorts = [ 80 443 ]; }
-```
-
-## Switch boot loader
-
-Edit `config/boot.nix`:
-
-```nix
-{ bootLoader = "grub"; }
-```
-
-## Add system packages
-
-Edit `config/packages.nix`:
-
-```nix
-{ pkgs, ... }:
+{ ... }:
 {
-  systemPackages = with pkgs; [ htop git ];
+  allowedTCPPorts = [ 80 443 ];
+}
+```
+
+## Switch Boot Loader
+
+```nix
+{ ... }:
+{
+  bootLoader = "grub";
+}
+```
+
+## Add Packages
+
+```nix
+{ ... }:
+{
+  systemPackages = [ "vim" "curl" ];
+  userPackages = [ "git" "tmux" ];
 }
 ```

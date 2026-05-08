@@ -1,25 +1,33 @@
-# DO-NOT-EDIT. This file was auto-generated using github:vic/flake-file.
-# Use `nix run .#write-flake` to regenerate it.
 {
-  description = "NiXOA Core - Xen Orchestra Community Edition deployment for NixOS homelabs";
+  description = "NiXOA - Den-native Xen Orchestra appliance flake with unified host management";
 
-  outputs = inputs: inputs.flake-parts.lib.mkFlake { inherit inputs; } (inputs.import-tree ./parts);
+  outputs = inputs: let
+    outputAliases = import ./lib/output-aliases.nix {lib = inputs.nixpkgs.lib;};
+    baseFlake =
+      (
+        inputs.nixpkgs.lib.evalModules {
+          modules = [(inputs.import-tree ./modules)];
+          specialArgs = {inherit inputs;};
+        }
+      ).config.flake;
+    selectedVmOutput = outputAliases.selectedVmOutput ./.;
+    baseNixosConfigurations = baseFlake.nixosConfigurations or {};
+    vmAlias = outputAliases.vmAlias baseNixosConfigurations selectedVmOutput;
+  in
+    baseFlake
+    // {
+      nixosConfigurations = baseNixosConfigurations // vmAlias;
+    };
 
   inputs = {
-    determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/3";
-    flake-file.url = "github:vic/flake-file";
-    flake-parts.url = "github:hercules-ci/flake-parts";
+    den.url = "github:denful/den/v0.16.0";
+    determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";
       url = "https://flakehub.com/f/nix-community/home-manager/0";
     };
     import-tree.url = "github:vic/import-tree";
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0";
-    xen-orchestra-ce = {
-      inputs.nixpkgs.follows = "nixpkgs";
-      url = "git+https://codeberg.org/NiXOA/xen-orchestra-ce.git?ref=refs/tags/latest";
-      ### Tagged to specific version git+https://codeberg.org/NiXOA/xen-orchestra-ce.git?ref=refs/tags/v6.2.0
-    };
+    xen-orchestra-ce.url = "git+https://github.com/declarative-dale/xo-nixpkg.git?ref=refs/tags/latest";
   };
-
 }

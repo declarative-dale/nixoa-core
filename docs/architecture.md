@@ -1,58 +1,106 @@
 # Core Architecture
 
-NiXOA core is an immutable **module library** and package layer. It uses
-flake-parts and a dendritic feature registry so hosts can compose features
-cleanly while keeping modules small.
+NiXOA core is both a reusable Den namespace and the concrete host flake for
+NiXOA machines. Reusable behavior stays under exported Den aspects, while
+host-owned data lives under `host/<hostname>/`.
+
+For operator workflows, start with [Daily Operations](operations.md) and the
+[nxcli reference](nxcli.md).
 
 ## Repository Shape
 
-```
-core/
-├── flake.nix
-├── parts/
-│   ├── flake/                 # outputs (nixosModules, overlays, per-system)
-│   ├── inputs/                # flake input wiring
-│   ├── per-system/            # per-system package outputs
-│   └── registry/              # feature registry + composition helpers
-├── modules/
-│   └── features/
-│       ├── foundation/        # shared module args + helpers
-│       ├── platform/          # base platform features
-│       │   ├── boot/           # loader + initrd
-│       │   ├── identity/       # hostname/locale/shells/state
-│       │   ├── networking/     # network defaults, firewall, NFS client
-│       │   ├── packages/       # base packages + Nix settings
-│       │   ├── services/       # journald + monitoring defaults
-│       │   └── users/          # accounts, sudo, SSH
-│       ├── virtualization/    # Xen hardware + guest agent
-│       └── xo/                # XO service, storage, TLS, CLI
-├── lib/                       # shared helpers
-└── scripts/                   # maintenance utilities
+```text
+host/
+├── _automation/
+├── _template/
+│   ├── default.nix
+│   ├── _ctx/
+│   ├── _homeManager/
+│   └── _nixos/
+├── nixo-ce-example/
+│   └── ...
+modules/
+├── dendritic.nix
+├── den-defaults.nix
+├── host.nix
+├── namespace.nix
+├── nixoaCore/
+├── schema.nix
+├── outputs/
+├── _homeManager/
+└── _nixos/
 ```
 
-## Feature Registry
+## Exported Namespace
 
-`parts/registry/features.nix` defines:
+`modules/namespace.nix` exports the reusable `nixoaCore` namespace:
 
-- **features**: small modules mapped to names
-- **stacks**: named sets of features (e.g., `platform`, `xo`, `appliance`)
+- `flake.denful.nixoaCore.platform`
+- `flake.denful.nixoaCore.xcp-ng-guest`
+- `flake.denful.nixoaCore.xo`
+- `flake.denful.nixoaCore.appliance`
 
-Feature definitions are grouped by domain in `parts/registry/features/` and
-merged by `parts/registry/features.nix`.
+The preferred consumption paths are:
 
-`parts/registry/composition.nix` then builds `nixosModules.*` from the registry.
+- `<nixoaCore/platform>`
+- `<nixoaCore/xcp-ng-guest>`
+- `<nixoaCore/xo>`
+- `<nixoaCore/appliance>`
 
-## How Settings Flow In
+`modules/den-defaults.nix` also keeps the Den defaults Den-native:
 
-System configuration lives in the host repo (the `system/` flake). It produces
-`vars` from `configuration.nix` (which aggregates `config/`). Those values are
-injected via `specialArgs` and `_module.args` into core modules.
+- `den.default.includes = [ <den/hostname> <den/define-user> ]`
+- `den.ctx.user.includes = [ <den/mutual-provider> ]`
 
-```
-config/* → configuration.nix → vars → specialArgs → core modules → NixOS config
-```
+## Host Assembly
 
-## Relationship to System
+Concrete hosts are discovered from `host/` by `modules/host.nix`
+through `inputs.import-tree`. Only non-underscored host owner modules are
+loaded, so `host/_template/`, `host/_automation/`, and host-local `_ctx`,
+`_nixos`, and `_homeManager` trees stay hidden until Den resolves them for a
+class.
 
-`system/` imports core as a flake input and selects the `appliance` stack (or
-individual features) from `nixoaCore.nixosModules`.
+Each host's `default.nix`:
+
+- merges host-local context from `_ctx/settings.nix` and `_ctx/menu.nix`
+- declares `den.hosts.<system>.<hostname>`
+- includes `<nixoaCore/appliance>`
+- includes `(den._.import-tree ./.)` so host-owned `_nixos` and `_homeManager` trees project by class
+- attaches host-owned behavior through `includes`
+- provides user-scoped behavior through `provides.to-users`, keeping the host-owned Home Manager projection explicit for compatibility with the GitHub-released Den API
+- emits both the concrete host and a companion `-vm` host
+
+`host/_automation/default.nix` selects which concrete `-vm` output is re-exported
+as the stable `nixosConfigurations.vm` automation target.
+
+This keeps composition inside Den's `includes` and `provides` model instead of
+recreating a separate manual host-composition framework.
+
+## Appliance Policy
+
+The appliance is mutable by default for operator-owned settings, package lists, Home Manager modules, Flatpaks, and host-local NixOS modules. Set
+`immutability.enable = true` in the host context to switch user management to a declarative policy while leaving runtime state writable for XO, Valkey, TLS, SSH host keys, Flatpaks, logs, and queued rebuild state.
+
+XO configuration is generated into `/etc/xo-server/config.nixoa.toml` from the declarative `xoConfig.toml` string in host settings. The default TOML preserves the Valkey socket, XO data and temp paths, public `80` and `443` listeners, TLS paths, web mounts, and remote storage mount directory.
+
+## Supporting Outputs
+
+The flake also publishes:
+
+- `nixosConfigurations.<hostname>` for concrete hosts
+- `nixosConfigurations.<hostname>-vm` for per-host VM variants
+- `nixosConfigurations.vm` for automation that should not depend on a concrete host name
+- repository and host-scoped `apps`, with `nxcli` as the canonical operator interface
+- `devShells`
+- supporting `packages`, including `nxcli` and the shared `nixoa-menu` console
+
+These outputs are secondary to the Den model, but they make the unified repo
+operable without an additional wrapper flake.
+
+## Operator Surfaces
+
+`nxcli` owns repository and system operations: host creation, apply/boot,
+rollback, commit/diff/history, flake updates, XOA input updates, status, and XO logs. The remaining scripts under `scripts/` are either bootstrap entrypoints or shared implementation helpers used by `nxcli` and `nixoa-menu`.
+
+`nixoa-menu` is a Ratatui SSH console with an xsconsole-style navigation model.
+It uses `nxcli` for apply, rollback, and committing dirty tracked files before apply, while the `scripts/tui/` helpers own focused host-context edits.

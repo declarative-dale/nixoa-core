@@ -1,30 +1,55 @@
-# Troubleshooting (Core)
+# Troubleshooting
 
-Issues are typically resolved in the **system** repo configuration.
+Most operational checks use `nxcli`; see the [nxcli reference](nxcli.md) for
+full command syntax.
 
-## XO not starting
+## XO Not Starting
 
-Check that `enableXO = true;` is set in `config/features.nix` and review logs:
+Check the active host's `host/<hostname>/_ctx/settings.nix` for:
+
+- `enableXO = true`
+- correct XO runtime and TLS settings
+
+Then inspect:
 
 ```bash
-systemctl status xo-server
-journalctl -u xo-server -n 200
+sudo systemctl status xo-server.service
+nxcli xo logs
 ```
 
-## SSH access missing
+## SSH Access Missing
 
-Ensure `sshKeys` is populated in `config/users.nix` and rebuild.
+Ensure `sshKeys` is populated in `host/<hostname>/_ctx/settings.nix`.
 
-## Firewall ports blocked
+## Firewall Ports Blocked
 
-Update `config/networking.nix` to add required TCP/UDP ports.
+Update `allowedTCPPorts` or `allowedUDPPorts` in `host/<hostname>/_ctx/settings.nix`
+and re-apply the host.
 
-## TLS issues
+## New Host Does Not Resolve In The Flake
 
-Verify `config/xo.nix`:
+Ensure the host directory exists at `host/<hostname>/` and includes
+`default.nix`. If the repo is still in a git worktree evaluation path, stage
+the new directory with:
 
-```nix
-{ enableTLS = true; enableAutoCert = true; }
+```bash
+git add host/<hostname> host/_automation/default.nix
 ```
 
-Or provide your own certs under `nixoa.xo.tls.*` in a custom module.
+## Stable VM Alias Resolves To The Wrong Host
+
+Check `host/_automation/default.nix` and confirm `vmHost` points at the
+intended concrete host. The stable alias always resolves to
+`nixosConfigurations.<vmHost>-vm`.
+
+To update it through the supported CLI:
+
+```bash
+nxcli host select-vm <hostname>
+```
+
+## SSH Login Does Not Open The Console
+
+This is the default behavior. Run `nixoa-menu` manually from the shell, or set `nixoaMenuAutoStart = true;` in `host/<hostname>/_ctx/settings.nix` and apply the host if SSH logins should enter the console automatically.
+
+If autostart is enabled but skipped, check that the session is interactive and that `NIXOA_TUI_BYPASS` or `NIXOA_TUI_ACTIVE` is not already set.

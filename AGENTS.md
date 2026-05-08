@@ -1,27 +1,27 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-This repository is the NiXOA core module library. Feature modules live under `modules/features/` with foundation, platform, virtualization, and XO slices. Nix packages are defined under `pkgs/` (for example, `pkgs/xen-orchestra-ce/`). Shared helpers sit in `lib/`, and operational scripts are in `scripts/`.
+This repository is the NiXOA core aspect namespace and the concrete host flake. Den bootstrap and namespace wiring live in `modules/dendritic.nix`, `modules/den-defaults.nix`, and `modules/namespace.nix`. Reusable exported aspects live under `modules/nixoaCore/`, while shared hidden implementation modules live under `modules/_nixos/` and `modules/_homeManager/`. Shared helpers live in `lib/`; `scripts/nxcli.sh` is the source for the packaged operator CLI, with `scripts/tui/` reserved for the console backend.
 
 ## Build, Test, and Development Commands
-- `nix flake check .`: Validate flake inputs and basic evaluation.
-- `sudo nixos-rebuild switch --flake .#HOSTNAME -L`: Rebuild a system using this flake (typically from a system repo that imports it).
-- `scripts/xoa-update.sh`: Update the XO source input in `flake.lock`.
-- `scripts/xoa-logs.sh`: Tail service logs for XO and related units.
+- `nix flake check --no-write-lock-file`: Validate flake evaluation.
+- `nix build .#packages.x86_64-linux.xen-orchestra-ce --no-link`: Validate the packaged XO build.
+- `nix run .#nxcli -- update xoa`: Update the XO source input in `flake.lock`.
+- `nix run .#nxcli -- xo logs`: Tail XO-related logs on a running host.
 
 ## Coding Style & Naming Conventions
-- Nix files use 2-space indentation and snake/short filenames (for example, `modules/features/xo/service/unit.nix`).
-- Keep options in the `nixoa.*` namespace and group related settings under feature modules.
-- Shell scripts are POSIX-ish `bash` with `.sh` extensions; keep them executable and minimal.
+- Keep reusable NiXOA behavior in namespaced aspects under `nixoa.*`; use plain implementation modules only behind those aspect definitions.
+- Keep machine-specific policy out of core. User-editable context values belong in the system repository.
+- Prefer aspect names and `includes`/`provides` terminology over stack or module-library wording.
 
 ## Testing Guidelines
-- Primary validation is `nix flake check .` plus a dry-run or rebuild on a target system.
-- There is no separate unit test suite in this repo; add checks in Nix or scripts when needed.
+- Primary validation is `nix flake check --no-write-lock-file` plus targeted `nix build` dry-runs for exported packages.
+- If you change a public aspect tree, also validate the downstream `system` host flake.
 
 ## Commit & Pull Request Guidelines
-- Commit messages are short, imperative, and sentence case (examples in `git log`).
-- PRs should describe the module or package change, include config examples if behavior changes, and link relevant issues or docs updates.
+- Commit messages should describe the exported aspect surface, package graph, or module layout change being made.
+- If a change affects the public namespace or aspect names, update `README.md` and `docs/architecture.md` in the same commit.
 
 ## Security & Configuration Notes
-- This repo is an implementation library; user-specific values belong in the system repository.
-- Avoid editing generated files or machine-specific values here; keep modules reusable and declarative.
+- Core includes example/template host wiring, but reusable policy still belongs under `modules/nixoaCore/`.
+- Keep `flake.denful.nixoaCore` as the primary reusable surface; do not reintroduce `nixosModules` as the main API.

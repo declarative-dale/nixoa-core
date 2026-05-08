@@ -1,6 +1,215 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## v2.0.0 — Operator Console And CLI Refactor
+
+Date: 2026-05-08
+
+This release is a breaking repository and operator-surface refactor. NiXOA is now operated directly from the `core` repo: reusable aspects, host templates, concrete host definitions, packages, apps, `nxcli`, and `nixoa-menu` all live in one flake. The previous model, where a separate system flake consumed `core` as an input and owned host operations, is deprecated.
+
+The release also turns `nixoa-menu` into an xsconsole-style SSH console, makes `nxcli` the single supported command surface for repository and host operations,
+and removes the older duplicate script entrypoints that previously owned apply, commit, diff, history, log, and XOA update flows.
+
+### ✨ Added
+
+- **xsconsole-style `nixoa-menu` navigation** with a compact `NiXO-CE` header, one visible left menu at a time, persistent contextual right-side panels, and simple Up/Down/Enter/Esc navigation
+- **Selectable shell-return confirmation** on Esc from the main menu, with arrow-key selection plus `y`, `n`, and Esc shortcuts
+- **Apply-time dirty-worktree commit prompt** in `nixoa-menu`; dirty tracked files are listed before apply, operators can enter a commit message, and an automatic dated message is generated when the prompt is left blank
+- **`nixoaMenuAutoStart` host context setting**, defaulting to `false`, to make SSH console autostart explicitly opt-in
+- **`nxcli` parity commands** for `commit`, `diff`, `history`, `status --json`, host JSON output, flake update previewing, and XOA-specific input updates
+- **Full `nxcli` reference documentation** covering every command, option, example, and flake app wrapper
+- **Baseline Bash operator quality-of-life defaults** such as persistent history, readline search/completion behavior, and core Git/system aliases without requiring extras
+
+### 🔄 Changed
+
+- **Core is now the operational repo**, not only a reusable input; concrete host directories, automation aliases, packages, apps, CLI behavior, and console behavior are consolidated into this flake
+- **Host-owned state now lives under `core/host/<hostname>/`** with `host/_automation/default.nix` selecting the stable `nixosConfigurations.vm` output
+- **`nxcli` is now the canonical operator interface** for host creation, apply, boot, rollback, commit, diff, history, status, flake updates, XOA input updates, and XO log tailing
+- **Flake apps now route through packaged `nxcli`** for apply, commit, diff, and history instead of resolving repo-local helper scripts at runtime
+- **`nxcli` packaging now uses `writeShellApplication`** with explicit Nix-provided runtime inputs, removing ambient tool and script-local `nix shell nixpkgs#nh` fallback behavior
+- **`nixoa-menu` uses `nxcli` for apply, rollback, and commit flows**, keeping TUI host-context edits in `scripts/tui/` and repository/system actions in the CLI
+- **SSH login behavior changed** so Bash and Zsh start `nixoa-menu` only when `nixoaMenuAutoStart = true;`, while preserving `NIXOA_TUI_BYPASS` and `NIXOA_TUI_ACTIVE` guards
+- **TUI update actions use `nix flake update <input>`** instead of deprecated `nix flake lock --update-input` commands
+- **Documentation now describes the current operator model**, including a streamlined README, manual `nixoa-menu`, `nxcli commit` for saving flake changes, XOA input updates, and the reduced role of direct scripts
+- **`nixoa-menu` package version advanced to `0.6.0`** and `nxcli` reports version `4.1.0`
+
+### ⚠️ Deprecated
+
+- **The old split `core` input plus separate `system` flake model** for day-to-day NiXOA operation; new installations and operators should use the unified `core` flake directly
+- **System-flake-owned host operations** such as applying, committing, updating, and launching the console from outside `core`; these are now `nxcli` and `nixoa-menu` responsibilities inside this repo
+
+### 🗑️ Removed
+
+- **Deprecated duplicate operator scripts** for apply, commit, diff, history, and XOA updates now that their behavior lives in `nxcli`.
+- **Standalone XO log helper script** after moving log tailing into `nxcli xo logs`
+- **Obsolete Redis-to-Valkey migration script** that was no longer referenced by docs, apps, modules, or current operator flows
+- **ASCII-art console header and simultaneous main-menu/submenu rendering** in favor of the compact operator-console layout
+
+### 🐛 Fixed
+
+- **Apply configuration can no longer silently proceed past dirty tracked files in the TUI** without first asking whether to commit them
+- **Confirmation styling now matches the console palette** instead of using an out-of-band danger window for the shell-return prompt
+- **Docs and repo guidance no longer point at removed helper scripts** for logs or routine operator tasks
+
+## v1.7.0 — Shared Console Release And XO Cache Alignment
+
+Date: 2026-04-05
+
+This release turns `core` into the shared source of truth for the NiXOA
+console, aligns the Xen Orchestra package resolution with the exact upstream
+`xo-nixpkg` derivation, and ships a larger console refactor focused on cleaner
+navigation, better layout behavior, and lower bootstrap build overhead.
+
+### ✨ Added
+
+- **Shared `nixoa-menu` package ownership in `core`** so downstream consumers can reuse one cached console build
+- **Page-based console navigation** with `Dashboard`, `Configure`, `Software`, `Maintenance`, and `Logs`
+- **Searchable command palette and dedicated help modal** for faster keyboard-driven action discovery
+- **Typed alert model** with severity levels and optional action affordances
+- **Scrollable and filterable log browsing** through a dedicated `Logs` page plus a smaller dashboard activity panel
+
+### 🔄 Changed
+
+- **`xen-orchestra-ce` resolution** now follows the exact `xo-nixpkg` derivation path instead of re-materializing it through `core`'s own nixpkgs graph
+- **`libvhdi` defaults** now come directly from the `xo-nixpkg` input graph rather than a separate `core`-owned package export
+- **Console layout hierarchy** now uses stable domain tabs, grouped action menus, footer shortcuts, and consistent gutters/padding
+- **Console labels and maintenance terminology** now use clearer task names such as `System Summary`, `Recent Activity`, `Flake Inputs`, `Rollback Generation`, and `Run Garbage Collection`
+- **Console package version** advanced to `0.3.1`
+
+### 🗑️ Removed
+
+- **Flat top-level action list** that mixed unrelated configuration, software, and maintenance tasks into one overloaded menu
+- **Red as a generic active-state color** outside true errors or destructive actions
+
+### 🐛 Fixed
+
+- **Border collisions and clipped panes** in the Ratatui console layout by rebuilding the screen around gutters and adaptive panel sizing
+- **TUI/backend drift** by moving the shared console binary into `core` while keeping host-mutating repo actions in `system`
+- **Cache misses for Xen Orchestra builds** caused by `core` resolving a different derivation than the one published by `xo-nixpkg`
+- **Update coverage for Determinate Nix** by exposing `determinate` as a first-class `Check for Updates` flake input in the console
+
+## v1.6.0 — Den Alignment And Output Naming Cleanup
+
+Date: 2026-04-04
+
+This release aligns `core` with the current Den patterns, removes obsolete
+inputs that Den no longer needs, and renames the public output wiring so the
+repository is easier to follow for maintainers consuming `nixosModules`,
+packages, and overlays.
+
+### ✨ Added
+
+- **Den flake output module support for packages** in the non-`flake-parts` output path
+
+### 🔄 Changed
+
+- **Den input updated** to the current `6d6ff64` release line
+- **Bootstrap module renamed** from `modules/dendritic.nix` to `modules/den.nix`
+- **Public module export entrypoint renamed** from `stacks.nix` to `nixosModules.nix`
+- **Output wiring** now reads more directly from `den` bootstrap to named public outputs
+
+### 🗑️ Removed
+
+- **Obsolete `flake-aspects` input** now that Den bundles its own aspect support
+- **Unused `import-tree` input** from the root `core` flake
+
+### 🐛 Fixed
+
+- **Repository drift against current Den docs** by removing stale dependency patterns and adopting the current output module layout
+
+## v1.5.0 — Boundary Completion And XO Runtime Defaults
+
+Date: 2026-03-25
+
+This release finishes the remaining core/system split by removing host
+lifecycle policy from core, moving Xen Orchestra service identity into typed
+core options, and aligning the docs with the simplified host workflow.
+
+### ✨ Added
+
+- **Typed XO service identity options** through `nixoa.xo.user` and `nixoa.xo.group`
+
+### 🔄 Changed
+
+- **XO service/storage modules** now consume `config.nixoa.xo.*` defaults for service identity
+- **Consumer docs** now describe core as a runtime library with host policy delegated to `system/`
+- **Operational examples** now use the simplified `system` apply flow without requiring an explicit hostname argument
+
+### 🗑️ Removed
+
+- **Remaining host-owned platform modules** for boot loader policy, system state version, and extras tooling
+
+### 🐛 Fixed
+
+- **Last core/system boundary leaks** around boot policy, timezone/state ownership, and XO service-account defaults
+
+## v1.4.0 — Den-Native Naming And Boundary Cleanup
+
+Date: 2026-03-25
+
+This release tightens the boundary between the immutable appliance library and
+the host flake, removes redundant naming layers, and renames the live module
+tree to match the current dendritic structure more closely.
+
+### ⚠️ Breaking Changes
+
+- **`nixosModules.xo` was removed**; the explicit `xenOrchestra` stack is now the only XO export
+- **Plain module paths moved** from `modules/_nixos/` to `modules/nixos/`
+- **Host identity and admin-user policy moved out of core**; hostname, SSH, sudo, and admin account policy now belong to `system`
+
+### ✨ Added
+
+- **Dedicated Xen Orchestra service modules** for the service account and runtime limits
+- **Explicit `stacks.nix` entrypoint** for public stack composition
+
+### 🔄 Changed
+
+- **Feature slice naming** from `foundation` to `shared` and from `xo` to `xen-orchestra`
+- **Platform package module name** from `base-packages.nix` to `packages.nix`
+- **README and architecture docs** to reflect the current output surface and implementation tree
+
+### 🐛 Fixed
+
+- **Core/system responsibility drift** by removing host-owned identity policy from the core appliance library
+
+## v1.3.0 — Explicit Output Surface And System Boundary Cleanup
+
+Date: 2026-03-24
+
+This release finalizes the dendritic core refactor around explicit flake
+entrypoints, curated stack exports, and a cleaner separation between the core
+appliance library and the system host flake.
+
+### ⚠️ Breaking Changes
+
+- **Public output layout changed** from the old top-level output files to `modules/outputs/`
+- **Granular stack exports are now part of the public API** through `virtualization` and `xenOrchestra`
+- **Bootstrap/install responsibilities were removed from core** and now live in `system/`
+
+### ✨ Added
+
+- **Explicit output entrypoints** in `modules/outputs.nix` and `modules/outputs/default.nix`
+- **Granular public stack exports**: `virtualization` and `xenOrchestra`
+- **Condensed architecture/docs pass** aligned with the new output surface
+
+### 🔄 Changed
+
+- **Public flake loading** now uses explicit dendritic entrypoints from `flake.nix`
+- **Curated module exports** now live under `modules/outputs/`
+- **Packaged `nixoa` CLI** now targets the current `system/` repository layout
+- **README and docs** now describe core as an immutable appliance library rather than a host bootstrap repo
+
+### 🗑️ Removed
+
+- **Unused `home-manager` flake input**
+- **Obsolete `scripts/xoa-install.sh`** bootstrap script
+- **Legacy top-level output module paths** in favor of `modules/outputs/`
+
+### 🐛 Fixed
+
+- **Output discoverability** after the dendritic refactor by switching from implicit tree loading to explicit module entrypoints
+- **System-facing update guidance** in `xoa-update.sh` and the packaged CLI
+
 ## v1.2.0 — Platform Dendritic Split
 
 Date: 2026-02-27
@@ -70,11 +279,11 @@ and moves Xen guest integration into the core virtualization set.
 
 ---
 
-## v0.5 — Determinate Nix Migration & Xen VM Enhancements
+## v0.5 — Runtime Cleanup & Xen VM Enhancements
 
 Date: 2026-01-09
 
-This release migrates to Determinate Nix, improves Xen VM hardware support, modernizes service configuration, and removes automatic update infrastructure.
+This release streamlines the runtime configuration, improves Xen VM hardware support, modernizes service configuration, and removes automatic update infrastructure.
 
 ### ✨ Added
 
@@ -87,7 +296,7 @@ This release migrates to Determinate Nix, improves Xen VM hardware support, mode
 
 ### 🔄 Changed
 
-- **Migrated to Determinate Nix** - Removed obsolete configuration settings for cleaner deployment
+- **Runtime configuration cleanup** - Removed obsolete configuration settings for cleaner deployment
 - **Cachix integration** - Moved cachix configuration to system flake for better organizational structure
 - **Redis → Valkey** - Updated services.redis.package = pkgs.valkey for Redis-compatible caching
 - **Shell configuration** - Now based on vars.enableExtras instead of deprecated vars.shell variable
@@ -110,7 +319,6 @@ This release migrates to Determinate Nix, improves Xen VM hardware support, mode
 
 ---
 
-## v1.1 - Determinate Nix
 ## v1.0.0 — Milestone Release
 
 Date: 2025-12-29
@@ -247,7 +455,7 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 
 **For Users**
 - 10-100x faster deploys: No 45-minute build on every `nixos-rebuild`
-- Binary cache eligible: XO-CE can be pre-built and cached
+- Binary cache eligible: XOA can be pre-built and cached
 - Reproducible builds: Same inputs → identical package hash
 - Atomic updates: Switch XO versions instantly via rollback
 
