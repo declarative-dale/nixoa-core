@@ -2,15 +2,11 @@
 
 NiXOA is installed directly from this repo.
 
-For a shorter overview, start with the root [README](../README.md). For command
-details, see the [nxcli reference](nxcli.md).
+For a shorter overview, start with the root [README](../README.md). For command details, see the [nxcli reference](nxcli.md).
 
 ## Fresh Base Install Prep
 
-On a fresh NixOS install, you can persist the XO and libvhdi Cachix caches and
-trusted users ahead of time as the `nixos` user. Determinate cache settings are
-passed only as first-switch command-line options; Determinate Nix manages its
-own persistent substitution settings after activation.
+On a fresh NixOS install, you can persist the XO and libvhdi Cachix caches and trusted users ahead of time as the `nixos` user. Determinate cache settings are passed only as first-switch command-line options; Determinate Nix manages its own persistent substitution settings after activation.
 
 ```bash
 sudo install -d -m 0755 /etc/nix
@@ -58,8 +54,7 @@ checkout/bootstrap flow; routine host creation and operation should use `nxcli`.
 
 ## Reusable Den Import
 
-If another flake wants only the NiXOA aspect namespace, import this repo as a
-normal Den source:
+If another flake wants only the NiXOA aspect namespace, import this repo as a normal Den source:
 
 ```nix
 inputs.den.url = "github:denful/den";

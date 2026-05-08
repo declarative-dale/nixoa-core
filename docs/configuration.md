@@ -57,23 +57,18 @@ without caller-side guessing.
 - `enableVHD`
 - `mountsDir`
 
-`shell = null` preserves the default behavior: `bash` normally and `zsh` when
-`enableExtras = true`. Set `shell = "bash";`, `shell = "zsh";`, or another Den
-user-shell name to choose explicitly.
+`shell = null` preserves the default behavior: `bash` normally and `zsh` when `enableExtras = true`. Set `shell = "bash";`, `shell = "zsh";`, or another Den user-shell name to choose explicitly.
 
 Bash includes baseline operator quality-of-life defaults even when
-`enableExtras = false`: persistent history, readline completion/search behavior,
-common Git/system aliases, and the `menu = nixoa-menu` alias. Extras remain the
-place for heavier Zsh enhancements such as Oh My Zsh and additional shell
-packages.
+`enableExtras = false`: persistent history, readline completion/search behavior, common Git/system aliases, and the `menu = nixoa-menu` alias. 
+
+Extras remain the place for heavier Zsh enhancements such as Oh My Zsh and additional shell packages.
 
 `nixoaMenuAutoStart = false` keeps SSH logins in the normal shell. Set it to
 `true` only when SSH sessions should automatically exec `nixoa-menu`. The
 autostart path still honors `NIXOA_TUI_BYPASS` and `NIXOA_TUI_ACTIVE`.
 
-`immutability.enable = false` keeps the operator-friendly mutable mode. When set
-to `true`, NixOS manages users declaratively and locks the admin account to
-SSH-key access while preserving appliance runtime state.
+`immutability.enable = false` keeps the operator-friendly mutable mode. When set to `true`, NixOS manages users declaratively and locks the admin account to SSH-key access while preserving appliance runtime state.
 
 XO config is declared as literal TOML inside `_ctx/settings.nix`:
 
@@ -91,8 +86,7 @@ xoConfig.toml = ''
 ```
 
 The string is the complete `/etc/xo-server/config.nixoa.toml` content and is
-validated as TOML during builds. This keeps XO configuration declarative while
-making edits feel like editing a normal TOML file.
+validated as TOML during builds. This keeps XO configuration declarative while making edits feel like editing a normal TOML file.
 
 ## Den-Native Split
 

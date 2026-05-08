@@ -12,9 +12,7 @@ cd ~/nixoa
 nxcli status
 ```
 
-`nxcli status` reports the repo root, selected stable VM host, active target,
-XO service state, Redis/Valkey backend state, and whether tracked repo files
-are clean.
+`nxcli status` reports the repo root, selected stable VM host, active target, XO service state, Redis/Valkey backend state, and whether tracked repo files are clean.
 
 ## Service Management
 
@@ -40,8 +38,7 @@ nixoa-menu
 ```
 
 The console uses a simple main menu/submenu flow: Up and Down move, Enter
-selects, and Esc returns to the previous menu. Esc at the main menu asks whether
-to return to the shell. SSH autostart is disabled by default; enable
+selects, and Esc returns to the previous menu. Esc at the main menu asks whether to return to the shell. SSH autostart is disabled by default; enable
 `nixoaMenuAutoStart = true;` in the host context only when SSH logins should
 enter the console automatically.
 
@@ -118,6 +115,7 @@ nxcli commit "Describe the change"
 ```
 
 `nixoa-menu` also uses `nxcli commit` before apply when tracked files are dirty.
+
 If the console commit prompt is left blank, it generates a message from the
 current date and changed files.
 

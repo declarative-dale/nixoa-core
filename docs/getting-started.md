@@ -4,11 +4,8 @@ NiXOA is now used directly from the unified `core` repo.
 
 ## Fresh NixOS Prep
 
-On a fresh machine where you are still operating as the stock `nixos` user, you
-can persist the XO and libvhdi Cachix caches and trusted users ahead of time.
-Determinate cache settings are passed only as first-switch command-line options;
-Determinate Nix manages its own persistent substitution settings after
-activation.
+On a fresh machine where you are still operating as the stock `nixos` user, you can persist the XO and libvhdi Cachix caches and trusted users ahead of time.
+Determinate cache settings are passed only as first-switch command-line options; Determinate Nix manages its own persistent substitution settings after activation.
 
 ```bash
 sudo install -d -m 0755 /etc/nix
@@ -61,15 +58,11 @@ nix run .#nxcli -- apply --target vm --dry-run
 nix run .#nxcli -- boot --target vm
 ```
 
-`--target vm` always resolves through `host/_automation/default.nix`, so it is
-the stable automation target for VM/XO workflows. Use concrete host names when
-you need to pin an operation to one specific host output.
+`--target vm` always resolves through `host/_automation/default.nix`, so it is the stable automation target for VM/XO workflows. Use concrete host names when you need to pin an operation to one specific host output.
 
-After the first successful apply, `nxcli` is installed on the host and the same
-commands can be run as `nxcli ...` without the repo-local launcher path.
+After the first successful apply, `nxcli` is installed on the host and the same commands can be run as `nxcli ...` without the repo-local launcher path.
 
-`nixoa-menu` is installed on the host as the SSH operator console. It no longer
-autostarts on SSH login unless the host context sets
+`nixoa-menu` is installed on the host as the SSH operator console. It no longer autostarts on SSH login unless the host context sets
 `nixoaMenuAutoStart = true;`; otherwise start it manually with `nixoa-menu`.
 
 For complete command syntax and options, see the

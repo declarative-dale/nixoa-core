@@ -1,8 +1,7 @@
 # NiXOA Core
 
 NiXOA Core is a NixOS appliance flake for running Xen Orchestra Community
-Edition. It gives you a reproducible host layout, a packaged XO build, a single
-operator CLI, and an SSH-friendly console for day-to-day administration.
+Edition. It gives you a reproducible host layout, a packaged XO build, a single operator CLI, and an SSH-friendly console for day-to-day administration.
 
 This repo can be used in two ways:
 
@@ -45,8 +44,7 @@ nixoa-menu
 ```
 
 SSH logins open a normal shell by default. Run `nixoa-menu` manually, or set
-`nixoaMenuAutoStart = true;` in the host context if SSH sessions should enter
-the console automatically.
+`nixoaMenuAutoStart = true;` in the host context if SSH sessions should enter the console automatically.
 
 ## Common Commands
 

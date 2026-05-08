@@ -1,8 +1,6 @@
 # nxcli Reference
 
-`nxcli` is the canonical operator interface for NiXOA. It owns host creation,
-apply/boot/rollback, repository commits, flake updates, XOA input updates,
-status, logs, and generation inspection.
+`nxcli` is the canonical operator interface for NiXOA. It owns host creation, apply/boot/rollback, repository commits, flake updates, XOA input updates, status, logs, and generation inspection.
 
 Before the first successful apply, run it from the repo checkout:
 
@@ -47,8 +45,7 @@ Most system-mutating commands accept `--target`.
 - `<hostname>-vm` targets the per-host VM output
 - `vm` resolves through `host/_automation/default.nix`
 
-Use `vm` for automation that should follow the selected VM host. Use a concrete
-hostname when an operation must stay pinned to one host.
+Use `vm` for automation that should follow the selected VM host. Use a concrete hostname when an operation must stay pinned to one host.
 
 ## Help And Version
 
@@ -71,8 +68,7 @@ Text status reports the repo root, stable VM host, active target, XO service
 state, Redis/Valkey compatibility service state, and tracked git state.
 
 `--json` returns the state used by `nixoa-menu`, including host context,
-repository state, memory/storage summaries, network URL, XOA version, rebuild
-state, and last apply information when present.
+repository state, memory/storage summaries, network URL, XOA version, rebuild state, and last apply information when present.
 
 ## Apply, Boot, And Rollback
 
@@ -96,10 +92,7 @@ Options:
 - `--verbose`: increase `nh` verbosity
 - `--`: pass remaining arguments through to the underlying build command
 
-`apply` and `boot` use `nh` for normal rebuilds. `rollback` and first-install
-switches use `nixos-rebuild` where appropriate. If tracked NiXOA files are
-dirty, text-mode `nxcli apply` warns and continues; `nixoa-menu` prompts to
-commit dirty tracked files before applying.
+`apply` and `boot` use `nh` for normal rebuilds. `rollback` and first-install switches use `nixos-rebuild` where appropriate. If tracked NiXOA files are dirty, text-mode `nxcli apply` warns and continues; `nixoa-menu` prompts to commit dirty tracked files before applying.
 
 ## Repository Changes
 
@@ -116,8 +109,7 @@ nxcli commit
 `history` shows recent commits that touched tracked NiXOA paths.
 
 `commit` stages tracked NiXOA paths and creates a commit. If no message is
-provided in an interactive terminal, it prompts. If the prompt is left blank, it
-generates a structured commit body from the staged files.
+provided in an interactive terminal, it prompts. If the prompt is left blank, it generates a structured commit body from the staged files.
 
 Use this to save flake changes:
 
@@ -136,9 +128,7 @@ nxcli host edit [hostname|hostname-vm|vm]
 ```
 
 `host add` creates `host/<hostname>/` from `host/_template/`, writes host-owned
-settings, optionally copies `/etc/nixos/hardware-configuration.nix`, updates the
-stable VM alias, stages new host files, validates the flake, and can run the
-first switch. It requires a clean tracked NiXOA worktree before it starts.
+settings, optionally copies `/etc/nixos/hardware-configuration.nix`, updates the stable VM alias, stages new host files, validates the flake, and can run the first switch. It requires a clean tracked NiXOA worktree before it starts.
 
 `host add` options:
 
@@ -160,9 +150,7 @@ first switch. It requires a clean tracked NiXOA worktree before it starts.
 with the configured editor.
 
 `host list --json` returns host names, deployment profiles, and stable VM
-selection state. `host show --json` returns the selected host, settings files,
-profile, username, timezone, repo directory, concrete outputs, and stable VM
-selection state.
+selection state. `host show --json` returns the selected host, settings files, profile, username, timezone, repo directory, concrete outputs, and stable VM selection state.
 
 ## Updating Flake Inputs
 
@@ -183,9 +171,7 @@ Options:
 `update flake` updates all flake inputs and prints suggested follow-up commands.
 If `flake.lock` changes, save it with `nxcli commit`.
 
-`update xoa` updates only the `xen-orchestra-ce` input. It requires the tracked
-NiXOA files to be clean before mutating, and commits the `flake.lock` update when
-the lock entry changes.
+`update xoa` updates only the `xen-orchestra-ce` input. It requires the tracked NiXOA files to be clean before mutating, and commits the `flake.lock` update when the lock entry changes.
 
 ## XO Logs
 

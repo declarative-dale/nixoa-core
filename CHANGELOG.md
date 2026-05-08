@@ -6,10 +6,7 @@
 Date: 2026-05-08
 
 This release is a breaking operator-surface refactor. It turns `nixoa-menu`
-into an xsconsole-style SSH console, makes `nxcli` the single supported command
-surface for repository and host operations, and removes the older duplicate
-script entrypoints that previously owned apply, commit, diff, history, log, and
-XOA update flows.
+into an xsconsole-style SSH console, makes `nxcli` the single supported command surface for repository and host operations, and removes the older duplicate script entrypoints that previously owned apply, commit, diff, history, log, and XOA update flows.
 
 ### ✨ Added
 

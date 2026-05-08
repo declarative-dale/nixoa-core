@@ -78,16 +78,10 @@ recreating a separate manual host-composition framework.
 
 ## Appliance Policy
 
-The appliance is mutable by default for operator-owned settings, package lists,
-Home Manager modules, Flatpaks, and host-local NixOS modules. Set
-`immutability.enable = true` in the host context to switch user management to a
-declarative policy while leaving runtime state writable for XO, Valkey, TLS,
-SSH host keys, Flatpaks, logs, and queued rebuild state.
+The appliance is mutable by default for operator-owned settings, package lists, Home Manager modules, Flatpaks, and host-local NixOS modules. Set
+`immutability.enable = true` in the host context to switch user management to a declarative policy while leaving runtime state writable for XO, Valkey, TLS, SSH host keys, Flatpaks, logs, and queued rebuild state.
 
-XO configuration is generated into `/etc/xo-server/config.nixoa.toml` from the
-declarative `xoConfig.toml` string in host settings. The default TOML preserves
-the Valkey socket, XO data and temp paths, public `80` and `443` listeners, TLS
-paths, web mounts, and remote storage mount directory.
+XO configuration is generated into `/etc/xo-server/config.nixoa.toml` from the declarative `xoConfig.toml` string in host settings. The default TOML preserves the Valkey socket, XO data and temp paths, public `80` and `443` listeners, TLS paths, web mounts, and remote storage mount directory.
 
 ## Supporting Outputs
 
@@ -106,10 +100,7 @@ operable without an additional wrapper flake.
 ## Operator Surfaces
 
 `nxcli` owns repository and system operations: host creation, apply/boot,
-rollback, commit/diff/history, flake updates, XOA input updates, status, and XO
-logs. The remaining scripts under `scripts/` are either bootstrap entrypoints or
-shared implementation helpers used by `nxcli` and `nixoa-menu`.
+rollback, commit/diff/history, flake updates, XOA input updates, status, and XO logs. The remaining scripts under `scripts/` are either bootstrap entrypoints or shared implementation helpers used by `nxcli` and `nixoa-menu`.
 
 `nixoa-menu` is a Ratatui SSH console with an xsconsole-style navigation model.
-It uses `nxcli` for apply, rollback, and committing dirty tracked files before
-apply, while the `scripts/tui/` helpers own focused host-context edits.
+It uses `nxcli` for apply, rollback, and committing dirty tracked files before apply, while the `scripts/tui/` helpers own focused host-context edits.
