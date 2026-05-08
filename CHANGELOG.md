@@ -5,16 +5,10 @@
 
 Date: 2026-05-08
 
-This release is a breaking repository and operator-surface refactor. NiXOA is
-now operated directly from the `core` repo: reusable aspects, host templates,
-concrete host definitions, packages, apps, `nxcli`, and `nixoa-menu` all live in
-one flake. The previous model, where a separate system flake consumed `core` as
-an input and owned host operations, is deprecated.
+This release is a breaking repository and operator-surface refactor. NiXOA is now operated directly from the `core` repo: reusable aspects, host templates, concrete host definitions, packages, apps, `nxcli`, and `nixoa-menu` all live in one flake. The previous model, where a separate system flake consumed `core` as an input and owned host operations, is deprecated.
 
-The release also turns `nixoa-menu` into an xsconsole-style SSH console, makes
-`nxcli` the single supported command surface for repository and host operations,
-and removes the older duplicate script entrypoints that previously owned apply,
-commit, diff, history, log, and XOA update flows.
+The release also turns `nixoa-menu` into an xsconsole-style SSH console, makes `nxcli` the single supported command surface for repository and host operations,
+and removes the older duplicate script entrypoints that previously owned apply, commit, diff, history, log, and XOA update flows.
 
 ### ✨ Added
 
