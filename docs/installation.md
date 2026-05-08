@@ -39,8 +39,8 @@ writes the selected values into Den-shaped host files, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` targets that host's
 VM output, validates the flake, and runs the first switch through
 `nixos-rebuild` with the first-install cache options when `--first-switch` is
-used. `scripts/bootstrap.sh` remains available as a
-checkout/bootstrap wrapper around the same flow.
+used. `scripts/bootstrap.sh` remains available only for the streamed one-shot
+checkout/bootstrap flow; routine host creation and operation should use `nxcli`.
 
 ## Manual Install
 
@@ -51,6 +51,7 @@ checkout/bootstrap wrapper around the same flow.
 5. Before the first apply, run `nix run .#nxcli -- apply --target <hostname>` from the repo checkout.
 6. Use `nix run .#nxcli -- boot --target vm` when you want the safer “activate on next reboot” path for the stable VM target.
 7. After the first successful apply, `nxcli` is installed on the host and can be used directly without the repo-local launcher path.
+8. Start the operator console manually with `nixoa-menu`, or set `nixoaMenuAutoStart = true;` before applying if SSH logins should enter the console automatically.
 
 ## Reusable Den Import
 

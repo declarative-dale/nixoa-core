@@ -50,7 +50,8 @@ sudo nixos-rebuild switch \
   --option extra-trusted-public-keys 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4='
 ```
 
-If you want an explicit checkout first instead, use:
+If you want an explicit checkout first instead, use the canonical `nxcli`
+entrypoint:
 
 ```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
@@ -64,15 +65,21 @@ writes the host-local settings into `_ctx/settings.nix`, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` points at the new
 host's VM output, stages the tracked files, validates the flake, and optionally
 performs the first switch through `nixos-rebuild` with the first-install cache
-options. `scripts/bootstrap.sh` remains as a
-checkout/bootstrap convenience wrapper around the same host-add flow.
+options. `scripts/bootstrap.sh` remains only as the streamed one-shot checkout
+and first-install wrapper around the same host-add flow.
 
 You can also operate the repo through flake apps:
 
 ```bash
 nix run .#nxcli -- status
 nix run .#nxcli -- apply --target vm --dry-run
+nix run .#nxcli -- commit "Update flake inputs"
 ```
+
+After the first successful apply, the host has `nxcli` and `nixoa-menu`
+installed. SSH logins start in the normal shell by default; run `nixoa-menu`
+manually, or set `nixoaMenuAutoStart = true;` in the host context to opt in to
+automatic console startup on SSH login.
 
 ## Layout
 
@@ -94,7 +101,7 @@ core/
 │   └── outputs/            # packages, apps, dev shells
 ├── lib/                    # shared helpers
 ├── docs/                   # operator-facing docs
-├── scripts/                # bootstrap and maintenance helpers
+├── scripts/                # nxcli source, bootstrap wrapper, shared and TUI helpers
 └── flake.nix
 ```
 
@@ -134,5 +141,6 @@ aspects and not this repo's host tree:
 - Concrete hosts keep host-owned values locally in `host/<hostname>/`.
 - XO renders `/etc/xo-server/config.nixoa.toml` from the declarative `xoConfig.toml` string in host settings; edit it like TOML without importing a separate file.
 - `host/_automation/default.nix` selects which concrete VM output backs `nixosConfigurations.vm`.
-- `nxcli` is the canonical operator interface. The lower-level scripts under `scripts/` remain available as internal helpers.
+- `nxcli` is the canonical operator interface. Direct script execution is reserved for bootstrap and internal TUI/helper plumbing.
+- `nixoa-menu` is an xsconsole-style SSH operator console. It uses `nxcli` for apply, rollback, and repository commits.
 - `flake.denful.nixoaCore` remains the primary reusable public surface.

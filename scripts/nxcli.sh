@@ -1070,6 +1070,25 @@ update_xoa() {
   nixoa_print_cli_command "Safer path:" boot --target "$target_arg"
 }
 
+tail_xo_logs() {
+  local redis_unit=""
+
+  case "${1:-}" in
+    --help|-h)
+      show_xo_help
+      return 0
+      ;;
+  esac
+
+  if [ $# -gt 0 ]; then
+    nixoa_print_error "Unknown xo logs option: $1"
+    exit 1
+  fi
+
+  redis_unit="$(nixoa_redis_service_name)"
+  exec journalctl -u xo-build -u xo-server -u "${redis_unit%.service}" -e -f
+}
+
 show_status() {
   local json=0
 
@@ -1162,7 +1181,7 @@ dispatch_xo() {
 
   case "$subcommand" in
     logs)
-      exec "$NIXOA_SYSTEM_ROOT/scripts/xoa-logs.sh" "$@"
+      tail_xo_logs "$@"
       ;;
     help|--help|-h)
       show_xo_help

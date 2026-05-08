@@ -26,7 +26,7 @@ sudo grep -q 'libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mW
 bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/mono-preview/scripts/bootstrap.sh) --enable-flakes --first-switch
 ```
 
-If you want a local checkout first:
+If you want a local checkout first, use the canonical `nxcli` app:
 
 ```bash
 git clone https://codeberg.org/NiXOA/core.git ~/nixoa
@@ -46,8 +46,9 @@ version, SSH keys, and deployment profile. It then:
 - validates the flake
 - optionally performs the first switch through `nixos-rebuild` with the first-install cache options
 
-Use `scripts/bootstrap.sh` only when you want the older convenience wrapper that
-also clones or refreshes a checkout before handing off to `nxcli host add`.
+Use `scripts/bootstrap.sh` only for the streamed one-shot install path. Normal
+operator work should go through `nix run .#nxcli -- ...` before the first
+switch, then `nxcli ...` after the package is installed on the host.
 
 ## Operate A Host
 
@@ -66,6 +67,10 @@ you need to pin an operation to one specific host output.
 
 After the first successful apply, `nxcli` is installed on the host and the same
 commands can be run as `nxcli ...` without the repo-local launcher path.
+
+`nixoa-menu` is installed on the host as the SSH operator console. It no longer
+autostarts on SSH login unless the host context sets
+`nixoaMenuAutoStart = true;`; otherwise start it manually with `nixoa-menu`.
 
 ## Reuse The Namespace Elsewhere
 

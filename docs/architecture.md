@@ -93,9 +93,20 @@ The flake also publishes:
 - `nixosConfigurations.<hostname>` for concrete hosts
 - `nixosConfigurations.<hostname>-vm` for per-host VM variants
 - `nixosConfigurations.vm` for automation that should not depend on a concrete host name
-- repository and host-scoped `apps`
+- repository and host-scoped `apps`, with `nxcli` as the canonical operator interface
 - `devShells`
-- supporting `packages`
+- supporting `packages`, including `nxcli` and the shared `nixoa-menu` console
 
 These outputs are secondary to the Den model, but they make the unified repo
 operable without an additional wrapper flake.
+
+## Operator Surfaces
+
+`nxcli` owns repository and system operations: host creation, apply/boot,
+rollback, commit/diff/history, flake updates, XOA input updates, status, and XO
+logs. The remaining scripts under `scripts/` are either bootstrap entrypoints or
+shared implementation helpers used by `nxcli` and `nixoa-menu`.
+
+`nixoa-menu` is a Ratatui SSH console with an xsconsole-style navigation model.
+It uses `nxcli` for apply, rollback, and committing dirty tracked files before
+apply, while the `scripts/tui/` helpers own focused host-context edits.

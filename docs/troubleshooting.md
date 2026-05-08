@@ -10,8 +10,8 @@ Check the active host's `host/<hostname>/_ctx/settings.nix` for:
 Then inspect:
 
 ```bash
-systemctl status xo-server
-journalctl -u xo-server -n 200
+sudo systemctl status xo-server.service
+nxcli xo logs
 ```
 
 ## SSH Access Missing
@@ -44,3 +44,12 @@ To update it through the supported CLI:
 ```bash
 nxcli host select-vm <hostname>
 ```
+
+## SSH Login Does Not Open The Console
+
+This is the default behavior. Run `nixoa-menu` manually from the shell, or set
+`nixoaMenuAutoStart = true;` in `host/<hostname>/_ctx/settings.nix` and apply
+the host if SSH logins should enter the console automatically.
+
+If autostart is enabled but skipped, check that the session is interactive and
+that `NIXOA_TUI_BYPASS` or `NIXOA_TUI_ACTIVE` is not already set.
