@@ -7,6 +7,20 @@
   systems = lib.unique (["x86_64-linux"] ++ builtins.attrNames den.hosts);
   outputAliases = import ../../lib/output-aliases.nix {inherit lib;};
   selectedVmOutput = outputAliases.selectedVmOutput ../..;
+  mkNxcliApp = pkgs: nxcli: {
+    appName,
+    args,
+    description,
+  }: {
+    type = "app";
+    program = toString (
+      pkgs.writeShellScript appName ''
+        set -euo pipefail
+        exec ${nxcli}/bin/nxcli ${lib.escapeShellArgs args} "$@"
+      ''
+    );
+    meta.description = description;
+  };
   mkRepoScriptApp = pkgs: {
     appName,
     scriptName,
@@ -64,6 +78,7 @@ in {
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
+      nxcliApp = mkNxcliApp pkgs nxcli;
     in
       {
         nxcli = {
@@ -72,10 +87,10 @@ in {
           meta.description = "Canonical NiXOA operator CLI";
         };
 
-        apply = mkRepoScriptApp pkgs {
+        apply = nxcliApp {
           appName = "nixoa-apply";
-          scriptName = "apply-config.sh";
-          description = "Low-level helper for applying a NiXOA host configuration through nh";
+          args = ["apply"];
+          description = "Apply a NiXOA host configuration through nxcli";
         };
 
         bootstrap = mkRepoScriptApp pkgs {
@@ -84,22 +99,22 @@ in {
           description = "Low-level bootstrap wrapper around nxcli host add";
         };
 
-        commit = mkRepoScriptApp pkgs {
+        commit = nxcliApp {
           appName = "nixoa-commit";
-          scriptName = "commit-config.sh";
-          description = "Commit NiXOA repository changes";
+          args = ["commit"];
+          description = "Commit NiXOA repository changes through nxcli";
         };
 
-        diff = mkRepoScriptApp pkgs {
+        diff = nxcliApp {
           appName = "nixoa-diff";
-          scriptName = "show-diff.sh";
-          description = "Show NiXOA repository changes";
+          args = ["diff"];
+          description = "Show NiXOA repository changes through nxcli";
         };
 
-        history = mkRepoScriptApp pkgs {
+        history = nxcliApp {
           appName = "nixoa-history";
-          scriptName = "history.sh";
-          description = "Show NiXOA repository history";
+          args = ["history"];
+          description = "Show NiXOA repository history through nxcli";
         };
 
         menu = {

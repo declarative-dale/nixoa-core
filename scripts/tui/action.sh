@@ -428,17 +428,17 @@ case "$command_name" in
   update-nixpkgs)
     update_input_and_prompt \
       "Update nixpkgs input from nixoa-menu" \
-      nix flake lock --update-input nixpkgs
+      nix flake update nixpkgs
     ;;
   update-home-manager)
     update_input_and_prompt \
       "Update home-manager input from nixoa-menu" \
-      nix flake lock --update-input home-manager
+      nix flake update home-manager
     ;;
   update-determinate)
     update_input_and_prompt \
       "Update determinate input from nixoa-menu" \
-      nix flake lock --update-input determinate
+      nix flake update determinate
     ;;
   update-xoa)
     current_xoa_rev="$(lock_rev_for xen-orchestra-ce)"
@@ -462,7 +462,7 @@ EOF
     fi
     update_input_and_prompt \
       "Update xen-orchestra-ce input from nixoa-menu" \
-      nix flake lock --update-input xen-orchestra-ce
+      nix flake update xen-orchestra-ce
     ;;
   update-all)
     update_input_and_prompt \

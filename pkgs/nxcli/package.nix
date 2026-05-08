@@ -9,20 +9,38 @@
   gnugrep,
   gnused,
   inetutils,
+  iproute2,
   jq,
-  makeWrapper,
   nix,
   nixos-rebuild,
   nh,
   systemd,
-  symlinkJoin,
   util-linux,
-  writeShellScriptBin,
+  writeShellApplication,
   repoRootDefault ? null,
-}: let
-  version = "4.0.0";
-
-  nxcliScript = writeShellScriptBin "nxcli" ''
+}:
+writeShellApplication {
+  name = "nxcli";
+  runtimeInputs = [
+    bash
+    coreutils
+    findutils
+    gawk
+    git
+    glibc.bin
+    gnugrep
+    gnused
+    inetutils
+    iproute2
+    jq
+    nix
+    nixos-rebuild
+    nh
+    systemd
+    util-linux
+  ];
+  checkPhase = ":";
+  text = ''
     ${lib.optionalString (repoRootDefault != null) ''
       if [ -z "''${NIXOA_SYSTEM_ROOT:-}" ]; then
         export NIXOA_SYSTEM_ROOT=${lib.escapeShellArg repoRootDefault}
@@ -31,40 +49,12 @@
 
     ${builtins.readFile ../../scripts/nxcli.sh}
   '';
-in
-  symlinkJoin {
-    name = "nxcli-${version}";
-    paths = [nxcliScript];
-    nativeBuildInputs = [makeWrapper];
 
-    postBuild = ''
-      wrapProgram "$out/bin/nxcli" \
-        --prefix PATH : ${
-        lib.makeBinPath [
-          bash
-          coreutils
-          findutils
-          gawk
-          git
-          glibc.bin
-          gnugrep
-          gnused
-          inetutils
-          jq
-          nix
-          nixos-rebuild
-          nh
-          systemd
-          util-linux
-        ]
-      }
-    '';
-
-    meta = {
-      description = "Canonical NiXOA operator CLI";
-      homepage = "https://codeberg.org/NiXOA/core";
-      license = lib.licenses.asl20;
-      mainProgram = "nxcli";
-      platforms = lib.platforms.linux;
-    };
-  }
+  meta = {
+    description = "Canonical NiXOA operator CLI";
+    homepage = "https://codeberg.org/NiXOA/core";
+    license = lib.licenses.asl20;
+    mainProgram = "nxcli";
+    platforms = lib.platforms.linux;
+  };
+}

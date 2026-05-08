@@ -79,9 +79,15 @@ switching immediately.
 
 ```bash
 cd ~/nixoa
+nxcli update flake --preview
 nxcli update flake
+nxcli commit "Update flake inputs"
 nxcli update xoa
 ```
+
+`nxcli commit` is the canonical command for saving tracked flake, host, package,
+and script changes. `nxcli update xoa` updates only the `xen-orchestra-ce`
+input and commits the lock-file change when it changes.
 
 ## Rollback
 

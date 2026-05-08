@@ -6,7 +6,7 @@ This repository is the NiXOA core aspect namespace. Den bootstrap and namespace 
 ## Build, Test, and Development Commands
 - `nix flake check --no-write-lock-file`: Validate flake evaluation.
 - `nix build .#packages.x86_64-linux.xen-orchestra-ce --no-link`: Validate the packaged XO build.
-- `scripts/xoa-update.sh`: Update the XO source input in `flake.lock`.
+- `nix run .#nxcli -- update xoa`: Update the XO source input in `flake.lock`.
 - `scripts/xoa-logs.sh`: Tail XO-related logs on a running host.
 
 ## Coding Style & Naming Conventions

@@ -18,7 +18,7 @@
         local cur prev words cword
         _init_completion || return
 
-        local commands="help version status apply boot rollback host update xo generations"
+        local commands="help version status apply boot rollback commit diff history host update xo generations"
         local host_subcommands="add list show select-vm edit help"
         local update_subcommands="flake xoa help"
         local xo_subcommands="logs help"

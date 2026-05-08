@@ -1,6 +1,16 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## Unreleased
+
+### 🔄 Changed
+
+- **`nxcli` is now the canonical operator interface** for apply, commit, diff, history, and XOA input updates, with Nix-packaged runtime tools instead of script-local fallbacks.
+
+### 🗑️ Removed
+
+- **Deprecated duplicate operator scripts** for apply, commit, diff, history, and XOA updates now that their behavior lives in `nxcli`.
+
 ## v1.7.0 — Shared Console Release And XO Cache Alignment
 
 Date: 2026-04-05

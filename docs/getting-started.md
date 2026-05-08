@@ -54,10 +54,10 @@ also clones or refreshes a checkout before handing off to `nxcli host add`.
 From the repo root:
 
 ```bash
-./scripts/nxcli.sh status
-./scripts/nxcli.sh apply --target nixo-ce
-./scripts/nxcli.sh apply --target vm --dry-run
-./scripts/nxcli.sh boot --target vm
+nix run .#nxcli -- status
+nix run .#nxcli -- apply --target nixo-ce
+nix run .#nxcli -- apply --target vm --dry-run
+nix run .#nxcli -- boot --target vm
 ```
 
 `--target vm` always resolves through `host/_automation/default.nix`, so it is

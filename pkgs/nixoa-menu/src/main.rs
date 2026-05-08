@@ -48,6 +48,19 @@ const COLOR_SUCCESS: Color = Color::Rgb(0x87, 0x7C, 0xFC);
 const COLOR_INFO: Color = Color::Rgb(0x6B, 0x6B, 0xD7);
 const PANEL_LABEL_WIDTH: usize = 18;
 const HEADER_LABEL_WIDTH: usize = 8;
+const TRACKED_PATHS: &[&str] = &[
+    "AGENTS.md",
+    "CHANGELOG.md",
+    "README.md",
+    "docs",
+    "flake.lock",
+    "flake.nix",
+    "host",
+    "lib",
+    "modules",
+    "pkgs",
+    "scripts",
+];
 
 #[derive(Clone, Debug)]
 struct ActionItem {
@@ -144,6 +157,12 @@ enum Focus {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ConfirmChoice {
+    Yes,
+    No,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ActionKind {
     RefreshSnapshot,
     CheckForUpdates,
@@ -198,6 +217,7 @@ enum InputAction {
     AddService,
     ConfirmCleanupUnmanagedUsers,
     SetLogFilter,
+    CommitAndApplyConfiguration,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -220,6 +240,7 @@ struct InputModal {
     help: String,
     action: InputAction,
     value: String,
+    changed_files: Vec<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -233,6 +254,12 @@ struct PaletteEntry {
     title: String,
     detail: String,
     action: PaletteAction,
+}
+
+#[derive(Debug, Clone)]
+struct GitStatusEntry {
+    status: String,
+    path: String,
 }
 
 #[derive(Debug, Clone)]
@@ -259,6 +286,7 @@ struct App {
     command_palette: Option<CommandPalette>,
     help_open: bool,
     quit_confirm: bool,
+    quit_confirm_selection: ConfirmChoice,
     logs: Vec<String>,
     log_filter: String,
     log_scroll: usize,
@@ -426,6 +454,7 @@ impl App {
             command_palette: None,
             help_open: false,
             quit_confirm: false,
+            quit_confirm_selection: ConfirmChoice::No,
             logs: vec![
                 "NiXOA console ready.".to_string(),
                 "Use Up/Down to choose, Enter to advance, and Esc to go back.".to_string(),
@@ -591,6 +620,18 @@ impl App {
 
     fn set_focus(&mut self, focus: Focus) {
         self.focus = focus;
+    }
+
+    fn open_quit_confirm(&mut self) {
+        self.quit_confirm = true;
+        self.quit_confirm_selection = ConfirmChoice::No;
+    }
+
+    fn toggle_quit_confirm_selection(&mut self) {
+        self.quit_confirm_selection = match self.quit_confirm_selection {
+            ConfirmChoice::Yes => ConfirmChoice::No,
+            ConfirmChoice::No => ConfirmChoice::Yes,
+        };
     }
 
     fn move_sidebar_up(&mut self) -> bool {
@@ -1072,6 +1113,19 @@ fn page_label(page: Page) -> &'static str {
     }
 }
 
+fn primary_page_detail(page: Page) -> &'static str {
+    match page {
+        Page::Status => "Host health, repository state, alerts, and recent activity.",
+        Page::HostSetup => "Hostname, primary username, extras, and host identity actions.",
+        Page::Access => "Managed SSH keys and access maintenance.",
+        Page::Packages => "System packages, user packages, and service enablement.",
+        Page::Updates => "Flake input update targets and rebuild state.",
+        Page::Maintenance => "Apply, rollback, cleanup, reboot, and shutdown workflows.",
+        Page::Logs => "Activity filters, navigation controls, and log preview.",
+        Page::Shell => "Leave the console and return to the login shell.",
+    }
+}
+
 fn main() -> Result<()> {
     let repo_root = discover_repo_root()?;
     let snapshot = load_snapshot(&repo_root)?;
@@ -1195,7 +1249,7 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
         return handle_help_key(app, key);
     }
     if app.modal.is_some() {
-        return handle_modal_key(app, key);
+        return handle_modal_key(terminal, app, key);
     }
     if app.quit_confirm {
         return handle_quit_confirm_key(app, key);
@@ -1217,7 +1271,7 @@ fn handle_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Resul
             if app.focus == Focus::Options {
                 app.focus = Focus::PrimaryMenu;
             } else {
-                app.quit_confirm = true;
+                app.open_quit_confirm();
             }
             return Ok(());
         }
@@ -1236,7 +1290,7 @@ fn handle_primary_menu_key(app: &mut App, key: KeyEvent) -> Result<()> {
         KeyCode::Down => app.next_page(),
         KeyCode::Enter => {
             if app.page == Page::Shell {
-                app.quit_confirm = true;
+                app.open_quit_confirm();
             } else {
                 app.focus = Focus::Options;
             }
@@ -1263,7 +1317,7 @@ fn handle_options_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) 
     Ok(())
 }
 
-fn handle_modal_key(app: &mut App, key: KeyEvent) -> Result<()> {
+fn handle_modal_key(terminal: &mut AppTerminal, app: &mut App, key: KeyEvent) -> Result<()> {
     let modal = app.modal.as_mut().expect("modal checked above");
     match key.code {
         KeyCode::Esc => app.modal = None,
@@ -1271,7 +1325,7 @@ fn handle_modal_key(app: &mut App, key: KeyEvent) -> Result<()> {
             let action = modal.action;
             let value = modal.value.trim().to_string();
             app.modal = None;
-            submit_modal(app, action, value)?;
+            submit_modal(terminal, app, action, value)?;
         }
         KeyCode::Backspace => {
             modal.value.pop();
@@ -1292,6 +1346,16 @@ fn handle_quit_confirm_key(app: &mut App, key: KeyEvent) -> Result<()> {
             app.quit_confirm = false;
             app.should_open_shell = true;
         }
+        KeyCode::Left | KeyCode::Right | KeyCode::Up | KeyCode::Down => {
+            app.toggle_quit_confirm_selection();
+        }
+        KeyCode::Enter => match app.quit_confirm_selection {
+            ConfirmChoice::Yes => {
+                app.quit_confirm = false;
+                app.should_open_shell = true;
+            }
+            ConfirmChoice::No => app.quit_confirm = false,
+        },
         _ => {}
     }
     Ok(())
@@ -1363,7 +1427,7 @@ fn run_palette_action(app: &mut App, action: PaletteAction) -> Result<()> {
     match action {
         PaletteAction::SwitchPage(page) => app.set_page(page),
         PaletteAction::RunAction(kind) => run_quick_action(app, kind)?,
-        PaletteAction::OpenShell => app.quit_confirm = true,
+        PaletteAction::OpenShell => app.open_quit_confirm(),
         PaletteAction::OpenHelp => app.help_open = true,
     }
     Ok(())
@@ -1486,7 +1550,7 @@ fn activate_selected_option(terminal: &mut AppTerminal, app: &mut App) -> Result
         }
         Some(MenuOption::Log(option)) => run_log_option(app, option),
         Some(MenuOption::OpenShell) | None => {
-            app.quit_confirm = true;
+            app.open_quit_confirm();
         }
     }
     Ok(())
@@ -1642,7 +1706,12 @@ fn run_log_option(app: &mut App, option: LogOption) {
     }
 }
 
-fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()> {
+fn submit_modal(
+    terminal: &mut AppTerminal,
+    app: &mut App,
+    action: InputAction,
+    value: String,
+) -> Result<()> {
     match action {
         InputAction::SetHostname => {
             if value.is_empty() {
@@ -1725,6 +1794,11 @@ fn submit_modal(app: &mut App, action: InputAction, value: String) -> Result<()>
                 app.push_log(format!("Set log filter to `{}`.", app.log_filter));
             }
         }
+        InputAction::CommitAndApplyConfiguration => {
+            if commit_uncommitted_changes(app, value.as_str())? {
+                run_apply_command(terminal, app)?;
+            }
+        }
     }
     Ok(())
 }
@@ -1740,10 +1814,31 @@ fn open_modal(app: &mut App, action: InputAction, title: &str, help: &str, initi
         help: help.to_string(),
         action,
         value: initial.to_string(),
+        changed_files: Vec::new(),
+    });
+}
+
+fn open_apply_commit_modal(app: &mut App, entries: &[GitStatusEntry]) {
+    app.modal = Some(InputModal {
+        title: "Commit Changes Before Apply".to_string(),
+        help: "Uncommitted NiXOA files must be committed before applying. Enter a commit message, or leave it blank to auto-generate one from today's date and the changed files.".to_string(),
+        action: InputAction::CommitAndApplyConfiguration,
+        value: String::new(),
+        changed_files: entries.iter().map(format_status_entry).collect(),
     });
 }
 
 fn run_apply_configuration(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
+    let changes = uncommitted_config_files(&app.repo_root)?;
+    if !changes.is_empty() {
+        open_apply_commit_modal(app, &changes);
+        return Ok(());
+    }
+
+    run_apply_command(terminal, app)
+}
+
+fn run_apply_command(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Apply Configuration", {
         let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
         command.args(["apply", "--target", app.snapshot.hostname.as_str()]);
@@ -1862,6 +1957,119 @@ fn run_command_interactive(
     app.start_update_check();
 
     Ok(())
+}
+
+fn uncommitted_config_files(repo_root: &Path) -> Result<Vec<GitStatusEntry>> {
+    let mut command = Command::new("git");
+    command
+        .arg("-C")
+        .arg(repo_root)
+        .args(["status", "--short", "--"])
+        .args(TRACKED_PATHS);
+
+    let output = command
+        .output()
+        .context("failed to inspect uncommitted NiXOA files")?;
+
+    if !output.status.success() {
+        return Err(anyhow!(
+            "git status failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout)
+        .lines()
+        .filter_map(parse_status_entry)
+        .collect())
+}
+
+fn parse_status_entry(line: &str) -> Option<GitStatusEntry> {
+    if line.trim().is_empty() {
+        return None;
+    }
+
+    let status = line.chars().take(2).collect::<String>();
+    let path = line.chars().skip(3).collect::<String>();
+    if path.trim().is_empty() {
+        return None;
+    }
+
+    Some(GitStatusEntry { status, path })
+}
+
+fn format_status_entry(entry: &GitStatusEntry) -> String {
+    format!("{} {}", entry.status, entry.path)
+}
+
+fn commit_uncommitted_changes(app: &mut App, message: &str) -> Result<bool> {
+    let entries = uncommitted_config_files(&app.repo_root)?;
+    if entries.is_empty() {
+        app.push_log("No uncommitted NiXOA files were found before apply.");
+        return Ok(true);
+    }
+
+    let commit_message = if message.trim().is_empty() {
+        autogenerated_commit_message(&entries)
+    } else {
+        message.trim().to_string()
+    };
+
+    let output = Command::new(app.repo_root.join("scripts/nxcli.sh"))
+        .arg("commit")
+        .arg(commit_message)
+        .env("NIXOA_SYSTEM_ROOT", &app.repo_root)
+        .output()
+        .with_context(|| {
+            format!(
+                "failed to run {}",
+                app.repo_root.join("scripts/nxcli.sh").display()
+            )
+        })?;
+
+    let rendered = render_output(&output);
+    if rendered.is_empty() {
+        app.push_log("Commit helper completed without output.");
+    } else {
+        for line in rendered.lines() {
+            app.push_log(line.to_string());
+        }
+    }
+
+    app.refresh_snapshot()?;
+    app.start_update_check();
+
+    if output.status.success() {
+        Ok(true)
+    } else {
+        app.push_log(format!(
+            "Commit helper failed with status {}; apply was not started.",
+            output.status
+        ));
+        Ok(false)
+    }
+}
+
+fn autogenerated_commit_message(entries: &[GitStatusEntry]) -> String {
+    let date = current_date_utc();
+    let files = entries
+        .iter()
+        .map(|entry| format!("- {}", entry.path))
+        .collect::<Vec<_>>()
+        .join("\n");
+
+    format!("Save NiXOA changes on {date}\n\nChanged files:\n{files}")
+}
+
+fn current_date_utc() -> String {
+    Command::new("date")
+        .args(["-u", "+%Y-%m-%d"])
+        .output()
+        .ok()
+        .filter(|output| output.status.success())
+        .map(|output| String::from_utf8_lossy(&output.stdout).trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "unknown date".to_string())
 }
 
 fn render_output(output: &Output) -> String {
@@ -2000,21 +2208,15 @@ enum PanelTone {
     Neutral,
     Info,
     Warning,
-    Danger,
 }
 
 fn panel_color(tone: PanelTone, focused: bool) -> Color {
     if focused {
-        if matches!(tone, PanelTone::Danger) {
-            COLOR_DANGER
-        } else {
-            COLOR_ACCENT
-        }
+        COLOR_ACCENT
     } else {
         match tone {
             PanelTone::Neutral => COLOR_BORDER_DIM,
             PanelTone::Info | PanelTone::Warning => COLOR_BORDER_MID,
-            PanelTone::Danger => COLOR_DANGER,
         }
     }
 }
@@ -2103,7 +2305,7 @@ fn render(frame: &mut Frame, app: &App) {
             render_help_modal(frame, outer, app);
         }
         if app.quit_confirm {
-            render_quit_confirm(frame, outer);
+            render_quit_confirm(frame, outer, app);
         }
         return;
     }
@@ -2156,7 +2358,7 @@ fn render(frame: &mut Frame, app: &App) {
         render_help_modal(frame, outer, app);
     }
     if app.quit_confirm {
-        render_quit_confirm(frame, outer);
+        render_quit_confirm(frame, outer, app);
     }
 }
 
@@ -2260,13 +2462,17 @@ fn render_header(frame: &mut Frame, area: Rect, app: &App) {
 }
 
 fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
+    if app.focus_is(Focus::PrimaryMenu) {
+        render_primary_sidebar(frame, area, app);
+    } else {
+        render_options_sidebar(frame, area, app);
+    }
+}
+
+fn render_primary_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     let sections = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(12),
-            Constraint::Min(8),
-            Constraint::Min(0),
-        ])
+        .constraints([Constraint::Min(10), Constraint::Length(8)])
         .split(area);
 
     let primary_inner = draw_panel(
@@ -2300,11 +2506,43 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     );
     frame.render_stateful_widget(primary_list, primary_inner, &mut primary_state);
 
+    let detail_inner = draw_panel(frame, sections[1], "Section", false, PanelTone::Neutral);
+    let detail = Paragraph::new(vec![
+        Line::from(Span::styled(
+            app.page_title(),
+            Style::default()
+                .fg(COLOR_FG_MAIN)
+                .add_modifier(Modifier::BOLD),
+        )),
+        Line::from(Span::styled(
+            primary_page_detail(app.page),
+            Style::default().fg(COLOR_MUTED),
+        )),
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("Enter ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("open submenu", Style::default().fg(COLOR_MUTED_2)),
+        ]),
+        Line::from(vec![
+            Span::styled("Esc ", Style::default().fg(COLOR_ACCENT)),
+            Span::styled("return to shell prompt", Style::default().fg(COLOR_MUTED_2)),
+        ]),
+    ])
+    .wrap(Wrap { trim: true });
+    frame.render_widget(detail, detail_inner);
+}
+
+fn render_options_sidebar(frame: &mut Frame, area: Rect, app: &App) {
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Min(8), Constraint::Length(9)])
+        .split(area);
+
     let option_inner = draw_panel(
         frame,
-        sections[1],
-        "Options",
-        app.focus_is(Focus::Options),
+        sections[0],
+        format!("{} Options", app.page_title()),
+        true,
         PanelTone::Neutral,
     );
 
@@ -2331,7 +2569,7 @@ fn render_sidebar(frame: &mut Frame, area: Rect, app: &App) {
     );
     frame.render_stateful_widget(list, option_inner, &mut state);
 
-    let detail_inner = draw_panel(frame, sections[2], "Selection", false, PanelTone::Neutral);
+    let detail_inner = draw_panel(frame, sections[1], "Selection", false, PanelTone::Neutral);
     let detail_width = detail_inner.width.saturating_sub(1) as usize;
     let title = app.selected_sidebar_title();
     let detail_text = app.selected_sidebar_detail();
@@ -2654,7 +2892,7 @@ fn render_access(frame: &mut Frame, area: Rect, app: &App) {
                 COLOR_MUTED
             },
         ),
-        Line::from("Key entries live in the left options list below the access actions."),
+        Line::from("Key entries live in the Access submenu below the access actions."),
         Line::from("Successful key changes commit only host/<hostname>/_ctx/menu.nix."),
     ])
     .wrap(Wrap { trim: true });
@@ -2669,7 +2907,7 @@ fn render_access(frame: &mut Frame, area: Rect, app: &App) {
                 .get(index)
                 .cloned()
                 .unwrap_or_else(|| "No key selected.".to_string()),
-            "Use Delete Selected Key from the left options list to remove this key.".to_string(),
+            "Use Delete Selected Key from the Access submenu to remove this key.".to_string(),
         ]
     } else {
         vec![
@@ -2826,7 +3064,7 @@ fn render_updates(frame: &mut Frame, area: Rect, app: &App) {
                 COLOR_FG_MAIN
             },
         ),
-        Line::from("Update targets are selected from the left options list."),
+        Line::from("Update targets are selected from the Updates submenu."),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(status, status_inner);
@@ -2878,7 +3116,7 @@ fn render_logs_page(frame: &mut Frame, area: Rect, app: &App) {
             &filtered_logs.len().to_string(),
             COLOR_FG_MAIN,
         ),
-        Line::from("Use the left log options to filter, clear, and scroll the preview."),
+        Line::from("Use the Logs submenu to filter, clear, and scroll the preview."),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(meta, meta_inner);
@@ -3098,32 +3336,107 @@ fn render_item_list_page(
 }
 
 fn render_input_modal(frame: &mut Frame, area: Rect, modal: &InputModal) {
-    let popup = centered_rect(72, 32, area);
+    let popup = centered_rect(
+        if modal.changed_files.is_empty() {
+            72
+        } else {
+            78
+        },
+        if modal.changed_files.is_empty() {
+            32
+        } else {
+            54
+        },
+        area,
+    );
     frame.render_widget(Clear, popup);
     let inner = draw_panel(frame, popup, modal.title.clone(), true, PanelTone::Info);
-    let paragraph = Paragraph::new(vec![
-        Line::from(modal.help.clone()),
-        Line::from(""),
+    let mut lines = vec![Line::from(modal.help.clone()), Line::from("")];
+
+    if !modal.changed_files.is_empty() {
+        lines.push(Line::from(Span::styled(
+            "Uncommitted files",
+            Style::default()
+                .fg(COLOR_ACCENT)
+                .add_modifier(Modifier::BOLD),
+        )));
+        let visible_limit = 9usize;
+        for file in modal.changed_files.iter().take(visible_limit) {
+            lines.push(Line::from(format!("  {file}")));
+        }
+        if modal.changed_files.len() > visible_limit {
+            lines.push(Line::from(format!(
+                "  ... and {} more",
+                modal.changed_files.len() - visible_limit
+            )));
+        }
+        lines.push(Line::from(""));
+        lines.push(Line::from("Commit message"));
+    }
+
+    lines.extend([
         Line::from(format!("> {}", modal.value)),
         Line::from(""),
         Line::from("Enter submits. Esc cancels. Ctrl+u clears the input."),
-    ])
-    .wrap(Wrap { trim: true });
+    ]);
+
+    let paragraph = Paragraph::new(lines).wrap(Wrap { trim: true });
     frame.render_widget(paragraph, inner);
 }
 
-fn render_quit_confirm(frame: &mut Frame, area: Rect) {
-    let popup = centered_rect(44, 24, area);
+fn render_quit_confirm(frame: &mut Frame, area: Rect, app: &App) {
+    let popup = centered_rect(48, 28, area);
     frame.render_widget(Clear, popup);
-    let inner = draw_panel(frame, popup, "Return to Shell?", true, PanelTone::Danger);
+    let inner = draw_panel(frame, popup, "Return to Shell?", true, PanelTone::Info);
+    let sections = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Min(4),
+            Constraint::Length(3),
+            Constraint::Length(2),
+        ])
+        .split(inner);
+
     let paragraph = Paragraph::new(vec![
         Line::from("Leave the console and exec the login shell?"),
         Line::from(""),
-        Line::from("Press Y to return to shell."),
-        Line::from("Press N or Esc to stay in the console."),
+        Line::from("Use arrows and Enter, or press Y/N/Esc."),
     ])
     .wrap(Wrap { trim: true });
-    frame.render_widget(paragraph, inner);
+    frame.render_widget(paragraph, sections[0]);
+
+    let choices = [ConfirmChoice::Yes, ConfirmChoice::No];
+    let choice_items = choices
+        .iter()
+        .map(|choice| {
+            let label = match choice {
+                ConfirmChoice::Yes => "Yes",
+                ConfirmChoice::No => "No",
+            };
+            ListItem::new(Line::from(Span::styled(
+                label,
+                Style::default().fg(COLOR_FG_MAIN),
+            )))
+        })
+        .collect::<Vec<_>>();
+    let mut state = ListState::default();
+    state.select(Some(match app.quit_confirm_selection {
+        ConfirmChoice::Yes => 0,
+        ConfirmChoice::No => 1,
+    }));
+    let list = List::new(choice_items).highlight_style(
+        Style::default()
+            .bg(COLOR_ACCENT_SOFT)
+            .fg(COLOR_FG_MAIN)
+            .add_modifier(Modifier::BOLD),
+    );
+    frame.render_stateful_widget(list, sections[1], &mut state);
+
+    frame.render_widget(
+        Paragraph::new("No keeps you in the console. Yes returns to the shell.")
+            .style(Style::default().fg(COLOR_MUTED)),
+        sections[2],
+    );
 }
 
 fn render_command_palette(frame: &mut Frame, area: Rect, app: &App) {
@@ -3204,16 +3517,17 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
     let inner = draw_panel(frame, popup, "Help", true, PanelTone::Info);
     let help = Paragraph::new(vec![
         Line::from("Global navigation"),
-        Line::from("  Up/Down move through the focused main menu or options list."),
-        Line::from("  Enter advances from the main menu into options, or runs the selected option."),
+        Line::from("  Up/Down move through the visible main menu or submenu."),
+        Line::from("  Enter opens the selected main menu submenu, or runs the selected submenu option."),
         Line::from("  Esc returns from options to the main menu."),
-        Line::from("  Esc on the main menu opens a Y/N prompt to return to the login shell."),
+        Line::from("  Esc on the main menu opens a selectable Yes/No prompt to return to the login shell."),
         Line::from("  ? opens this help modal. : opens the command palette."),
         Line::from(""),
         Line::from("Page model"),
-        Line::from("  The left rail always contains the primary menu and the selected section options."),
+        Line::from("  The left rail shows either the primary menu or the selected submenu."),
         Line::from("  The right side is contextual and read-only until an option opens a modal or command."),
-        Line::from("  SSH keys, update targets, and log controls stay in the left options list."),
+        Line::from("  SSH keys, update targets, and log controls stay in their section submenus."),
+        Line::from("  Apply Configuration asks to commit uncommitted files before switching the host."),
         Line::from("  From a regular SSH shell, run nixoa-menu manually to open this console."),
         Line::from(""),
         Line::from("Current page"),
@@ -3539,6 +3853,27 @@ mod tests {
     }
 
     #[test]
+    fn main_menu_hides_submenu_options() {
+        let app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let text = render_text(&app);
+
+        assert!(text.contains("Main Menu"));
+        assert!(!text.contains("Status Options"));
+        assert!(!text.contains("Refresh Snapshot"));
+    }
+
+    #[test]
+    fn submenu_hides_main_menu() {
+        let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        app.set_focus(Focus::Options);
+        let text = render_text(&app);
+
+        assert!(text.contains("Status Options"));
+        assert!(text.contains("Refresh Snapshot"));
+        assert!(!text.contains("Main Menu"));
+    }
+
+    #[test]
     fn updates_section_keeps_targets_left_and_details_right() {
         let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
         app.set_page(Page::Updates);
@@ -3549,5 +3884,35 @@ mod tests {
         assert!(text.contains("Update Home Manager"));
         assert!(text.contains("Selected Target"));
         assert!(text.contains("Each update commits only flake.lock."));
+    }
+
+    #[test]
+    fn quit_confirmation_renders_selectable_yes_no() {
+        let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        app.open_quit_confirm();
+        let text = render_text(&app);
+
+        assert!(text.contains("Return to Shell?"));
+        assert!(text.contains("Yes"));
+        assert!(text.contains("No"));
+        assert!(text.contains("Use arrows and Enter"));
+    }
+
+    #[test]
+    fn generated_apply_commit_message_includes_date_and_files() {
+        let message = autogenerated_commit_message(&[
+            GitStatusEntry {
+                status: " M".to_string(),
+                path: "flake.lock".to_string(),
+            },
+            GitStatusEntry {
+                status: "??".to_string(),
+                path: "host/example/_ctx/menu.nix".to_string(),
+            },
+        ]);
+
+        assert!(message.contains("Save NiXOA changes on "));
+        assert!(message.contains("flake.lock"));
+        assert!(message.contains("host/example/_ctx/menu.nix"));
     }
 }

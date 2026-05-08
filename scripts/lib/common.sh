@@ -512,6 +512,12 @@ nixoa_run_nh() {
   local nh_user=""
   local sudo_bin=""
 
+  if ! command -v nh >/dev/null 2>&1; then
+    nixoa_print_error "nh is required for this action."
+    nixoa_print_error "Run through the packaged CLI, for example: nix run .#nxcli -- apply"
+    return 127
+  fi
+
   if [ "$(id -u)" -eq 0 ]; then
     nh_user="$(nixoa_host_execution_user "${NIXOA_NH_TARGET:-}" || true)"
     if [ -n "$nh_user" ]; then
@@ -520,24 +526,14 @@ nixoa_run_nh() {
         return 1
       }
 
-      if command -v nh >/dev/null 2>&1; then
-        "$sudo_bin" -H -u "$nh_user" nh "$@"
-        return $?
-      fi
-
-      "$sudo_bin" -H -u "$nh_user" nix shell nixpkgs#nh -c nh "$@"
+      "$sudo_bin" -H -u "$nh_user" nh "$@"
       return $?
     fi
 
     nixoa_print_warning "Could not resolve a non-root operator user for nh; attempting to run it as root."
   fi
 
-  if command -v nh >/dev/null 2>&1; then
-    nh "$@"
-    return $?
-  fi
-
-  nix shell nixpkgs#nh -c nh "$@"
+  nh "$@"
 }
 
 nixoa_status_porcelain() {
