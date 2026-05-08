@@ -178,11 +178,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1778196189,
-        "narHash": "sha256-YnE+HrM3B91azKm2XeIvHrh03TKIaJwJFUvC9swckno=",
+        "lastModified": 1778218279,
+        "narHash": "sha256-cS7+iXztrGEkiwEo8BYAxOKC7J+ooYRSAUpngIPqsi8=",
         "ref": "refs/tags/20251119",
-        "rev": "7c5d0d002d88e9b14e62e8bd624cb6dea77d65a9",
-        "revCount": 17,
+        "rev": "c728fa206c74c8dd92cdcc4df2e545425cf148f2",
+        "revCount": 19,
         "type": "git",
         "url": "https://github.com/declarative-dale/libvhdi-nixpkg.git"
       },
@@ -319,11 +319,11 @@
         "nixpkgs": "nixpkgs_4"
       },
       "locked": {
-        "lastModified": 1778215818,
-        "narHash": "sha256-GHy+l6eyCvTghYbIgW+AfJAIy8Q7pSzRaUXYyjaDok8=",
+        "lastModified": 1778218894,
+        "narHash": "sha256-6WRWBwDx1jXxcHbBvNCy9hXH0e2w7JptuXTuBt187cI=",
         "ref": "refs/tags/latest",
-        "rev": "b995fed7d1175f7457e7f326d898b202d9790f8e",
-        "revCount": 68,
+        "rev": "c87013b48530dccfff593d33b57fd8ab3bfde778",
+        "revCount": 69,
         "type": "git",
         "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       },
