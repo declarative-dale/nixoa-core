@@ -4,7 +4,8 @@
 
 set -euo pipefail
 
-readonly NIXOA_BOOTSTRAP_SOURCE_BRANCH="mono-preview"
+readonly NIXOA_BOOTSTRAP_SOURCE_BRANCH="codex/bootstrap-public-flakehub-cache"
+readonly NIXOA_BOOTSTRAP_SOURCE_REPO_URL="https://github.com/declarative-dale/nixoa-core.git"
 
 resolve_bootstrap_repo_root() {
   local candidate=""
@@ -51,8 +52,10 @@ if [ -n "$BOOTSTRAP_REPO_ROOT" ] && [ -f "$BOOTSTRAP_REPO_ROOT/scripts/lib/commo
   . "$BOOTSTRAP_REPO_ROOT/scripts/lib/common.sh"
 else
   readonly NIXOA_DEFAULT_USERNAME="nixoa"
+  readonly NIXOA_DETERMINATE_SUBSTITUTER="https://install.determinate.systems"
   readonly NIXOA_XO_SUBSTITUTER="https://xen-orchestra-ce.cachix.org"
   readonly NIXOA_LIBVHDI_SUBSTITUTER="https://libvhdi-nixpkg.cachix.org"
+  readonly NIXOA_DETERMINATE_PUBLIC_KEY="cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
   readonly NIXOA_XO_PUBLIC_KEY="xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
   readonly NIXOA_LIBVHDI_PUBLIC_KEY="libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
 
@@ -134,8 +137,16 @@ if [ -z "${NIXOA_LIBVHDI_SUBSTITUTER+x}" ]; then
   readonly NIXOA_LIBVHDI_SUBSTITUTER="https://libvhdi-nixpkg.cachix.org"
 fi
 
+if [ -z "${NIXOA_DETERMINATE_SUBSTITUTER+x}" ]; then
+  readonly NIXOA_DETERMINATE_SUBSTITUTER="https://install.determinate.systems"
+fi
+
 if [ -z "${NIXOA_LIBVHDI_PUBLIC_KEY+x}" ]; then
   readonly NIXOA_LIBVHDI_PUBLIC_KEY="libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
+fi
+
+if [ -z "${NIXOA_DETERMINATE_PUBLIC_KEY+x}" ]; then
+  readonly NIXOA_DETERMINATE_PUBLIC_KEY="cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
 fi
 
 usage() {
@@ -379,6 +390,109 @@ nix_conf_ensure_tokens() {
   rm -f "$temp_file"
 }
 
+nix_conf_remove_tokens() {
+  local file="$1"
+  local key="$2"
+  shift 2
+
+  local current=""
+  local kept=()
+  local token=""
+  local remove_token=""
+  local should_remove=0
+  local merged_line=""
+  local temp_file=""
+  local file_mode="0644"
+
+  current="$(nix_conf_read_setting "$file" "$key" || true)"
+  [ -n "$current" ] || return 0
+
+  for token in $current; do
+    should_remove=0
+    for remove_token in "$@"; do
+      if [ "$token" = "$remove_token" ]; then
+        should_remove=1
+        break
+      fi
+    done
+    if [ "$should_remove" -eq 0 ]; then
+      kept+=("$token")
+    fi
+  done
+
+  if [ "$current" = "${kept[*]}" ]; then
+    return 0
+  fi
+
+  temp_file="$(mktemp)"
+  if [ -f "$file" ]; then
+    file_mode="$(stat -c '%a' "$file" 2>/dev/null || printf '0644')"
+    if [ "${#kept[@]}" -gt 0 ]; then
+      merged_line="${key} = ${kept[*]}"
+      awk -v key="$key" -v line="$merged_line" '
+        $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+          if (!replaced) {
+            print line
+            replaced = 1
+          }
+          next
+        }
+        { print }
+      ' "$file" > "$temp_file"
+    else
+      awk -v key="$key" '
+        $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+          next
+        }
+        { print }
+      ' "$file" > "$temp_file"
+    fi
+  else
+    : > "$temp_file"
+  fi
+
+  nixoa_run_as_root install -m "$file_mode" "$temp_file" "$file"
+  rm -f "$temp_file"
+}
+
+nix_conf_set_setting() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  local temp_file=""
+  local file_mode="0644"
+  local line="${key} = ${value}"
+
+  if [ "$(nix_conf_read_setting "$file" "$key" || true)" = "$value" ]; then
+    return 0
+  fi
+
+  temp_file="$(mktemp)"
+  if [ -f "$file" ]; then
+    awk -v key="$key" -v line="$line" '
+      $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
+        if (!replaced) {
+          print line
+          replaced = 1
+        }
+        next
+      }
+      { print }
+      END {
+        if (!replaced) {
+          print line
+        }
+      }
+    ' "$file" > "$temp_file"
+    file_mode="$(stat -c '%a' "$file" 2>/dev/null || printf '0644')"
+  else
+    printf '%s\n' "$line" > "$temp_file"
+  fi
+
+  nixoa_run_as_root install -m "$file_mode" "$temp_file" "$file"
+  rm -f "$temp_file"
+}
+
 prepare_first_switch_nix_access() {
   local operator_user="$1"
   local target_user="$2"
@@ -396,18 +510,24 @@ prepare_first_switch_nix_access() {
     users_to_trust+=("$target_user")
   fi
 
-  nixoa_print_info "Preparing trusted users and XO/libvhdi Cachix settings for the initial switch"
+  nixoa_print_info "Preparing trusted users and first-install binary cache settings"
   nixoa_run_as_root install -d -m 0755 /etc/nix
   nix_conf_ensure_tokens "$nix_conf" trusted-users "${users_to_trust[@]}"
+  nix_conf_remove_tokens "$nix_conf" substituters "https://cache.flakehub.com"
+  nix_conf_remove_tokens "$nix_conf" extra-substituters "https://cache.flakehub.com"
+  nix_conf_set_setting "$nix_conf" access-tokens ""
+  nix_conf_set_setting "$nix_conf" netrc-file /dev/null
   nix_conf_ensure_tokens "$nix_conf" extra-substituters \
+    "$NIXOA_DETERMINATE_SUBSTITUTER" \
     "$NIXOA_XO_SUBSTITUTER" \
     "$NIXOA_LIBVHDI_SUBSTITUTER"
   nix_conf_ensure_tokens "$nix_conf" extra-trusted-public-keys \
+    "$NIXOA_DETERMINATE_PUBLIC_KEY" \
     "$NIXOA_XO_PUBLIC_KEY" \
     "$NIXOA_LIBVHDI_PUBLIC_KEY"
 }
 
-repo_url="https://codeberg.org/NiXOA/core.git"
+repo_url="${NIXOA_BOOTSTRAP_SOURCE_REPO_URL:-https://codeberg.org/NiXOA/core.git}"
 branch=""
 repo_dir=""
 repo_dir_explicit=0

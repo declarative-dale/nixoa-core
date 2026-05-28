@@ -139,11 +139,17 @@ nixoa_append_first_install_nix_options() {
     extra-experimental-features
     "nix-command flakes"
     --option
-    extra-substituters
+    substituters
     "${NIXOA_DETERMINATE_SUBSTITUTER} ${NIXOA_XO_SUBSTITUTER} ${NIXOA_LIBVHDI_SUBSTITUTER}"
     --option
     extra-trusted-public-keys
     "${NIXOA_DETERMINATE_PUBLIC_KEY} ${NIXOA_XO_PUBLIC_KEY} ${NIXOA_LIBVHDI_PUBLIC_KEY}"
+    --option
+    access-tokens
+    ""
+    --option
+    netrc-file
+    /dev/null
   )
 }
 
