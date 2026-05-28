@@ -139,7 +139,7 @@ nixoa_append_first_install_nix_options() {
     extra-experimental-features
     "nix-command flakes"
     --option
-    substituters
+    extra-substituters
     "${NIXOA_DETERMINATE_SUBSTITUTER} ${NIXOA_XO_SUBSTITUTER} ${NIXOA_LIBVHDI_SUBSTITUTER}"
     --option
     extra-trusted-public-keys
