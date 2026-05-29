@@ -13,7 +13,9 @@
     nixoa =
       {
         xen-orchestra-ce = xenOrchestraCe;
-        libvhdi = inputs.xen-orchestra-ce.packages.${system}.libvhdi;
+        libvhdi =
+          inputs.xen-orchestra-ce.packages.${system}.libvhdi-fuse2
+          or inputs.xen-orchestra-ce.packages.${system}.libvhdi;
       }
       // inputs.nixpkgs.lib.optionalAttrs final.stdenv.hostPlatform.isLinux {
         nxcli = final.callPackage ../../../../pkgs/nxcli/package.nix {

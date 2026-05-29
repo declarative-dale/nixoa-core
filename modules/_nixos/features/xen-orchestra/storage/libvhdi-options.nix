@@ -17,10 +17,12 @@ in {
 
     package = mkOption {
       type = types.package;
-      default = inputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi;
+      default =
+        inputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi-fuse2
+        or inputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi;
       defaultText =
         lib.literalExpression
-        "inputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi";
+        "inputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi-fuse2 or inputs.xen-orchestra-ce.packages.${pkgs.stdenv.hostPlatform.system}.libvhdi";
       description = "libvhdi package to use";
     };
   };
