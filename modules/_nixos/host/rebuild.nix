@@ -1,7 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Rebuild the host once on the next boot if the TUI has queued it.
-{pkgs, ...}: let
+{
+  inputs,
+  pkgs,
+  ...
+}: let
   queueFile = "/var/lib/nixoa/rebuild-on-boot.env";
+  nxcli = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nxcli;
 in {
   systemd.tmpfiles.rules = [
     "d /var/lib/nixoa 0750 root root - -"
@@ -31,7 +36,7 @@ in {
         exit 1
       fi
 
-      "${pkgs.nixoa.nxcli}/bin/nxcli" apply --target "$rebuild_target"
+      NIXOA_SYSTEM_ROOT="$repo_root" "${nxcli}/bin/nxcli" apply --target "$rebuild_target"
       rm -f "$queue_file"
     '';
   };
