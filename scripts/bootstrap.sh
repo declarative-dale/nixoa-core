@@ -265,6 +265,22 @@ prepare_repo_checkout_parent() {
   fi
 }
 
+handoff_repo_checkout_ownership() {
+  local repo_path="$1"
+  local target_user="$2"
+  local target_home=""
+
+  if ! nixoa_user_exists "$target_user"; then
+    return 0
+  fi
+
+  target_home="$(resolve_user_home "$target_user")"
+  if [[ "$repo_path" == "$target_home" || "$repo_path" == "$target_home/"* ]]; then
+    nixoa_print_info "Assigning checkout ownership to $target_user"
+    nixoa_run_as_root chown -R "$target_user:users" "$repo_path"
+  fi
+}
+
 flakes_are_enabled() {
   if nix show-config experimental-features >/dev/null 2>&1; then
     local features
@@ -674,6 +690,8 @@ else
   git clone --branch "$branch" "$repo_url" "$repo_dir"
 fi
 
+handoff_repo_checkout_ownership "$repo_dir" "$bootstrap_target_user"
+
 bootstrap_cmd=("$repo_dir/scripts/nxcli.sh" host add)
 if [ -n "$hostname_arg" ]; then
   bootstrap_cmd+=("$hostname_arg")
@@ -685,3 +703,5 @@ printf ' %q' "${bootstrap_cmd[@]}"
 printf '\n'
 
 "${bootstrap_cmd[@]}"
+
+handoff_repo_checkout_ownership "$repo_dir" "$bootstrap_target_user"
