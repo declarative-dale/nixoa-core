@@ -10,6 +10,7 @@
   inherit (lib) mkIf optional optionals;
   cfg = config.nixoa.xo;
   storageEnabled = context.enableNFS || context.enableCIFS || context.enableVHD;
+  autoCertEnabled = context.enableTLS && context.enableAutoCert;
 
   startScript = config.nixoa.xo.internal.startScript;
 in {
@@ -22,7 +23,7 @@ in {
           "network-online.target"
           "redis-xo.service"
         ]
-        ++ lib.optional context.enableAutoCert "xo-autocert.service";
+        ++ lib.optional autoCertEnabled "xo-autocert.service";
 
       wants = [
         "network-online.target"
@@ -87,15 +88,18 @@ in {
         AmbientCapabilities = [
           "CAP_NET_BIND_SERVICE"
         ];
-        CapabilityBoundingSet = [
-          "CAP_NET_BIND_SERVICE"
-          "CAP_SETUID"
-          "CAP_SETGID"
-          "CAP_SETPCAP"
-          "CAP_SYS_ADMIN"
-          "CAP_DAC_READ_SEARCH"
-          "CAP_DAC_OVERRIDE"
-        ];
+        CapabilityBoundingSet =
+          [
+            "CAP_NET_BIND_SERVICE"
+          ]
+          ++ lib.optionals storageEnabled [
+            "CAP_SETUID"
+            "CAP_SETGID"
+            "CAP_SETPCAP"
+            "CAP_SYS_ADMIN"
+            "CAP_DAC_READ_SEARCH"
+            "CAP_DAC_OVERRIDE"
+          ];
 
         ReadOnlyPaths =
           ["/etc/xo-server/config.nixoa.toml"]

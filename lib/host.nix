@@ -6,10 +6,13 @@
   hostRoot,
   ...
 }: let
+  hostContextLib = import ./host-context.nix {inherit lib;};
   contextDefaults = {
     extraHomeManagerModules = [];
     extraNixosConfig = {};
     extraNixosModules = [];
+    extraSystemPackages = [];
+    extraUserPackages = [];
     flatpakRemotes = [
       {
         name = "flathub";
@@ -20,14 +23,19 @@
     immutability.enable = false;
     nixoaMenuAutoStart = false;
     shell = null;
+    enabledServices = [];
+    systemPackages = [];
+    userPackages = [];
     xoConfig = {};
   };
 
-  context = lib.foldl' lib.recursiveUpdate {} [
+  normalizeContext = hostContextLib.normalize;
+
+  context = normalizeContext (lib.foldl' lib.recursiveUpdate {} [
     contextDefaults
     (import (hostRoot + "/_ctx/settings.nix") {})
     (import (hostRoot + "/_ctx/menu.nix") {})
-  ];
+  ]);
 
   userModule = import (hostRoot + "/_homeManager/default.nix");
   hostImports = den._.import-tree hostRoot;
@@ -86,8 +94,7 @@
     };
   };
 
-  vmContext =
-    context
+  vmContext = normalizeContext (context
     // {
       hostname = "${context.hostname}-vm";
       deploymentProfile = "vm";
@@ -96,7 +103,7 @@
       bootLoader = "systemd-boot";
       efiCanTouchVariables = true;
       grubDevice = "";
-    };
+    });
 in
   lib.mkMerge [
     (mkHostDefinition context)
