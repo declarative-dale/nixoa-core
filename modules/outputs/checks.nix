@@ -14,7 +14,6 @@ in {
       inherit
         (packages)
         metadata
-        nixoa-menu
         nxcli
         ;
 
