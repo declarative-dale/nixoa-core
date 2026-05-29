@@ -7,6 +7,10 @@
 }: let
   homeDir = "/home/${context.username}";
   repoDir = context.repoDir or "${homeDir}/nixoa";
+  managedRepoDirs = lib.unique [
+    repoDir
+    "${homeDir}/nixoa"
+  ];
   immutable = context.immutability.enable or false;
 in {
   # Preserve existing installer/cloud-init users during the live cutover.
@@ -23,9 +27,11 @@ in {
       chown ${context.username}:users ${lib.escapeShellArg homeDir}
     fi
 
-    if [ -d ${lib.escapeShellArg repoDir} ]; then
-      chown -R ${context.username}:users ${lib.escapeShellArg repoDir}
-    fi
+    ${lib.concatMapStringsSep "\n" (path: ''
+      if [ -d ${lib.escapeShellArg path} ]; then
+        chown -R ${context.username}:users ${lib.escapeShellArg path}
+      fi
+    '') managedRepoDirs}
   '';
 
   users.users.${context.username} = {
