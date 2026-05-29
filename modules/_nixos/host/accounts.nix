@@ -28,10 +28,11 @@ in {
     fi
 
     ${lib.concatMapStringsSep "\n" (path: ''
-      if [ -d ${lib.escapeShellArg path} ]; then
-        chown -R ${context.username}:users ${lib.escapeShellArg path}
-      fi
-    '') managedRepoDirs}
+        if [ -d ${lib.escapeShellArg path} ]; then
+          chown -R ${context.username}:users ${lib.escapeShellArg path}
+        fi
+      '')
+      managedRepoDirs}
   '';
 
   users.users.${context.username} = {

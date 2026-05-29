@@ -81,7 +81,7 @@ recreating a separate manual host-composition framework.
 The appliance is mutable by default for operator-owned settings, package lists, Home Manager modules, Flatpaks, and host-local NixOS modules. Set
 `immutability.enable = true` in the host context to switch user management to a declarative policy while leaving runtime state writable for XO, Valkey, TLS, SSH host keys, Flatpaks, logs, and queued rebuild state.
 
-XO configuration is generated into `/etc/xo-server/config.nixoa.toml` from the declarative `xoConfig.toml` string in host settings. The default TOML preserves the Valkey socket, XO data and temp paths, public `80` and `443` listeners, TLS paths, web mounts, and remote storage mount directory.
+XO configuration is generated into `/etc/xo-server/config.nixoa.toml` from structured core defaults unless a host provides a full `xoConfig.toml` override. The default config preserves the Valkey socket, XO data and temp paths, web mounts, and remote storage mount directory, and follows `enableTLS` when deciding whether to emit HTTPS listener and certificate settings.
 
 ## Supporting Outputs
 

@@ -6,10 +6,13 @@ on:
       - main
     paths:
       - ".github/workflows/cache-nixoa-menu.yml"
+      - "docs/**"
       - "flake.lock"
       - "flake.nix"
+      - "lib/**"
       - "modules/**"
       - "pkgs/nixoa-menu/**"
+      - "pkgs/nxcli/**"
   workflow_dispatch:
 
 permissions:
@@ -36,6 +39,18 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: true
         continue-on-error: true
+
+      - name: Evaluate flake outputs
+        run: nix flake show --all-systems
+
+      - name: Check flake
+        run: nix flake check --all-systems --no-build -L
+
+      - name: Evaluate example system
+        run: nix eval --raw .#nixosConfigurations.nixo-ce-example.config.system.build.toplevel.drvPath
+
+      - name: Build lightweight packages
+        run: nix build .#packages.x86_64-linux.nxcli .#packages.x86_64-linux.metadata -L
 
       - name: Build nixoa-menu
         run: nix build .#packages.x86_64-linux.nixoa-menu -L

@@ -12,6 +12,7 @@
   cfg = config.nixoa.xo;
   tlsCfg = config.nixoa.xo.tls;
   openssl = pkgs.openssl;
+  autoCertEnabled = context.enableXO && context.enableTLS && context.enableAutoCert;
 
   # Script to generate or renew certificates only when needed
   genCertScript = pkgs.writeShellScript "xoa-generate-certs.sh" ''
@@ -48,7 +49,7 @@
     echo "Certificate generation complete."
   '';
 in {
-  config = mkIf context.enableAutoCert {
+  config = mkIf autoCertEnabled {
     # Systemd service to generate/renew certificates at boot
     systemd.services.xo-autocert = {
       description = "Generate XO TLS certificates if missing or expired";

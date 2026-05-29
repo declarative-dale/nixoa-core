@@ -36,6 +36,16 @@ the new directory with:
 git add host/<hostname> host/_automation/default.nix
 ```
 
+## Flake Check Skips Linux Outputs On macOS
+
+NiXOA exports Linux NixOS systems. On Darwin builders, plain
+`nix flake check --no-build` can report that `x86_64-linux` outputs were
+omitted. Use the all-systems form when validating evaluation from macOS:
+
+```bash
+nix flake check --all-systems --no-build
+```
+
 ## Stable VM Alias Resolves To The Wrong Host
 
 Check `host/_automation/default.nix` and confirm `vmHost` points at the

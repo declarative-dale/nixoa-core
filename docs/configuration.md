@@ -70,7 +70,13 @@ autostart path still honors `NIXOA_TUI_BYPASS` and `NIXOA_TUI_ACTIVE`.
 
 `immutability.enable = false` keeps the operator-friendly mutable mode. When set to `true`, NixOS manages users declaratively and locks the admin account to SSH-key access while preserving appliance runtime state.
 
-XO config is declared as literal TOML inside `_ctx/settings.nix`:
+XO config is generated from structured core defaults when `xoConfig = {};`.
+Those defaults follow `enableTLS`: disabling TLS removes the HTTPS listener,
+certificate paths, and automatic redirect from the generated
+`/etc/xo-server/config.nixoa.toml`.
+
+Set `xoConfig.toml` only when the host needs to replace the complete generated
+XO server configuration:
 
 ```nix
 xoConfig.toml = ''
@@ -86,7 +92,8 @@ xoConfig.toml = ''
 ```
 
 The string is the complete `/etc/xo-server/config.nixoa.toml` content and is
-validated as TOML during builds. This keeps XO configuration declarative while making edits feel like editing a normal TOML file.
+validated as TOML during builds. When present, it is treated as a full override
+and is not modified by `enableTLS`.
 
 ## Den-Native Split
 
