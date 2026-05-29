@@ -712,4 +712,6 @@ printf '\n'
 
 "${bootstrap_cmd[@]}"
 
-handoff_repo_checkout_ownership "$repo_dir" "$bootstrap_target_user"
+if [ "$first_switch_requested" -eq 0 ]; then
+  handoff_repo_checkout_ownership "$repo_dir" "$bootstrap_target_user"
+fi
