@@ -21,7 +21,9 @@
         nxcli = final.callPackage ../../../../pkgs/nxcli/package.nix {
           repoRootDefault = context.repoDir;
         };
-        nixoa-menu = final.callPackage ../../../../pkgs/nixoa-menu/package.nix {};
+        nixoa-menu = final.callPackage ../../../../pkgs/nixoa-menu/package.nix {
+          repoRootDefault = context.repoDir;
+        };
       };
   };
 in {
