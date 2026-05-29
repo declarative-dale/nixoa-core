@@ -11,6 +11,7 @@
   makeWrapper,
   nix,
   rustPlatform,
+  repoRootDefault ? null,
 }:
 rustPlatform.buildRustPackage {
   pname = "nixoa-menu";
@@ -26,6 +27,7 @@ rustPlatform.buildRustPackage {
 
   postInstall = ''
     wrapProgram "$out/bin/nixoa-menu" \
+      ${lib.optionalString (repoRootDefault != null) "--set-default NIXOA_SYSTEM_ROOT ${lib.escapeShellArg repoRootDefault} \\"}
       --prefix PATH : ${
       lib.makeBinPath [
         bash

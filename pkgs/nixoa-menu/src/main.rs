@@ -1145,7 +1145,10 @@ fn main() -> Result<()> {
 
 fn discover_repo_root() -> Result<PathBuf> {
     if let Some(root) = env::var_os("NIXOA_SYSTEM_ROOT") {
-        return Ok(PathBuf::from(root));
+        let candidate = PathBuf::from(root);
+        if candidate.join("scripts/tui/state.sh").is_file() {
+            return Ok(candidate);
+        }
     }
 
     if let Ok(output) = Command::new("git")
@@ -1161,9 +1164,11 @@ fn discover_repo_root() -> Result<PathBuf> {
     }
 
     if let Some(home) = env::var_os("HOME") {
-        let candidate = PathBuf::from(home).join("system");
-        if candidate.is_dir() {
-            return Ok(candidate);
+        for name in ["nixoa", "system"] {
+            let candidate = PathBuf::from(&home).join(name);
+            if candidate.join("scripts/tui/state.sh").is_file() {
+                return Ok(candidate);
+            }
         }
     }
 

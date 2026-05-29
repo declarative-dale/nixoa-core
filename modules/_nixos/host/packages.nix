@@ -15,7 +15,10 @@
       (throw "NiXOA system package '${item}' was not found in pkgs")
       pkgs
     else item;
-  nixoaMenu = inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixoa-menu;
+  nixoaMenu =
+    if pkgs ? nixoa && pkgs.nixoa ? nixoa-menu
+    then pkgs.nixoa.nixoa-menu
+    else inputs.self.packages.${pkgs.stdenv.hostPlatform.system}.nixoa-menu;
 in {
   environment.systemPackages =
     map resolvePackage (context.systemPackages or [])
