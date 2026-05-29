@@ -752,7 +752,9 @@ run_apply_config() {
   local current_head=""
   local exit_code=0
   local nh_user=""
+  local first_install_user=""
   local sudo_bin=""
+  local rebuild_log=""
   local -a extra_args=()
   local -a build_extra_args=()
   local -a rebuild_cmd=()
@@ -888,10 +890,33 @@ run_apply_config() {
     run_rebuild=(nixoa_run_nh "${rebuild_cmd[@]}")
   fi
 
-  if "${run_rebuild[@]}"; then
+  if [ "$first_install_switch" -eq 1 ]; then
+    first_install_user="${NIXOA_NH_USER:-$(nixoa_host_execution_user "$target_arg" || true)}"
+    rebuild_log="$(mktemp -t nixoa-first-install-switch.XXXXXX.log)"
+    set +e
+    "${run_rebuild[@]}" 2>&1 | tee "$rebuild_log"
+    exit_code="${PIPESTATUS[0]}"
+    set -e
+    if [ "$exit_code" -eq 4 ] &&
+      [ "$first_install_user" != "nixos" ] &&
+      grep -qF "warning: user activation for nixos failed" "$rebuild_log" &&
+      ! grep -qF "warning: user activation for $first_install_user failed" "$rebuild_log"; then
+      nixoa_print_warning "Ignoring failed user-unit reload for the live installer user 'nixos' during first install."
+      nixoa_print_warning "The target system was activated; reboot or log in as $first_install_user for normal operation."
+      exit_code=0
+    fi
+    rm -f "$rebuild_log"
+  else
+    if "${run_rebuild[@]}"; then
+      exit_code=0
+    else
+      exit_code="$?"
+    fi
+  fi
+
+  if [ "$exit_code" -eq 0 ]; then
     nixoa_write_apply_state "success" "$record_action" "$target_arg" "$current_head" "$first_install" "0"
   else
-    exit_code="$?"
     nixoa_write_apply_state "failed" "$record_action" "$target_arg" "$current_head" "$first_install" "$exit_code"
     exit "$exit_code"
   fi
