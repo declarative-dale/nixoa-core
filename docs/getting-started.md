@@ -20,7 +20,7 @@ sudo grep -q 'libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mW
 ## Bootstrap A Host
 
 ```bash
-bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes --first-switch
+bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes
 ```
 
 If you want a local checkout first, use the canonical `nxcli` app:
@@ -40,7 +40,7 @@ version, SSH keys, and deployment profile. It then:
 - updates `host/_automation/default.nix` so `nixosConfigurations.vm` targets the selected host VM
 - stages the tracked `host/` files so flake evaluation sees the new host
 - validates the flake
-- optionally performs the first switch through `nixos-rebuild` with the first-install cache options
+- performs the first switch through `nixos-rebuild` with the first-install cache options unless `--no-first-switch` is passed to bootstrap
 
 Use `scripts/bootstrap.sh` only for the streamed one-shot install path. Normal
 operator work should go through `nix run .#nxcli -- ...` before the first

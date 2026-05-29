@@ -170,7 +170,8 @@ Options:
   --ssh-key KEY         Add an SSH public key. Repeatable.
   --skip-check          Skip nix flake check after host creation.
   --skip-hardware-copy  Do not copy /etc/nixos/hardware-configuration.nix.
-  --first-switch        Run the first switch after setup without prompting.
+  --first-switch        Run the first switch after setup without prompting (default).
+  --no-first-switch     Create the host checkout without switching.
   --help                Show this help text.
 EOF
 }
@@ -551,7 +552,7 @@ enable_flakes=0
 hostname_arg=""
 username_arg=""
 username_arg_explicit=0
-first_switch_requested=0
+first_switch_requested=1
 declare -a host_add_args=()
 
 while [ $# -gt 0 ]; do
@@ -616,8 +617,11 @@ while [ $# -gt 0 ]; do
       shift
       ;;
     --first-switch)
-      host_add_args+=(--first-switch)
       first_switch_requested=1
+      shift
+      ;;
+    --no-first-switch)
+      first_switch_requested=0
       shift
       ;;
     --help)
@@ -639,6 +643,10 @@ fi
 
 if [ "$username_arg_explicit" -eq 0 ] && [ -n "$username_arg" ]; then
   host_add_args+=(--username "$username_arg")
+fi
+
+if [ "$first_switch_requested" -eq 1 ]; then
+  host_add_args+=(--first-switch)
 fi
 
 if [ -z "$repo_dir" ]; then

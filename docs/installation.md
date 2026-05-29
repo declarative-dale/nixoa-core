@@ -21,7 +21,7 @@ sudo grep -q 'libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mW
 ## Bootstrap Install
 
 ```bash
-bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes --first-switch
+bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes
 ```
 
 If you prefer to clone the repo first:
@@ -35,9 +35,10 @@ nix run .#nxcli -- host add --first-switch
 `nxcli host add` creates a concrete host directory under `host/<hostname>/`,
 writes the selected values into Den-shaped host files, updates
 `host/_automation/default.nix` so `nixosConfigurations.vm` targets that host's
-VM output, validates the flake, and runs the first switch through
-`nixos-rebuild` with the first-install cache options when `--first-switch` is
-used. `scripts/bootstrap.sh` remains available only for the streamed one-shot
+VM output, and validates the flake. `scripts/bootstrap.sh` also runs the first
+switch through `nixos-rebuild` with first-install cache options by default; pass
+`--no-first-switch` to only create the checkout and host files.
+`scripts/bootstrap.sh` remains available only for the streamed one-shot
 checkout/bootstrap flow; routine host creation and operation should use `nxcli`.
 
 ## Manual Install
