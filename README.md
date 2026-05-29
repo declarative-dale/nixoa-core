@@ -21,10 +21,10 @@ This repo can be used in two ways:
 ## Quick Start
 
 On a fresh NixOS install, the streamed bootstrap path prepares a checkout,
-creates a host from the template, and can run the first switch:
+creates a host from the template, and runs the first switch by default:
 
 ```bash
-bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes --first-switch
+bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes
 ```
 
 If you prefer to clone the repo first:
