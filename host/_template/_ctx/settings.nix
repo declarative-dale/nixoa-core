@@ -7,7 +7,7 @@
   repoDir = "/home/nixoa/nixoa";
 
   timezone = "Europe/Paris";
-  stateVersion = "25.11"; # Do not change after installation
+  stateVersion = "26.05"; # Do not change after installation
 
   username = "nixoa";
   gitName = "NiXOA Admin";

@@ -141,7 +141,7 @@ settings, optionally copies `/etc/nixos/hardware-configuration.nix`, updates the
 - `--git-name NAME`: git `user.name`; default `NiXOA Admin`
 - `--git-email EMAIL`: git `user.email`; default `nixoa@nixoa`
 - `--timezone ZONE`: time zone; default `Europe/Paris`
-- `--state-version VER`: NixOS state version; default `25.11`
+- `--state-version VER`: NixOS state version; default `26.05`
 - `--ssh-key KEY`: add an SSH public key; repeatable
 - `--skip-check`: skip `nix flake check --no-write-lock-file`
 - `--first-switch`: run the first switch after host creation

@@ -123,7 +123,7 @@ Options:
   --git-name NAME          Git user.name override. Default: NiXOA Admin.
   --git-email EMAIL        Git user.email override. Default: nixoa@nixoa.
   --timezone ZONE          Time zone. Default: Europe/Paris.
-  --state-version VER      State version. Default: 25.11.
+  --state-version VER      State version. Default: 26.05.
   --ssh-key KEY            Add an SSH public key. Repeatable.
   --skip-check             Skip nix flake check after creating the host.
   --first-switch           Run the first switch after creating the host without prompting.
@@ -526,7 +526,7 @@ host_add() {
   fi
 
   if [ -z "$state_version_arg" ]; then
-    state_version_arg="$(nixoa_prompt_with_default "State version" "25.11")"
+    state_version_arg="$(nixoa_prompt_with_default "State version" "26.05")"
   fi
 
   if [ "${#ssh_keys[@]}" -eq 0 ]; then
