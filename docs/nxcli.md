@@ -30,6 +30,7 @@ nxcli host add [hostname] [options]
 nxcli host list [--json]
 nxcli host show [hostname|hostname-vm|vm] [--json]
 nxcli host select-vm <hostname|hostname-vm|vm>
+nxcli host development-mode [status|on|off|toggle] [--target <hostname|hostname-vm|vm>]
 nxcli host edit [hostname|hostname-vm|vm]
 nxcli update flake [--preview] [--target <hostname|hostname-vm|vm>] [--ask]
 nxcli update xoa [--preview] [--target <hostname|hostname-vm|vm>] [--ask]
@@ -124,6 +125,7 @@ nxcli host add [hostname] [options]
 nxcli host list [--json]
 nxcli host show [hostname|hostname-vm|vm] [--json]
 nxcli host select-vm <hostname|hostname-vm|vm>
+nxcli host development-mode [status|on|off|toggle] [--target <hostname|hostname-vm|vm>]
 nxcli host edit [hostname|hostname-vm|vm]
 ```
 
@@ -149,8 +151,16 @@ settings, optionally copies `/etc/nixos/hardware-configuration.nix`, updates the
 `host edit` opens the selected host's `_ctx/settings.nix` and `_ctx/menu.nix`
 with the configured editor.
 
+`host development-mode` reads or changes the selected host's Development Mode
+override in `_ctx/menu.nix`. `on`, `off`, and `toggle` commit the menu override
+immediately. Development Mode installs `devenv`, Rust tooling, Node.js/npm
+helpers, and Redis/Valkey command-line helpers as system packages on the next
+apply.
+
 `host list --json` returns host names, deployment profiles, and stable VM
-selection state. `host show --json` returns the selected host, settings files, profile, username, timezone, repo directory, concrete outputs, and stable VM selection state.
+selection state. `host show --json` returns the selected host, settings files,
+profile, username, timezone, Development Mode state, repo directory, concrete
+outputs, and stable VM selection state.
 
 ## Updating Flake Inputs
 

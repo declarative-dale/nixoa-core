@@ -235,6 +235,7 @@ if [ "${1:-}" = "--json" ]; then
   printf '  "username": %s,\n' "$(json_quote "$(nixoa_tui_username)")"
   printf '  "timezone": %s,\n' "$(json_quote "$(nixoa_tui_timezone)")"
   printf '  "extras": %s,\n' "$(nixoa_tui_enable_extras)"
+  printf '  "developmentMode": %s,\n' "$(nixoa_tui_development_mode)"
   printf '  "sshKeys": '
   json_array ssh_keys
   printf ',\n'
@@ -301,6 +302,7 @@ printf 'hostname=%s\n' "$(nixoa_tui_hostname)"
 printf 'username=%s\n' "$(nixoa_tui_username)"
 printf 'timezone=%s\n' "$(nixoa_tui_timezone)"
 printf 'extras=%s\n' "$(nixoa_tui_enable_extras)"
+printf 'development_mode=%s\n' "$(nixoa_tui_development_mode)"
 printf 'ssh_key_count=%s\n' "${#ssh_keys[@]}"
 printf 'system_package_count=%s\n' "${#system_packages[@]}"
 printf 'user_package_count=%s\n' "${#user_packages[@]}"

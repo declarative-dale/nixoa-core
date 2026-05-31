@@ -28,6 +28,7 @@
   allowedUDPPorts = [];
 
   enableExtras = false;
+  developmentMode = false;
   shell = null; # null preserves bash by default, zsh when enableExtras is true.
   nixoaMenuAutoStart = false; # Opt in to automatic nixoa-menu startup on SSH login.
   enableXO = true;

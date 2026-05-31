@@ -24,6 +24,7 @@
     nixoaMenuAutoStart = false;
     shell = null;
     enabledServices = [];
+    developmentMode = false;
     systemPackages = [];
     userPackages = [];
     xoConfig = {};

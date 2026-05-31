@@ -44,8 +44,10 @@ nixoa_tui_read_list_file() {
       exit
     }
     in_list {
-      if (match($0, /"([^"]+)"/, parts)) {
-        print parts[1]
+      line = $0
+      while (match(line, /"[^"]+"/)) {
+        print substr(line, RSTART + 1, RLENGTH - 2)
+        line = substr(line, RSTART + RLENGTH)
       }
     }
   ' "$file"
@@ -104,6 +106,10 @@ nixoa_tui_enable_extras() {
   nixoa_tui_first_bool enableExtras "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" || printf '%s\n' false
 }
 
+nixoa_tui_development_mode() {
+  nixoa_tui_first_bool developmentMode "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" || printf '%s\n' false
+}
+
 nixoa_tui_ssh_keys() {
   local file
 
@@ -136,10 +142,11 @@ nixoa_tui_write_menu() {
   local username="$2"
   local timezone="$3"
   local extras="$4"
-  local -n ssh_keys_ref="$5"
-  local -n system_packages_ref="$6"
-  local -n user_packages_ref="$7"
-  local -n services_ref="$8"
+  local development_mode="$5"
+  local -n ssh_keys_ref="$6"
+  local -n system_packages_ref="$7"
+  local -n user_packages_ref="$8"
+  local -n services_ref="$9"
   local menu_file
 
   menu_file="$(nixoa_host_menu_file)"
@@ -160,6 +167,7 @@ nixoa_tui_write_menu() {
     echo "  ];"
     echo ""
     echo "  enableExtras = ${extras};"
+    echo "  developmentMode = ${development_mode};"
     echo ""
     echo "  extraSystemPackages = ["
     for package_name in "${system_packages_ref[@]}"; do

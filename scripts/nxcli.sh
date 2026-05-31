@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-readonly NXCLI_VERSION="4.1.0"
+readonly NXCLI_VERSION="4.2.0"
 
 resolve_repo_root() {
   local candidate=""
@@ -80,6 +80,7 @@ Usage:
   nxcli host list [--json]
   nxcli host show [hostname] [--json]
   nxcli host select-vm <hostname>
+  nxcli host development-mode [status|on|off|toggle] [--target <hostname|vm>]
   nxcli host edit [hostname]
   nxcli update flake [--preview] [--target <hostname|vm>] [--ask]
   nxcli update xoa [--preview] [--target <hostname|vm>] [--ask]
@@ -105,6 +106,7 @@ Usage:
   nxcli host list [--json]
   nxcli host show [hostname] [--json]
   nxcli host select-vm <hostname>
+  nxcli host development-mode [status|on|off|toggle] [--target <hostname|vm>]
   nxcli host edit [hostname]
 EOF
 }
@@ -303,6 +305,7 @@ host_show() {
   local selected_vm=""
   local username=""
   local timezone=""
+  local development_mode=""
   local profile=""
   local repo_dir=""
 
@@ -341,6 +344,7 @@ host_show() {
   selected_vm="$(nixoa_vm_alias_host || true)"
   username="$(nixoa_config_string username "$host_name" || true)"
   timezone="$(nixoa_config_string timezone "$host_name" || true)"
+  development_mode="$(host_config_bool developmentMode "$host_name" || printf false)"
   profile="$(nixoa_config_string deploymentProfile "$host_name" || true)"
   repo_dir="$(nixoa_config_string repoDir "$host_name" || true)"
 
@@ -351,6 +355,7 @@ host_show() {
     printf '  "profile": %s,\n' "$(nxcli_json_quote "${profile:-unknown}")"
     printf '  "username": %s,\n' "$(nxcli_json_quote "${username:-unknown}")"
     printf '  "timezone": %s,\n' "$(nxcli_json_quote "${timezone:-unknown}")"
+    printf '  "developmentMode": %s,\n' "$development_mode"
     printf '  "repoDir": %s,\n' "$(nxcli_json_quote "${repo_dir:-unknown}")"
     printf '  "vmSelected": %s,\n' "$( [ "$host_name" = "$selected_vm" ] && printf true || printf false )"
     printf '  "outputs": [%s, %s],\n' "$(nxcli_json_quote "$host_name")" "$(nxcli_json_quote "$host_name-vm")"
@@ -365,6 +370,7 @@ host_show() {
   printf 'Profile: %s\n' "${profile:-unknown}"
   printf 'Username: %s\n' "${username:-unknown}"
   printf 'Timezone: %s\n' "${timezone:-unknown}"
+  printf 'Development Mode: %s\n' "$development_mode"
   printf 'Repo dir: %s\n' "${repo_dir:-unknown}"
   printf 'Stable vm alias: %s\n' "$( [ "$host_name" = "$selected_vm" ] && printf 'selected' || printf 'not selected' )"
   printf 'Concrete outputs: %s, %s-vm\n' "$host_name" "$host_name"
@@ -379,6 +385,85 @@ host_select_vm() {
   nixoa_write_vm_alias_settings "$(nixoa_vm_alias_file)" "$host_name"
   git -C "$NIXOA_SYSTEM_ROOT" add host/_automation/default.nix
   nixoa_print_success "Stable vm alias now points to ${host_name}-vm."
+}
+
+host_config_bool() {
+  local key="$1"
+  local host_ref="$2"
+  local file=""
+  local value=""
+
+  for file in \
+    "$(nixoa_host_menu_file "$host_ref")" \
+    "$(nixoa_host_settings_file "$host_ref")"
+  do
+    [ -f "$file" ] || continue
+    value="$(sed -nE "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*;.*$/\\1/p" "$file" | tail -n 1)"
+    if [ "$value" = "true" ] || [ "$value" = "false" ]; then
+      printf '%s\n' "$value"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+host_development_mode() {
+  local mode="status"
+  local target=""
+  local resolved_target=""
+  local host_name=""
+  local value=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --target|--hostname)
+        target="$2"
+        shift 2
+        ;;
+      --help|-h)
+        echo "Usage: nxcli host development-mode [status|on|off|toggle] [--target <hostname|vm>]" >&2
+        return 0
+        ;;
+      status|on|off|toggle|enable|disable|true|false)
+        mode="$1"
+        shift
+        ;;
+      *)
+        if [ -z "$target" ]; then
+          target="$1"
+          shift
+        else
+          nixoa_print_error "Unknown host development-mode option: $1"
+          exit 1
+        fi
+        ;;
+    esac
+  done
+
+  target="${target:-$(nixoa_default_target)}"
+  resolved_target="$(nixoa_require_target_output "$target")"
+  host_name="$(nixoa_resolve_target_host "$resolved_target")"
+
+  case "$mode" in
+    status)
+      value="$(host_config_bool developmentMode "$host_name" || printf false)"
+      printf 'Development Mode for %s: %s\n' "$host_name" "$value"
+      ;;
+    on|enable|true)
+      NIXOA_HOSTNAME="$host_name" "$NIXOA_SYSTEM_ROOT/scripts/tui/action.sh" set-development-mode true
+      ;;
+    off|disable|false)
+      NIXOA_HOSTNAME="$host_name" "$NIXOA_SYSTEM_ROOT/scripts/tui/action.sh" set-development-mode false
+      ;;
+    toggle)
+      NIXOA_HOSTNAME="$host_name" "$NIXOA_SYSTEM_ROOT/scripts/tui/action.sh" toggle-development-mode
+      ;;
+    *)
+      nixoa_print_error "Unknown Development Mode action: $mode"
+      exit 1
+      ;;
+  esac
 }
 
 host_edit() {
@@ -1165,6 +1250,9 @@ dispatch_host() {
         exit 1
       fi
       host_select_vm "$1"
+      ;;
+    development-mode)
+      host_development_mode "$@"
       ;;
     edit)
       host_edit "${1:-}"

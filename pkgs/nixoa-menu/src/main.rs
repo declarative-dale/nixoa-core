@@ -83,6 +83,8 @@ struct Snapshot {
     username: String,
     timezone: String,
     extras: bool,
+    #[serde(default)]
+    development_mode: bool,
     ssh_keys: Vec<String>,
     system_packages: Vec<String>,
     user_packages: Vec<String>,
@@ -169,6 +171,7 @@ enum ActionKind {
     EditHostname,
     EditUsername,
     ToggleExtras,
+    ToggleDevelopmentMode,
     AddSshKey,
     ReplaceSshKeys,
     DeleteSelectedSshKey,
@@ -308,7 +311,7 @@ const STATUS_ACTIONS: [ActionItem; 2] = [
     },
 ];
 
-const HOST_SETUP_ACTIONS: [ActionItem; 3] = [
+const HOST_SETUP_ACTIONS: [ActionItem; 4] = [
     ActionItem {
         kind: ActionKind::EditHostname,
         title: "Hostname",
@@ -323,6 +326,11 @@ const HOST_SETUP_ACTIONS: [ActionItem; 3] = [
         kind: ActionKind::ToggleExtras,
         title: "Extras",
         detail: "Enable or disable the extras feature set and commit the resulting menu override.",
+    },
+    ActionItem {
+        kind: ActionKind::ToggleDevelopmentMode,
+        title: "Development Mode",
+        detail: "Enable or disable devenv, Rust, Node.js, and Redis/Valkey helper tooling.",
     },
 ];
 
@@ -1116,7 +1124,9 @@ fn page_label(page: Page) -> &'static str {
 fn primary_page_detail(page: Page) -> &'static str {
     match page {
         Page::Status => "Host health, repository state, alerts, and recent activity.",
-        Page::HostSetup => "Hostname, primary username, extras, and host identity actions.",
+        Page::HostSetup => {
+            "Hostname, primary username, Extras, Development Mode, and host identity actions."
+        }
         Page::Access => "Managed SSH keys and access maintenance.",
         Page::Packages => "System packages, user packages, and service enablement.",
         Page::Updates => "Flake input update targets and rebuild state.",
@@ -1473,6 +1483,7 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
             );
         }
         ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+        ActionKind::ToggleDevelopmentMode => run_action_capture(app, &["toggle-development-mode"])?,
         ActionKind::AddSshKey => open_modal(
             app,
             InputAction::AddKey,
@@ -1595,6 +1606,7 @@ fn activate_action_kind(terminal: &mut AppTerminal, app: &mut App, kind: ActionK
             );
         }
         ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
+        ActionKind::ToggleDevelopmentMode => run_action_capture(app, &["toggle-development-mode"])?,
         ActionKind::AddSshKey => open_modal(
             app,
             InputAction::AddKey,
@@ -2679,6 +2691,19 @@ fn render_system_summary(frame: &mut Frame, area: Rect, app: &App) {
                 COLOR_WARNING
             },
         ),
+        key_value_line(
+            "Development Mode",
+            if app.snapshot.development_mode {
+                "enabled"
+            } else {
+                "disabled"
+            },
+            if app.snapshot.development_mode {
+                COLOR_SUCCESS
+            } else {
+                COLOR_WARNING
+            },
+        ),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(content, inner);
@@ -2798,7 +2823,7 @@ fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
 
     let rows = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(9), Constraint::Min(6)])
+        .constraints([Constraint::Length(10), Constraint::Min(6)])
         .split(area);
 
     let summary_inner = draw_panel(frame, rows[0], "Host Setup", false, PanelTone::Info);
@@ -2813,6 +2838,19 @@ fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
                 "disabled"
             },
             if app.snapshot.extras {
+                COLOR_SUCCESS
+            } else {
+                COLOR_WARNING
+            },
+        ),
+        key_value_line(
+            "Development Mode",
+            if app.snapshot.development_mode {
+                "enabled"
+            } else {
+                "disabled"
+            },
+            if app.snapshot.development_mode {
                 COLOR_SUCCESS
             } else {
                 COLOR_WARNING
@@ -2863,6 +2901,24 @@ fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
                     }
                 ),
                 "Enter toggles the extras feature set and commits the override.".to_string(),
+            ],
+            false,
+            PanelTone::Info,
+        ),
+        ActionKind::ToggleDevelopmentMode => render_simple_detail(
+            frame,
+            rows[1],
+            "Selected Action",
+            &[
+                format!(
+                    "Development Mode is currently {}.",
+                    if app.snapshot.development_mode {
+                        "enabled"
+                    } else {
+                        "disabled"
+                    }
+                ),
+                "Enter toggles devenv, Rust, Node.js, and Redis/Valkey helper tooling.".to_string(),
             ],
             false,
             PanelTone::Info,
@@ -3782,6 +3838,7 @@ mod tests {
             username: "nixoa".to_string(),
             timezone: "UTC".to_string(),
             extras: false,
+            development_mode: false,
             ssh_keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey nixo-ce-test".to_string()],
             system_packages: vec!["vim".to_string(), "curl".to_string()],
             user_packages: vec!["git".to_string()],

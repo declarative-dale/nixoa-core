@@ -91,7 +91,6 @@ The flake also publishes:
 - `nixosConfigurations.<hostname>-vm` for per-host VM variants
 - `nixosConfigurations.vm` for automation that should not depend on a concrete host name
 - repository and host-scoped `apps`, with `nxcli` as the canonical operator interface
-- `devShells`
 - supporting `packages`, including `nxcli` and the shared `nixoa-menu` console
 
 These outputs are secondary to the Den model, but they make the unified repo

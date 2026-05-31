@@ -36,6 +36,7 @@ without caller-side guessing.
 - `allowedTCPPorts`
 - `allowedUDPPorts`
 - `enableExtras`
+- `developmentMode`
 - `enableXO`
 - `enableXenGuest`
 - `enableXenHardware`
@@ -63,6 +64,11 @@ Bash includes baseline operator quality-of-life defaults even when
 `enableExtras = false`: persistent history, readline completion/search behavior, common Git/system aliases, and the `menu = nixoa-menu` alias.
 
 Extras remain the place for heavier Zsh enhancements such as Oh My Zsh and additional shell packages.
+
+`developmentMode = false` keeps development tools out of the base appliance
+profile. Set it to `true`, or toggle Development Mode in `nxcli` or
+`nixoa-menu`, to install `devenv`, the Rust toolchain, Node.js/npm helpers, and
+Redis/Valkey command-line helpers as system packages.
 
 `nixoaMenuAutoStart = false` keeps SSH logins in the normal shell. Set it to
 `true` only when SSH sessions should automatically exec `nixoa-menu`. The

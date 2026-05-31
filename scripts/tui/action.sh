@@ -20,6 +20,8 @@ Commands:
   add-ssh-key VALUE
   remove-ssh-key VALUE
   toggle-extras
+  set-development-mode true|false
+  toggle-development-mode
   add-system-package VALUE
   add-user-package VALUE
   add-service VALUE
@@ -37,6 +39,7 @@ load_state() {
   username_value="$(nixoa_tui_username)"
   timezone_value="$(nixoa_tui_timezone)"
   extras_value="$(nixoa_tui_enable_extras)"
+  development_mode_value="$(nixoa_tui_development_mode)"
 
   mapfile -t ssh_keys_value < <(nixoa_tui_ssh_keys)
   mapfile -t system_packages_value < <(nixoa_tui_extra_system_packages)
@@ -277,6 +280,7 @@ case "$command_name" in
       "$username_value" \
       "$timezone_value" \
       "$extras_value" \
+      "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
@@ -292,6 +296,7 @@ case "$command_name" in
       "$username_value" \
       "$timezone_value" \
       "$extras_value" \
+      "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
@@ -307,6 +312,7 @@ case "$command_name" in
       "$username_value" \
       "$timezone_value" \
       "$extras_value" \
+      "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
@@ -322,6 +328,7 @@ case "$command_name" in
         "$username_value" \
         "$timezone_value" \
         "$extras_value" \
+        "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
@@ -343,6 +350,7 @@ case "$command_name" in
         "$username_value" \
         "$timezone_value" \
         "$extras_value" \
+        "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
@@ -365,6 +373,55 @@ case "$command_name" in
       "$username_value" \
       "$timezone_value" \
       "$extras_value" \
+      "$development_mode_value" \
+      ssh_keys_value \
+      system_packages_value \
+      user_packages_value \
+      services_value
+    nixoa_tui_commit_paths "$commit_message" "$host_menu_relpath"
+    ;;
+  set-development-mode)
+    [ $# -eq 1 ] || { usage >&2; exit 1; }
+    case "$1" in
+      true|false)
+        development_mode_value="$1"
+        ;;
+      *)
+        echo "Development Mode value must be true or false." >&2
+        exit 1
+        ;;
+    esac
+    nixoa_tui_write_menu \
+      "$hostname_value" \
+      "$username_value" \
+      "$timezone_value" \
+      "$extras_value" \
+      "$development_mode_value" \
+      ssh_keys_value \
+      system_packages_value \
+      user_packages_value \
+      services_value
+    if [ "$development_mode_value" = "true" ]; then
+      commit_message="Enable Development Mode from nixoa-menu"
+    else
+      commit_message="Disable Development Mode from nixoa-menu"
+    fi
+    nixoa_tui_commit_paths "$commit_message" "$host_menu_relpath"
+    ;;
+  toggle-development-mode)
+    if [ "$development_mode_value" = "true" ]; then
+      development_mode_value="false"
+      commit_message="Disable Development Mode from nixoa-menu"
+    else
+      development_mode_value="true"
+      commit_message="Enable Development Mode from nixoa-menu"
+    fi
+    nixoa_tui_write_menu \
+      "$hostname_value" \
+      "$username_value" \
+      "$timezone_value" \
+      "$extras_value" \
+      "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
@@ -380,6 +437,7 @@ case "$command_name" in
         "$username_value" \
         "$timezone_value" \
         "$extras_value" \
+        "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
@@ -398,6 +456,7 @@ case "$command_name" in
         "$username_value" \
         "$timezone_value" \
         "$extras_value" \
+        "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
@@ -416,6 +475,7 @@ case "$command_name" in
         "$username_value" \
         "$timezone_value" \
         "$extras_value" \
+        "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \

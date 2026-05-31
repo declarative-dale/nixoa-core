@@ -1,5 +1,6 @@
 {lib}: let
   boolFields = [
+    "developmentMode"
     "efiCanTouchVariables"
     "enableAutoCert"
     "enableCIFS"

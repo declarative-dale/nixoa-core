@@ -1136,6 +1136,7 @@ nixoa_write_host_settings() {
     echo "  allowedUDPPorts = [ ];"
     echo ""
     echo "  enableExtras = false;"
+    echo "  developmentMode = false;"
     echo "  shell = null;"
     echo "  enableXO = true;"
     echo "  enableXenGuest = ${enable_xen_guest};"
