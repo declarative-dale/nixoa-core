@@ -27,6 +27,10 @@ creates a host from the template, and runs the first switch by default:
 bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes
 ```
 
+The bootstrap script clones Codeberg by default. The GitHub mirror publishes
+matching `main` releases to FlakeHub so first-install builds can use FlakeHub
+Cache without changing the canonical source checkout.
+
 If you prefer to clone the repo first:
 
 ```bash

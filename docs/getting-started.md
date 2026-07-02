@@ -4,17 +4,19 @@ NiXOA is now used directly from the unified `core` repo.
 
 ## Fresh NixOS Prep
 
-On a fresh machine where you are still operating as the stock `nixos` user, you can persist the XO and libvhdi Cachix caches and trusted users ahead of time.
-Determinate cache settings are passed only as first-switch command-line options; Determinate Nix manages its own persistent substitution settings after activation.
+On a fresh machine where you are still operating as the stock `nixos` user, you can persist trusted users and the public first-install caches ahead of time.
+The streamed bootstrap also passes these settings to the initial `nixos-rebuild`, so this prep is useful but not required.
+
+NiXOA bootstraps from the canonical Codeberg repo. The GitHub mirror publishes the same `main` content to FlakeHub, and first-install builds can substitute matching outputs from FlakeHub Cache while still cloning Codeberg.
 
 ```bash
 sudo install -d -m 0755 /etc/nix
 sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
   || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'libvhdi-nixpkg.cachix.org' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-substituters = https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'cache.flakehub.com' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-substituters = https://cache.flakehub.com https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
+sudo grep -q 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM=' /etc/nix/nix.conf 2>/dev/null \
+  || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' | sudo tee -a /etc/nix/nix.conf >/dev/null
 ```
 
 ## Bootstrap A Host
