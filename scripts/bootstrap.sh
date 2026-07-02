@@ -4,8 +4,7 @@
 
 set -euo pipefail
 
-readonly NIXOA_BOOTSTRAP_SOURCE_BRANCH="codex/bootstrap-public-flakehub-cache"
-readonly NIXOA_BOOTSTRAP_SOURCE_REPO_URL="https://github.com/declarative-dale/nixoa-core.git"
+readonly NIXOA_BOOTSTRAP_SOURCE_BRANCH="main"
 
 resolve_bootstrap_repo_root() {
   local candidate=""
