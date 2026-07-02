@@ -7,7 +7,8 @@ NiXOA is now used directly from the unified `core` repo.
 On a fresh machine where you are still operating as the stock `nixos` user, you can persist trusted users and first-install caches ahead of time.
 The streamed bootstrap also passes these settings to the initial `nixos-rebuild`, so this prep is useful but not required.
 
-NiXOA bootstraps from the canonical Codeberg repo. The GitHub mirror publishes the same `main` content to FlakeHub and pushes build results to FlakeHub Cache. Fresh hosts can use those FlakeHub Cache paths when the machine is authenticated with Determinate Nix; otherwise Nix falls back to the public Cachix/Nixpkgs caches and local builds.
+NiXOA bootstraps from the canonical Codeberg repo. The GitHub mirror publishes the same `main` content to FlakeHub and is wired to push build results to FlakeHub Cache once FlakeHub Cache access is active for the account or organization. Fresh hosts can use those FlakeHub Cache paths when the machine is authenticated with Determinate Nix; otherwise Nix falls back to the public Cachix/Nixpkgs caches and local builds.
+FlakeHub Cache requires FlakeHub-side account or organization activation; if the GitHub `Cache nixoa-menu` workflow reports that it cannot authenticate to FlakeHub, activate FlakeHub Cache for the repository owner before expecting cache hits.
 If you are not using Determinate authentication and want to avoid FlakeHub Cache authorization warnings, omit `https://cache.flakehub.com` and its key from the manual prep lines below.
 
 ```bash
