@@ -406,44 +406,6 @@ nix_conf_ensure_tokens() {
   rm -f "$temp_file"
 }
 
-nix_conf_set_setting() {
-  local file="$1"
-  local key="$2"
-  local value="$3"
-  local temp_file=""
-  local file_mode="0644"
-  local line="${key} = ${value}"
-
-  if [ "$(nix_conf_read_setting "$file" "$key" || true)" = "$value" ]; then
-    return 0
-  fi
-
-  temp_file="$(mktemp)"
-  if [ -f "$file" ]; then
-    awk -v key="$key" -v line="$line" '
-      $0 ~ "^[[:space:]]*" key "[[:space:]]*=" {
-        if (!replaced) {
-          print line
-          replaced = 1
-        }
-        next
-      }
-      { print }
-      END {
-        if (!replaced) {
-          print line
-        }
-      }
-    ' "$file" > "$temp_file"
-    file_mode="$(stat -c '%a' "$file" 2>/dev/null || printf '0644')"
-  else
-    printf '%s\n' "$line" > "$temp_file"
-  fi
-
-  nixoa_run_as_root install -m "$file_mode" "$temp_file" "$file"
-  rm -f "$temp_file"
-}
-
 prepare_first_switch_nix_access() {
   local operator_user="$1"
   local target_user="$2"
@@ -464,8 +426,6 @@ prepare_first_switch_nix_access() {
   nixoa_print_info "Preparing trusted users and first-install binary cache settings"
   nixoa_run_as_root install -d -m 0755 /etc/nix
   nix_conf_ensure_tokens "$nix_conf" trusted-users "${users_to_trust[@]}"
-  nix_conf_set_setting "$nix_conf" access-tokens ""
-  nix_conf_set_setting "$nix_conf" netrc-file /dev/null
   nix_conf_ensure_tokens "$nix_conf" extra-substituters \
     "$NIXOA_FLAKEHUB_SUBSTITUTER" \
     "$NIXOA_XO_SUBSTITUTER" \

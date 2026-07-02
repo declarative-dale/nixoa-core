@@ -144,12 +144,6 @@ nixoa_append_first_install_nix_options() {
     --option
     extra-trusted-public-keys
     "${NIXOA_FLAKEHUB_PUBLIC_KEY} ${NIXOA_XO_PUBLIC_KEY} ${NIXOA_LIBVHDI_PUBLIC_KEY}"
-    --option
-    access-tokens
-    ""
-    --option
-    netrc-file
-    /dev/null
   )
 }
 

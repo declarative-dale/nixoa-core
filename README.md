@@ -28,8 +28,9 @@ bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootst
 ```
 
 The bootstrap script clones Codeberg by default. The GitHub mirror publishes
-matching `main` releases to FlakeHub so first-install builds can use FlakeHub
-Cache without changing the canonical source checkout.
+matching `main` releases to FlakeHub and pushes build results to FlakeHub
+Cache. Authenticated Determinate Nix hosts can use that cache without changing
+the canonical source checkout.
 
 If you prefer to clone the repo first:
 
