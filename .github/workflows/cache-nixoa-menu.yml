@@ -23,6 +23,7 @@ jobs:
   cache-nixoa-menu:
     name: Build and push nixoa-menu
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -38,6 +39,7 @@ jobs:
         uses: DeterminateSystems/flakehub-cache-action@main
         with:
           flakehub-flake-name: declarative-dale/nixoa-core
+          use-gha-cache: disabled
 
       - name: Setup Cachix
         if: vars.CACHIX_CACHE_NAME != ''
