@@ -14,6 +14,8 @@ nix run .#deploy-template -- \
   --network "VM network" \
   --export-network "VM network" \
   --template-name NiXOA \
+  --memory-mb 4096 \
+  --disk-size-mb 51200 \
   --operator-key ~/.ssh/id_ed25519.pub
 ```
 

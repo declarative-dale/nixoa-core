@@ -91,6 +91,8 @@ bash "$TEST_ROOT/packer/deploy-template.sh" \
   --network "Build network" \
   --export-network "Template network" \
   --template-name NiXOA \
+  --memory-mb 4096 \
+  --disk-size-mb 51200 \
   --operator-key "$temporary/operator.pub" \
   --config "$temporary/packer.pkrvars.json" \
   --configure-only
@@ -102,6 +104,8 @@ jq -e '
   and .network_names == ["Build network"]
   and .export_network_names == ["Template network"]
   and .vm_name == "NiXOA"
+  and .memory_mb == 4096
+  and .disk_size_mb == 51200
   and (.remote_password? == null)
 ' "$temporary/packer.pkrvars.json" >/dev/null \
   || fail "Packer configuration generation is incorrect"

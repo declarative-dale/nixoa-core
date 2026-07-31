@@ -14,6 +14,8 @@ sr_name=
 network_name=
 export_network_name=
 template_name=
+memory_mb=
+disk_size_mb=
 operator_key=${HOME:-}/.ssh/id_ed25519.pub
 repo_url=https://codeberg.org/NiXOA/core.git
 repo_branch=main
@@ -32,6 +34,8 @@ Options:
   --network NAME          DHCP-enabled installer network
   --export-network NAME   network retained by the template
   --template-name NAME    native template name
+  --memory-mb MIB         template memory (minimum 4096)
+  --disk-size-mb MIB      template disk size (minimum 40960)
   --operator-key FILE     SSH public key for the nixoa operator
   --repo-url URL          core repository installed into the template
   --branch NAME           core repository branch
@@ -60,6 +64,8 @@ while [[ "$#" -gt 0 ]]; do
     --network) need_argument "$@"; network_name=$2; shift 2 ;;
     --export-network) need_argument "$@"; export_network_name=$2; shift 2 ;;
     --template-name) need_argument "$@"; template_name=$2; shift 2 ;;
+    --memory-mb) need_argument "$@"; memory_mb=$2; shift 2 ;;
+    --disk-size-mb) need_argument "$@"; disk_size_mb=$2; shift 2 ;;
     --operator-key) need_argument "$@"; operator_key=$2; shift 2 ;;
     --repo-url) need_argument "$@"; repo_url=$2; shift 2 ;;
     --branch) need_argument "$@"; repo_branch=$2; shift 2 ;;
@@ -108,6 +114,14 @@ read_network() {
     "$config_file" 2>/dev/null || true
 }
 
+read_number() {
+  local key=$1
+  [[ -r "$config_file" ]] || return 0
+  jq -er --arg key "$key" \
+    '.[$key] | select(type == "number" and floor == .)' \
+    "$config_file" 2>/dev/null || true
+}
+
 remote_host=${remote_host:-$(read_string remote_host)}
 remote_username=${remote_username:-$(read_string remote_username)}
 sr_iso_name=${sr_iso_name:-$(read_string sr_iso_name)}
@@ -115,6 +129,10 @@ sr_name=${sr_name:-$(read_string sr_name)}
 network_name=${network_name:-$(read_network network_names)}
 export_network_name=${export_network_name:-$(read_network export_network_names)}
 template_name=${template_name:-$(read_string vm_name)}
+memory_mb=${memory_mb:-$(read_number memory_mb)}
+disk_size_mb=${disk_size_mb:-$(read_number disk_size_mb)}
+memory_mb=${memory_mb:-4096}
+disk_size_mb=${disk_size_mb:-40960}
 
 prompt_setting() {
   local variable_name=$1 label=$2 default_value=$3 current answer
@@ -152,6 +170,14 @@ for value in \
     exit 1
   }
 done
+[[ "$memory_mb" =~ ^[0-9]+$ && "$memory_mb" -ge 4096 ]] || {
+  printf 'Memory must be an integer of at least 4096 MiB.\n' >&2
+  exit 1
+}
+[[ "$disk_size_mb" =~ ^[0-9]+$ && "$disk_size_mb" -ge 40960 ]] || {
+  printf 'Disk size must be an integer of at least 40960 MiB.\n' >&2
+  exit 1
+}
 [[ -r "$operator_key" ]] || {
   printf 'Operator SSH public key not found: %s\n' "$operator_key" >&2
   exit 1
@@ -181,6 +207,8 @@ jq -n \
   --arg template_name "$template_name" \
   --arg repo_url "$repo_url" \
   --arg repo_branch "$repo_branch" \
+  --argjson memory_mb "$memory_mb" \
+  --argjson disk_size_mb "$disk_size_mb" \
   '{
     remote_host: $remote_host,
     remote_username: $remote_username,
@@ -189,6 +217,8 @@ jq -n \
     network_names: [$network_name],
     export_network_names: [$export_network_name],
     vm_name: $template_name,
+    memory_mb: $memory_mb,
+    disk_size_mb: $disk_size_mb,
     repo_url: $repo_url,
     repo_branch: $repo_branch
   }' >"$config_tmp"
