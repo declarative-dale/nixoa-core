@@ -32,8 +32,8 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Build and publish the complete NiXOA system closure from GitHub Actions and
   use the public NiXOA Cachix cache during installer and first-install builds.
 - Keep the official Determinate and NiXOA Cachix substituters on installed
-  appliances, and install only Determinate's cached runtime output so NixOS
-  does not rebuild its uncached manual/debug development outputs.
+  appliances, and wrap only Determinate's cached runtime output so NixOS does
+  not rebuild its uncached manual/debug development outputs.
 
 ### Removed
 

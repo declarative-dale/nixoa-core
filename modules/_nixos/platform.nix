@@ -8,13 +8,20 @@
   # The official Determinate cache publishes the runtime output. Avoid pulling
   # the uncached manual output into the appliance closure, which otherwise
   # forces a complete Determinate Nix source build.
-  determinateNix = inputs.determinate.inputs.nix.packages.${pkgs.stdenv.hostPlatform.system}.default.overrideAttrs (old: {
+  upstreamDeterminateNix = inputs.determinate.inputs.nix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+  determinateNix = pkgs.symlinkJoin {
+    name = "determinate-nix-${upstreamDeterminateNix.version}";
+    paths = [upstreamDeterminateNix.out];
+    passthru = {
+      upstream = upstreamDeterminateNix;
+      inherit (upstreamDeterminateNix) pname version;
+    };
     meta =
-      (old.meta or {})
+      (upstreamDeterminateNix.meta or {})
       // {
         outputsToInstall = ["out"];
       };
-  });
+  };
 in {
   imports = [inputs.determinate.nixosModules.default];
 

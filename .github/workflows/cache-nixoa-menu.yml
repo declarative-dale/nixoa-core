@@ -45,7 +45,7 @@ jobs:
         run: |
           nix config show substituters
           nix config show trusted-public-keys
-          determinate_out=$(nix eval --raw .#nixosConfigurations.nixoa.config.nix.package.outPath)
+          determinate_out=$(nix eval --raw .#nixosConfigurations.nixoa.config.nix.package.upstream.outPath)
           nix path-info --store https://install.determinate.systems "$determinate_out"
 
       - name: Evaluate flake outputs

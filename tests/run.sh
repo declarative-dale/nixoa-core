@@ -87,9 +87,9 @@ grep -Fq '"https://install.determinate.systems"' \
 grep -Fq '"https://nixoa.cachix.org"' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
   || fail "installed system omits the NiXOA Cachix cache"
-grep -Fq 'outputsToInstall = ["out"]' \
+grep -Fq 'paths = [upstreamDeterminateNix.out]' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
-  || fail "installed system requests uncached Determinate package outputs"
+  || fail "installed system does not isolate the cached Determinate runtime output"
 
 if NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
   source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
