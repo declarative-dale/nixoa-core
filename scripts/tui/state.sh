@@ -174,7 +174,6 @@ load_xoa_state() {
   local package_path=""
   local package_name=""
   local locked_rev=""
-  local tls_enabled=""
   local scheme="http"
 
   xen_orchestra_version=""
@@ -194,11 +193,7 @@ load_xoa_state() {
     fi
   fi
 
-  tls_enabled="$(
-    sed -nE 's/.*tls[[:space:]]*=[[:space:]]*\\{[[:space:]]*enable[[:space:]]*=[[:space:]]*(true|false).*/\\1/p' \
-      "$(nixoa_host_settings_file)" | tail -n 1
-  )"
-  if [ "$tls_enabled" = "true" ]; then
+  if nixoa_tui_xo_tls_enabled /etc/xo-server/config.nixoa.toml; then
     scheme="https"
   fi
 

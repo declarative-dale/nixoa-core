@@ -47,6 +47,17 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 
 - Final SSH access is restricted to the declared `nixoa` operator rather than
   retaining permanent access for the installer `nixos` account.
+- Protect files on the EFI system partition with owner-only masks so the
+  systemd-boot random seed is not world-readable.
+
+### Fixed
+
+- Detect the XO HTTPS listener from its rendered TOML instead of using a
+  malformed `sed` expression that prevented `nixoa-menu` from starting.
+- Disable cloud-init network rendering explicitly so systemd-networkd remains
+  authoritative, and remove stale fallback network files during activation.
+- Avoid first-boot races between cloud-init and NixOS SSH host-key generation,
+  and suppress unsupported SSH key-to-console output on NixOS.
 
 ## v2.0.0 — Operator Console And CLI Refactor
 

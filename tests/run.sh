@@ -196,6 +196,9 @@ grep -q 'refusing to erase a disk without --yes' \
 grep -q 'mount -t ext4.*root_partition' \
   "$TEST_ROOT/installer/install-nixoa.sh" \
   || fail "installer does not explicitly mount its ext4 root"
+grep -q 'mount -o fmask=0077,dmask=0077.*efi_partition' \
+  "$TEST_ROOT/installer/install-nixoa.sh" \
+  || fail "installer does not protect files on the EFI system partition"
 grep -q 'cloud-init clean --logs --machine-id --seed' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not clear clone identity"
@@ -249,6 +252,31 @@ grep -q 'enabledServices = \[' "$temporary/generated/host/menu.nix" \
   || fail "TUI override omitted service enables"
 if grep -qE 'networking\.hostName|time\.timeZone' "$temporary/generated/host/menu.nix"; then
   fail "TUI override owns durable host identity settings"
+fi
+
+cat >"$temporary/xo-tls.toml" <<'EOF'
+[[http.listen]]
+port = 80
+
+[[http.listen]]
+cert = "/etc/ssl/xo/certificate.pem"
+key = "/etc/ssl/xo/key.pem"
+port = 443
+EOF
+NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+  source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
+  nixoa_tui_xo_tls_enabled "'"$temporary"'/xo-tls.toml"
+' || fail "TUI does not detect TLS from the rendered XO configuration"
+
+cat >"$temporary/xo-http.toml" <<'EOF'
+[[http.listen]]
+port = 80
+EOF
+if NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+  source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
+  nixoa_tui_xo_tls_enabled "'"$temporary"'/xo-http.toml"
+'; then
+  fail "TUI reports TLS without a certificate and key listener"
 fi
 if grep -q '_ctx\\|deploymentProfile\\|enableXenHardware' "$temporary/generated/host/menu.nix"; then
   fail "TUI override contains legacy host context"

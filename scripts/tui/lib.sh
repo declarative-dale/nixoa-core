@@ -54,6 +54,41 @@ nixoa_tui_read_list_file() {
   ' "$file"
 }
 
+nixoa_tui_xo_tls_enabled() {
+  local config_file="$1"
+
+  [ -r "$config_file" ] || return 1
+  awk '
+    /^\[\[http\.listen\]\][[:space:]]*$/ {
+      if (in_listener && has_cert && has_key) {
+        found = 1
+      }
+      in_listener = 1
+      has_cert = 0
+      has_key = 0
+      next
+    }
+    /^\[/ {
+      if (in_listener && has_cert && has_key) {
+        found = 1
+      }
+      in_listener = 0
+    }
+    in_listener && /^[[:space:]]*cert[[:space:]]*=/ {
+      has_cert = 1
+    }
+    in_listener && /^[[:space:]]*key[[:space:]]*=/ {
+      has_key = 1
+    }
+    END {
+      if (in_listener && has_cert && has_key) {
+        found = 1
+      }
+      exit found ? 0 : 1
+    }
+  ' "$config_file"
+}
+
 nixoa_tui_first_string() {
   local key="$1"
   shift

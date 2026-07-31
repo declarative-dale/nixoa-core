@@ -172,7 +172,7 @@ until mount -t ext4 "$root_partition" "$INSTALL_ROOT"; do
   ((mount_attempt += 1))
 done
 install -d -m 0755 "$INSTALL_ROOT/boot"
-mount "$efi_partition" "$INSTALL_ROOT/boot"
+mount -o fmask=0077,dmask=0077 "$efi_partition" "$INSTALL_ROOT/boot"
 
 repo_dir="$INSTALL_ROOT/home/nixoa/nixoa"
 install -d -m 0755 "$(dirname "$repo_dir")"

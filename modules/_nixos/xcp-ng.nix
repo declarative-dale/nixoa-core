@@ -20,13 +20,15 @@
       ];
       preserve_hostname = true;
       manage_etc_hosts = false;
+      network.config = "disabled";
+      disable_network_activation = true;
       disable_root = true;
       ssh_pwauth = false;
       ssh_deletekeys = false;
-      ssh_genkeytypes = [
-        "ed25519"
-        "rsa"
-      ];
+      # NixOS owns SSH host-key generation. Running cloud-init's key generator
+      # concurrently races sshd-keygen.service on the first clone boot.
+      ssh_genkeytypes = [];
+      ssh.emit_keys_to_console = false;
       users = ["default"];
       system_info.default_user = {
         name = "nixoa";
@@ -58,5 +60,14 @@
   systemd.services.sshd = {
     wants = ["cloud-config.service"];
     after = ["cloud-config.service"];
+  };
+
+  # Older clones may retain fallback networkd files rendered by
+  # cloud-init-local before network configuration was disabled explicitly.
+  system.activationScripts.removeCloudInitNetwork = {
+    deps = ["etc"];
+    text = ''
+      ${pkgs.coreutils}/bin/rm -f /etc/systemd/network/10-cloud-init-*.network
+    '';
   };
 }

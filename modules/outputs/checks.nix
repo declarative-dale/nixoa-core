@@ -61,6 +61,10 @@ in {
       assert appliance.services.cloud-init.settings.datasource_list == ["NoCloud" "None"];
       assert appliance.services.cloud-init.settings.system_info.default_user.name == "nixoa";
       assert appliance.services.cloud-init.settings.cloud_init_modules == ["seed_random"];
+      assert appliance.services.cloud-init.settings.network.config == "disabled";
+      assert appliance.services.cloud-init.settings.disable_network_activation;
+      assert appliance.services.cloud-init.settings.ssh_genkeytypes == [];
+      assert !appliance.services.cloud-init.settings.ssh.emit_keys_to_console;
       assert builtins.elem pkgs.cloud-init appliance.environment.systemPackages;
       assert builtins.elem "cloud-config.service" appliance.systemd.services.sshd.after;
       assert appliance.services.openssh.settings.AllowUsers == ["nixoa"];
