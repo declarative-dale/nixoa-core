@@ -38,8 +38,8 @@ in {
 
   # The upstream minimal installer is intended for interactive recovery on
   # arbitrary hardware. This image has one unattended target: a UEFI Xen VM.
-  # Exclude manuals, physical-machine firmware, repair tools, and filesystems
-  # that cannot be used by the Packer installation path.
+  # Trim userspace and presentation features, but retain the upstream initrd
+  # and hardware detection so Xen's virtual devices follow tested boot paths.
   documentation = {
     enable = lib.mkForce false;
     doc.enable = lib.mkForce false;
@@ -47,23 +47,7 @@ in {
     man.enable = lib.mkForce false;
     nixos.enable = lib.mkForce false;
   };
-  hardware = {
-    enableAllHardware = lib.mkForce false;
-    enableRedistributableFirmware = lib.mkForce false;
-    wirelessRegulatoryDatabase = lib.mkForce false;
-  };
-  boot = {
-    initrd.availableKernelModules = lib.mkForce [
-      "xen_blkfront"
-      "xen_netfront"
-    ];
-    loader.grub.memtest86.enable = lib.mkForce false;
-    supportedFilesystems = lib.mkForce [
-      "ext4"
-      "vfat"
-    ];
-    swraid.enable = lib.mkForce false;
-  };
+  boot.loader.grub.memtest86.enable = lib.mkForce false;
   console.packages = lib.mkForce [];
   environment = {
     defaultPackages = lib.mkForce [];
@@ -75,9 +59,12 @@ in {
     hostName = "nixoa-installer";
     firewall.allowedTCPPorts = [22];
     useDHCP = lib.mkForce false;
-    networkmanager.enable = lib.mkForce false;
+    # NetworkManager is the known-good path for Xen netfront interfaces in the
+    # upstream minimal installer. Generic networkd matching did not activate
+    # the Packer VM's VIF, so no DHCP discover packets left the guest.
+    networkmanager.enable = lib.mkForce true;
     dhcpcd.enable = lib.mkForce false;
-    useNetworkd = lib.mkForce true;
+    useNetworkd = lib.mkForce false;
   };
 
   boot.kernelParams = [
@@ -123,18 +110,6 @@ in {
   };
 
   systemd.defaultUnit = "multi-user.target";
-  systemd.network = {
-    enable = true;
-    wait-online.anyInterface = true;
-    networks."10-xen-uplink" = {
-      matchConfig.Type = "ether";
-      networkConfig = {
-        DHCP = "yes";
-        IPv6AcceptRA = true;
-      };
-      linkConfig.RequiredForOnline = "routable";
-    };
-  };
   systemd.packages = [pkgs.xen-guest-agent];
   systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
 
