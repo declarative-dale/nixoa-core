@@ -3,12 +3,20 @@
 
 set -euo pipefail
 
-assert_sshd_option() {
-  local config=$1 option=$2 expected=$3 actual
-  actual=$(awk -v option="$option" '$1 == option { print $2; exit }' <<<"$config")
+assert_sshd_directive() {
+  local config=$1 directive=$2 expected=$3 actual
+  actual=$(awk -v directive="$directive" '
+    tolower($1) == "match" { exit }
+    tolower($1) == tolower(directive) {
+      $1 = ""
+      sub(/^[[:space:]]+/, "")
+      print
+      exit
+    }
+  ' "$config")
   if [[ "$actual" != "$expected" ]]; then
-    printf 'Expected sshd %s=%s, got %s.\n' \
-      "$option" "$expected" "${actual:-<unset>}" >&2
+    printf 'Expected global sshd directive %s=%s, got %s.\n' \
+      "$directive" "$expected" "${actual:-<unset>}" >&2
     return 1
   fi
 }
@@ -34,10 +42,9 @@ canonical_module=
 
 nixos-rebuild switch --flake "path:$repo#nixoa"
 
-sshd_nixoa=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
-sshd_root=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1)
-assert_sshd_option "$sshd_nixoa" passwordauthentication no
-assert_sshd_option "$sshd_root" permitrootlogin no
+sshd -t
+assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication no
+assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
 case "$(getent shadow nixoa | cut -d: -f2)" in
   '!'*|'*'*) ;;
   *)

@@ -16,12 +16,20 @@ report_error() {
 }
 trap report_error ERR
 
-assert_sshd_option() {
-  local config=$1 option=$2 expected=$3 actual
-  actual=$(awk -v option="$option" '$1 == option { print $2; exit }' <<<"$config")
+assert_sshd_directive() {
+  local config=$1 directive=$2 expected=$3 actual
+  actual=$(awk -v directive="$directive" '
+    tolower($1) == "match" { exit }
+    tolower($1) == tolower(directive) {
+      $1 = ""
+      sub(/^[[:space:]]+/, "")
+      print
+      exit
+    }
+  ' "$config")
   if [[ "$actual" != "$expected" ]]; then
-    printf 'Expected sshd %s=%s, got %s.\n' \
-      "$option" "$expected" "${actual:-<unset>}" >&2
+    printf 'Expected global sshd directive %s=%s, got %s.\n' \
+      "$directive" "$expected" "${actual:-<unset>}" >&2
     return 1
   fi
 }
@@ -76,11 +84,10 @@ grep -Fq 'networking.hostName = "nixoa";' \
 grep -Fq 'PasswordAuthentication = lib.mkForce true;' \
   /home/nixoa/nixoa/host/packer.nix
 
-sshd_nixoa=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
-sshd_root=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1)
-assert_sshd_option "$sshd_root" permitrootlogin no
-assert_sshd_option "$sshd_nixoa" passwordauthentication yes
-assert_sshd_option "$sshd_nixoa" allowusers nixoa
+sshd -t
+assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
+assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication yes
+assert_sshd_directive /etc/ssh/sshd_config AllowUsers nixoa
 
 test "$(redis-cli -s /run/redis-xo/redis.sock --raw PING)" = PONG
 curl --fail --silent --show-error --insecure https://127.0.0.1/ >/dev/null
