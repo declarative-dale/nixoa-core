@@ -77,6 +77,16 @@ sudo install -m 0644 /tmp/hardware-configuration.nix \
 
 Review before applying.
 
+## NoCloud clone data
+
+The appliance accepts a Xen Orchestra NoCloud config drive. Its public SSH keys
+are installed for the declared `nixoa` account. The hostname remains `nixoa`,
+systemd-networkd remains authoritative for DHCP, and cloud-init is not allowed
+to partition, resize, or otherwise redefine the generated hardware layout.
+
+For a reusable template, clear cloud-init state, machine identity, and SSH host
+keys before sealing it. The Packer workflow performs and verifies that step.
+
 ## TUI overrides
 
 `host/menu.nix` is generated. It may override SSH keys, extras, development

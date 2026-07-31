@@ -17,6 +17,9 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Made `.#nixoa` the fixed target for bootstrap, `nxcli`, apps, and the TUI.
 - Moved hand-maintained settings, generated hardware, and generated menu
   overrides into the single `host/` tree.
+- Enabled a constrained NoCloud/cloud-init path for per-clone machine identity
+  and `nixoa` SSH-key injection without delegating networking, disks, packages,
+  or arbitrary scripts to cloud-init.
 
 ### Removed
 

@@ -13,7 +13,7 @@ The `nixoa` host aspect composes four focused aspects:
 ```text
 nixoa
 ├── platform   NixOS base, networking, Nix policy, DBus safeguards
-├── xcp-ng     Xen guest agent
+├── xcp-ng     Xen guest agent and constrained NoCloud provisioning
 ├── xo         Xen Orchestra service, TLS, and storage
 └── operator   nixoa account, SSH, Home Manager, nxcli, and menu
 ```
@@ -60,6 +60,19 @@ flake-level modules by `import-tree`.
 Menu-managed operator values are defaults in `settings.nix`, so explicit values
 in `menu.nix` take precedence without allowing the TUI to rewrite durable
 policy.
+
+## Clone provisioning
+
+The XCP-ng aspect enables cloud-init for Xen Orchestra NoCloud config drives.
+Its scope is deliberately narrow: select `NoCloud` with a `None` fallback,
+target the existing `nixoa` operator, install datasource SSH keys, and create
+per-instance SSH identity. Declarative NixOS configuration remains
+authoritative for the hostname, network, accounts, sudo, filesystems, packages,
+and services. Cloud-init disk growth, filesystem resize, network rendering,
+package installation, and arbitrary user scripts are not enabled.
+
+SSH starts after `cloud-config.service`, so a clone cannot expose the operator
+login before NoCloud keys have been processed.
 
 ## XO runtime
 

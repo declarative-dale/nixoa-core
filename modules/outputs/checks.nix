@@ -48,6 +48,12 @@ in {
       assert appliance.systemd.services ? xo-autocert;
       assert appliance.nixoa.xo.internal.sudoWrapper != null;
       assert builtins.elem "multi-user.target" appliance.systemd.services.xen-guest-agent.wantedBy;
+      assert appliance.services.cloud-init.enable;
+      assert !appliance.services.cloud-init.network.enable;
+      assert appliance.services.cloud-init.settings.datasource_list == ["NoCloud" "None"];
+      assert appliance.services.cloud-init.settings.system_info.default_user.name == "nixoa";
+      assert appliance.services.cloud-init.settings.cloud_init_modules == ["seed_random"];
+      assert builtins.elem "cloud-config.service" appliance.systemd.services.sshd.after;
       assert appliance.services.openssh.settings.AllowUsers == ["nixoa"];
       assert appliance.networking.firewall.allowedTCPPorts == [22 80 443];
       assert appliance.determinate.enable;

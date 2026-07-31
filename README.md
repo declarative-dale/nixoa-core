@@ -14,6 +14,7 @@ The appliance combines:
 - automatic self-signed TLS
 - NFS, CIFS, and VHD/VHDX storage support
 - Xen guest integration
+- constrained NoCloud/cloud-init support for cloned VM identity and SSH keys
 - Determinate Nix and XO/libvhdi binary caches
 - a locked-down `nixoa` SSH operator with Home Manager
 - `nxcli` and the `nixoa-menu` console

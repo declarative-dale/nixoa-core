@@ -25,6 +25,19 @@ sudo sshd -T | grep -E 'allowusers|passwordauthentication|permitrootlogin'
 getent passwd nixoa
 ```
 
+For a clone provisioned by Xen Orchestra, also inspect NoCloud:
+
+```bash
+cloud-id
+cloud-init status --wait --long
+journalctl -u cloud-init-local.service -u cloud-init.service \
+  -u cloud-config.service -b
+```
+
+`cloud-id` should report `nocloud` when a config drive is attached. Without a
+config drive, the appliance uses the declared keys from `host/settings.nix` or
+`host/menu.nix`; password SSH remains disabled.
+
 ## XO does not start
 
 ```bash
