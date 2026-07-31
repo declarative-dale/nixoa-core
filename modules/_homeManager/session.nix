@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 # Home session variables
-{context, ...}: {
+{osConfig, ...}: let
+  operator = osConfig.nixoa.operator;
+in {
   home.sessionVariables = {
-    NIXOA_SYSTEM_ROOT = context.repoDir or "/home/${context.username}/nixoa";
-    XO_MOUNTS = context.mountsDir;
+    NIXOA_SYSTEM_ROOT = operator.repoDir;
+    XO_MOUNTS = osConfig.nixoa.xo.storage.mountsDir;
   };
 }

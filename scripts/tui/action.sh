@@ -15,7 +15,6 @@ Usage: action.sh <command> [value]
 
 Commands:
   set-hostname VALUE
-  set-username VALUE
   set-ssh-key VALUE
   add-ssh-key VALUE
   remove-ssh-key VALUE
@@ -78,16 +77,13 @@ prompt_yes_no() {
 }
 
 prompt_rebuild_policy() {
-  local target_value="${1:-$(nixoa_default_target)}"
-  target_value="$(nixoa_host_output_name "$target_value")"
-
   if prompt_yes_no "Rebuild now"; then
-    "$NIXOA_SYSTEM_ROOT/scripts/nxcli.sh" apply --target "$target_value"
+    "$NIXOA_SYSTEM_ROOT/scripts/nxcli.sh" apply
     return 0
   fi
 
   if prompt_yes_no "Queue rebuild for next boot"; then
-    nixoa_schedule_rebuild_on_boot "$NIXOA_SYSTEM_ROOT" "$target_value"
+    nixoa_schedule_rebuild_on_boot "$NIXOA_SYSTEM_ROOT"
     echo "Queued a rebuild for the next boot."
     return 0
   fi
@@ -102,7 +98,7 @@ update_input_and_prompt() {
   "$@"
 
   if commit_lock_if_changed "$commit_message"; then
-    prompt_rebuild_policy "$(nixoa_default_target)"
+    prompt_rebuild_policy
   fi
 }
 
@@ -268,7 +264,7 @@ command_name="$1"
 shift
 
 load_state
-host_menu_relpath="$(nixoa_host_relpath)/_ctx/menu.nix"
+host_menu_relpath="$(nixoa_host_relpath)/menu.nix"
 
 case "$command_name" in
   set-hostname)
@@ -288,20 +284,8 @@ case "$command_name" in
     nixoa_tui_commit_paths "Set hostname to ${hostname_value} from nixoa-menu" "$host_menu_relpath"
     ;;
   set-username)
-    [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_token "username" "$1"
-    username_value="$1"
-    nixoa_tui_write_menu \
-      "$hostname_value" \
-      "$username_value" \
-      "$timezone_value" \
-      "$extras_value" \
-      "$development_mode_value" \
-      ssh_keys_value \
-      system_packages_value \
-      user_packages_value \
-      services_value
-    nixoa_tui_commit_paths "Set username to ${username_value} from nixoa-menu" "$host_menu_relpath"
+    echo "The NiXOA operator is fixed to nixoa." >&2
+    exit 1
     ;;
   set-ssh-key)
     [ $# -eq 1 ] || { usage >&2; exit 1; }

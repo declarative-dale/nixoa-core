@@ -1,16 +1,12 @@
 {
-  den,
   inputs,
   lib,
   ...
 }: let
-  systems =
-    lib.unique
-    ([
-        "x86_64-linux"
-        "aarch64-darwin"
-      ]
-      ++ builtins.attrNames den.hosts);
+  systems = [
+    "x86_64-linux"
+    "aarch64-darwin"
+  ];
 in {
   flake.formatter = lib.genAttrs systems (system: let
     pkgs = inputs.nixpkgs.legacyPackages.${system};

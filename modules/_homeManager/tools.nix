@@ -3,10 +3,12 @@
 {
   lib,
   pkgs,
-  context,
+  osConfig,
   ...
-}: {
-  programs.bat = lib.mkIf context.enableExtras {
+}: let
+  cfg = osConfig.nixoa.operator;
+in {
+  programs.bat = lib.mkIf cfg.enableExtras {
     enable = true;
     config = {
       theme = "Dracula";
@@ -22,14 +24,14 @@
     enable = true;
     settings =
       {
-        user.name = context.gitName;
-        user.email = context.gitEmail;
+        user.name = cfg.gitName;
+        user.email = cfg.gitEmail;
         init.defaultBranch = "main";
         pull.rebase = true;
         merge.conflictstyle = "diff3";
         diff.colorMoved = "default";
       }
-      // lib.optionalAttrs context.enableExtras {
+      // lib.optionalAttrs cfg.enableExtras {
         core.pager = "${pkgs.delta}/bin/delta";
         delta = {
           navigate = true;

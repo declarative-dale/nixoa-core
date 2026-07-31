@@ -1,10 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 # Home Manager base settings
-{context, ...}: {
+{osConfig, ...}: let
+  cfg = osConfig.nixoa.operator;
+in {
   home = {
-    stateVersion = context.stateVersion;
-    username = context.username;
-    homeDirectory = "/home/${context.username}";
+    stateVersion = osConfig.system.stateVersion;
+    username = cfg.username;
+    homeDirectory = "/home/${cfg.username}";
   };
 
   programs.home-manager.enable = true;

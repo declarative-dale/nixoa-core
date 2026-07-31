@@ -3,9 +3,10 @@
 {
   lib,
   pkgs,
-  context,
+  osConfig,
   ...
 }: let
+  cfg = osConfig.nixoa.operator;
   resolvePackage = item:
     if builtins.isString item
     then
@@ -16,9 +17,8 @@
     else item;
 in {
   home.packages =
-    map resolvePackage (context.userPackages or [])
-    ++ map resolvePackage (context.extraUserPackages or [])
-    ++ lib.optionals context.enableExtras [
+    map resolvePackage (cfg.userPackages ++ cfg.menu.extraUserPackages)
+    ++ lib.optionals cfg.enableExtras [
       pkgs.bat
       pkgs.eza
       pkgs.fd

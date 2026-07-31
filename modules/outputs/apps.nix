@@ -1,12 +1,9 @@
 {
-  den,
   inputs,
   lib,
   ...
 }: let
-  systems = lib.unique (["x86_64-linux"] ++ builtins.attrNames den.hosts);
-  outputAliases = import ../../lib/output-aliases.nix {inherit lib;};
-  selectedVmOutput = outputAliases.selectedVmOutput ../..;
+  systems = ["x86_64-linux"];
   mkNxcliApp = pkgs: nxcli: {
     appName,
     args,
@@ -52,26 +49,6 @@
     );
     meta.description = description;
   };
-  mkHostApps = system: let
-    pkgs = inputs.nixpkgs.legacyPackages.${system};
-    hostApps =
-      den.lib.nh.hostApps {
-        fromFlake = true;
-        fromPath = ".";
-      }
-      pkgs;
-    hostAppAttrs = lib.listToAttrs (map toApp hostApps);
-    toApp = drv: {
-      name = drv.name;
-      value = {
-        type = "app";
-        program = "${drv}/bin/${drv.name}";
-        meta.description = "Operate the ${drv.name} NiXOA host through nh";
-      };
-    };
-  in
-    hostAppAttrs
-    // outputAliases.vmAlias hostAppAttrs selectedVmOutput;
 in {
   flake.apps = lib.genAttrs systems (
     system: let
@@ -96,7 +73,7 @@ in {
         bootstrap = mkRepoScriptApp pkgs {
           appName = "nixoa-bootstrap";
           scriptName = "bootstrap.sh";
-          description = "Low-level bootstrap wrapper around nxcli host add";
+          description = "Bootstrap the fixed nixoa appliance checkout";
         };
 
         commit = nxcliApp {
@@ -123,6 +100,5 @@ in {
           meta.description = "Launch the NiXOA SSH administration TUI";
         };
       }
-      // mkHostApps system
   );
 }

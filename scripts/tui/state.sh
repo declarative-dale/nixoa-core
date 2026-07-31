@@ -189,11 +189,8 @@ load_xoa_state() {
   fi
 
   tls_enabled="$(
-    nixoa_tui_first_bool \
-      enableTLS \
-      "$(nixoa_host_menu_file)" \
-      "$(nixoa_host_settings_file)" \
-      || true
+    sed -nE 's/.*tls[[:space:]]*=[[:space:]]*\\{[[:space:]]*enable[[:space:]]*=[[:space:]]*(true|false).*/\\1/p' \
+      "$(nixoa_host_settings_file)" | tail -n 1
   )"
   if [ "$tls_enabled" = "true" ]; then
     scheme="https"

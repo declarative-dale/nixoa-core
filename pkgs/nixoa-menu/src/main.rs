@@ -169,7 +169,6 @@ enum ActionKind {
     RefreshSnapshot,
     CheckForUpdates,
     EditHostname,
-    EditUsername,
     ToggleExtras,
     ToggleDevelopmentMode,
     AddSshKey,
@@ -212,7 +211,6 @@ enum MenuOption {
 #[derive(Debug, Clone, Copy)]
 enum InputAction {
     SetHostname,
-    SetUsername,
     SetPrimaryKey,
     AddKey,
     AddSystemPackage,
@@ -311,16 +309,11 @@ const STATUS_ACTIONS: [ActionItem; 2] = [
     },
 ];
 
-const HOST_SETUP_ACTIONS: [ActionItem; 4] = [
+const HOST_SETUP_ACTIONS: [ActionItem; 3] = [
     ActionItem {
         kind: ActionKind::EditHostname,
         title: "Hostname",
-        detail: "Write a new hostname into host/<hostname>/_ctx/menu.nix and commit the change immediately.",
-    },
-    ActionItem {
-        kind: ActionKind::EditUsername,
-        title: "Username",
-        detail: "Write a new primary username into host/<hostname>/_ctx/menu.nix and commit the change immediately.",
+        detail: "Write a new hostname into host/menu.nix and commit the change immediately.",
     },
     ActionItem {
         kind: ActionKind::ToggleExtras,
@@ -356,17 +349,17 @@ const PACKAGE_ACTIONS: [ActionItem; 3] = [
     ActionItem {
         kind: ActionKind::AddSystemPackage,
         title: "System Packages",
-        detail: "Append a nixpkgs attribute path to extraSystemPackages in host/<hostname>/_ctx/menu.nix.",
+        detail: "Append a nixpkgs attribute path to the generated host/menu.nix override.",
     },
     ActionItem {
         kind: ActionKind::AddUserPackage,
         title: "User Packages",
-        detail: "Append a nixpkgs attribute path to extraUserPackages in host/<hostname>/_ctx/menu.nix.",
+        detail: "Append a Home Manager package path to the generated host/menu.nix override.",
     },
     ActionItem {
         kind: ActionKind::AddService,
         title: "Services",
-        detail: "Enable a service by dotted NixOS option path in host/<hostname>/_ctx/menu.nix.",
+        detail: "Enable a service by dotted NixOS option path in host/menu.nix.",
     },
 ];
 
@@ -1472,16 +1465,6 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
                 current.as_str(),
             );
         }
-        ActionKind::EditUsername => {
-            let current = app.snapshot.username.clone();
-            open_modal(
-                app,
-                InputAction::SetUsername,
-                "Edit username",
-                "Press Enter to write and commit the new username.",
-                current.as_str(),
-            );
-        }
         ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
         ActionKind::ToggleDevelopmentMode => run_action_capture(app, &["toggle-development-mode"])?,
         ActionKind::AddSshKey => open_modal(
@@ -1592,16 +1575,6 @@ fn activate_action_kind(terminal: &mut AppTerminal, app: &mut App, kind: ActionK
                 InputAction::SetHostname,
                 "Edit hostname",
                 "Press Enter to write and commit the new hostname.",
-                current.as_str(),
-            );
-        }
-        ActionKind::EditUsername => {
-            let current = app.snapshot.username.clone();
-            open_modal(
-                app,
-                InputAction::SetUsername,
-                "Edit username",
-                "Press Enter to write and commit the new username.",
                 current.as_str(),
             );
         }
@@ -1737,13 +1710,6 @@ fn submit_modal(
                 run_action_capture(app, &["set-hostname", value.as_str()])?;
             }
         }
-        InputAction::SetUsername => {
-            if value.is_empty() {
-                app.push_log("Ignored empty username.");
-            } else {
-                run_action_capture(app, &["set-username", value.as_str()])?;
-            }
-        }
         InputAction::SetPrimaryKey => {
             if value.is_empty() {
                 app.push_log("Ignored empty SSH key.");
@@ -1858,7 +1824,7 @@ fn run_apply_configuration(terminal: &mut AppTerminal, app: &mut App) -> Result<
 fn run_apply_command(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Apply Configuration", {
         let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
-        command.args(["apply", "--target", app.snapshot.hostname.as_str()]);
+        command.arg("apply");
         command
     })
 }
@@ -1866,7 +1832,7 @@ fn run_apply_command(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
 fn run_rollback_generation(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Rollback Generation", {
         let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
-        command.args(["rollback", "--target", app.snapshot.hostname.as_str()]);
+        command.arg("rollback");
         command
     })
 }
@@ -2870,19 +2836,7 @@ fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
             &[
                 format!("Current hostname: {}", app.snapshot.hostname),
                 "Enter opens an edit modal for the hostname.".to_string(),
-                "The change is written into host/<hostname>/_ctx/menu.nix immediately.".to_string(),
-            ],
-            false,
-            PanelTone::Info,
-        ),
-        ActionKind::EditUsername => render_simple_detail(
-            frame,
-            rows[1],
-            "Selected Action",
-            &[
-                format!("Current username: {}", app.snapshot.username),
-                "Enter opens an edit modal for the primary admin username.".to_string(),
-                "The change is written into host/<hostname>/_ctx/menu.nix immediately.".to_string(),
+                "The change is written into host/menu.nix immediately.".to_string(),
             ],
             false,
             PanelTone::Info,
@@ -2954,7 +2908,7 @@ fn render_access(frame: &mut Frame, area: Rect, app: &App) {
             },
         ),
         Line::from("Key entries live in the Access submenu below the access actions."),
-        Line::from("Successful key changes commit only host/<hostname>/_ctx/menu.nix."),
+        Line::from("Successful key changes commit only host/menu.nix."),
     ])
     .wrap(Wrap { trim: true });
     frame.render_widget(summary, summary_inner);
@@ -3042,7 +2996,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Restore the previous NixOS generation for this host.",
             "Use this when the last switch introduced a regression and the prior generation should be made active again.",
             "Rollback changes the running system state. Confirm that the previous generation is the one you want to restore.",
-            "Enter runs nxcli rollback --target <host>.",
+            "Enter runs nxcli rollback for .#nixoa.",
             app,
         ),
         ActionKind::RunGarbageCollection => render_maintenance_detail_page(
@@ -3969,12 +3923,12 @@ mod tests {
             },
             GitStatusEntry {
                 status: "??".to_string(),
-                path: "host/example/_ctx/menu.nix".to_string(),
+                path: "host/menu.nix".to_string(),
             },
         ]);
 
         assert!(message.contains("Save NiXOA changes on "));
         assert!(message.contains("flake.lock"));
-        assert!(message.contains("host/example/_ctx/menu.nix"));
+        assert!(message.contains("host/menu.nix"));
     }
 }

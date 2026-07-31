@@ -2,10 +2,12 @@
 # Bash configuration
 {
   config,
-  context,
   lib,
+  osConfig,
   ...
-}: {
+}: let
+  cfg = osConfig.nixoa.operator;
+in {
   programs = {
     bash = {
       enable = true;
@@ -57,10 +59,10 @@
           PROMPT_COMMAND="history -a; history -n; $PROMPT_COMMAND"
         fi
       '';
-      profileExtra = lib.optionalString (context.nixoaMenuAutoStart or false) ''
+      profileExtra = lib.optionalString cfg.menuAutoStart ''
         if [[ $- == *i* ]] && [[ -n "''${SSH_TTY:-}" ]] && [[ -t 0 ]] && [[ -t 1 ]] && [[ -z "''${NIXOA_TUI_BYPASS:-}" ]] && [[ -z "''${NIXOA_TUI_ACTIVE:-}" ]]; then
           export NIXOA_TUI_ACTIVE=1
-          export NIXOA_SYSTEM_ROOT="''${NIXOA_SYSTEM_ROOT:-${context.repoDir or "/home/${context.username}/nixoa"}}"
+          export NIXOA_SYSTEM_ROOT="''${NIXOA_SYSTEM_ROOT:-${cfg.repoDir}}"
           exec nixoa-menu
         fi
       '';

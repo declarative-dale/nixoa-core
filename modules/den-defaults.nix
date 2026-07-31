@@ -1,13 +1,10 @@
 {
   den,
-  # deadnix: skip
-  __findFile ? __findFile,
+  lib,
   ...
 }: {
-  den.default.includes = [
-    <den/hostname>
-    <den/define-user>
-  ];
+  den.default.nixos.system.stateVersion = "26.05";
+  den.default.homeManager.home.stateVersion = "26.05";
 
-  den.ctx.user.includes = [<den/mutual-provider>];
+  den.schema.user.classes = lib.mkDefault ["homeManager"];
 }

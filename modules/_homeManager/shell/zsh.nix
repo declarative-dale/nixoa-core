@@ -4,18 +4,20 @@
   config,
   lib,
   pkgs,
-  context,
+  osConfig,
   ...
-}: {
-  programs.zsh = lib.mkIf context.enableExtras {
+}: let
+  cfg = osConfig.nixoa.operator;
+in {
+  programs.zsh = lib.mkIf cfg.enableExtras {
     enable = true;
     enableCompletion = true;
     autosuggestion.enable = true;
     syntaxHighlighting.enable = true;
-    loginExtra = lib.optionalString (context.nixoaMenuAutoStart or false) ''
+    loginExtra = lib.optionalString cfg.menuAutoStart ''
       if [[ -n "''${SSH_TTY:-}" ]] && [[ -o interactive ]] && [[ -t 0 ]] && [[ -t 1 ]] && [[ -z "''${NIXOA_TUI_BYPASS:-}" ]] && [[ -z "''${NIXOA_TUI_ACTIVE:-}" ]]; then
         export NIXOA_TUI_ACTIVE=1
-        export NIXOA_SYSTEM_ROOT="''${NIXOA_SYSTEM_ROOT:-${context.repoDir or "/home/${context.username}/nixoa"}}"
+        export NIXOA_SYSTEM_ROOT="''${NIXOA_SYSTEM_ROOT:-${cfg.repoDir}}"
         exec nixoa-menu
       fi
     '';
@@ -62,7 +64,7 @@
         sysstatus = "sudo systemctl status";
         menu = "nixoa-menu";
       }
-      // lib.optionalAttrs context.enableExtras {
+      // lib.optionalAttrs cfg.enableExtras {
         ls = "eza --icons --group-directories-first";
         ll = "eza -l --icons --group-directories-first --git";
         la = "eza -la --icons --group-directories-first --git";

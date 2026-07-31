@@ -11,7 +11,7 @@ nixoa_tui_quote() {
 nixoa_tui_has_key() {
   local key="$1"
   local file="$2"
-  [ -f "$file" ] && grep -Eq "^[[:space:]]*${key}[[:space:]]*=" "$file"
+  [ -f "$file" ] && grep -Eq "^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=" "$file"
 }
 
 nixoa_tui_read_string_file() {
@@ -19,7 +19,7 @@ nixoa_tui_read_string_file() {
   local file="$2"
 
   [ -f "$file" ] || return 1
-  sed -nE "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*\"([^\"]*)\"[[:space:]]*;.*$/\\1/p" "$file" | tail -n 1
+  sed -nE "s/^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=[[:space:]]*\"([^\"]*)\"[[:space:]]*;.*$/\\2/p" "$file" | tail -n 1
 }
 
 nixoa_tui_read_bool_file() {
@@ -27,7 +27,7 @@ nixoa_tui_read_bool_file() {
   local file="$2"
 
   [ -f "$file" ] || return 1
-  sed -nE "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*;.*$/\\1/p" "$file" | tail -n 1
+  sed -nE "s/^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*;.*$/\\2/p" "$file" | tail -n 1
 }
 
 nixoa_tui_read_list_file() {
@@ -36,7 +36,7 @@ nixoa_tui_read_list_file() {
 
   [ -f "$file" ] || return 0
   awk -v key="$key" '
-    $0 ~ "^[[:space:]]*" key "[[:space:]]*=[[:space:]]*\\[" {
+    $0 ~ "^[[:space:]]*([A-Za-z0-9_.-]+\\.)?" key "[[:space:]]*=[[:space:]]*\\[" {
       in_list = 1
       next
     }
@@ -88,17 +88,16 @@ nixoa_tui_first_bool() {
 }
 
 nixoa_tui_hostname() {
-  nixoa_tui_first_string hostname "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
+  nixoa_tui_first_string hostName "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
     || printf '%s\n' "$NIXOA_DEFAULT_HOSTNAME"
 }
 
 nixoa_tui_username() {
-  nixoa_tui_first_string username "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
-    || printf '%s\n' "$NIXOA_DEFAULT_USERNAME"
+  printf '%s\n' "$NIXOA_DEFAULT_USERNAME"
 }
 
 nixoa_tui_timezone() {
-  nixoa_tui_first_string timezone "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
+  nixoa_tui_first_string timeZone "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
     || printf '%s\n' "$NIXOA_DEFAULT_TIMEZONE"
 }
 
@@ -156,36 +155,39 @@ nixoa_tui_write_menu() {
     echo "# Managed by nixoa-menu"
     echo "{ ... }:"
     echo "{"
-    echo "  hostname = $(nixoa_tui_quote "$hostname");"
-    echo "  username = $(nixoa_tui_quote "$username");"
-    echo "  timezone = $(nixoa_tui_quote "$timezone");"
+    echo "  networking.hostName = $(nixoa_tui_quote "$hostname");"
+    echo "  time.timeZone = $(nixoa_tui_quote "$timezone");"
     echo ""
-    echo "  sshKeys = ["
+    echo "  nixoa.operator = {"
+    echo "    sshKeys = ["
     for key in "${ssh_keys_ref[@]}"; do
-      echo "    $(nixoa_tui_quote "$key")"
+      echo "      $(nixoa_tui_quote "$key")"
     done
-    echo "  ];"
+    echo "    ];"
     echo ""
-    echo "  enableExtras = ${extras};"
-    echo "  developmentMode = ${development_mode};"
+    echo "    enableExtras = ${extras};"
+    echo "    developmentMode = ${development_mode};"
     echo ""
-    echo "  extraSystemPackages = ["
+    echo "    menu = {"
+    echo "      extraSystemPackages = ["
     for package_name in "${system_packages_ref[@]}"; do
-      echo "    $(nixoa_tui_quote "$package_name")"
+      echo "        $(nixoa_tui_quote "$package_name")"
     done
-    echo "  ];"
+    echo "      ];"
     echo ""
-    echo "  extraUserPackages = ["
+    echo "      extraUserPackages = ["
     for package_name in "${user_packages_ref[@]}"; do
-      echo "    $(nixoa_tui_quote "$package_name")"
+      echo "        $(nixoa_tui_quote "$package_name")"
     done
-    echo "  ];"
+    echo "      ];"
     echo ""
-    echo "  enabledServices = ["
+    echo "      enabledServices = ["
     for service_name in "${services_ref[@]}"; do
-      echo "    $(nixoa_tui_quote "$service_name")"
+      echo "        $(nixoa_tui_quote "$service_name")"
     done
-    echo "  ];"
+    echo "      ];"
+    echo "    };"
+    echo "  };"
     echo "}"
   } > "$menu_file"
 }

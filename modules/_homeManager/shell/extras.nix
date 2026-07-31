@@ -3,25 +3,26 @@
 {
   lib,
   pkgs,
-  context,
+  osConfig,
   ...
 }: let
+  cfg = osConfig.nixoa.operator;
   fdSearchCmd = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
 in {
-  programs.direnv = lib.mkIf context.enableExtras {
+  programs.direnv = lib.mkIf cfg.enableExtras {
     enable = true;
     nix-direnv.enable = true;
     enableBashIntegration = false;
     enableZshIntegration = true;
   };
 
-  programs.zoxide = lib.mkIf context.enableExtras {
+  programs.zoxide = lib.mkIf cfg.enableExtras {
     enable = true;
     enableBashIntegration = false;
     enableZshIntegration = true;
   };
 
-  programs.fzf = lib.mkIf context.enableExtras {
+  programs.fzf = lib.mkIf cfg.enableExtras {
     enable = true;
     enableBashIntegration = false;
     enableZshIntegration = true;
@@ -34,7 +35,7 @@ in {
     ];
   };
 
-  programs.oh-my-posh = lib.mkIf context.enableExtras {
+  programs.oh-my-posh = lib.mkIf cfg.enableExtras {
     enable = true;
     enableBashIntegration = false;
     enableZshIntegration = true;
