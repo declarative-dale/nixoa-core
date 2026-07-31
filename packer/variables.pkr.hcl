@@ -45,7 +45,7 @@ variable "operator_public_key_file" {
 variable "repo_url" {
   type        = string
   description = "Core repository cloned by the installer."
-  default     = "https://codeberg.org/NiXOA/core.git"
+  default     = "https://github.com/declarative-dale/nixoa-core.git"
 }
 
 variable "repo_branch" {

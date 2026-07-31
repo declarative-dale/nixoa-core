@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-repo_url=${NIXOA_REPO_URL:-https://codeberg.org/NiXOA/core.git}
+repo_url=${NIXOA_REPO_URL:-https://github.com/declarative-dale/nixoa-core.git}
 repo_branch=${NIXOA_REPO_BRANCH:-main}
 
 exec sudo -n install-nixoa \
