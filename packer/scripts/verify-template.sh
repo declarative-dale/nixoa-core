@@ -16,6 +16,16 @@ report_error() {
 }
 trap report_error ERR
 
+assert_sshd_option() {
+  local config=$1 option=$2 expected=$3 actual
+  actual=$(awk -v option="$option" '$1 == option { print $2; exit }' <<<"$config")
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'Expected sshd %s=%s, got %s.\n' \
+      "$option" "$expected" "${actual:-<unset>}" >&2
+    return 1
+  fi
+}
+
 cloud_status=0
 cloud-init status --wait --long || cloud_status=$?
 case "$cloud_status" in
@@ -66,10 +76,11 @@ grep -Fq 'networking.hostName = "nixoa";' \
 grep -Fq 'PasswordAuthentication = lib.mkForce true;' \
   /home/nixoa/nixoa/host/packer.nix
 
-sshd_effective=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
-test "$(awk '$1 == "permitrootlogin" { print $2; exit }' <<<"$sshd_effective")" = no
-test "$(awk '$1 == "passwordauthentication" { print $2; exit }' <<<"$sshd_effective")" = yes
-test "$(awk '$1 == "allowusers" { print $2; exit }' <<<"$sshd_effective")" = nixoa
+sshd_nixoa=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
+sshd_root=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1)
+assert_sshd_option "$sshd_root" permitrootlogin no
+assert_sshd_option "$sshd_nixoa" passwordauthentication yes
+assert_sshd_option "$sshd_nixoa" allowusers nixoa
 
 test "$(redis-cli -s /run/redis-xo/redis.sock --raw PING)" = PONG
 curl --fail --silent --show-error --insecure https://127.0.0.1/ >/dev/null

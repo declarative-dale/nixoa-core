@@ -3,6 +3,16 @@
 
 set -euo pipefail
 
+assert_sshd_option() {
+  local config=$1 option=$2 expected=$3 actual
+  actual=$(awk -v option="$option" '$1 == option { print $2; exit }' <<<"$config")
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'Expected sshd %s=%s, got %s.\n' \
+      "$option" "$expected" "${actual:-<unset>}" >&2
+    return 1
+  fi
+}
+
 [[ "$(id -u)" -eq 0 ]] || {
   printf 'NiXOA template sealing must run as root.\n' >&2
   exit 1
@@ -24,9 +34,10 @@ canonical_module=
 
 nixos-rebuild switch --flake "path:$repo#nixoa"
 
-sshd_effective=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
-test "$(awk '$1 == "passwordauthentication" { print $2; exit }' <<<"$sshd_effective")" = no
-test "$(awk '$1 == "permitrootlogin" { print $2; exit }' <<<"$sshd_effective")" = no
+sshd_nixoa=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
+sshd_root=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1)
+assert_sshd_option "$sshd_nixoa" passwordauthentication no
+assert_sshd_option "$sshd_root" permitrootlogin no
 case "$(getent shadow nixoa | cut -d: -f2)" in
   '!'*|'*'*) ;;
   *)

@@ -3,6 +3,16 @@
 
 set -euo pipefail
 
+assert_sshd_option() {
+  local config=$1 option=$2 expected=$3 actual
+  actual=$(awk -v option="$option" '$1 == option { print $2; exit }' <<<"$config")
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'Expected sshd %s=%s, got %s.\n' \
+      "$option" "$expected" "${actual:-<unset>}" >&2
+    return 1
+  fi
+}
+
 [[ "$(id -u)" -eq 0 ]] || {
   printf 'NiXOA clone verification must run as root.\n' >&2
   exit 1
@@ -18,9 +28,10 @@ for key_type in ed25519 rsa; do
   ssh-keygen -l -f "/etc/ssh/ssh_host_${key_type}_key.pub" >/dev/null
 done
 
-sshd_effective=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
-test "$(awk '$1 == "passwordauthentication" { print $2; exit }' <<<"$sshd_effective")" = no
-test "$(awk '$1 == "permitrootlogin" { print $2; exit }' <<<"$sshd_effective")" = no
+sshd_nixoa=$(sshd -T -C user=nixoa,host=localhost,addr=127.0.0.1)
+sshd_root=$(sshd -T -C user=root,host=localhost,addr=127.0.0.1)
+assert_sshd_option "$sshd_nixoa" passwordauthentication no
+assert_sshd_option "$sshd_root" permitrootlogin no
 test -s /home/nixoa/.ssh/authorized_keys
 
 systemctl is-active --quiet \
