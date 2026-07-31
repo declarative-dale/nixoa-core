@@ -49,8 +49,8 @@ jobs:
       - name: Evaluate nixoa system
         run: nix eval --raw .#nixosConfigurations.nixoa.config.system.build.toplevel.drvPath
 
-      - name: Validate precached libvhdi input
-        run: nix build .#packages.x86_64-linux.libvhdi --no-link --max-jobs 0 -L
+      - name: Build libvhdi input
+        run: nix build .#packages.x86_64-linux.libvhdi -o result-libvhdi -L
 
       - name: Build package outputs
         run: |
@@ -74,6 +74,7 @@ jobs:
           fi
 
           out_paths=$(readlink -f \
+            result-libvhdi \
             result-nxcli \
             result-metadata \
             result-nixoa-menu \
