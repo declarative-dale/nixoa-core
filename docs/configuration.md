@@ -1,117 +1,84 @@
-# Configuration Reference
+# Configuration
 
-Host-owned configuration now lives inside `host/<hostname>/`.
-Use [Common Tasks](common-tasks.md) for short examples and the
-[nxcli reference](nxcli.md) for applying and committing changes.
+All appliance-specific configuration lives under `host/`.
 
-## Host Directory Shape
+## `host/settings.nix`
 
-Each concrete host uses the same Den-shaped layout as the template:
+This is the durable, hand-maintained module. It sets native NixOS options plus
+the typed NiXOA option trees.
 
-- `default.nix`: declares the concrete Den host and attaches aspects
-- `_ctx/settings.nix`: durable host-owned values
-- `_ctx/menu.nix`: TUI-managed overrides
-- `_nixos/`: host-owned NixOS modules loaded through Den import-tree
-- `_homeManager/`: host-owned Home Manager modules loaded through Den import-tree
-
-`host/_template/` is only a template. Real machines should use their own
-`host/<hostname>/` directory.
-
-`host/_automation/default.nix` keeps the tracked VM-alias selection for the
-repo. `nxcli host add` and `nxcli host select-vm` update `vmHost` there so
-`nixosConfigurations.vm` resolves to `nixosConfigurations.<hostname>-vm`
-without caller-side guessing.
-
-## Key Host Settings
-
-`_ctx/settings.nix` is the main host-owned context input. Important values include:
-
-- `hostname`
-- `username`
-- `timezone`
-- `stateVersion`
-- `sshKeys`
-- `deploymentProfile`
-- `bootLoader`
-- `allowedTCPPorts`
-- `allowedUDPPorts`
-- `enableExtras`
-- `developmentMode`
-- `enableXO`
-- `enableXenGuest`
-- `enableXenHardware`
-- `shell`
-- `nixoaMenuAutoStart`
-- `enableTLS`
-- `enableAutoCert`
-- `systemPackages`
-- `userPackages`
-- `flatpaks`
-- `flatpakRemotes`
-- `extraNixosModules`
-- `extraNixosConfig`
-- `extraHomeManagerModules`
-- `immutability.enable`
-- `xoConfig`
-- `enableNFS`
-- `enableCIFS`
-- `enableVHD`
-- `mountsDir`
-
-`shell = null` preserves the default behavior: `bash` normally and `zsh` when `enableExtras = true`. Set `shell = "bash";`, `shell = "zsh";`, or another Den user-shell name to choose explicitly.
-
-Bash includes baseline operator quality-of-life defaults even when
-`enableExtras = false`: persistent history, readline completion/search behavior, common Git/system aliases, and the `menu = nixoa-menu` alias.
-
-Extras remain the place for heavier Zsh enhancements such as Oh My Zsh and additional shell packages.
-
-`developmentMode = false` keeps development tools out of the base appliance
-profile. Set it to `true`, or toggle Development Mode in `nxcli` or
-`nixoa-menu`, to install `devenv`, the Rust toolchain, Node.js/npm helpers, and
-Redis/Valkey command-line helpers as system packages.
-
-`nixoaMenuAutoStart = false` keeps SSH logins in the normal shell. Set it to
-`true` only when SSH sessions should automatically exec `nixoa-menu`. The
-autostart path still honors `NIXOA_TUI_BYPASS` and `NIXOA_TUI_ACTIVE`.
-
-`immutability.enable = false` keeps the operator-friendly mutable mode. When set to `true`, NixOS manages users declaratively and locks the admin account to SSH-key access while preserving appliance runtime state.
-
-XO config is generated from structured core defaults when `xoConfig = {};`.
-Those defaults follow `enableTLS`: disabling TLS removes the HTTPS listener,
-certificate paths, and automatic redirect from the generated
-`/etc/xo-server/config.nixoa.toml`.
-
-Set `xoConfig.toml` only when the host needs to replace the complete generated
-XO server configuration:
+Core NixOS settings include:
 
 ```nix
-xoConfig.toml = ''
-  [redis]
-  socket = "/run/redis-xo/redis.sock"
-
-  [http]
-  redirectToHttps = true
-
-  [[http.listen]]
-  port = 80
-'';
+networking.hostName = "nixoa";
+time.timeZone = "America/Chicago";
+system.stateVersion = "26.05";
+boot.loader.systemd-boot.enable = true;
+networking.firewall.allowedTCPPorts = [80 443];
 ```
 
-The string is the complete `/etc/xo-server/config.nixoa.toml` content and is
-validated as TOML during builds. When present, it is treated as a full override
-and is not modified by `enableTLS`.
+Do not change `system.stateVersion` after installation.
 
-## Den-Native Split
+## Operator options
 
-Reusable defaults stay in exported NiXOA namespaces and aspects. Host-owned
-values stay local to `host/<hostname>/`.
+`nixoa.operator` controls the fixed `nixoa` account:
 
-That means:
+| Option | Purpose |
+|---|---|
+| `repoDir` | appliance checkout path |
+| `gitName`, `gitEmail` | commit identity |
+| `sshKeys` | authorized SSH public keys |
+| `enableExtras` | zsh and expanded shell tooling |
+| `developmentMode` | Rust, Node.js, and service-development tools |
+| `menuAutoStart` | launch the TUI automatically on SSH login |
+| `sudoNoPassword` | operator sudo policy |
+| `systemPackages`, `userPackages` | package attribute paths |
 
-- reusable behavior belongs in `modules/nixoaCore/` or supporting modules
-- host-local overrides belong in `host/<hostname>/`
-- `includes` and `provides` handle composition
-- host-owned `_nixos` and `_homeManager` trees are imported through `den._.import-tree`
+`username` is typed and read-only; it is always `nixoa`.
 
-XO service identity still defaults inside core through `nixoa.xo.user` and
-`nixoa.xo.group`.
+## XO options
+
+`nixoa.xo` controls Xen Orchestra:
+
+| Option | Default |
+|---|---|
+| `enable` | configured `true` |
+| `package` | direct x86_64 `xo-nixpkg` output |
+| `user`, `group` | `xo`, `xo` |
+| `home` | `/var/lib/xo` |
+| `dataDir`, `cacheDir`, `tempDir` | under `home` |
+| `httpHost` | `0.0.0.0` |
+| `config.toml` | generated structured default |
+| `redis.maxmemory` | unlimited |
+| `redis.maxmemoryPolicy` | `noeviction` |
+
+TLS options are under `nixoa.xo.tls`: `enable`, `autoCert`, `dir`, `cert`, and
+`key`.
+
+Storage options are under `nixoa.xo.storage`: `enableNFS`, `enableCIFS`,
+`enableVHD`, `mountsDir`, and `libvhdiPackage`.
+
+When `config.toml` is empty, NiXOA generates an XO configuration for Valkey,
+HTTP/HTTPS listeners, web mounts, runtime directories, and privileged remote
+storage through the validated helper. A non-empty value replaces that generated
+TOML completely.
+
+## Hardware configuration
+
+`host/hardware-configuration.nix` is the only disk and filesystem source.
+Regenerate it on the appliance when hardware changes:
+
+```bash
+sudo nixos-generate-config --show-hardware-config \
+  > /tmp/hardware-configuration.nix
+sudo install -m 0644 /tmp/hardware-configuration.nix \
+  /home/nixoa/nixoa/host/hardware-configuration.nix
+```
+
+Review before applying.
+
+## TUI overrides
+
+`host/menu.nix` is generated. It may override SSH keys, extras, development
+mode, extra packages, and selected service enables. Do not put
+hand-maintained policy there; the next menu action rewrites the whole file.

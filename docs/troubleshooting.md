@@ -1,65 +1,87 @@
 # Troubleshooting
 
-Most operational checks use `nxcli`; see the [nxcli reference](nxcli.md) for
-full command syntax.
+## Flake output is missing
 
-## XO Not Starting
-
-Check the active host's `host/<hostname>/_ctx/settings.nix` for:
-
-- `enableXO = true`
-- correct XO runtime and TLS settings
-
-Then inspect:
+Confirm the checkout is complete and evaluate the fixed output:
 
 ```bash
-sudo systemctl status xo-server.service
+nix flake show
+nix eval .#nixosConfigurations.nixoa.config.networking.hostName
+```
+
+New flake files must be staged or addressed through a `path:` flake reference.
+There should be no `vm`, `nixo-ce-example`, or `nixoaCore` output.
+
+## SSH access fails after bootstrap
+
+The final SSH policy allows only `nixoa`. Root and the installer `nixos`
+account are denied.
+
+Check the key list in `host/settings.nix` or `host/menu.nix`, then verify from
+the VM console:
+
+```bash
+sudo sshd -T | grep -E 'allowusers|passwordauthentication|permitrootlogin'
+getent passwd nixoa
+```
+
+## XO does not start
+
+```bash
+systemctl status redis-xo.service xo-server.service
+journalctl -u redis-xo.service -u xo-server.service -b
+```
+
+Confirm `/etc/xo-server/config.nixoa.toml` exists and that the XO package has
+`bin/xo-server` plus `libexec/xen-orchestra`.
+
+## TLS fails
+
+```bash
+systemctl status xo-autocert.service
+journalctl -u xo-autocert.service -b
+sudo openssl x509 -in /etc/ssl/xo/certificate.pem -noout -subject -dates
+```
+
+Remove or replace expired/broken runtime certificate files, then restart
+`xo-autocert.service` followed by `xo-server.service`.
+
+## Remote storage fails
+
+Follow XO logs while reproducing the operation:
+
+```bash
 nxcli xo logs
 ```
 
-## SSH Access Missing
+Mount targets must be under `nixoa.xo.storage.mountsDir`. VHD paths must be
+under the XO mounts, data, or temporary directories. The helper rejects
+disabled filesystems, arbitrary commands, and CIFS secrets in command-line
+options.
 
-Ensure `sshKeys` is populated in `host/<hostname>/_ctx/settings.nix`.
+For CIFS probes, verify the service path includes the NiXOA `mount.cifs` shim.
+For VHD, verify the selected libvhdi package provides `vhdimount` and
+`vhdiinfo`.
 
-## Firewall Ports Blocked
+## Hardware or boot fails
 
-Update `allowedTCPPorts` or `allowedUDPPorts` in `host/<hostname>/_ctx/settings.nix`
-and re-apply the host.
+NiXOA does not override filesystems. Compare
+`host/hardware-configuration.nix` with the VM's generated configuration and
+check that bootloader settings match its firmware.
 
-## New Host Does Not Resolve In The Flake
+Boot a previous generation from the systemd-boot menu if necessary.
 
-Ensure the host directory exists at `host/<hostname>/` and includes
-`default.nix`. If the repo is still in a git worktree evaluation path, stage
-the new directory with:
+## A TUI change disappeared
 
-```bash
-git add host/<hostname> host/_automation/default.nix
-```
+The menu rewrites `host/menu.nix` as a complete generated override. Durable
+manual changes belong in `host/settings.nix`.
 
-## Flake Check Skips Linux Outputs On macOS
+## Apply reports a dirty checkout
 
-NiXOA exports Linux NixOS systems. On Darwin builders, plain
-`nix flake check --no-build` can report that `x86_64-linux` outputs were
-omitted. Use the all-systems form when validating evaluation from macOS:
-
-```bash
-nix flake check --all-systems --no-build
-```
-
-## Stable VM Alias Resolves To The Wrong Host
-
-Check `host/_automation/default.nix` and confirm `vmHost` points at the
-intended concrete host. The stable alias always resolves to
-`nixosConfigurations.<vmHost>-vm`.
-
-To update it through the supported CLI:
+Dirty appliance paths are allowed for development but are reported. Inspect
+and commit them:
 
 ```bash
-nxcli host select-vm <hostname>
+nxcli diff
+nxcli commit "Describe the change"
 ```
-
-## SSH Login Does Not Open The Console
-
-This is the default behavior. Run `nixoa-menu` manually from the shell, or set `nixoaMenuAutoStart = true;` in `host/<hostname>/_ctx/settings.nix` and apply the host if SSH logins should enter the console automatically.
-
-If autostart is enabled but skipped, check that the session is interactive and that `NIXOA_TUI_BYPASS` or `NIXOA_TUI_ACTIVE` is not already set.

@@ -1,6 +1,36 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
+## Unreleased — Focused NiXOA Appliance
+
+This breaking change refocuses the repository on one x86_64 XCP-ng guest:
+`nixosConfigurations.nixoa`.
+
+### Changed
+
+- Replaced the exported `nixoaCore` namespace and host-template framework with
+  one Den host composed from platform, XCP-ng, XO, and operator aspects.
+- Replaced untyped host context plumbing with native NixOS options under
+  `nixoa.operator` and `nixoa.xo`.
+- Consolidated XO into service, TLS, and storage modules while retaining
+  Valkey, certificate automation, remote storage, and privilege separation.
+- Made `.#nixoa` the fixed target for bootstrap, `nxcli`, apps, and the TUI.
+- Moved hand-maintained settings, generated hardware, and generated menu
+  overrides into the single `host/` tree.
+
+### Removed
+
+- Physical/VM duplication, `nixo-ce-example`, `-vm`, and `vm` aliases.
+- `nxcli host add`, `host list`, `host select-vm`, and target selection.
+- Forced Xen disk paths, initrd NFS/repartition policy, Flatpak and Prometheus
+  scaffolding, raw module/config escape hatches, and unused helper libraries.
+- The obsolete XO launcher-repair wrapper.
+
+### Security
+
+- Final SSH access is restricted to the declared `nixoa` operator rather than
+  retaining permanent access for the installer `nixos` account.
+
 ## v2.0.0 — Operator Console And CLI Refactor
 
 Date: 2026-05-08

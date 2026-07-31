@@ -1,52 +1,54 @@
 # Common Tasks
 
-These changes are now made directly in `host/<hostname>/_ctx/settings.nix`.
-After editing, save the repo change with `nxcli commit` and apply with
-`nxcli apply --target <hostname>` or `nxcli apply --target vm`.
+## Add an SSH key
 
-## Enable XO
+Use `nixoa-menu`, or edit `nixoa.operator.sshKeys` in
+`host/settings.nix`, then run:
 
-```nix
-{ ... }:
-{
-  enableXO = true;
-}
+```bash
+nxcli apply
 ```
 
-## Configure TLS
+## Add packages
 
-```nix
-{ ... }:
-{
-  enableTLS = true;
-  enableAutoCert = true;
-}
+Durable packages belong in `nixoa.operator.systemPackages` or
+`nixoa.operator.userPackages` in `host/settings.nix`. Values are nixpkgs
+attribute paths such as `"ripgrep"` or `"python313Packages.httpx"`.
+
+Console-added packages are written to `host/menu.nix`.
+
+## Toggle development mode
+
+```bash
+nxcli host development-mode toggle
+nxcli apply
 ```
 
-## Open Firewall Ports
+## Use a supplied TLS certificate
+
+Place the certificate and key outside the Nix store, set
+`nixoa.xo.tls.cert` and `key` to those runtime paths, and set:
 
 ```nix
-{ ... }:
-{
-  allowedTCPPorts = [ 80 443 ];
-}
+nixoa.xo.tls.autoCert = false;
 ```
 
-## Switch Boot Loader
+Ensure the `xo` user can read the files.
+
+## Change XO storage support
 
 ```nix
-{ ... }:
-{
-  bootLoader = "grub";
-}
+nixoa.xo.storage = {
+  enableNFS = true;
+  enableCIFS = false;
+  enableVHD = true;
+};
 ```
 
-## Add Packages
+Disabled protocols are rejected by the privileged helper.
 
-```nix
-{ ... }:
-{
-  systemPackages = [ "vim" "curl" ];
-  userPackages = [ "git" "tmux" ];
-}
-```
+## Queue a menu rebuild
+
+After a TUI change, choose “Queue rebuild for next boot.” This writes
+`/var/lib/nixoa/rebuild-on-boot.env`; `nixoa-rebuild.service` consumes it once
+on the next boot.

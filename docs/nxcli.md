@@ -1,217 +1,69 @@
-# nxcli Reference
+# `nxcli` Reference
 
-`nxcli` is the canonical operator interface for NiXOA. It owns host creation, apply/boot/rollback, repository commits, flake updates, XOA input updates, status, logs, and generation inspection.
-
-Before the first successful apply, run it from the repo checkout:
-
-```bash
-nix run .#nxcli -- <command>
-```
-
-After the host has applied successfully, `nxcli` is installed on the system:
-
-```bash
-nxcli <command>
-```
-
-## Command Summary
+`nxcli` is the canonical operator interface. It always targets `.#nixoa`.
 
 ```text
 nxcli help
 nxcli version
 nxcli status [--json]
-nxcli apply [--target <hostname|hostname-vm|vm>] [--build|--dry-run|--first-install] [--ask] [--cores N] [--verbose] [-- extra nh args...]
-nxcli boot [--target <hostname|hostname-vm|vm>] [--ask] [--cores N] [--verbose] [-- extra nh args...]
-nxcli rollback [--target <hostname|hostname-vm|vm>] [--ask]
-nxcli commit [commit message]
-nxcli diff [--json]
+nxcli apply [--build|--dry-run|--first-install] [--ask] [--cores N] [--verbose] [-- ...]
+nxcli boot [--ask] [--cores N] [--verbose] [-- ...]
+nxcli rollback [--ask]
+nxcli commit [MESSAGE]
+nxcli diff [--json|--staged]
 nxcli history
-nxcli host add [hostname] [options]
-nxcli host list [--json]
-nxcli host show [hostname|hostname-vm|vm] [--json]
-nxcli host select-vm <hostname|hostname-vm|vm>
-nxcli host development-mode [status|on|off|toggle] [--target <hostname|hostname-vm|vm>]
-nxcli host edit [hostname|hostname-vm|vm]
-nxcli update flake [--preview] [--target <hostname|hostname-vm|vm>] [--ask]
-nxcli update xoa [--preview] [--target <hostname|hostname-vm|vm>] [--ask]
+nxcli host show [--json]
+nxcli host edit
+nxcli host development-mode [status|on|off|toggle]
+nxcli update flake [--preview] [--ask]
+nxcli update xoa [--preview] [--ask]
 nxcli xo logs
 nxcli generations list
 ```
 
-## Targets
+## Fixed target
 
-Most system-mutating commands accept `--target`.
+Host selection and alias resolution were removed. `--target`, `--hostname`,
+`host add`, `host list`, and `host select-vm` return errors. The flake reference
+is always:
 
-- `<hostname>` targets `nixosConfigurations.<hostname>`
-- `<hostname>-vm` targets the per-host VM output
-- `vm` resolves through `host/_automation/default.nix`
-
-Use `vm` for automation that should follow the selected VM host. Use a concrete hostname when an operation must stay pinned to one host.
-
-## Help And Version
-
-```bash
-nxcli help
-nxcli version
+```text
+path:<checkout>#nixoa
 ```
 
-`help` prints the top-level command summary. `version` prints the `nxcli`
-version and, when available, the active NixOS version.
+## Apply, boot, and rollback
 
-## Status
+Normal apply and boot operations use `nh os` with the direct
+`nixosConfigurations.nixoa` path. `--first-install` uses `nixos-rebuild`
+directly and supplies flake/cache options needed before the declarative Nix
+configuration is active.
 
-```bash
-nxcli status
-nxcli status --json
-```
+Rollback calls `nixos-rebuild switch --rollback`.
 
-Text status reports the repo root, stable VM host, active target, XO service
-state, Redis/Valkey compatibility service state, and tracked git state.
+Successful and failed operations write state under
+`/var/lib/nixoa/apply-state.env`. The TUI reads that file to report whether a
+rebuild is needed.
 
-`--json` returns the state used by `nixoa-menu`, including host context,
-repository state, memory/storage summaries, network URL, XOA version, rebuild state, and last apply information when present.
+## Repository commands
 
-## Apply, Boot, And Rollback
+`diff`, `commit`, and `history` are scoped to NiXOA-owned paths. `commit` stages
+those paths and uses `nixoa.operator.gitName` and `gitEmail`.
 
-```bash
-nxcli apply --target <target>
-nxcli apply --target <target> --build
-nxcli apply --target <target> --dry-run
-nxcli boot --target <target>
-nxcli rollback --target <target>
-```
+## Host commands
 
-Options:
+`host show` reports the fixed target and the three host policy files.
+`host edit` opens `host/settings.nix` and `host/menu.nix`.
+`host development-mode` changes only the generated menu override.
 
-- `--target TARGET`: select a host output; accepts host, host VM, or `vm`
-- `--hostname TARGET`: legacy alias for `--target`
-- `--build`: build without switching
-- `--dry-run`: preview the apply flow without mutating the system
-- `--first-install`: use first-install cache flags for the initial switch
-- `--ask`: ask before mutating actions when supported
-- `--cores N`: pass the requested core count to `nh`
-- `--verbose`: increase `nh` verbosity
-- `--`: pass remaining arguments through to the underlying build command
+## Updates
 
-`apply` and `boot` use `nh` for normal rebuilds. `rollback` and first-install switches use `nixos-rebuild` where appropriate. If tracked NiXOA files are dirty, text-mode `nxcli apply` warns and continues; `nixoa-menu` prompts to commit dirty tracked files before applying.
+`update flake --preview` and `update xoa --preview` write an updated temporary
+lock file and show the diff without changing the checkout.
 
-## Repository Changes
+Without `--preview`, the corresponding input is updated in `flake.lock`. The
+CLI does not apply or commit the result automatically.
 
-```bash
-nxcli diff
-nxcli diff --json
-nxcli history
-nxcli commit "Describe the change"
-nxcli commit
-```
+## JSON
 
-`diff` shows tracked NiXOA changes under the configured tracked paths.
-`diff --json` returns a machine-readable list of changed tracked files.
-`history` shows recent commits that touched tracked NiXOA paths.
-
-`commit` stages tracked NiXOA paths and creates a commit. If no message is
-provided in an interactive terminal, it prompts. If the prompt is left blank, it generates a structured commit body from the staged files.
-
-Use this to save flake changes:
-
-```bash
-nxcli commit "Update flake inputs"
-```
-
-## Host Management
-
-```bash
-nxcli host add [hostname] [options]
-nxcli host list [--json]
-nxcli host show [hostname|hostname-vm|vm] [--json]
-nxcli host select-vm <hostname|hostname-vm|vm>
-nxcli host development-mode [status|on|off|toggle] [--target <hostname|hostname-vm|vm>]
-nxcli host edit [hostname|hostname-vm|vm]
-```
-
-`host add` creates `host/<hostname>/` from `host/_template/`, writes host-owned
-settings, optionally copies `/etc/nixos/hardware-configuration.nix`, updates the stable VM alias, stages new host files, validates the flake, and can run the first switch. It requires a clean tracked NiXOA worktree before it starts.
-
-`host add` options:
-
-- `--profile physical|vm`: deployment profile; defaults from virtualization detection
-- `--copy-hardware`: copy `/etc/nixos/hardware-configuration.nix`; default
-- `--skip-hardware-copy`: create the host without copying hardware config
-- `--set-vm-alias`: point the stable `vm` alias at this host; default
-- `--no-set-vm-alias`: leave the stable VM alias unchanged
-- `--username NAME`: primary operator username; default `nixoa`
-- `--git-name NAME`: git `user.name`; default `NiXOA Admin`
-- `--git-email EMAIL`: git `user.email`; default `nixoa@nixoa`
-- `--timezone ZONE`: time zone; default `Europe/Paris`
-- `--state-version VER`: NixOS state version; default `26.05`
-- `--ssh-key KEY`: add an SSH public key; repeatable
-- `--skip-check`: skip `nix flake check --no-write-lock-file`
-- `--first-switch`: run the first switch after host creation
-
-`host edit` opens the selected host's `_ctx/settings.nix` and `_ctx/menu.nix`
-with the configured editor.
-
-`host development-mode` reads or changes the selected host's Development Mode
-override in `_ctx/menu.nix`. `on`, `off`, and `toggle` commit the menu override
-immediately. Development Mode installs `devenv`, Rust tooling, Node.js/npm
-helpers, and Redis/Valkey command-line helpers as system packages on the next
-apply.
-
-`host list --json` returns host names, deployment profiles, and stable VM
-selection state. `host show --json` returns the selected host, settings files,
-profile, username, timezone, Development Mode state, repo directory, concrete
-outputs, and stable VM selection state.
-
-## Updating Flake Inputs
-
-```bash
-nxcli update flake --preview
-nxcli update flake
-nxcli update xoa --preview
-nxcli update xoa
-```
-
-Options:
-
-- `--preview`: compute and print a lock-file diff without changing `flake.lock`
-- `--target TARGET`: select the target shown in suggested follow-up commands
-- `--hostname TARGET`: legacy alias for `--target`
-- `--ask`: ask for confirmation before updating
-
-`update flake` updates all flake inputs and prints suggested follow-up commands.
-If `flake.lock` changes, save it with `nxcli commit`.
-
-`update xoa` updates only the `xen-orchestra-ce` input. It requires the tracked NiXOA files to be clean before mutating, and commits the `flake.lock` update when the lock entry changes.
-
-## XO Logs
-
-```bash
-nxcli xo logs
-```
-
-Tails `xo-build`, `xo-server`, and the detected Redis/Valkey compatibility
-service with `journalctl`.
-
-## Generations
-
-```bash
-nxcli generations list
-```
-
-Lists system generations from `/nix/var/nix/profiles/system`. It runs through
-root access when needed.
-
-## Flake Apps
-
-The repo also exposes convenience apps that route to `nxcli`:
-
-```bash
-nix run .#nxcli -- <command>
-nix run .#apply -- --target vm
-nix run .#commit -- "Describe the change"
-nix run .#diff -- --json
-nix run .#history
-nix run .#menu
-```
-
-The `menu` app launches `nixoa-menu`, not `nxcli`.
+`status --json` returns the same snapshot consumed by the TUI. `diff --json`
+returns tracked path statuses and names for machine-readable integrations.

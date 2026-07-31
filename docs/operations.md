@@ -1,127 +1,118 @@
-# Daily Operations
+# Operations
 
-Common `nxcli` flows for operating NiXOA systems from the unified repo.
+Run operator commands from the checkout or from the packages installed on the
+appliance. Every system action uses `.#nixoa`.
 
-For complete syntax, options, and behavior notes, see the
-[nxcli reference](nxcli.md).
-
-## Status
+## Inspect
 
 ```bash
-cd ~/nixoa
 nxcli status
+nxcli status --json
+nxcli host show
+nxcli diff
+nxcli history
+nxcli generations list
 ```
 
-`nxcli status` reports the repo root, selected stable VM host, active target, XO service state, Redis/Valkey backend state, and whether tracked repo files are clean.
+## Apply configuration
 
-## Service Management
+Preview activation:
 
 ```bash
-sudo systemctl status xo-server.service
-sudo systemctl restart xo-server.service
-sudo systemctl status redis-xo.service
+nxcli apply --dry-run
 ```
+
+Build without activation:
+
+```bash
+nxcli apply --build
+```
+
+Switch immediately:
+
+```bash
+nxcli apply
+```
+
+Set the next boot generation without changing the running system:
+
+```bash
+nxcli boot
+```
+
+`--ask`, `--cores N`, and `--verbose` are forwarded to `nh`. Arguments after
+`--` are forwarded to the underlying build.
+
+## Roll back
+
+```bash
+nxcli rollback --ask
+```
+
+For an unbootable generation, choose a prior generation in the bootloader.
+Boot entries are bounded to ten generations.
+
+## Update
+
+Preview all input changes:
+
+```bash
+nxcli update flake --preview
+```
+
+Update all inputs:
+
+```bash
+nxcli update flake
+```
+
+Preview or update only Xen Orchestra:
+
+```bash
+nxcli update xoa --preview
+nxcli update xoa
+```
+
+Review `flake.lock`, build, and commit intentionally.
 
 ## Logs
+
+Follow XO and Valkey:
 
 ```bash
 nxcli xo logs
 ```
 
-`nxcli xo logs` tails `xo-build`, `xo-server`, and the active Redis/Valkey
-compatibility service. It replaces the old direct log helper script.
-
-## Operator Console
+Other useful units:
 
 ```bash
-nixoa-menu
+journalctl -u xen-guest-agent.service
+journalctl -u xo-autocert.service
+journalctl -u xo-sudo-init.service
+journalctl -u nixoa-rebuild.service
 ```
 
-The console uses a simple main menu/submenu flow: Up and Down move, Enter
-selects, and Esc returns to the previous menu. Esc at the main menu asks whether to return to the shell. SSH autostart is disabled by default; enable
-`nixoaMenuAutoStart = true;` in the host context only when SSH logins should
-enter the console automatically.
-
-## Edit Host Configuration
+## Repository changes
 
 ```bash
-cd ~/nixoa
-nxcli host edit nixo-ce
-```
-
-Edit the active host under `host/<hostname>/`, usually `_ctx/settings.nix`
-and `_ctx/menu.nix`.
-
-## Apply Configuration
-
-```bash
-cd ~/nixoa
-nxcli apply --target <hostname>
-```
-
-Stable VM alias:
-
-```bash
-cd ~/nixoa
-nxcli apply --target vm
-```
-
-Preview without mutating:
-
-```bash
-cd ~/nixoa
-nxcli apply --target vm --dry-run
-```
-
-Build without switching:
-
-```bash
-cd ~/nixoa
-nxcli apply --target <hostname> --build
-```
-
-## Boot On Next Reboot
-
-```bash
-cd ~/nixoa
-nxcli boot --target vm
-```
-
-Use this when you want to stage a change for the next reboot instead of
-switching immediately.
-
-## Update Inputs
-
-```bash
-cd ~/nixoa
-nxcli update flake --preview
-nxcli update flake
-nxcli commit "Update flake inputs"
-nxcli update xoa
-```
-
-`nxcli commit` is the canonical command for saving tracked flake, host, package,
-and script changes. `nxcli update xoa` updates only the `xen-orchestra-ce`
-input and commits the lock-file change when it changes.
-
-## Repository Changes
-
-```bash
-cd ~/nixoa
 nxcli diff
-nxcli diff --json
+nxcli commit "Describe the appliance change"
 nxcli history
-nxcli commit "Describe the change"
 ```
 
-`nixoa-menu` also uses `nxcli commit` before apply when tracked files are dirty.
+The CLI tracks the configuration, scripts, packages, tests, and documentation.
 
-If the console commit prompt is left blank, it generates a message from the
-current date and changed files.
+## Maintenance
 
-## Rollback
+Automatic Nix garbage collection runs weekly and deletes unreachable paths
+older than 30 days. The console also exposes an interactive `nh clean all`
+action. Be aware that manual garbage collection can remove generations needed
+for rollback.
+
+Development mode:
 
 ```bash
-cd ~/nixoa
-nxcli rollback --target <hostname>
+nxcli host development-mode status
+nxcli host development-mode on
+nxcli host development-mode off
 ```

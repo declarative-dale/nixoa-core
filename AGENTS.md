@@ -1,27 +1,51 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-This repository is the NiXOA core aspect namespace and the concrete host flake. Den bootstrap and namespace wiring live in `modules/dendritic.nix`, `modules/den-defaults.nix`, and `modules/namespace.nix`. Reusable exported aspects live under `modules/nixoaCore/`, while shared hidden implementation modules live under `modules/_nixos/` and `modules/_homeManager/`. Shared helpers live in `lib/`; `scripts/nxcli.sh` is the source for the packaged operator CLI, with `scripts/tui/` reserved for the console backend.
+## Scope
 
-## Build, Test, and Development Commands
-- `nix flake check --no-write-lock-file`: Validate flake evaluation.
-- `nix build .#packages.x86_64-linux.xen-orchestra-ce --no-link`: Validate the packaged XO build.
-- `nix run .#nxcli -- update xoa`: Update the XO source input in `flake.lock`.
-- `nix run .#nxcli -- xo logs`: Tail XO-related logs on a running host.
+This repository is one appliance flake, not a multi-host framework. Its only
+NixOS output is `nixosConfigurations.nixoa`, an x86_64 XCP-ng guest running Xen
+Orchestra. Do not add host templates, compatibility aliases, or target
+selection.
 
-## Coding Style & Naming Conventions
-- Keep reusable NiXOA behavior in namespaced aspects under `nixoa.*`; use plain implementation modules only behind those aspect definitions.
-- Keep machine-specific policy out of core. User-editable context values belong in the system repository.
-- Prefer aspect names and `includes`/`provides` terminology over stack or module-library wording.
+## Structure
 
-## Testing Guidelines
-- Primary validation is `nix flake check --no-write-lock-file` plus targeted `nix build` dry-runs for exported packages.
-- If you change a public aspect tree, also validate the downstream `system` host flake.
+- `modules/aspects/`: Den composition for platform, XCP-ng, XO, and operator
+- `modules/_nixos/`: focused native NixOS modules
+- `modules/_homeManager/`: the `nixoa` operator home
+- `host/settings.nix`: hand-maintained appliance policy
+- `host/hardware-configuration.nix`: bootstrap-generated hardware module
+- `host/menu.nix`: TUI-generated overrides only
+- `scripts/nxcli.sh`: operator CLI source
+- `scripts/tui/`: console backend
+- `pkgs/nixoa-menu/`: Ratatui frontend
 
-## Commit & Pull Request Guidelines
-- Commit messages should describe the exported aspect surface, package graph, or module layout change being made.
-- If a change affects the public namespace or aspect names, update `README.md` and `docs/architecture.md` in the same commit.
+## Development
 
-## Security & Configuration Notes
-- Core includes example/template host wiring, but reusable policy still belongs under `modules/nixoaCore/`.
-- Keep `flake.denful.nixoaCore` as the primary reusable surface; do not reintroduce `nixosModules` as the main API.
+Use `.#nixoa` in commands and documentation.
+
+```bash
+nix flake check --no-write-lock-file
+nix build .#nixosConfigurations.nixoa.config.system.build.toplevel --no-link
+nix build .#xen-orchestra-ce .#nxcli .#nixoa-menu --no-link
+tests/run.sh
+```
+
+Run `bash -n` and ShellCheck for shell changes, and `cargo fmt --check`,
+`cargo check`, and `cargo test` for menu changes.
+
+## Configuration rules
+
+- Declare operator policy under typed `nixoa.operator` options.
+- Declare XO policy under typed `nixoa.xo` options.
+- Keep filesystems and disks solely in `host/hardware-configuration.nix`.
+- Preserve XO privilege separation and validated storage helpers.
+- Preserve the DBus activation safeguards, bounded boot generations, Nix GC,
+  Determinate Nix, and XO/libvhdi caches.
+- SSH access is only for the declared `nixoa` operator.
+- The TUI may write only `host/menu.nix`.
+
+## Commits
+
+Commit coherent implementation, tests, and documentation checkpoints. Keep
+historical changelog entries intact and describe public-interface changes in
+the current changelog section.

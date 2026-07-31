@@ -1,101 +1,86 @@
-# NiXOA Core
+# NiXOA
 
-NiXOA Core is a NixOS appliance flake for running Xen Orchestra Community
-Edition. It gives you a reproducible host layout, a packaged XO build, a single operator CLI, and an SSH-friendly console for day-to-day administration.
+NiXOA is a focused NixOS appliance for running Xen Orchestra Community Edition
+inside an x86_64 XCP-ng virtual machine. The flake defines exactly one system:
 
-This repo can be used in two ways:
-
-- as the concrete host flake for a NiXOA appliance
-- as a reusable Den namespace through `flake.denful.nixoaCore`
-
-## What You Get
-
-- Xen Orchestra CE packaged from the pinned `xen-orchestra-ce` input
-- `nxcli`, the supported command line for host and repository operations
-- `nixoa-menu`, an xsconsole-style SSH operator console
-- a host template under `host/_template/`
-- concrete host outputs such as `nixosConfigurations.<hostname>` and `<hostname>-vm`
-- `nixosConfigurations.vm`, a stable VM alias selected by `host/_automation/default.nix`
-- reusable Den aspects: `<nixoaCore/platform>`, `<nixoaCore/xcp-ng-guest>`, `<nixoaCore/xo>`, and `<nixoaCore/appliance>`
-
-## Quick Start
-
-On a fresh NixOS install, the streamed bootstrap path prepares a checkout,
-creates a host from the template, and runs the first switch by default:
-
-```bash
-bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes
+```text
+nixosConfigurations.nixoa
 ```
 
-The bootstrap script clones Codeberg by default. The GitHub mirror publishes
-matching `main` releases to FlakeHub and is wired to push build results to
-FlakeHub Cache once FlakeHub Cache access is active for the account or
-organization. Authenticated Determinate Nix hosts can then use that cache
-without changing the canonical source checkout.
+The appliance combines:
 
-If you prefer to clone the repo first:
+- Xen Orchestra from `xo-nixpkg`
+- Valkey-backed XO state
+- automatic self-signed TLS
+- NFS, CIFS, and VHD/VHDX storage support
+- Xen guest integration
+- Determinate Nix and XO/libvhdi binary caches
+- a locked-down `nixoa` SSH operator with Home Manager
+- `nxcli` and the `nixoa-menu` console
+
+## Install
+
+Start from an installed NixOS VM on XCP-ng. The VM must already have a generated
+`/etc/nixos/hardware-configuration.nix`.
 
 ```bash
-git clone https://codeberg.org/NiXOA/core.git ~/nixoa
-cd ~/nixoa
-nix run .#nxcli -- host add nixo-ce --first-switch
+git clone https://codeberg.org/NiXOA/core.git /tmp/nixoa-bootstrap
+cd /tmp/nixoa-bootstrap
+sudo ./scripts/bootstrap.sh \
+  --repo-dir /home/nixoa/nixoa \
+  --ssh-key 'ssh-ed25519 AAAA... operator@example'
 ```
 
-After the first successful apply, use the installed tools directly:
+Bootstrap writes the fixed appliance settings, copies the generated hardware
+module, validates `.#nixoa`, and performs the first switch. Use
+`--no-first-switch` to stop after validation.
+
+## Operate
+
+All commands target `.#nixoa`; there is no host selector or VM alias.
 
 ```bash
 nxcli status
+nxcli apply
+nxcli boot
+nxcli rollback
+nxcli update xoa --preview
+nxcli xo logs
 nixoa-menu
 ```
 
-SSH logins open a normal shell by default. Run `nixoa-menu` manually, or set
-`nixoaMenuAutoStart = true;` in the host context if SSH sessions should enter the console automatically.
+The hand-maintained configuration and generated state live together under
+`host/`:
 
-## Common Commands
-
-Before `nxcli` is installed on the host, prefix commands with
-`nix run .#nxcli --` from the repo checkout.
-
-```bash
-nxcli status
-nxcli apply --target vm
-nxcli boot --target vm
-nxcli diff
-nxcli commit "Describe the change"
-nxcli update flake --preview
-nxcli update xoa
-nxcli xo logs
+```text
+host/
+├── default.nix
+├── settings.nix
+├── hardware-configuration.nix
+└── menu.nix
 ```
 
-See the full command reference in [docs/nxcli.md](docs/nxcli.md).
+Edit `host/settings.nix` for durable policy. `nixoa-menu` writes only
+`host/menu.nix`, so console changes never rewrite the hand-maintained module.
+
+## Flake outputs
+
+- `nixosConfigurations.nixoa`
+- `packages.x86_64-linux.xen-orchestra-ce`
+- `packages.x86_64-linux.libvhdi`
+- `packages.x86_64-linux.nxcli`
+- `packages.x86_64-linux.nixoa-menu`
+- operator apps: `nxcli`, `apply`, `bootstrap`, `commit`, `diff`, `history`,
+  and `menu`
 
 ## Documentation
 
-- [Installation](docs/installation.md): fresh install prep, bootstrap paths, and first apply
-- [Getting Started](docs/getting-started.md): first host creation and initial operating flow
-- [Daily Operations](docs/operations.md): status, logs, updates, commits, rollback, and `nixoa-menu`
-- [nxcli Reference](docs/nxcli.md): complete CLI syntax, options, examples, and behavior notes
-- [Configuration Reference](docs/configuration.md): host context values and editable files
-- [Common Tasks](docs/common-tasks.md): short examples for frequent host edits
-- [Troubleshooting](docs/troubleshooting.md): common operational failure modes
-- [Architecture](docs/architecture.md): Den namespace, host assembly, and exported outputs
-- [Changelog](CHANGELOG.md): release history and breaking changes
+- [Getting started](docs/getting-started.md)
+- [Installation](docs/installation.md)
+- [Architecture](docs/architecture.md)
+- [Configuration](docs/configuration.md)
+- [Operations](docs/operations.md)
+- [`nxcli` reference](docs/nxcli.md)
+- [Troubleshooting](docs/troubleshooting.md)
 
-## Repository Layout
-
-```text
-core/
-├── host/       # host template, concrete hosts, and the stable VM alias
-├── modules/    # reusable aspects plus shared NixOS/Home Manager implementation
-├── lib/        # shared Nix helpers
-├── docs/       # operator and maintainer documentation
-├── scripts/    # nxcli source, bootstrap wrapper, shared helpers, and TUI backend
-└── flake.nix
-```
-
-## Notes For Maintainers
-
-- `nxcli` is the canonical operator interface. Direct script execution is for bootstrap and internal plumbing.
-- `nixoa-menu` uses `nxcli` for apply, rollback, and repository commits.
-- Host-owned values belong under `host/<hostname>/`, not reusable core aspects.
-- `flake.denful.nixoaCore` is the primary reusable public surface.
+NiXOA is licensed under Apache License 2.0.

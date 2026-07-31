@@ -1,77 +1,59 @@
 # Installation
 
-NiXOA is installed directly from this repo.
+## Prepare the VM
 
-For a shorter overview, start with the root [README](../README.md). For command details, see the [nxcli reference](nxcli.md).
+Create an x86_64 VM in XCP-ng, install NixOS normally, and verify that it boots.
+Partitioning is deliberately outside this repository. NiXOA never assumes
+`/dev/xvda*`, never repartitions the guest, and never replaces generated
+filesystem declarations.
 
-## Fresh Base Install Prep
+Keep `/etc/nixos/hardware-configuration.nix` from the installed VM. Bootstrap
+copies it to `host/hardware-configuration.nix`.
 
-On a fresh NixOS install, you can persist trusted users and first-install caches ahead of time as the `nixos` user. The streamed bootstrap also passes these settings to the initial `nixos-rebuild`, so this prep is useful but not required.
-
-NiXOA bootstraps from the canonical Codeberg repo. The GitHub mirror publishes the same `main` content to FlakeHub and is wired to push build results to FlakeHub Cache once FlakeHub Cache access is active for the account or organization. Fresh hosts can use those FlakeHub Cache paths when the machine is authenticated with Determinate Nix; otherwise Nix falls back to the public Cachix/Nixpkgs caches and local builds.
-FlakeHub Cache requires FlakeHub-side account or organization activation; if the GitHub `Cache nixoa-menu` workflow reports that it cannot authenticate to FlakeHub, activate FlakeHub Cache for the repository owner before expecting cache hits.
-If you are not using Determinate authentication and want to avoid FlakeHub Cache authorization warnings, omit `https://cache.flakehub.com` and its key from the manual prep lines below.
-
-```bash
-sudo install -d -m 0755 /etc/nix
-sudo grep -q 'trusted-users = .*nixos' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'trusted-users = root nixos @wheel' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'cache.flakehub.com' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-substituters = https://cache.flakehub.com https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' | sudo tee -a /etc/nix/nix.conf >/dev/null
-sudo grep -q 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM=' /etc/nix/nix.conf 2>/dev/null \
-  || echo 'extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' | sudo tee -a /etc/nix/nix.conf >/dev/null
-```
-
-## Bootstrap Install
+## Run bootstrap
 
 ```bash
-bash <(curl -fsSL https://codeberg.org/NiXOA/core/raw/branch/main/scripts/bootstrap.sh) --enable-flakes
+sudo ./scripts/bootstrap.sh \
+  --repo-dir /home/nixoa/nixoa \
+  --timezone America/Chicago \
+  --ssh-key 'ssh-ed25519 AAAA... operator@example'
 ```
 
-If you prefer to clone the repo first:
+Useful options:
+
+- `--repo-url URL` and `--branch NAME`: choose the checkout source
+- `--git-name` and `--git-email`: set operator commit identity
+- `--ssh-key KEY`: repeat for multiple keys
+- `--enable-flakes`: persist flake support before validation
+- `--skip-check`: skip pre-switch flake validation
+- `--skip-hardware-copy`: retain the repository placeholder for test workflows
+- `--no-first-switch`: configure and validate without activation
+
+Hostname, username, platform, and profile options do not exist. They are fixed
+to `nixoa`, `nixoa`, `x86_64-linux`, and XCP-ng guest respectively.
+
+## What bootstrap changes
+
+Bootstrap:
+
+1. clones or fast-forwards the repository
+2. writes `host/settings.nix`
+3. populates the `nixoa` SSH key list
+4. copies the generated hardware module
+5. stages the fixed host files so flake evaluation can see them
+6. runs `nix flake check --no-write-lock-file`
+7. switches to `.#nixoa`, unless disabled
+8. hands the checkout to the `nixoa` operator
+
+The first switch removes SSH access for the installer `nixos` account.
+Confirm the supplied public key is correct before activation.
+
+## Validate after installation
 
 ```bash
-git clone https://codeberg.org/NiXOA/core.git ~/nixoa
-cd ~/nixoa
-nix run .#nxcli -- host add --first-switch
-```
-
-`nxcli host add` creates a concrete host directory under `host/<hostname>/`,
-writes the selected values into Den-shaped host files, updates
-`host/_automation/default.nix` so `nixosConfigurations.vm` targets that host's
-VM output, and validates the flake. `scripts/bootstrap.sh` also runs the first
-switch through `nixos-rebuild` with first-install cache options by default; pass
-`--no-first-switch` to only create the checkout and host files.
-`scripts/bootstrap.sh` remains available only for the streamed one-shot
-checkout/bootstrap flow; routine host creation and operation should use `nxcli`.
-
-## Manual Install
-
-1. Prefer `nxcli host add <hostname>` from the repo root.
-2. Review `host/<hostname>/_ctx/settings.nix`.
-3. Confirm `host/_automation/default.nix` points `vmHost` at the intended host when you plan to use the stable `vm` target.
-4. Validate with `nix flake check --no-write-lock-file`.
-5. Before the first apply, run `nix run .#nxcli -- apply --target <hostname>` from the repo checkout.
-6. Use `nix run .#nxcli -- boot --target vm` when you want the safer “activate on next reboot” path for the stable VM target.
-7. After the first successful apply, `nxcli` is installed on the host and can be used directly without the repo-local launcher path.
-8. Start the operator console manually with `nixoa-menu`, or set `nixoaMenuAutoStart = true;` before applying if SSH logins should enter the console automatically.
-
-## Reusable Den Import
-
-If another flake wants only the NiXOA aspect namespace, import this repo as a normal Den source:
-
-```nix
-inputs.den.url = "github:denful/den";
-inputs.nixoaCore.url = "git+https://codeberg.org/NiXOA/core.git?ref=beta";
-```
-
-```nix
-imports = [
-  inputs.den.flakeModules.dendritic
-  (inputs.den.namespace "nixoaCore" [ inputs.nixoaCore ])
-];
-```
-
-```nix
-_module.args.__findFile = den.lib.__findFile;
+nxcli status
+systemctl status xen-guest-agent.service
+systemctl status redis-xo.service
+systemctl status xo-server.service
+curl --insecure https://localhost/
 ```
