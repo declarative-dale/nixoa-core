@@ -86,7 +86,28 @@ grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits Xen Orchestra"
 grep -Fq 'result-xen-orchestra-ce' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "cache workflow does not publish Xen Orchestra explicitly"
+  || fail "installer workflow does not build Xen Orchestra explicitly"
+grep -Fq 'actions/upload-artifact@v4' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow does not publish a GitHub artifact"
+if grep -q 'result-installer)' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml"; then
+  fail "installer workflow still pushes the full ISO closure to Cachix"
+fi
+grep -Fq 'cron: "17 9 * * 3"' \
+  "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
+  || fail "flake input refresh is not scheduled weekly on Wednesday"
+grep -Fq 'DeterminateSystems/update-flake-lock@v28' \
+  "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
+  || fail "flake input refresh does not use the lock update action"
+if grep -Fq 'inputs:' \
+  "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
+  fail "flake input refresh unexpectedly limits the inputs it updates"
+fi
+grep -Fq '"growpart"' "$TEST_ROOT/modules/_nixos/xcp-ng.nix" \
+  || fail "installed appliance does not enable cloud-init growpart"
+grep -Fq '"resizefs"' "$TEST_ROOT/modules/_nixos/xcp-ng.nix" \
+  || fail "installed appliance does not resize the grown root filesystem"
 
 # Installed systems keep all public appliance/build caches and avoid requesting
 # Determinate's uncached manual output.
@@ -166,31 +187,79 @@ jq -e '
 ' "$temporary/packer.pkrvars.json" >/dev/null \
   || fail "Packer configuration generation is incorrect"
 
-# The Packer build materializes a real, ignored installer artifact rather than
-# leaving the user to chase a Nix store result symlink.
+# The default Packer build downloads the newest successful, checksum-verified
+# GitHub artifact and does not duplicate the large ISO into the checkout.
 mkdir -p "$temporary/fake-result/iso" "$temporary/bin"
 printf 'fake installer image\n' >"$temporary/fake-result/iso/nixoa-installer.iso"
+(
+  cd "$temporary/fake-result/iso"
+  sha256sum nixoa-installer.iso >nixoa-installer.iso.sha256
+)
+# The variable references belong in the generated fake, not this test shell.
+# shellcheck disable=SC2016
+printf '%s\n' \
+  "#!$(command -v bash)" \
+  'printf "%s\n" "$*" >>"$FAKE_GH_ARGS"' \
+  'if [[ "$1 $2" == "run list" ]]; then printf "12345\n"; exit 0; fi' \
+  'if [[ "$1 $2" == "run download" ]]; then' \
+  '  while [[ "$#" -gt 0 ]]; do' \
+  '    if [[ "$1" == "--dir" ]]; then artifact_dir=$2; break; fi' \
+  '    shift' \
+  '  done' \
+  '  cp "$FAKE_ARTIFACT_DIR/nixoa-installer.iso" "$artifact_dir/"' \
+  '  cp "$FAKE_ARTIFACT_DIR/nixoa-installer.iso.sha256" "$artifact_dir/"' \
+  '  exit 0' \
+  'fi' \
+  'exit 1' \
+  >"$temporary/bin/gh"
 # The variable reference belongs in the generated fake, not this test shell.
 # shellcheck disable=SC2016
 printf '%s\n' \
   "#!$(command -v bash)" \
+  'printf "%s\n" "$@" >"$FAKE_NIX_ARGS"' \
   'printf "%s\n" "$FAKE_INSTALLER_RESULT"' \
   >"$temporary/bin/nix"
+# The variable references belong in the generated fake, not this test shell.
+# shellcheck disable=SC2016
 printf '%s\n' \
   "#!$(command -v bash)" \
-  'exit 0' \
+  'printf "%s\n" "$@" >"$FAKE_PACKER_ARGS"' \
   >"$temporary/bin/packer"
-chmod +x "$temporary/bin/nix" "$temporary/bin/packer"
+chmod +x "$temporary/bin/gh" "$temporary/bin/nix" "$temporary/bin/packer"
+FAKE_ARTIFACT_DIR="$temporary/fake-result/iso" \
+  FAKE_GH_ARGS="$temporary/gh.args" \
+  FAKE_PACKER_ARGS="$temporary/packer.args" \
+  GH_BIN="$temporary/bin/gh" \
+  PACKER_BIN="$temporary/bin/packer" \
+  OPERATOR_PUBLIC_KEY_FILE="$temporary/operator.pub" \
+  TMPDIR="$temporary" \
+  bash "$TEST_ROOT/packer/build.sh"
+grep -Eq '^iso_url=.*/nixoa-installer\.iso$' \
+  "$temporary/packer.args" \
+  || fail "Packer build did not use the downloaded GitHub artifact"
+grep -Fq -- '--workflow cache-nixoa-menu.yml' "$temporary/gh.args" \
+  || fail "artifact lookup did not select the installer workflow"
+grep -Fq -- '--name nixoa-installer' "$temporary/gh.args" \
+  || fail "artifact download did not select the installer artifact"
+[[ ! -e "$temporary/output/nixoa-installer.iso" ]] \
+  || fail "Packer build duplicated the installer ISO into the checkout"
+
+# A local Nix build remains an explicit fallback and also passes its store
+# artifact directly to Packer.
 FAKE_INSTALLER_RESULT="$temporary/fake-result" \
+  FAKE_NIX_ARGS="$temporary/nix.args" \
+  FAKE_PACKER_ARGS="$temporary/packer.args" \
   NIX_BIN="$temporary/bin/nix" \
   PACKER_BIN="$temporary/bin/packer" \
   OPERATOR_PUBLIC_KEY_FILE="$temporary/operator.pub" \
-  OUTPUT_DIR="$temporary/output" \
+  INSTALLER_SOURCE=build \
   bash "$TEST_ROOT/packer/build.sh"
-cmp \
-  "$temporary/fake-result/iso/nixoa-installer.iso" \
-  "$temporary/output/nixoa-installer.iso" \
-  || fail "Packer build did not materialize the installer artifact"
+grep -Fxq \
+  "iso_url=$temporary/fake-result/iso/nixoa-installer.iso" \
+  "$temporary/packer.args" \
+  || fail "Packer build did not use the installer directly from the Nix store"
+grep -Fxq -- '--accept-flake-config' "$temporary/nix.args" \
+  || fail "installer substitution does not accept the flake cache configuration"
 grep -Fxq 'output/' "$TEST_ROOT/.gitignore" \
   || fail "installer artifact directory is not ignored"
 

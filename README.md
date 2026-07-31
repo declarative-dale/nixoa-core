@@ -89,8 +89,20 @@ Edit `host/settings.nix` for durable policy. `nixoa-menu` writes only
 - operator apps: `nxcli`, `apply`, `bootstrap`, `commit`, `diff`, `history`,
   `menu`, and `deploy-template`
 
-The template deployer writes the bootable installer artifact to the ignored
-`output/nixoa-installer.iso` path.
+GitHub Actions builds all public packages and the cache-rich installer ISO. It
+retains the complete ISO as the `nixoa-installer` workflow artifact while
+publishing only the smaller reusable NiXOA package closures to Cachix. The
+flake app downloads the newest successful `main` artifact, verifies its
+published SHA-256 checksum, and passes it directly to Packer without requiring
+a local ISO build or checkout copy.
+
+Use `nix run --accept-flake-config .#deploy-template -- ...` so the initial
+deployer package can also be substituted from the declared caches. Authenticate
+the GitHub CLI with `gh auth login` before downloading workflow artifacts.
+
+A second workflow runs every Wednesday at 09:17 UTC and refreshes every input
+in `flake.lock`. When anything changes it creates or refreshes a pull request;
+merging that pull request is the only step that applies the new lock to `main`.
 
 ## Documentation
 

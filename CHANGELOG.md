@@ -39,9 +39,17 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Preseed the unattended installer ISO with the complete NiXOA system,
   `nixoa-menu`, and Xen Orchestra closures, and publish each closure from the
   GitHub Cachix workflow.
+- Declare the public package caches in the flake, publish the Packer deployer
+  through Cachix, and retain the multi-gigabyte preseeded installer as a
+  checksum-verified GitHub Actions artifact instead of consuming the 5 GB
+  NiXOA Cachix allocation with its complete closure.
+- Grow the root partition and filesystem through cloud-init when an XCP-ng
+  clone is provisioned with a larger virtual disk.
 - Give Xen Orchestra a four-minute startup grace period and then wait for its
   HTTPS listener during Packer verification instead of treating the service
   process becoming active as endpoint readiness.
+- Check every flake input for updates each Wednesday and create or refresh a
+  dedicated lock-file pull request without changing `main` until it is merged.
 
 ### Removed
 

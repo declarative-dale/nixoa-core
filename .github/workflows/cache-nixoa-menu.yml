@@ -12,15 +12,22 @@ on:
       - "host/**"
       - "installer/**"
       - "modules/**"
+      - "packer/**"
       - "pkgs/**"
+      - "scripts/**"
+      - "tests/**"
   workflow_dispatch:
+
+concurrency:
+  group: cache-rich-installer-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   cache-nixoa-system:
-    name: Build and push NiXOA closure
+    name: Build NiXOA installer and reusable packages
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -63,6 +70,7 @@ jobs:
 
       - name: Build package outputs
         run: |
+          nix build .#packages.x86_64-linux.deploy-template -o result-deploy-template -L
           nix build .#packages.x86_64-linux.xen-orchestra-ce -o result-xen-orchestra-ce -L
           nix build .#packages.x86_64-linux.nxcli -o result-nxcli -L
           nix build .#packages.x86_64-linux.metadata -o result-metadata -L
@@ -74,7 +82,23 @@ jobs:
       - name: Build unattended installer ISO
         run: nix build .#packages.x86_64-linux.installer-iso -o result-installer
 
-      - name: Push NiXOA closures to Cachix
+      - name: Record installer checksum
+        working-directory: result-installer/iso
+        run: sha256sum nixoa-installer.iso > nixoa-installer.iso.sha256
+
+      - name: Upload prebuilt installer ISO
+        uses: actions/upload-artifact@v4
+        with:
+          name: nixoa-installer
+          path: |
+            result-installer/iso/nixoa-installer.iso
+            result-installer/iso/nixoa-installer.iso.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+      - name: Push reusable package closures to Cachix
+        continue-on-error: true
         env:
           CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME || 'nixoa' }}
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
@@ -82,18 +106,15 @@ jobs:
           set -euo pipefail
 
           if [ -z "${CACHIX_AUTH_TOKEN:-}" ]; then
-            echo "CACHIX_AUTH_TOKEN is required to publish the NiXOA closure." >&2
-            exit 1
+            echo "CACHIX_AUTH_TOKEN is unset; the installer artifact is still available."
+            exit 0
           fi
 
           out_paths=$(readlink -f \
-            result-libvhdi \
-            result-xen-orchestra-ce \
+            result-deploy-template \
             result-nxcli \
             result-metadata \
-            result-nixoa-menu \
-            result-nixoa-system \
-            result-installer)
-          echo "Pushing NiXOA package and system closures:"
+            result-nixoa-menu)
+          echo "Pushing the small, reusable NiXOA package closures:"
           printf '%s\n' "$out_paths"
           printf '%s\n' "$out_paths" | cachix push "$CACHE_NAME"

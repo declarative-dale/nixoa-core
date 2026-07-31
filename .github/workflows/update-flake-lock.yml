@@ -1,0 +1,39 @@
+name: Refresh flake inputs
+
+on:
+  schedule:
+    - cron: "17 9 * * 3"
+  workflow_dispatch:
+
+concurrency:
+  group: weekly-flake-input-refresh
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  id-token: write
+  pull-requests: write
+
+jobs:
+  update-flake-lock:
+    name: Update all locked inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: DeterminateSystems/determinate-nix-action@v3
+
+      - name: Update all flake inputs and open a pull request
+        uses: DeterminateSystems/update-flake-lock@v28
+        with:
+          base: main
+          branch: automation/weekly-flake-input-refresh
+          commit-msg: "flake.lock: refresh all inputs"
+          pr-title: "flake.lock: refresh all inputs"
+          pr-body: |
+            Automated weekly refresh of every locked flake input.
+
+            Review and merge this pull request to update `flake.lock` on `main`.

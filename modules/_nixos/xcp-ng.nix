@@ -25,6 +25,12 @@
       disable_root = true;
       ssh_pwauth = false;
       ssh_deletekeys = false;
+      growpart = {
+        mode = "auto";
+        devices = ["/"];
+        ignore_growroot_disabled = false;
+      };
+      resize_rootfs = true;
       # NixOS owns SSH host-key generation. Running cloud-init's key generator
       # concurrently races sshd-keygen.service on the first clone boot.
       ssh_genkeytypes = [];
@@ -44,9 +50,13 @@
         lock_passwd = true;
       };
 
-      # The appliance never delegates partitioning, filesystem growth,
-      # networking, package installation, or arbitrary scripts to cloud-init.
-      cloud_init_modules = ["seed_random"];
+      # Cloud-init may grow only the existing root partition and filesystem.
+      # NixOS still owns networking, packages, and executable configuration.
+      cloud_init_modules = [
+        "seed_random"
+        "growpart"
+        "resizefs"
+      ];
       cloud_config_modules = ["ssh"];
       cloud_final_modules = [
         "ssh-authkey-fingerprints"

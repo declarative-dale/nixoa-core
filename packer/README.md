@@ -7,7 +7,7 @@ profile or into the appliance:
 ```bash
 git clone https://codeberg.org/NiXOA/core.git
 cd core
-nix run .#deploy-template -- \
+nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
   --iso-sr "ISO library" \
   --sr "Local storage" \
@@ -28,11 +28,21 @@ The helper saves non-secret pool settings to the ignored
 `PKR_VAR_remote_password` for non-interactive use; otherwise the helper prompts
 without echo.
 
+GitHub Actions builds the deployer, appliance packages, complete system, and
+installer ISO. The complete, closure-preseeded ISO is retained for 90 days as
+the `nixoa-installer` workflow artifact; only the smaller reusable NiXOA
+packages are pushed to Cachix. `nix run --accept-flake-config
+.#deploy-template` downloads the artifact from the newest successful `main`
+workflow run, verifies its SHA-256 checksum, and passes it directly to Packer.
+Run `gh auth login` once before using the deployer.
+
 ## What the build does
 
-1. Nix builds the headless, UEFI-only `packages.x86_64-linux.installer-iso`
-   and copies the immutable result to the ignored
-   `output/nixoa-installer.iso` artifact path. The ISO remains limited to the
+1. The deployer downloads the headless, UEFI-only installer built from
+   `packages.x86_64-linux.installer-iso` by GitHub Actions and gives its
+   checksum-verified path directly to Packer. Set `INSTALLER_SOURCE=build` to
+   build it locally or `INSTALLER_ISO=/path/to/image.iso` to use an existing
+   image. The ISO remains limited to the
    Xen unattended-install path and uses networkd for DHCP, but its Nix store is
    preseeded with the complete generic NiXOA system closure, `nixoa-menu`, and
    Xen Orchestra so first installation needs only source metadata and small

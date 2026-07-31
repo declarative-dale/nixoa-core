@@ -24,7 +24,7 @@ usage() {
   cat <<'EOF'
 Usage: deploy-template.sh [options]
 
-Build the NiXOA installer ISO and create one native XCP-ng template.
+Download the prebuilt NiXOA installer and create one native XCP-ng template.
 
 Options:
   --host HOST             XCP-ng pool master

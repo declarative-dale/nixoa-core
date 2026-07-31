@@ -60,7 +60,14 @@ in {
       assert !appliance.services.cloud-init.network.enable;
       assert appliance.services.cloud-init.settings.datasource_list == ["NoCloud" "None"];
       assert appliance.services.cloud-init.settings.system_info.default_user.name == "nixoa";
-      assert appliance.services.cloud-init.settings.cloud_init_modules == ["seed_random"];
+      assert appliance.services.cloud-init.settings.cloud_init_modules
+      == [
+        "seed_random"
+        "growpart"
+        "resizefs"
+      ];
+      assert appliance.services.cloud-init.settings.growpart.devices == ["/"];
+      assert appliance.services.cloud-init.settings.resize_rootfs;
       assert appliance.services.cloud-init.settings.network.config == "disabled";
       assert appliance.services.cloud-init.settings.disable_network_activation;
       assert appliance.services.cloud-init.settings.ssh_genkeytypes == [];
