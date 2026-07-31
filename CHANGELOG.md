@@ -20,6 +20,9 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Enabled a constrained NoCloud/cloud-init path for per-clone machine identity
   and `nixoa` SSH-key injection without delegating networking, disks, packages,
   or arbitrary scripts to cloud-init.
+- Added an on-demand `deploy-template` flake app that builds a minimal installer
+  ISO and creates a verified, identity-cleared native XCP-ng template through a
+  Nix-provided Packer and pinned Vates XenServer plugin.
 
 ### Removed
 

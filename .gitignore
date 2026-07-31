@@ -5,7 +5,14 @@ nixoa-vm-bundle.md
 # Build results
 result
 result-*
+output/
 pkgs/nixoa-menu/target/
+packer/output/
+packer/packer_cache/
+packer/.packer/
+packer/*.pkrvars.hcl
+packer/*.pkrvars.json
+!packer/example.pkrvars.json
 
 # Nix build artifacts
 .direnv/

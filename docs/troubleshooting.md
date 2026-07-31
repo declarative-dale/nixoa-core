@@ -12,6 +12,21 @@ nix eval .#nixosConfigurations.nixoa.config.networking.hostName
 New flake files must be staged or addressed through a `path:` flake reference.
 There should be no `vm`, `nixo-ce-example`, or `nixoaCore` output.
 
+## Packer cannot discover the XenServer plugin
+
+Use the flake app rather than a host Packer installation:
+
+```bash
+nix run .#deploy-template -- --help
+```
+
+The app wraps pinned nixpkgs Packer with the pinned plugin and an immutable
+checksum file. `packer init` must not need to write into the Nix store.
+
+If a build VM remains after a failure, Packer's `keep_vm = "on_success"` policy
+means it was not finalized as the successful NiXOA template. Inspect its
+console and Packer output before removing it.
+
 ## SSH access fails after bootstrap
 
 The final SSH policy allows only `nixoa`. Root and the installer `nixos`

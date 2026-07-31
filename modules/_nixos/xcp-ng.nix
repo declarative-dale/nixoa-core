@@ -4,6 +4,7 @@
   # intentionally left entirely to host/hardware-configuration.nix.
   systemd.packages = [pkgs.xen-guest-agent];
   systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
+  environment.systemPackages = [pkgs.cloud-init];
 
   # Xen Orchestra supplies a NoCloud config drive when one is requested for a
   # clone. Cloud-init is intentionally limited to instance identity and SSH

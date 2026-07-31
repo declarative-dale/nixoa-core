@@ -1,0 +1,15 @@
+{
+  "remote_host": "192.0.2.10",
+  "remote_username": "root",
+  "sr_iso_name": "ISO library",
+  "sr_name": "Local storage",
+  "network_names": [
+    "Network associated with eth0"
+  ],
+  "export_network_names": [
+    "Pool-wide network associated with eth0"
+  ],
+  "vm_name": "NiXOA",
+  "repo_url": "https://codeberg.org/NiXOA/core.git",
+  "repo_branch": "main"
+}

@@ -24,7 +24,11 @@ bash -n \
   "$TEST_ROOT/scripts/bootstrap.sh" \
   "$TEST_ROOT/scripts/tui/lib.sh" \
   "$TEST_ROOT/scripts/tui/action.sh" \
-  "$TEST_ROOT/scripts/tui/state.sh"
+  "$TEST_ROOT/scripts/tui/state.sh" \
+  "$TEST_ROOT/installer/install-nixoa.sh" \
+  "$TEST_ROOT/packer/build.sh" \
+  "$TEST_ROOT/packer/deploy-template.sh" \
+  "$TEST_ROOT"/packer/scripts/*.sh
 
 # Fixed target resolution.
 actual="$(
@@ -74,6 +78,73 @@ then
 fi
 grep -q 'was removed' "$temporary/bootstrap.err" \
   || fail "bootstrap did not reject legacy identity options"
+
+# Packer configuration generation is fixed to one native NiXOA template and
+# never persists the XCP-ng password.
+printf '%s\n' 'ssh-ed25519 AAAATEST operator@example' \
+  >"$temporary/operator.pub"
+bash "$TEST_ROOT/packer/deploy-template.sh" \
+  --host 192.0.2.10 \
+  --username root \
+  --iso-sr "ISO library" \
+  --sr "Local storage" \
+  --network "Build network" \
+  --export-network "Template network" \
+  --template-name NiXOA \
+  --operator-key "$temporary/operator.pub" \
+  --config "$temporary/packer.pkrvars.json" \
+  --configure-only
+jq -e '
+  .remote_host == "192.0.2.10"
+  and .remote_username == "root"
+  and .sr_iso_name == "ISO library"
+  and .sr_name == "Local storage"
+  and .network_names == ["Build network"]
+  and .export_network_names == ["Template network"]
+  and .vm_name == "NiXOA"
+  and (.remote_password? == null)
+' "$temporary/packer.pkrvars.json" >/dev/null \
+  || fail "Packer configuration generation is incorrect"
+
+# The Packer build materializes a real, ignored installer artifact rather than
+# leaving the user to chase a Nix store result symlink.
+mkdir -p "$temporary/fake-result/iso" "$temporary/bin"
+printf 'fake installer image\n' >"$temporary/fake-result/iso/nixoa-installer.iso"
+# The variable reference belongs in the generated fake, not this test shell.
+# shellcheck disable=SC2016
+printf '%s\n' \
+  "#!$(command -v bash)" \
+  'printf "%s\n" "$FAKE_INSTALLER_RESULT"' \
+  >"$temporary/bin/nix"
+printf '%s\n' \
+  "#!$(command -v bash)" \
+  'exit 0' \
+  >"$temporary/bin/packer"
+chmod +x "$temporary/bin/nix" "$temporary/bin/packer"
+FAKE_INSTALLER_RESULT="$temporary/fake-result" \
+  NIX_BIN="$temporary/bin/nix" \
+  PACKER_BIN="$temporary/bin/packer" \
+  OPERATOR_PUBLIC_KEY_FILE="$temporary/operator.pub" \
+  OUTPUT_DIR="$temporary/output" \
+  bash "$TEST_ROOT/packer/build.sh"
+cmp \
+  "$temporary/fake-result/iso/nixoa-installer.iso" \
+  "$temporary/output/nixoa-installer.iso" \
+  || fail "Packer build did not materialize the installer artifact"
+grep -Fxq 'output/' "$TEST_ROOT/.gitignore" \
+  || fail "installer artifact directory is not ignored"
+
+grep -q './packer.nix' "$TEST_ROOT/host/default.nix" \
+  || fail "host does not import the dedicated Packer override"
+if grep -qE 'PasswordAuthentication|hashedPassword' "$TEST_ROOT/host/packer.nix"; then
+  fail "tracked Packer override contains temporary access policy"
+fi
+grep -q 'refusing to erase a disk without --yes' \
+  "$TEST_ROOT/installer/install-nixoa.sh" \
+  || fail "installer does not require explicit destructive confirmation"
+grep -q 'cloud-init clean --logs --machine-id --seed' \
+  "$TEST_ROOT/packer/scripts/seal-template.sh" \
+  || fail "Packer sealing does not clear clone identity"
 
 # Bootstrap settings generation populates the fixed identity and supplied keys.
 mkdir -p "$temporary/generated/host"

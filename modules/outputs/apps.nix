@@ -52,10 +52,18 @@
 in {
   flake.apps = lib.genAttrs systems (
     system: let
-      pkgs = inputs.nixpkgs.legacyPackages.${system};
+      pkgs = import inputs.nixpkgs {
+        inherit system;
+        config.allowUnfreePredicate = package:
+          lib.getName package == "packer";
+      };
       nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
       nxcliApp = mkNxcliApp pkgs nxcli;
+      packerXenserverPlugin = pkgs.callPackage ../../pkgs/packer-xenserver-plugin/package.nix {};
+      packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {
+        inherit packerXenserverPlugin;
+      };
     in {
       nxcli = {
         type = "app";
@@ -73,6 +81,45 @@ in {
         appName = "nixoa-bootstrap";
         scriptName = "bootstrap.sh";
         description = "Bootstrap the fixed nixoa appliance checkout";
+      };
+
+      deploy-template = {
+        type = "app";
+        program = lib.getExe (
+          pkgs.writeShellApplication {
+            name = "nixoa-deploy-template";
+            runtimeInputs = [
+              pkgs.coreutils
+              pkgs.git
+              pkgs.jq
+              pkgs.nix
+              packerXenserver
+            ];
+            text = ''
+              repo_root="''${NIXOA_SYSTEM_ROOT:-}"
+              if [ -z "$repo_root" ]; then
+                if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+                  repo_root="$git_root"
+                else
+                  repo_root="$PWD"
+                fi
+              fi
+
+              deploy_script="$repo_root/packer/deploy-template.sh"
+              if [ ! -x "$deploy_script" ]; then
+                echo "Could not find $deploy_script" >&2
+                echo "Run this app from a NiXOA checkout or set NIXOA_SYSTEM_ROOT." >&2
+                exit 1
+              fi
+
+              export PACKER_BIN=${packerXenserver}/bin/packer-xenserver
+              export NIX_BIN=${pkgs.nix}/bin/nix
+              exec "$deploy_script" "$@"
+            '';
+            meta.description = "Build and deploy a native NiXOA XCP-ng template";
+          }
+        );
+        meta.description = "Build and deploy a native NiXOA XCP-ng template";
       };
 
       commit = nxcliApp {

@@ -1,5 +1,41 @@
 # Installation
 
+## Deploy a native template with Packer
+
+The preferred fresh deployment starts from a repository checkout and requires
+only Nix plus access to the XCP-ng pool master:
+
+```bash
+nix run .#deploy-template -- \
+  --host XCP_POOL_MASTER \
+  --iso-sr "ISO library" \
+  --sr "Local storage" \
+  --network "DHCP network" \
+  --export-network "DHCP network" \
+  --template-name NiXOA \
+  --operator-key ~/.ssh/id_ed25519.pub
+```
+
+The flake app realizes Packer from pinned nixpkgs and the pinned Vates
+XenServer plugin in the caller's Nix store. It does not install either tool
+into the caller's profile or `nixosConfigurations.nixoa`. The bootable ISO is
+copied to the ignored `output/nixoa-installer.iso` artifact path.
+
+The helper stores only non-secret settings in ignored
+`packer/local.pkrvars.json`. Supply `PKR_VAR_remote_password` for unattended
+execution or enter the password at its hidden prompt.
+
+The resulting object is a native XCP-ng template. Clone it in Xen Orchestra,
+enable the NoCloud config drive, supply an SSH public key for `nixoa`, and boot.
+Every clone generates fresh machine and SSH identities. See
+`packer/README.md` for the full build and verification contract.
+
+The Packer installer intentionally erases its one selected build disk. This is
+separate from runtime policy: the installed appliance never repartitions and
+uses only its generated `host/hardware-configuration.nix`.
+
+## Bootstrap an existing NixOS VM
+
 ## Prepare the VM
 
 Create an x86_64 VM in XCP-ng, install NixOS normally, and verify that it boots.

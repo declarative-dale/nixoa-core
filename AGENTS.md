@@ -15,6 +15,8 @@ selection.
 - `host/settings.nix`: hand-maintained appliance policy
 - `host/hardware-configuration.nix`: bootstrap-generated hardware module
 - `host/menu.nix`: TUI-generated overrides only
+- `installer/`: minimal NixOS ISO and destructive single-disk installer
+- `packer/`: native XCP-ng template build, verification, and sealing
 - `scripts/nxcli.sh`: operator CLI source
 - `scripts/tui/`: console backend
 - `pkgs/nixoa-menu/`: Ratatui frontend
@@ -26,12 +28,17 @@ Use `.#nixoa` in commands and documentation.
 ```bash
 nix flake check --no-write-lock-file
 nix build .#nixosConfigurations.nixoa.config.system.build.toplevel --no-link
-nix build .#xen-orchestra-ce .#nxcli .#nixoa-menu --no-link
+nix build .#xen-orchestra-ce .#nxcli .#nixoa-menu .#installer-iso --no-link
+nix run .#deploy-template -- --help
 tests/run.sh
 ```
 
+`nix run .#deploy-template` materializes the installer as the ignored
+`output/nixoa-installer.iso` artifact before invoking Packer.
+
 Run `bash -n` and ShellCheck for shell changes, and `cargo fmt --check`,
-`cargo check`, and `cargo test` for menu changes.
+`cargo check`, and `cargo test` for menu changes. Run `packer fmt -check` and
+`packer validate -syntax-only` for Packer changes.
 
 ## Configuration rules
 

@@ -21,8 +21,22 @@ The appliance combines:
 
 ## Install
 
-Start from an installed NixOS VM on XCP-ng. The VM must already have a generated
-`/etc/nixos/hardware-configuration.nix`.
+Deploy a native XCP-ng template directly from a checkout. Nix provides the
+Packer toolchain on demand; it is not installed into a profile or the appliance:
+
+```bash
+nix run .#deploy-template -- \
+  --host XCP_POOL_MASTER \
+  --iso-sr "ISO library" \
+  --sr "Local storage" \
+  --network "VM network" \
+  --export-network "VM network" \
+  --template-name NiXOA \
+  --operator-key ~/.ssh/id_ed25519.pub
+```
+
+For an existing, normally installed NixOS VM, bootstrap remains supported. The
+VM must already have `/etc/nixos/hardware-configuration.nix`.
 
 ```bash
 git clone https://codeberg.org/NiXOA/core.git /tmp/nixoa-bootstrap
@@ -71,8 +85,12 @@ Edit `host/settings.nix` for durable policy. `nixoa-menu` writes only
 - `packages.x86_64-linux.libvhdi`
 - `packages.x86_64-linux.nxcli`
 - `packages.x86_64-linux.nixoa-menu`
+- `packages.x86_64-linux.installer-iso`
 - operator apps: `nxcli`, `apply`, `bootstrap`, `commit`, `diff`, `history`,
-  and `menu`
+  `menu`, and `deploy-template`
+
+The template deployer writes the bootable installer artifact to the ignored
+`output/nixoa-installer.iso` path.
 
 ## Documentation
 

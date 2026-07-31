@@ -31,13 +31,21 @@ in {
             pkgs.git
             pkgs.gnugrep
             pkgs.gnused
+            pkgs.jq
             pkgs.shellcheck
           ];
         } ''
           cp -R ${inputs.self} source
           chmod -R u+w source
           cd source
-          shellcheck scripts/*.sh scripts/lib/*.sh scripts/tui/*.sh tests/run.sh
+          shellcheck \
+            installer/*.sh \
+            packer/*.sh \
+            packer/scripts/*.sh \
+            scripts/*.sh \
+            scripts/lib/*.sh \
+            scripts/tui/*.sh \
+            tests/run.sh
           NIXOA_SKIP_EVAL=1 bash ./tests/run.sh
           touch "$out"
         '';
@@ -53,6 +61,7 @@ in {
       assert appliance.services.cloud-init.settings.datasource_list == ["NoCloud" "None"];
       assert appliance.services.cloud-init.settings.system_info.default_user.name == "nixoa";
       assert appliance.services.cloud-init.settings.cloud_init_modules == ["seed_random"];
+      assert builtins.elem pkgs.cloud-init appliance.environment.systemPackages;
       assert builtins.elem "cloud-config.service" appliance.systemd.services.sshd.after;
       assert appliance.services.openssh.settings.AllowUsers == ["nixoa"];
       assert appliance.networking.firewall.allowedTCPPorts == [22 80 443];

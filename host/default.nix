@@ -4,5 +4,6 @@
     ./settings.nix
     ./hardware-configuration.nix
     ./menu.nix
+    ./packer.nix
   ];
 }

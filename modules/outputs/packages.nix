@@ -11,6 +11,11 @@ in {
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
+      installerIso =
+        (inputs.nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [../../installer];
+        }).config.system.build.isoImage;
     in
       {
         xen-orchestra-ce = xenOrchestraCe;
@@ -24,6 +29,7 @@ in {
         nixoa-menu = nixoaMenu;
       }
       // {
+        installer-iso = installerIso;
         metadata = pkgs.stdenv.mkDerivation {
           pname = "nixoa-metadata";
           version = "3.1.0";

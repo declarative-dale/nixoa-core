@@ -21,6 +21,12 @@ nixoa
 There is no exported namespace, downstream template, physical-host variant,
 synthetic VM configuration, or compatibility alias.
 
+The native XCP-ng template builder is an operator-side tool, not another NixOS
+configuration. `packages.x86_64-linux.installer-iso` evaluates a small live
+installer, while `nix run .#deploy-template` realizes Packer and its XenServer
+plugin only in the caller's Nix store. The sole installed system remains
+`nixosConfigurations.nixoa`.
+
 ## Module layout
 
 ```text
