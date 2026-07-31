@@ -50,10 +50,19 @@ in {
     };
   };
 
-  # networkd applies DHCP-provided transient hostnames through hostnamed. The
-  # systemd package supplies a polkit rule restricted to the systemd-network
-  # service account; polkit must be running for that standard handoff to work.
-  security.polkit.enable = true;
+  # networkd applies DHCP-provided transient hostnames through hostnamed.
+  # Authorize only that action for networkd's dedicated service account.
+  security.polkit = {
+    enable = true;
+    extraConfig = ''
+      polkit.addRule(function(action, subject) {
+        if (action.id == "org.freedesktop.hostname1.set-hostname" &&
+            subject.user == "systemd-network") {
+          return polkit.Result.YES;
+        }
+      });
+    '';
+  };
 
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
