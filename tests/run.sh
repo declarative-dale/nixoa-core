@@ -199,6 +199,9 @@ grep -q 'mount -t ext4.*root_partition' \
 grep -q 'cloud-init clean --logs --machine-id --seed' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not clear clone identity"
+grep -q 'passwd --lock nixoa' \
+  "$TEST_ROOT/packer/scripts/seal-template.sh" \
+  || fail "Packer sealing does not lock the temporary operator password"
 
 # Bootstrap settings generation populates the fixed identity and supplied keys.
 mkdir -p "$temporary/generated/host"

@@ -45,6 +45,7 @@ nixos-rebuild switch --flake "path:$repo#nixoa"
 sshd -t
 assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication no
 assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
+passwd --lock nixoa
 case "$(getent shadow nixoa | cut -d: -f2)" in
   '!'*|'*'*) ;;
   *)
