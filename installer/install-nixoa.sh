@@ -154,7 +154,23 @@ udevadm settle
 mkfs.fat -F 32 -n ESP "$efi_partition"
 mkfs.ext4 -F -L nixos "$root_partition"
 
-mount "$root_partition" "$INSTALL_ROOT"
+sync
+udevadm settle --timeout=30
+mount_attempt=1
+until mount -t ext4 "$root_partition" "$INSTALL_ROOT"; do
+  if [[ "$mount_attempt" -ge 10 ]]; then
+    printf 'Unable to mount the new root filesystem after %s attempts.\n' \
+      "$mount_attempt" >&2
+    lsblk -f "$target_disk" >&2 || true
+    blkid -p "$root_partition" >&2 || true
+    dumpe2fs -h "$root_partition" >&2 || true
+    (dmesg || true) | tail -100 >&2
+    die "new root filesystem did not become mountable"
+  fi
+  sleep 1
+  udevadm settle --timeout=30
+  ((mount_attempt += 1))
+done
 install -d -m 0755 "$INSTALL_ROOT/boot"
 mount "$efi_partition" "$INSTALL_ROOT/boot"
 

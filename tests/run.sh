@@ -146,6 +146,9 @@ fi
 grep -q 'refusing to erase a disk without --yes' \
   "$TEST_ROOT/installer/install-nixoa.sh" \
   || fail "installer does not require explicit destructive confirmation"
+grep -q 'mount -t ext4.*root_partition' \
+  "$TEST_ROOT/installer/install-nixoa.sh" \
+  || fail "installer does not explicitly mount its ext4 root"
 grep -q 'cloud-init clean --logs --machine-id --seed' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not clear clone identity"
