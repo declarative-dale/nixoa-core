@@ -81,7 +81,7 @@ in {
       "flakes"
     ];
     extra-substituters = [
-      "https://cache.flakehub.com"
+      "https://install.determinate.systems"
       "https://xen-orchestra-ce.cachix.org"
       "https://libvhdi-nixpkg.cachix.org"
     ];

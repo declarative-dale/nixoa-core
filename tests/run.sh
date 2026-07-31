@@ -44,6 +44,29 @@ expected="$(
 )"
 assert_eq "$actual" "$expected"
 
+# First-install builds use Determinate Systems' unauthenticated bootstrap cache
+# rather than the authenticated FlakeHub Cache endpoint.
+actual="$(
+  NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
+    source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
+    command=()
+    nixoa_append_first_install_nix_options command
+    printf "%s\n" "${command[@]}"
+  '
+)"
+grep -Fxq 'https://install.determinate.systems https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' \
+  <<<"$actual" \
+  || fail "first-install command omits the Determinate bootstrap cache"
+if grep -Fxq 'https://cache.flakehub.com' <<<"$actual"; then
+  fail "first-install command uses the authenticated FlakeHub Cache endpoint"
+fi
+grep -Fq '"https://install.determinate.systems"' \
+  "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits the Determinate bootstrap cache"
+if grep -Fq '"https://cache.flakehub.com"' "$TEST_ROOT/installer/default.nix"; then
+  fail "installer ISO uses the authenticated FlakeHub Cache endpoint"
+fi
+
 if NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
   source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
   nixoa_resolve_target_output vm

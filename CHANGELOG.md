@@ -23,6 +23,8 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Added an on-demand `deploy-template` flake app that builds a minimal installer
   ISO and creates a verified, identity-cleared native XCP-ng template through a
   Nix-provided Packer and pinned Vates XenServer plugin.
+- Use Determinate Systems' unauthenticated bootstrap binary cache for installer
+  and first-install builds instead of the authenticated FlakeHub Cache endpoint.
 
 ### Removed
 
