@@ -189,11 +189,19 @@ jq -e '
 
 # The default Packer build downloads the newest successful, checksum-verified
 # GitHub artifact and does not duplicate the large ISO into the checkout.
-mkdir -p "$temporary/fake-result/iso" "$temporary/bin"
+mkdir -p \
+  "$temporary/fake-result/iso" \
+  "$temporary/fake-artifact/result-installer/iso" \
+  "$temporary/bin"
 printf 'fake installer image\n' >"$temporary/fake-result/iso/nixoa-installer.iso"
+cp \
+  "$temporary/fake-result/iso/nixoa-installer.iso" \
+  "$temporary/fake-artifact/result-installer/iso/nixoa-installer.iso"
 (
-  cd "$temporary/fake-result/iso"
-  sha256sum nixoa-installer.iso >nixoa-installer.iso.sha256
+  cd "$temporary/fake-artifact"
+  sha256sum \
+    result-installer/iso/nixoa-installer.iso \
+    >nixoa-installer.iso.sha256
 )
 # The variable references belong in the generated fake, not this test shell.
 # shellcheck disable=SC2016
@@ -206,8 +214,7 @@ printf '%s\n' \
   '    if [[ "$1" == "--dir" ]]; then artifact_dir=$2; break; fi' \
   '    shift' \
   '  done' \
-  '  cp "$FAKE_ARTIFACT_DIR/nixoa-installer.iso" "$artifact_dir/"' \
-  '  cp "$FAKE_ARTIFACT_DIR/nixoa-installer.iso.sha256" "$artifact_dir/"' \
+  '  cp -R "$FAKE_ARTIFACT_DIR/." "$artifact_dir/"' \
   '  exit 0' \
   'fi' \
   'exit 1' \
@@ -226,7 +233,7 @@ printf '%s\n' \
   'printf "%s\n" "$@" >"$FAKE_PACKER_ARGS"' \
   >"$temporary/bin/packer"
 chmod +x "$temporary/bin/gh" "$temporary/bin/nix" "$temporary/bin/packer"
-FAKE_ARTIFACT_DIR="$temporary/fake-result/iso" \
+FAKE_ARTIFACT_DIR="$temporary/fake-artifact" \
   FAKE_GH_ARGS="$temporary/gh.args" \
   FAKE_PACKER_ARGS="$temporary/packer.args" \
   GH_BIN="$temporary/bin/gh" \

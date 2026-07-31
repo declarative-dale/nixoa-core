@@ -83,8 +83,9 @@ jobs:
         run: nix build .#packages.x86_64-linux.installer-iso -o result-installer
 
       - name: Record installer checksum
-        working-directory: result-installer/iso
-        run: sha256sum nixoa-installer.iso > nixoa-installer.iso.sha256
+        run: >-
+          sha256sum result-installer/iso/nixoa-installer.iso
+          > nixoa-installer.iso.sha256
 
       - name: Upload prebuilt installer ISO
         uses: actions/upload-artifact@v4
@@ -92,7 +93,7 @@ jobs:
           name: nixoa-installer
           path: |
             result-installer/iso/nixoa-installer.iso
-            result-installer/iso/nixoa-installer.iso.sha256
+            nixoa-installer.iso.sha256
           if-no-files-found: error
           compression-level: 0
           retention-days: 90

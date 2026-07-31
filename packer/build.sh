@@ -80,7 +80,7 @@ case "$INSTALLER_SOURCE" in
       --repo "$GITHUB_REPOSITORY" \
       --name "$GITHUB_ARTIFACT_NAME" \
       --dir "$artifact_dir"
-    installer_iso="$artifact_dir/nixoa-installer.iso"
+    installer_iso="$artifact_dir/result-installer/iso/nixoa-installer.iso"
     (
       cd "$artifact_dir"
       sha256sum --check --strict nixoa-installer.iso.sha256
