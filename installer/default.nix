@@ -74,7 +74,9 @@ in {
   networking = {
     hostName = "nixoa-installer";
     firewall.allowedTCPPorts = [22];
+    useDHCP = lib.mkForce false;
     networkmanager.enable = lib.mkForce false;
+    dhcpcd.enable = lib.mkForce false;
     useNetworkd = lib.mkForce true;
   };
 
@@ -121,6 +123,18 @@ in {
   };
 
   systemd.defaultUnit = "multi-user.target";
+  systemd.network = {
+    enable = true;
+    wait-online.anyInterface = true;
+    networks."10-xen-uplink" = {
+      matchConfig.Type = "ether";
+      networkConfig = {
+        DHCP = "yes";
+        IPv6AcceptRA = true;
+      };
+      linkConfig.RequiredForOnline = "routable";
+    };
+  };
   systemd.packages = [pkgs.xen-guest-agent];
   systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
 
