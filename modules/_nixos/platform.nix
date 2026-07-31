@@ -50,6 +50,11 @@ in {
     };
   };
 
+  # networkd applies DHCP-provided transient hostnames through hostnamed. The
+  # systemd package supplies a polkit rule restricted to the systemd-network
+  # service account; polkit must be running for that standard handoff to work.
+  security.polkit.enable = true;
+
   i18n.defaultLocale = "en_US.UTF-8";
   i18n.extraLocaleSettings = {
     LC_TIME = "en_US.UTF-8";

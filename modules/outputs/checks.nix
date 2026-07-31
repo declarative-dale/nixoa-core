@@ -65,6 +65,7 @@ in {
       assert appliance.services.cloud-init.settings.disable_network_activation;
       assert appliance.services.cloud-init.settings.ssh_genkeytypes == [];
       assert !appliance.services.cloud-init.settings.ssh.emit_keys_to_console;
+      assert appliance.security.polkit.enable;
       assert builtins.elem pkgs.cloud-init appliance.environment.systemPackages;
       assert builtins.elem "cloud-config.service" appliance.systemd.services.sshd.after;
       assert appliance.services.openssh.settings.AllowUsers == ["nixoa"];

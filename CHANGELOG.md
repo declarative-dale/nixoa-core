@@ -34,6 +34,8 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Keep the official Determinate and NiXOA Cachix substituters on installed
   appliances, and wrap only Determinate's cached runtime output so NixOS does
   not rebuild its uncached manual/debug development outputs.
+- Enable the standard polkit authorization path so `systemd-networkd` can
+  apply transient hostnames supplied by DHCP.
 
 ### Removed
 

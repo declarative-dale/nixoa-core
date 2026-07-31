@@ -202,6 +202,9 @@ grep -q 'mount -o fmask=0077,dmask=0077.*efi_partition' \
 grep -q 'cloud-init clean --logs --machine-id --seed' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not clear clone identity"
+grep -q 'security\.polkit\.enable = true;' \
+  "$TEST_ROOT/modules/_nixos/platform.nix" \
+  || fail "platform does not authorize DHCP hostname adoption"
 grep -q 'passwd --lock nixoa' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not lock the temporary operator password"
