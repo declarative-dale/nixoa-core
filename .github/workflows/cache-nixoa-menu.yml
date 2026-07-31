@@ -39,6 +39,14 @@ jobs:
           name: ${{ vars.CACHIX_CACHE_NAME || 'nixoa' }}
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: true
+          skipAddingSubstituter: true
+
+      - name: Verify binary cache configuration
+        run: |
+          nix config show substituters
+          nix config show trusted-public-keys
+          determinate_out=$(nix eval --raw .#nixosConfigurations.nixoa.config.nix.package.outPath)
+          nix path-info --store https://install.determinate.systems "$determinate_out"
 
       - name: Evaluate flake outputs
         run: nix flake show --all-systems

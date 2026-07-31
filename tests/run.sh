@@ -79,6 +79,18 @@ if grep -Fq '"https://cache.flakehub.com"' "$TEST_ROOT/installer/default.nix"; t
   fail "installer ISO uses the authenticated FlakeHub Cache endpoint"
 fi
 
+# Installed systems keep all public appliance/build caches and avoid requesting
+# Determinate's uncached manual output.
+grep -Fq '"https://install.determinate.systems"' \
+  "$TEST_ROOT/modules/_nixos/platform.nix" \
+  || fail "installed system omits the Determinate bootstrap cache"
+grep -Fq '"https://nixoa.cachix.org"' \
+  "$TEST_ROOT/modules/_nixos/platform.nix" \
+  || fail "installed system omits the NiXOA Cachix cache"
+grep -Fq 'outputsToInstall = ["out"]' \
+  "$TEST_ROOT/modules/_nixos/platform.nix" \
+  || fail "installed system requests uncached Determinate package outputs"
+
 if NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
   source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
   nixoa_resolve_target_output vm
