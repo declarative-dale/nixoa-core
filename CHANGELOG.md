@@ -27,6 +27,8 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
   and first-install builds instead of the authenticated FlakeHub Cache endpoint.
 - Update Determinate Nix from 3.21.0 to 3.21.9, whose exact package output is
   available from the official bootstrap binary cache.
+- Refresh the complete flake lock, including nixpkgs, Home Manager, and
+  import-tree, before publishing the cached appliance closure.
 - Build and publish the complete NiXOA system closure from GitHub Actions and
   use the public NiXOA Cachix cache during installer and first-install builds.
 
