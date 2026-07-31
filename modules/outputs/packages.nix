@@ -11,11 +11,18 @@ in {
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
-      installerIso =
-        (inputs.nixpkgs.lib.nixosSystem {
-          inherit system;
-          modules = [../../installer];
-        }).config.system.build.isoImage;
+      applianceToplevel = inputs.self.nixosConfigurations.nixoa.config.system.build.toplevel;
+      installerSystem = inputs.nixpkgs.lib.nixosSystem {
+        inherit system;
+        modules = [../../installer];
+        specialArgs = {
+          inherit applianceToplevel nixoaMenu xenOrchestraCe;
+        };
+      };
+      installerIso = assert builtins.elem applianceToplevel installerSystem.config.isoImage.storeContents;
+      assert builtins.elem nixoaMenu installerSystem.config.isoImage.storeContents;
+      assert builtins.elem xenOrchestraCe installerSystem.config.isoImage.storeContents;
+        installerSystem.config.system.build.isoImage;
     in
       {
         xen-orchestra-ce = xenOrchestraCe;

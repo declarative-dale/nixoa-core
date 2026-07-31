@@ -32,8 +32,11 @@ without echo.
 
 1. Nix builds the headless, UEFI-only `packages.x86_64-linux.installer-iso`
    and copies the immutable result to the ignored
-   `output/nixoa-installer.iso` artifact path. The ISO is limited to the Xen
-   unattended-install path and uses networkd for DHCP.
+   `output/nixoa-installer.iso` artifact path. The ISO remains limited to the
+   Xen unattended-install path and uses networkd for DHCP, but its Nix store is
+   preseeded with the complete generic NiXOA system closure, `nixoa-menu`, and
+   Xen Orchestra so first installation needs only source metadata and small
+   machine-specific derivations from the network.
 2. Packer uploads that ISO to the selected ISO SR and creates one UEFI VM with
    one disk and a DHCP network.
 3. The live installer requires explicit destructive confirmation, partitions

@@ -36,6 +36,12 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
   not rebuild its uncached manual/debug development outputs.
 - Enable the standard polkit authorization path so `systemd-networkd` can
   apply transient hostnames supplied by DHCP.
+- Preseed the unattended installer ISO with the complete NiXOA system,
+  `nixoa-menu`, and Xen Orchestra closures, and publish each closure from the
+  GitHub Cachix workflow.
+- Give Xen Orchestra a four-minute startup grace period and then wait for its
+  HTTPS listener during Packer verification instead of treating the service
+  process becoming active as endpoint readiness.
 
 ### Removed
 

@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 {
+  applianceToplevel,
   lib,
   modulesPath,
+  nixoaMenu,
   pkgs,
+  xenOrchestraCe,
   ...
 }: let
   installNixoa = pkgs.writeShellApplication {
@@ -29,7 +32,19 @@ in {
   ];
 
   image.baseName = lib.mkForce "nixoa-installer";
-  isoImage.volumeID = "NIXOA_INSTALL";
+  isoImage = {
+    volumeID = "NIXOA_INSTALL";
+
+    # Seed the installer store with the complete generic appliance closure and
+    # its two largest first-party outputs. The generated hardware and temporary
+    # Packer policy still produce a few small machine-specific derivations, but
+    # nixos-install can copy the expensive runtime closure from the ISO.
+    storeContents = [
+      applianceToplevel
+      nixoaMenu
+      xenOrchestraCe
+    ];
+  };
 
   networking.hostName = "nixoa-installer";
   networking.firewall.allowedTCPPorts = [22];

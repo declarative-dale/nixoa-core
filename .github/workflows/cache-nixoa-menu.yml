@@ -1,4 +1,4 @@
-name: Cache NiXOA system
+name: Build cache-rich NiXOA installer
 
 on:
   push:
@@ -63,6 +63,7 @@ jobs:
 
       - name: Build package outputs
         run: |
+          nix build .#packages.x86_64-linux.xen-orchestra-ce -o result-xen-orchestra-ce -L
           nix build .#packages.x86_64-linux.nxcli -o result-nxcli -L
           nix build .#packages.x86_64-linux.metadata -o result-metadata -L
           nix build .#packages.x86_64-linux.nixoa-menu -o result-nixoa-menu -L
@@ -87,6 +88,7 @@ jobs:
 
           out_paths=$(readlink -f \
             result-libvhdi \
+            result-xen-orchestra-ce \
             result-nxcli \
             result-metadata \
             result-nixoa-menu \

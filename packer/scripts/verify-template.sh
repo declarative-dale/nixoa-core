@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+readonly XO_READINESS_GRACE_SECONDS=240
+
 [[ "$(id -u)" -eq 0 ]] || {
   printf 'NiXOA template verification must run as root.\n' >&2
   exit 1
@@ -90,7 +92,34 @@ assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication yes
 assert_sshd_directive /etc/ssh/sshd_config AllowUsers nixoa
 
 test "$(redis-cli -s /run/redis-xo/redis.sock --raw PING)" = PONG
-curl --fail --silent --show-error --insecure https://127.0.0.1/ >/dev/null
+
+# systemd considers xo-server active as soon as the Node process starts, while
+# its plugins and HTTPS listener can need additional time on the first boot.
+printf 'Waiting %s seconds before checking Xen Orchestra HTTPS readiness.\n' \
+  "$XO_READINESS_GRACE_SECONDS"
+sleep "$XO_READINESS_GRACE_SECONDS"
+while ! curl \
+  --connect-timeout 2 \
+  --fail \
+  --insecure \
+  --max-time 5 \
+  --output /dev/null \
+  --silent \
+  https://127.0.0.1/; do
+  if ! systemctl is-active --quiet xo-server.service; then
+    systemctl --no-pager --full status xo-server.service || true
+    journalctl --no-pager -u xo-server.service -n 100 || true
+    exit 1
+  fi
+  if ((SECONDS >= deadline)); then
+    printf 'Timed out waiting for the Xen Orchestra HTTPS endpoint.\n' >&2
+    systemctl --no-pager --full status xo-server.service || true
+    journalctl --no-pager -u xo-server.service -n 100 || true
+    ss -lnt || true
+    exit 1
+  fi
+  sleep 2
+done
 ss -lnt | grep -Eq '[:.]443[[:space:]]'
 
 printf 'NiXOA template verification passed.\n'

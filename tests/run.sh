@@ -78,6 +78,15 @@ grep -Fq '"nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g="' \
 if grep -Fq '"https://cache.flakehub.com"' "$TEST_ROOT/installer/default.nix"; then
   fail "installer ISO uses the authenticated FlakeHub Cache endpoint"
 fi
+grep -Fq 'applianceToplevel' "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits the NiXOA appliance closure"
+grep -Fq 'nixoaMenu' "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits nixoa-menu"
+grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits Xen Orchestra"
+grep -Fq 'result-xen-orchestra-ce' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "cache workflow does not publish Xen Orchestra explicitly"
 
 # Installed systems keep all public appliance/build caches and avoid requesting
 # Determinate's uncached manual output.
@@ -208,6 +217,12 @@ grep -q 'org\.freedesktop\.hostname1\.set-hostname' \
 grep -q 'passwd --lock nixoa' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not lock the temporary operator password"
+grep -q 'Timed out waiting for the Xen Orchestra HTTPS endpoint' \
+  "$TEST_ROOT/packer/scripts/verify-template.sh" \
+  || fail "Packer verification does not wait for XO HTTPS readiness"
+grep -q 'XO_READINESS_GRACE_SECONDS=240' \
+  "$TEST_ROOT/packer/scripts/verify-template.sh" \
+  || fail "Packer verification does not give XO a four-minute startup grace period"
 
 # Bootstrap settings generation populates the fixed identity and supplied keys.
 mkdir -p "$temporary/generated/host"
