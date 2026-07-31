@@ -4,6 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/tui/lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
 nixoa_require_git_repo
@@ -14,7 +15,6 @@ usage() {
 Usage: action.sh <command> [value]
 
 Commands:
-  set-hostname VALUE
   set-ssh-key VALUE
   add-ssh-key VALUE
   remove-ssh-key VALUE
@@ -34,15 +34,17 @@ EOF
 }
 
 load_state() {
-  hostname_value="$(nixoa_tui_hostname)"
   username_value="$(nixoa_tui_username)"
-  timezone_value="$(nixoa_tui_timezone)"
   extras_value="$(nixoa_tui_enable_extras)"
   development_mode_value="$(nixoa_tui_development_mode)"
 
   mapfile -t ssh_keys_value < <(nixoa_tui_ssh_keys)
+  # These arrays are passed to the override writer by name.
+  # shellcheck disable=SC2034
   mapfile -t system_packages_value < <(nixoa_tui_extra_system_packages)
+  # shellcheck disable=SC2034
   mapfile -t user_packages_value < <(nixoa_tui_extra_user_packages)
+  # shellcheck disable=SC2034
   mapfile -t services_value < <(nixoa_tui_enabled_services)
 }
 
@@ -179,7 +181,6 @@ latest_xoa_tag() {
 
 cleanup_unmanaged_users() {
   local managed_user="$1"
-  local passwd_line=""
   local username=""
   local home_dir=""
   local -a targets=()
@@ -267,22 +268,6 @@ load_state
 host_menu_relpath="$(nixoa_host_relpath)/menu.nix"
 
 case "$command_name" in
-  set-hostname)
-    [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_token "hostname" "$1"
-    hostname_value="$1"
-    nixoa_tui_write_menu \
-      "$hostname_value" \
-      "$username_value" \
-      "$timezone_value" \
-      "$extras_value" \
-      "$development_mode_value" \
-      ssh_keys_value \
-      system_packages_value \
-      user_packages_value \
-      services_value
-    nixoa_tui_commit_paths "Set hostname to ${hostname_value} from nixoa-menu" "$host_menu_relpath"
-    ;;
   set-username)
     echo "The NiXOA operator is fixed to nixoa." >&2
     exit 1
@@ -292,9 +277,6 @@ case "$command_name" in
     nixoa_tui_validate_ssh_key "$1"
     ssh_keys_value=("$1")
     nixoa_tui_write_menu \
-      "$hostname_value" \
-      "$username_value" \
-      "$timezone_value" \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
@@ -308,9 +290,6 @@ case "$command_name" in
     nixoa_tui_validate_ssh_key "$1"
     if nixoa_tui_append_unique "$1" ssh_keys_value; then
       nixoa_tui_write_menu \
-        "$hostname_value" \
-        "$username_value" \
-        "$timezone_value" \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
@@ -330,9 +309,6 @@ case "$command_name" in
         exit 1
       fi
       nixoa_tui_write_menu \
-        "$hostname_value" \
-        "$username_value" \
-        "$timezone_value" \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
@@ -353,9 +329,6 @@ case "$command_name" in
       commit_message="Enable extras from nixoa-menu"
     fi
     nixoa_tui_write_menu \
-      "$hostname_value" \
-      "$username_value" \
-      "$timezone_value" \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
@@ -376,9 +349,6 @@ case "$command_name" in
         ;;
     esac
     nixoa_tui_write_menu \
-      "$hostname_value" \
-      "$username_value" \
-      "$timezone_value" \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
@@ -401,9 +371,6 @@ case "$command_name" in
       commit_message="Enable Development Mode from nixoa-menu"
     fi
     nixoa_tui_write_menu \
-      "$hostname_value" \
-      "$username_value" \
-      "$timezone_value" \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
@@ -417,9 +384,6 @@ case "$command_name" in
     nixoa_tui_validate_token "package" "$1"
     if nixoa_tui_append_unique "$1" system_packages_value; then
       nixoa_tui_write_menu \
-        "$hostname_value" \
-        "$username_value" \
-        "$timezone_value" \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
@@ -436,9 +400,6 @@ case "$command_name" in
     nixoa_tui_validate_token "package" "$1"
     if nixoa_tui_append_unique "$1" user_packages_value; then
       nixoa_tui_write_menu \
-        "$hostname_value" \
-        "$username_value" \
-        "$timezone_value" \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
@@ -455,9 +416,6 @@ case "$command_name" in
     nixoa_tui_validate_token "service" "$1"
     if nixoa_tui_append_unique "$1" services_value; then
       nixoa_tui_write_menu \
-        "$hostname_value" \
-        "$username_value" \
-        "$timezone_value" \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \

@@ -39,7 +39,7 @@
 in
   rustPlatform.buildRustPackage {
     pname = "nixoa-menu";
-    version = "0.6.0";
+    version = "0.7.0";
 
     src = lib.cleanSource ./.;
 
@@ -54,7 +54,7 @@ in
     '';
 
     meta = {
-      description = "Ratatui-based SSH administration console for NiXOA system hosts";
+      description = "Ratatui-based SSH administration console for the NiXOA appliance";
       homepage = "https://codeberg.org/NiXOA/core";
       license = lib.licenses.asl20;
       mainProgram = "nixoa-menu";

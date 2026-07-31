@@ -168,7 +168,6 @@ enum ConfirmChoice {
 enum ActionKind {
     RefreshSnapshot,
     CheckForUpdates,
-    EditHostname,
     ToggleExtras,
     ToggleDevelopmentMode,
     AddSshKey,
@@ -210,7 +209,6 @@ enum MenuOption {
 
 #[derive(Debug, Clone, Copy)]
 enum InputAction {
-    SetHostname,
     SetPrimaryKey,
     AddKey,
     AddSystemPackage,
@@ -309,12 +307,7 @@ const STATUS_ACTIONS: [ActionItem; 2] = [
     },
 ];
 
-const HOST_SETUP_ACTIONS: [ActionItem; 3] = [
-    ActionItem {
-        kind: ActionKind::EditHostname,
-        title: "Hostname",
-        detail: "Write a new hostname into host/menu.nix and commit the change immediately.",
-    },
+const HOST_SETUP_ACTIONS: [ActionItem; 2] = [
     ActionItem {
         kind: ActionKind::ToggleExtras,
         title: "Extras",
@@ -1455,16 +1448,6 @@ fn run_quick_action(app: &mut App, kind: ActionKind) -> Result<()> {
             app.start_update_check();
             app.push_log("Opened Updates.");
         }
-        ActionKind::EditHostname => {
-            let current = app.snapshot.hostname.clone();
-            open_modal(
-                app,
-                InputAction::SetHostname,
-                "Edit hostname",
-                "Press Enter to write and commit the new hostname.",
-                current.as_str(),
-            );
-        }
         ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
         ActionKind::ToggleDevelopmentMode => run_action_capture(app, &["toggle-development-mode"])?,
         ActionKind::AddSshKey => open_modal(
@@ -1567,16 +1550,6 @@ fn activate_action_kind(terminal: &mut AppTerminal, app: &mut App, kind: ActionK
             app.set_page(Page::Updates);
             *app.current_selection_mut() = 0;
             app.set_focus(Focus::Options);
-        }
-        ActionKind::EditHostname => {
-            let current = app.snapshot.hostname.clone();
-            open_modal(
-                app,
-                InputAction::SetHostname,
-                "Edit hostname",
-                "Press Enter to write and commit the new hostname.",
-                current.as_str(),
-            );
         }
         ActionKind::ToggleExtras => run_action_capture(app, &["toggle-extras"])?,
         ActionKind::ToggleDevelopmentMode => run_action_capture(app, &["toggle-development-mode"])?,
@@ -1703,13 +1676,6 @@ fn submit_modal(
     value: String,
 ) -> Result<()> {
     match action {
-        InputAction::SetHostname => {
-            if value.is_empty() {
-                app.push_log("Ignored empty hostname.");
-            } else {
-                run_action_capture(app, &["set-hostname", value.as_str()])?;
-            }
-        }
         InputAction::SetPrimaryKey => {
             if value.is_empty() {
                 app.push_log("Ignored empty SSH key.");
@@ -2785,7 +2751,7 @@ fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
     let action = app
         .selected_page_action()
         .map(|item| item.kind)
-        .unwrap_or(ActionKind::EditHostname);
+        .unwrap_or(ActionKind::ToggleExtras);
 
     let rows = Layout::default()
         .direction(Direction::Vertical)
@@ -2829,18 +2795,6 @@ fn render_host_setup(frame: &mut Frame, area: Rect, app: &App) {
     frame.render_widget(summary, summary_inner);
 
     match action {
-        ActionKind::EditHostname => render_simple_detail(
-            frame,
-            rows[1],
-            "Selected Action",
-            &[
-                format!("Current hostname: {}", app.snapshot.hostname),
-                "Enter opens an edit modal for the hostname.".to_string(),
-                "The change is written into host/menu.nix immediately.".to_string(),
-            ],
-            false,
-            PanelTone::Info,
-        ),
         ActionKind::ToggleExtras => render_simple_detail(
             frame,
             rows[1],
@@ -3788,12 +3742,12 @@ mod tests {
 
     fn sample_snapshot() -> Snapshot {
         Snapshot {
-            hostname: "nixo-ce-test".to_string(),
+            hostname: "nixoa-test".to_string(),
             username: "nixoa".to_string(),
             timezone: "UTC".to_string(),
             extras: false,
             development_mode: false,
-            ssh_keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey nixo-ce-test".to_string()],
+            ssh_keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey nixoa-test".to_string()],
             system_packages: vec!["vim".to_string(), "curl".to_string()],
             user_packages: vec!["git".to_string()],
             services: vec!["openssh".to_string()],
@@ -3817,7 +3771,7 @@ mod tests {
             last_apply: Some(ApplyState {
                 result: "success".to_string(),
                 action: "switch".to_string(),
-                hostname: "nixo-ce-test".to_string(),
+                hostname: "nixoa-test".to_string(),
                 head: "0123456789abcdef".to_string(),
                 first_install: false,
                 exit_code: 0,

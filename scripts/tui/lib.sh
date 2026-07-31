@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 TUI_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/common.sh
 . "$TUI_LIB_DIR/../lib/common.sh"
 
 nixoa_tui_quote() {
@@ -137,15 +138,12 @@ nixoa_tui_dirty_count() {
 }
 
 nixoa_tui_write_menu() {
-  local hostname="$1"
-  local username="$2"
-  local timezone="$3"
-  local extras="$4"
-  local development_mode="$5"
-  local -n ssh_keys_ref="$6"
-  local -n system_packages_ref="$7"
-  local -n user_packages_ref="$8"
-  local -n services_ref="$9"
+  local extras="$1"
+  local development_mode="$2"
+  local -n ssh_keys_ref="$3"
+  local -n system_packages_ref="$4"
+  local -n user_packages_ref="$5"
+  local -n services_ref="$6"
   local menu_file
 
   menu_file="$(nixoa_host_menu_file)"
@@ -155,9 +153,6 @@ nixoa_tui_write_menu() {
     echo "# Managed by nixoa-menu"
     echo "{ ... }:"
     echo "{"
-    echo "  networking.hostName = $(nixoa_tui_quote "$hostname");"
-    echo "  time.timeZone = $(nixoa_tui_quote "$timezone");"
-    echo ""
     echo "  nixoa.operator = {"
     echo "    sshKeys = ["
     for key in "${ssh_keys_ref[@]}"; do
@@ -231,6 +226,8 @@ nixoa_tui_validate_ssh_key() {
 nixoa_tui_remove_value() {
   local value="$1"
   shift
+  # The caller passes the name of the array to mutate.
+  # shellcheck disable=SC2178
   local -n items_ref="$1"
   local filtered=()
   local found=1

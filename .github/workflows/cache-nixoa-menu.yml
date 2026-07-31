@@ -9,7 +9,7 @@ on:
       - "docs/**"
       - "flake.lock"
       - "flake.nix"
-      - "lib/**"
+      - "host/**"
       - "modules/**"
       - "pkgs/nixoa-menu/**"
       - "pkgs/nxcli/**"
@@ -56,8 +56,8 @@ jobs:
       - name: Check flake
         run: nix flake check --all-systems --no-build -L
 
-      - name: Evaluate example system
-        run: nix eval --raw .#nixosConfigurations.nixo-ce-example.config.system.build.toplevel.drvPath
+      - name: Evaluate nixoa system
+        run: nix eval --raw .#nixosConfigurations.nixoa.config.system.build.toplevel.drvPath
 
       - name: Validate precached libvhdi input
         run: nix build .#packages.x86_64-linux.libvhdi --no-link --max-jobs 0 -L

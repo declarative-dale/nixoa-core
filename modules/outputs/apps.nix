@@ -56,49 +56,48 @@ in {
       nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
       nxcliApp = mkNxcliApp pkgs nxcli;
-    in
-      {
-        nxcli = {
-          type = "app";
-          program = "${nxcli}/bin/nxcli";
-          meta.description = "Canonical NiXOA operator CLI";
-        };
+    in {
+      nxcli = {
+        type = "app";
+        program = "${nxcli}/bin/nxcli";
+        meta.description = "Canonical NiXOA operator CLI";
+      };
 
-        apply = nxcliApp {
-          appName = "nixoa-apply";
-          args = ["apply"];
-          description = "Apply a NiXOA host configuration through nxcli";
-        };
+      apply = nxcliApp {
+        appName = "nixoa-apply";
+        args = ["apply"];
+        description = "Apply a NiXOA host configuration through nxcli";
+      };
 
-        bootstrap = mkRepoScriptApp pkgs {
-          appName = "nixoa-bootstrap";
-          scriptName = "bootstrap.sh";
-          description = "Bootstrap the fixed nixoa appliance checkout";
-        };
+      bootstrap = mkRepoScriptApp pkgs {
+        appName = "nixoa-bootstrap";
+        scriptName = "bootstrap.sh";
+        description = "Bootstrap the fixed nixoa appliance checkout";
+      };
 
-        commit = nxcliApp {
-          appName = "nixoa-commit";
-          args = ["commit"];
-          description = "Commit NiXOA repository changes through nxcli";
-        };
+      commit = nxcliApp {
+        appName = "nixoa-commit";
+        args = ["commit"];
+        description = "Commit NiXOA repository changes through nxcli";
+      };
 
-        diff = nxcliApp {
-          appName = "nixoa-diff";
-          args = ["diff"];
-          description = "Show NiXOA repository changes through nxcli";
-        };
+      diff = nxcliApp {
+        appName = "nixoa-diff";
+        args = ["diff"];
+        description = "Show NiXOA repository changes through nxcli";
+      };
 
-        history = nxcliApp {
-          appName = "nixoa-history";
-          args = ["history"];
-          description = "Show NiXOA repository history through nxcli";
-        };
+      history = nxcliApp {
+        appName = "nixoa-history";
+        args = ["history"];
+        description = "Show NiXOA repository history through nxcli";
+      };
 
-        menu = {
-          type = "app";
-          program = "${nixoaMenu}/bin/nixoa-menu";
-          meta.description = "Launch the NiXOA SSH administration TUI";
-        };
-      }
+      menu = {
+        type = "app";
+        program = "${nixoaMenu}/bin/nixoa-menu";
+        meta.description = "Launch the NiXOA SSH administration TUI";
+      };
+    }
   );
 }

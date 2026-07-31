@@ -25,7 +25,7 @@ in {
       }
       // {
         metadata = pkgs.stdenv.mkDerivation {
-          pname = "nixoa-core-metadata";
+          pname = "nixoa-metadata";
           version = "3.1.0";
           dontUnpack = true;
           dontBuild = true;

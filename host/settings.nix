@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 # Hand-maintained settings for the single NiXOA appliance.
-{...}: {
+{lib, ...}: {
   networking.hostName = "nixoa";
   time.timeZone = "America/Chicago";
   system.stateVersion = "26.05";
@@ -17,9 +17,9 @@
     repoDir = "/home/nixoa/nixoa";
     gitName = "NiXOA Admin";
     gitEmail = "nixoa@nixoa";
-    sshKeys = [];
-    enableExtras = false;
-    developmentMode = false;
+    sshKeys = lib.mkDefault [];
+    enableExtras = lib.mkDefault false;
+    developmentMode = lib.mkDefault false;
     menuAutoStart = false;
     sudoNoPassword = true;
     systemPackages = [];

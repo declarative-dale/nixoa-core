@@ -4,6 +4,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/tui/lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
 nixoa_require_git_repo
@@ -14,6 +15,8 @@ json_quote() {
 }
 
 json_array() {
+  # The caller passes the name of the array to serialize.
+  # shellcheck disable=SC2178
   local -n items_ref="$1"
   local first=1
   local item
@@ -71,7 +74,10 @@ load_rebuild_queue() {
     rebuild_queued=true
     # shellcheck source=/dev/null
     . "$rebuild_queue_file"
+    # These values are emitted after all state-loading functions run.
+    # shellcheck disable=SC2034
     rebuild_queued_at="${scheduled_at:-}"
+    # shellcheck disable=SC2034
     rebuild_queued_hostname="${target:-${hostname:-}}"
   fi
 }
@@ -82,9 +88,9 @@ load_upstream_state() {
   ahead_count=0
   behind_count=0
 
-  if upstream_branch="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse --abbrev-ref --symbolic-full-name @{upstream} 2>/dev/null)"; then
+  if upstream_branch="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
     read -r ahead_count behind_count <<EOF
-$(git -C "$NIXOA_SYSTEM_ROOT" rev-list --left-right --count HEAD...@{upstream} 2>/dev/null || printf '0 0')
+$(git -C "$NIXOA_SYSTEM_ROOT" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null || printf '0 0')
 EOF
   fi
 }
