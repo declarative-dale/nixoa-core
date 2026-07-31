@@ -1,4 +1,4 @@
-name: Cache nixoa-menu
+name: Cache NiXOA system
 
 on:
   push:
@@ -11,19 +11,17 @@ on:
       - "flake.nix"
       - "host/**"
       - "modules/**"
-      - "pkgs/nixoa-menu/**"
-      - "pkgs/nxcli/**"
+      - "pkgs/**"
   workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write
 
 jobs:
-  cache-nixoa-menu:
-    name: Build and push nixoa-menu
+  cache-nixoa-system:
+    name: Build and push NiXOA closure
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -32,23 +30,15 @@ jobs:
         uses: DeterminateSystems/determinate-nix-action@v3
         with:
           extra-conf: |
-            extra-substituters = https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org
-            extra-trusted-public-keys = xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=
-
-      - name: Setup FlakeHub Cache
-        uses: DeterminateSystems/flakehub-cache-action@main
-        with:
-          flakehub-flake-name: declarative-dale/nixoa-core
-          use-gha-cache: disabled
+            extra-substituters = https://install.determinate.systems https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org
+            extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=
 
       - name: Setup Cachix
-        if: vars.CACHIX_CACHE_NAME != ''
         uses: cachix/cachix-action@v17
         with:
-          name: ${{ vars.CACHIX_CACHE_NAME }}
+          name: ${{ vars.CACHIX_CACHE_NAME || 'nixoa' }}
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
           skipPush: true
-        continue-on-error: true
 
       - name: Evaluate flake outputs
         run: nix flake show --all-systems
@@ -62,24 +52,32 @@ jobs:
       - name: Validate precached libvhdi input
         run: nix build .#packages.x86_64-linux.libvhdi --no-link --max-jobs 0 -L
 
-      - name: Build lightweight packages
-        run: nix build .#packages.x86_64-linux.nxcli .#packages.x86_64-linux.metadata -L
+      - name: Build package outputs
+        run: |
+          nix build .#packages.x86_64-linux.nxcli -o result-nxcli -L
+          nix build .#packages.x86_64-linux.metadata -o result-metadata -L
+          nix build .#packages.x86_64-linux.nixoa-menu -o result-nixoa-menu -L
 
-      - name: Build nixoa-menu
-        run: nix build .#packages.x86_64-linux.nixoa-menu -L
+      - name: Build NiXOA system
+        run: nix build .#nixosConfigurations.nixoa.config.system.build.toplevel -o result-nixoa-system -L
 
-      - name: Push nixoa-menu result to Cachix
-        if: vars.CACHIX_CACHE_NAME != ''
+      - name: Push NiXOA closures to Cachix
         env:
+          CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME || 'nixoa' }}
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
         run: |
           set -euo pipefail
 
           if [ -z "${CACHIX_AUTH_TOKEN:-}" ]; then
-            echo "CACHIX_AUTH_TOKEN is not configured; skipping Cachix push."
-            exit 0
+            echo "CACHIX_AUTH_TOKEN is required to publish the NiXOA closure." >&2
+            exit 1
           fi
 
-          out_path=$(readlink -f result)
-          echo "Pushing built package output: $out_path"
-          printf '%s\n' "$out_path" | cachix push "${{ vars.CACHIX_CACHE_NAME }}"
+          out_paths=$(readlink -f \
+            result-nxcli \
+            result-metadata \
+            result-nixoa-menu \
+            result-nixoa-system)
+          echo "Pushing NiXOA package and system closures:"
+          printf '%s\n' "$out_paths"
+          printf '%s\n' "$out_paths" | cachix push "$CACHE_NAME"

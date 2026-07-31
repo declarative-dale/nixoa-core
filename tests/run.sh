@@ -54,15 +54,27 @@ actual="$(
     printf "%s\n" "${command[@]}"
   '
 )"
-grep -Fxq 'https://install.determinate.systems https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' \
+grep -Fxq 'https://install.determinate.systems https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' \
   <<<"$actual" \
-  || fail "first-install command omits the Determinate bootstrap cache"
+  || fail "first-install command omits a required binary cache"
+grep -Fxq 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' \
+  <<<"$actual" \
+  || fail "first-install command omits a required cache signing key"
 if grep -Fxq 'https://cache.flakehub.com' <<<"$actual"; then
   fail "first-install command uses the authenticated FlakeHub Cache endpoint"
 fi
 grep -Fq '"https://install.determinate.systems"' \
   "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits the Determinate bootstrap cache"
+grep -Fq '"https://nixoa.cachix.org"' \
+  "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits the NiXOA Cachix cache"
+grep -Fq '"cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="' \
+  "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits the Determinate bootstrap cache key"
+grep -Fq '"nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g="' \
+  "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits the NiXOA Cachix key"
 if grep -Fq '"https://cache.flakehub.com"' "$TEST_ROOT/installer/default.nix"; then
   fail "installer ISO uses the authenticated FlakeHub Cache endpoint"
 fi
