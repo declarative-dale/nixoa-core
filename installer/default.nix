@@ -29,10 +29,54 @@ in {
   ];
 
   image.baseName = lib.mkForce "nixoa-installer";
-  isoImage.volumeID = "NIXOA_INSTALL";
+  isoImage = {
+    volumeID = "NIXOA_INSTALL";
+    makeBiosBootable = lib.mkForce false;
+    makeUsbBootable = lib.mkForce false;
+    grubTheme = null;
+  };
 
-  networking.hostName = "nixoa-installer";
-  networking.firewall.allowedTCPPorts = [22];
+  # The upstream minimal installer is intended for interactive recovery on
+  # arbitrary hardware. This image has one unattended target: a UEFI Xen VM.
+  # Exclude manuals, physical-machine firmware, repair tools, and filesystems
+  # that cannot be used by the Packer installation path.
+  documentation = {
+    enable = lib.mkForce false;
+    doc.enable = lib.mkForce false;
+    info.enable = lib.mkForce false;
+    man.enable = lib.mkForce false;
+    nixos.enable = lib.mkForce false;
+  };
+  hardware = {
+    enableAllHardware = lib.mkForce false;
+    enableRedistributableFirmware = lib.mkForce false;
+    wirelessRegulatoryDatabase = lib.mkForce false;
+  };
+  boot = {
+    initrd.availableKernelModules = lib.mkForce [
+      "xen_blkfront"
+      "xen_netfront"
+    ];
+    loader.grub.memtest86.enable = lib.mkForce false;
+    supportedFilesystems = lib.mkForce [
+      "ext4"
+      "vfat"
+    ];
+    swraid.enable = lib.mkForce false;
+  };
+  console.packages = lib.mkForce [];
+  environment = {
+    defaultPackages = lib.mkForce [];
+    systemPackages = lib.mkForce [installNixoa];
+  };
+  programs.git.enable = lib.mkForce false;
+
+  networking = {
+    hostName = "nixoa-installer";
+    firewall.allowedTCPPorts = [22];
+    networkmanager.enable = lib.mkForce false;
+    useNetworkd = lib.mkForce true;
+  };
 
   boot.kernelParams = [
     "console=tty0"
@@ -55,25 +99,30 @@ in {
     enable = true;
     wheelNeedsPassword = false;
   };
+  security.polkit.enable = lib.mkForce false;
 
-  services.openssh = {
-    enable = true;
-    openFirewall = true;
-    settings = {
-      AllowUsers = ["nixoa"];
-      KbdInteractiveAuthentication = false;
-      PasswordAuthentication = true;
-      PermitEmptyPasswords = false;
-      PermitRootLogin = "no";
-      PubkeyAuthentication = true;
-      X11Forwarding = false;
+  services = {
+    desktopManager.gnome.enable = lib.mkForce false;
+    displayManager.enable = lib.mkForce false;
+    xserver.enable = lib.mkForce false;
+    openssh = {
+      enable = true;
+      openFirewall = true;
+      settings = {
+        AllowUsers = ["nixoa"];
+        KbdInteractiveAuthentication = false;
+        PasswordAuthentication = true;
+        PermitEmptyPasswords = false;
+        PermitRootLogin = "no";
+        PubkeyAuthentication = true;
+        X11Forwarding = false;
+      };
     };
   };
 
+  systemd.defaultUnit = "multi-user.target";
   systemd.packages = [pkgs.xen-guest-agent];
   systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
-
-  environment.systemPackages = [installNixoa];
 
   nix.settings = {
     experimental-features = [

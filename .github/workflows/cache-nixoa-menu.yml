@@ -10,6 +10,7 @@ on:
       - "flake.lock"
       - "flake.nix"
       - "host/**"
+      - "installer/**"
       - "modules/**"
       - "pkgs/**"
   workflow_dispatch:
@@ -69,6 +70,9 @@ jobs:
       - name: Build NiXOA system
         run: nix build .#nixosConfigurations.nixoa.config.system.build.toplevel -o result-nixoa-system -L
 
+      - name: Build unattended installer ISO
+        run: nix build .#packages.x86_64-linux.installer-iso -o result-installer
+
       - name: Push NiXOA closures to Cachix
         env:
           CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME || 'nixoa' }}
@@ -86,7 +90,8 @@ jobs:
             result-nxcli \
             result-metadata \
             result-nixoa-menu \
-            result-nixoa-system)
+            result-nixoa-system \
+            result-installer)
           echo "Pushing NiXOA package and system closures:"
           printf '%s\n' "$out_paths"
           printf '%s\n' "$out_paths" | cachix push "$CACHE_NAME"
