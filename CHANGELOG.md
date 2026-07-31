@@ -54,6 +54,8 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 
 - Detect the XO HTTPS listener from its rendered TOML instead of using a
   malformed `sed` expression that prevented `nixoa-menu` from starting.
+- Read generated `lib.mkDefault` operator values and Nix store package hashes
+  correctly so the menu preserves SSH keys and reports the XO version.
 - Disable cloud-init network rendering explicitly so systemd-networkd remains
   authoritative, and remove stale fallback network files during activation.
 - Avoid first-boot races between cloud-init and NixOS SSH host-key generation,

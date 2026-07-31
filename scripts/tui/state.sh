@@ -183,7 +183,7 @@ load_xoa_state() {
   if [ -n "$working_dir" ]; then
     package_path="${working_dir%/libexec/xen-orchestra}"
     package_name="${package_path##*/}"
-    xen_orchestra_version="$(printf '%s\n' "$package_name" | sed -nE 's/^[[:xdigit:]]{32}-xen-orchestra-ce-(.+)$/\1/p')"
+    xen_orchestra_version="$(printf '%s\n' "$package_name" | sed -nE 's/^[0-9a-z]{32}-xen-orchestra-ce-(.+)$/\1/p')"
   fi
 
   if [ -z "$xen_orchestra_version" ]; then

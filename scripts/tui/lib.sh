@@ -28,7 +28,7 @@ nixoa_tui_read_bool_file() {
   local file="$2"
 
   [ -f "$file" ] || return 1
-  sed -nE "s/^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*;.*$/\\2/p" "$file" | tail -n 1
+  sed -nE "s/^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=[[:space:]]*(lib\\.mkDefault[[:space:]]+)?(true|false)[[:space:]]*;.*$/\\3/p" "$file" | tail -n 1
 }
 
 nixoa_tui_read_list_file() {
@@ -37,7 +37,22 @@ nixoa_tui_read_list_file() {
 
   [ -f "$file" ] || return 0
   awk -v key="$key" '
-    $0 ~ "^[[:space:]]*([A-Za-z0-9_.-]+\\.)?" key "[[:space:]]*=[[:space:]]*\\[" {
+    function emit_strings(text, line) {
+      line = text
+      while (match(line, /"[^"]+"/)) {
+        print substr(line, RSTART + 1, RLENGTH - 2)
+        line = substr(line, RSTART + RLENGTH)
+      }
+    }
+    $0 ~ "^[[:space:]]*([A-Za-z0-9_.-]+\\.)?" key "[[:space:]]*=[[:space:]]*(lib\\.mk(Default|Force)[[:space:]]+)?\\[" {
+      line = $0
+      sub(/^.*\[/, "", line)
+      if (line ~ /\]/) {
+        sub(/\].*$/, "", line)
+        emit_strings(line)
+        exit
+      }
+      emit_strings(line)
       in_list = 1
       next
     }
@@ -45,11 +60,7 @@ nixoa_tui_read_list_file() {
       exit
     }
     in_list {
-      line = $0
-      while (match(line, /"[^"]+"/)) {
-        print substr(line, RSTART + 1, RLENGTH - 2)
-        line = substr(line, RSTART + RLENGTH)
-      }
+      emit_strings($0)
     }
   ' "$file"
 }

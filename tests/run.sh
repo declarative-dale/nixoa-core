@@ -278,6 +278,27 @@ if NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
 '; then
   fail "TUI reports TLS without a certificate and key listener"
 fi
+
+cat >"$temporary/default-options.nix" <<'EOF'
+{lib, ...}: {
+  nixoa.operator = {
+    sshKeys = lib.mkDefault [
+      "ssh-ed25519 AAAATEST operator@example"
+    ];
+    enableExtras = lib.mkDefault true;
+    extraSystemPackages = [];
+  };
+}
+EOF
+actual="$(
+  NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+    source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
+    nixoa_tui_read_bool_file enableExtras "'"$temporary"'/default-options.nix"
+    nixoa_tui_read_list_file sshKeys "'"$temporary"'/default-options.nix"
+    nixoa_tui_read_list_file extraSystemPackages "'"$temporary"'/default-options.nix"
+  '
+)"
+assert_eq "$actual" $'true\nssh-ed25519 AAAATEST operator@example'
 if grep -q '_ctx\\|deploymentProfile\\|enableXenHardware' "$temporary/generated/host/menu.nix"; then
   fail "TUI override contains legacy host context"
 fi
