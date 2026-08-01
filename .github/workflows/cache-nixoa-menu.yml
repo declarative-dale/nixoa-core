@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - ".github/workflows/cache-nixoa-menu.yml"
-      - "docs/**"
       - "flake.lock"
       - "flake.nix"
       - "host/**"
@@ -16,6 +15,10 @@ on:
       - "pkgs/**"
       - "scripts/**"
       - "tests/**"
+      - "!docs/**"
+      - "!**/*.md"
+      - "!**/README*"
+      - "!**/CHANGELOG*"
   workflow_dispatch:
 
 concurrency:

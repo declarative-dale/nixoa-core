@@ -29,12 +29,14 @@ Use `.#nixoa` in commands and documentation.
 nix flake check --no-write-lock-file
 nix build .#nixosConfigurations.nixoa.config.system.build.toplevel --no-link
 nix build .#xen-orchestra-ce .#nxcli .#nixoa-menu .#installer-iso --no-link
-nix run .#deploy-template -- --help
+nix run --accept-flake-config .#deploy-template -- --help
 tests/run.sh
 ```
 
-`nix run .#deploy-template` materializes the installer as the ignored
-`output/nixoa-installer.iso` artifact before invoking Packer.
+`nix run --accept-flake-config .#deploy-template` downloads the latest
+successful installer artifact to a temporary directory, verifies its checksum,
+and passes it directly to Packer. `INSTALLER_SOURCE=build` is the explicit local
+flake-build fallback.
 
 Run `bash -n` and ShellCheck for shell changes, and `cargo fmt --check`,
 `cargo check`, and `cargo test` for menu changes. Run `packer fmt -check` and

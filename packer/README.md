@@ -33,8 +33,16 @@ installer ISO. The complete, closure-preseeded ISO is retained for 90 days as
 the `nixoa-installer` workflow artifact; only the smaller reusable NiXOA
 packages are pushed to Cachix. `nix run --accept-flake-config
 .#deploy-template` downloads the artifact from the newest successful `main`
-workflow run, verifies its SHA-256 checksum, and passes it directly to Packer.
-Run `gh auth login` once before using the deployer.
+workflow run into a temporary directory, verifies its SHA-256 checksum, and
+passes it directly to Packer. Run `gh auth login` once before using the
+deployer.
+
+The Cachix and Determinate substituters are declared directly in `flake.nix`.
+The GitHub artifact is deliberately resolved by the flake app's runtime helper,
+not declared as a flake input or pinned in `flake.lock`. It may briefly lag the
+checkout while a newer `main` workflow is still running. Set
+`INSTALLER_SOURCE=build` for an exact build of the current checkout, or
+`INSTALLER_ISO=/path/to/image.iso` to deploy a specific image.
 
 ## What the build does
 
@@ -58,9 +66,11 @@ Run `gh auth login` once before using the deployer.
    clears cloud-init and machine identity, removes SSH host keys, and lets the
    XenServer plugin mark the VM as a native template.
 
-The installer is the only component that partitions a disk. The installed
-appliance continues to use `host/hardware-configuration.nix` as its sole disk
-and filesystem source.
+The installer is the only component that creates or formats partitions. The
+installed appliance continues to use `host/hardware-configuration.nix` as its
+sole disk and filesystem declaration source; on a clone, cloud-init may extend
+only the existing root partition and filesystem to consume a larger virtual
+disk.
 
 ## Clone validation
 

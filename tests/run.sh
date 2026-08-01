@@ -90,6 +90,18 @@ grep -Fq 'result-xen-orchestra-ce' \
 grep -Fq 'actions/upload-artifact@v4' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not publish a GitHub artifact"
+grep -Fq -- '- "!docs/**"' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow does not exclude documentation changes"
+grep -Fq -- '- "!**/*.md"' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow does not exclude Markdown changes"
+grep -Fq -- '- "!**/README*"' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow does not exclude README changes"
+grep -Fq -- '- "!**/CHANGELOG*"' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow does not exclude changelog changes"
 if grep -q 'result-installer)' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml"; then
   fail "installer workflow still pushes the full ISO closure to Cachix"

@@ -23,9 +23,16 @@ synthetic VM configuration, or compatibility alias.
 
 The native XCP-ng template builder is an operator-side tool, not another NixOS
 configuration. `packages.x86_64-linux.installer-iso` evaluates a small live
-installer, while `nix run .#deploy-template` realizes Packer and its XenServer
-plugin only in the caller's Nix store. The sole installed system remains
-`nixosConfigurations.nixoa`.
+installer, while `nix run --accept-flake-config .#deploy-template` realizes
+Packer and its XenServer plugin only in the caller's Nix store. The sole
+installed system remains `nixosConfigurations.nixoa`.
+
+The flake directly declares the Determinate, NiXOA, Xen Orchestra, and libvhdi
+binary caches. The multi-gigabyte installer is instead a GitHub Actions
+artifact: the `deploy-template` app selects the newest successful `main` run,
+downloads and verifies the ISO at deployment time, and passes its temporary
+path to Packer. The artifact is not a flake input or lock-file entry. An exact
+checkout-local ISO remains available through `INSTALLER_SOURCE=build`.
 
 ## Module layout
 
@@ -72,10 +79,13 @@ policy.
 The XCP-ng aspect enables cloud-init for Xen Orchestra NoCloud config drives.
 Its scope is deliberately narrow: select `NoCloud` with a `None` fallback,
 target the existing `nixoa` operator, install datasource SSH keys, and create
-per-instance SSH identity. Declarative NixOS configuration remains
-authoritative for the hostname, network, accounts, sudo, filesystems, packages,
-and services. Cloud-init disk growth, filesystem resize, network rendering,
-package installation, and arbitrary user scripts are not enabled.
+per-instance SSH identity. Declarative NixOS configuration remains authoritative
+for accounts, sudo, network configuration, filesystem declarations, packages,
+and services. Cloud-init may install NoCloud SSH keys and grow only the existing
+root partition and filesystem. Network rendering, package installation, and
+arbitrary user scripts are not enabled; systemd-networkd may apply a
+DHCP-provided transient hostname through the narrowly authorized hostnamed
+action.
 
 SSH starts after `cloud-config.service`, so a clone cannot expose the operator
 login before NoCloud keys have been processed.

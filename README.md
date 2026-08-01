@@ -25,7 +25,7 @@ Deploy a native XCP-ng template directly from a checkout. Nix provides the
 Packer toolchain on demand; it is not installed into a profile or the appliance:
 
 ```bash
-nix run .#deploy-template -- \
+nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
   --iso-sr "ISO library" \
   --sr "Local storage" \
@@ -92,13 +92,18 @@ Edit `host/settings.nix` for durable policy. `nixoa-menu` writes only
 GitHub Actions builds all public packages and the cache-rich installer ISO. It
 retains the complete ISO as the `nixoa-installer` workflow artifact while
 publishing only the smaller reusable NiXOA package closures to Cachix. The
-flake app downloads the newest successful `main` artifact, verifies its
+binary substituters and their public keys are declared directly in `flake.nix`.
+The GitHub artifact is not a flake input or a `flake.lock` entry; the flake's
+`deploy-template` app resolves it at deployment time. Its helper downloads the
+newest successful `main` artifact to a temporary directory, verifies its
 published SHA-256 checksum, and passes it directly to Packer without requiring
 a local ISO build or checkout copy.
 
-Use `nix run --accept-flake-config .#deploy-template -- ...` so the initial
-deployer package can also be substituted from the declared caches. Authenticate
-the GitHub CLI with `gh auth login` before downloading workflow artifacts.
+Authenticate the GitHub CLI with `gh auth login` before downloading workflow
+artifacts. Because the default lookup follows the newest successful `main`
+workflow rather than pinning an artifact in the flake, it can temporarily lag a
+newer checkout while CI is running. Use `INSTALLER_SOURCE=build` for an exact
+local flake build, or `INSTALLER_ISO=/path/to/image.iso` for a specific image.
 
 A second workflow runs every Wednesday at 09:17 UTC and refreshes every input
 in `flake.lock`. When anything changes it creates or refreshes a pull request;

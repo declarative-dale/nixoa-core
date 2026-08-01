@@ -1,10 +1,17 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
-## Unreleased — Focused NiXOA Appliance
+## Unreleased
 
-This breaking change refocuses the repository on one x86_64 XCP-ng guest:
-`nixosConfigurations.nixoa`.
+_No changes yet._
+
+## v0.9.1 — Cache-Rich Native Template Deployment
+
+Date: 2026-07-31
+
+Compared with v2.0.0, this release refocuses the repository on one x86_64
+XCP-ng guest, `nixosConfigurations.nixoa`, and adds a cache-rich native template
+deployment path.
 
 ### Changed
 
@@ -20,29 +27,36 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
 - Enabled a constrained NoCloud/cloud-init path for per-clone machine identity
   and `nixoa` SSH-key injection without delegating networking, disks, packages,
   or arbitrary scripts to cloud-init.
-- Added an on-demand `deploy-template` flake app that builds a minimal installer
-  ISO and creates a verified, identity-cleared native XCP-ng template through a
-  Nix-provided Packer and pinned Vates XenServer plugin.
+- Added an on-demand `deploy-template` flake app that downloads a prebuilt
+  minimal installer ISO by default and creates a verified, identity-cleared
+  native XCP-ng template through a Nix-provided Packer and pinned Vates
+  XenServer plugin. A local flake build remains available as a fallback.
 - Use Determinate Systems' unauthenticated bootstrap binary cache for installer
   and first-install builds instead of the authenticated FlakeHub Cache endpoint.
 - Update Determinate Nix from 3.21.0 to 3.21.9, whose exact package output is
   available from the official bootstrap binary cache.
 - Refresh the complete flake lock, including nixpkgs, Home Manager, and
   import-tree, before publishing the cached appliance closure.
-- Build and publish the complete NiXOA system closure from GitHub Actions and
-  use the public NiXOA Cachix cache during installer and first-install builds.
+- Build the complete NiXOA system closure and unattended installer in GitHub
+  Actions, while using the public NiXOA Cachix cache during installer and
+  first-install builds.
 - Keep the official Determinate and NiXOA Cachix substituters on installed
   appliances, and wrap only Determinate's cached runtime output so NixOS does
   not rebuild its uncached manual/debug development outputs.
 - Enable the standard polkit authorization path so `systemd-networkd` can
   apply transient hostnames supplied by DHCP.
 - Preseed the unattended installer ISO with the complete NiXOA system,
-  `nixoa-menu`, and Xen Orchestra closures, and publish each closure from the
-  GitHub Cachix workflow.
+  `nixoa-menu`, and Xen Orchestra closures. Push only the smaller reusable
+  deployer, CLI, metadata, and menu closures to the GitHub-managed Cachix cache.
 - Declare the public package caches in the flake, publish the Packer deployer
   through Cachix, and retain the multi-gigabyte preseeded installer as a
   checksum-verified GitHub Actions artifact instead of consuming the 5 GB
   NiXOA Cachix allocation with its complete closure.
+- Resolve the GitHub installer artifact at deployment time through the flake's
+  `deploy-template` app. The artifact is intentionally not a flake input: the
+  helper selects the newest successful `main` workflow run, downloads it to a
+  temporary directory, verifies its published checksum, and passes it directly
+  to Packer.
 - Grow the root partition and filesystem through cloud-init when an XCP-ng
   clone is provisioned with a larger virtual disk.
 - Give Xen Orchestra a four-minute startup grace period and then wait for its
@@ -50,6 +64,8 @@ This breaking change refocuses the repository on one x86_64 XCP-ng guest:
   process becoming active as endpoint readiness.
 - Check every flake input for updates each Wednesday and create or refresh a
   dedicated lock-file pull request without changing `main` until it is merged.
+- Prevent installer rebuilds when a push changes only documentation, Markdown,
+  README, or changelog files.
 
 ### Removed
 

@@ -17,11 +17,31 @@ There should be no `vm`, `nixo-ce-example`, or `nixoaCore` output.
 Use the flake app rather than a host Packer installation:
 
 ```bash
-nix run .#deploy-template -- --help
+nix run --accept-flake-config .#deploy-template -- --help
 ```
 
 The app wraps pinned nixpkgs Packer with the pinned plugin and an immutable
 checksum file. `packer init` must not need to write into the Nix store.
+
+## Packer cannot download the installer artifact
+
+Authenticate GitHub CLI and confirm that a successful installer workflow is
+available on `main`:
+
+```bash
+gh auth login
+gh run list --repo declarative-dale/nixoa-core \
+  --workflow cache-nixoa-menu.yml --branch main --status success
+```
+
+The default artifact is resolved at deployment time and is not pinned by
+`flake.lock`. If it is unavailable or the newest workflow has not completed,
+build the current checkout exactly with:
+
+```bash
+INSTALLER_SOURCE=build \
+  nix run --accept-flake-config .#deploy-template -- ...
+```
 
 If a build VM remains after a failure, Packer's `keep_vm = "on_success"` policy
 means it was not finalized as the successful NiXOA template. Inspect its

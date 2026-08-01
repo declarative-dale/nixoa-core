@@ -6,7 +6,7 @@ The preferred fresh deployment starts from a repository checkout and requires
 only Nix plus access to the XCP-ng pool master:
 
 ```bash
-nix run .#deploy-template -- \
+nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
   --iso-sr "ISO library" \
   --sr "Local storage" \
@@ -18,8 +18,21 @@ nix run .#deploy-template -- \
 
 The flake app realizes Packer from pinned nixpkgs and the pinned Vates
 XenServer plugin in the caller's Nix store. It does not install either tool
-into the caller's profile or `nixosConfigurations.nixoa`. The bootable ISO is
-copied to the ignored `output/nixoa-installer.iso` artifact path.
+into the caller's profile or `nixosConfigurations.nixoa`.
+
+By default, the deployment helper uses GitHub CLI to download the
+`nixoa-installer` artifact from the newest successful `main` installer workflow
+into a temporary directory. It verifies the artifact's published SHA-256 file
+and gives the ISO path directly to Packer. Run `gh auth login` before the first
+deployment. The temporary download is removed when Packer exits.
+
+The Nix binary caches and signing keys are declared directly in `flake.nix` and
+accepted by the command above. The large GitHub Actions artifact is not a flake
+input and is not recorded in `flake.lock`; it is a deployment-time transport
+for the closure-preseeded ISO. A newly pushed checkout can therefore use the
+preceding successful artifact until its own workflow completes. Set
+`INSTALLER_SOURCE=build` to build the current checkout's `installer-iso` output
+locally, or `INSTALLER_ISO=/path/to/image.iso` to select an exact image.
 
 The helper stores only non-secret settings in ignored
 `packer/local.pkrvars.json`. Supply `PKR_VAR_remote_password` for unattended
@@ -31,17 +44,18 @@ Every clone generates fresh machine and SSH identities. See
 `packer/README.md` for the full build and verification contract.
 
 The Packer installer intentionally erases its one selected build disk. This is
-separate from runtime policy: the installed appliance never repartitions and
-uses only its generated `host/hardware-configuration.nix`.
+separate from clone runtime policy: NixOS continues to own the generated
+filesystem declarations, while cloud-init may extend only the existing root
+partition and filesystem when the clone's virtual disk is larger.
 
 ## Bootstrap an existing NixOS VM
 
 ## Prepare the VM
 
 Create an x86_64 VM in XCP-ng, install NixOS normally, and verify that it boots.
-Partitioning is deliberately outside this repository. NiXOA never assumes
-`/dev/xvda*`, never repartitions the guest, and never replaces generated
-filesystem declarations.
+Partitioning is deliberately outside this bootstrap path. Bootstrap never
+assumes `/dev/xvda*`, repartitions the guest, or replaces generated filesystem
+declarations.
 
 Keep `/etc/nixos/hardware-configuration.nix` from the installed VM. Bootstrap
 copies it to `host/hardware-configuration.nix`.

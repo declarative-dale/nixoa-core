@@ -80,9 +80,12 @@ Review before applying.
 ## NoCloud clone data
 
 The appliance accepts a Xen Orchestra NoCloud config drive. Its public SSH keys
-are installed for the declared `nixoa` account. The hostname remains `nixoa`,
-systemd-networkd remains authoritative for DHCP, and cloud-init is not allowed
-to partition, resize, or otherwise redefine the generated hardware layout.
+are installed for the declared `nixoa` account. systemd-networkd remains
+authoritative for DHCP and may apply a DHCP-provided transient hostname.
+Cloud-init may grow only the existing root partition and its filesystem when a
+clone receives a larger virtual disk; it cannot create filesystems, render
+networking, install packages, or otherwise redefine the generated hardware
+layout.
 
 For a reusable template, clear cloud-init state, machine identity, and SSH host
 keys before sealing it. The Packer workflow performs and verifies that step.
