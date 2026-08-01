@@ -310,6 +310,21 @@ grep -q 'cloud-init clean --logs --machine-id --seed' \
 grep -q 'nixos-rebuild --accept-flake-config switch' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not accept the flake cache configuration"
+grep -q 'nixoa_write_apply_state success switch' \
+  "$TEST_ROOT/packer/scripts/seal-template.sh" \
+  || fail "Packer sealing does not record its successful system switch"
+grep -q 'nh clean all --keep 1 --elevation-strategy none' \
+  "$TEST_ROOT/packer/scripts/seal-template.sh" \
+  || fail "Packer sealing does not remove obsolete Nix generations"
+grep -q 'last_apply_head=.*git -C /home/nixoa/nixoa rev-parse HEAD' \
+  "$TEST_ROOT/packer/scripts/verify-clone.sh" \
+  || fail "clone verification does not validate the sealed apply state"
+grep -Fq 'd /var/lib/nixoa 0755 root root' \
+  "$TEST_ROOT/modules/_nixos/operator.nix" \
+  || fail "the shared NiXOA status directory is not operator-readable"
+grep -Fq 'd /var/lib/nfs/sm.bak 0755 root root' \
+  "$TEST_ROOT/modules/_nixos/xo/storage.nix" \
+  || fail "NFS notification state is not created before first boot"
 grep -q 'org\.freedesktop\.hostname1\.set-hostname' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
   || fail "platform does not authorize DHCP hostname adoption"
@@ -319,9 +334,12 @@ grep -q 'passwd --lock nixoa' \
 grep -q 'Timed out waiting for the Xen Orchestra HTTPS endpoint' \
   "$TEST_ROOT/packer/scripts/verify-template.sh" \
   || fail "Packer verification does not wait for XO HTTPS readiness"
-grep -q 'XO_READINESS_GRACE_SECONDS=240' \
+test "$(grep -c 'XO_READINESS_GRACE_SECONDS=240' \
+  "$TEST_ROOT/packer/builds.pkr.hcl")" -eq 1 \
+  || fail "Packer must apply the four-minute XO grace period exactly once"
+grep -q 'XO_READINESS_GRACE_SECONDS:-0' \
   "$TEST_ROOT/packer/scripts/verify-template.sh" \
-  || fail "Packer verification does not give XO a four-minute startup grace period"
+  || fail "template verification does not default to immediate XO retries"
 
 # Bootstrap settings generation populates the fixed identity and supplied keys.
 mkdir -p "$temporary/generated/host"

@@ -339,9 +339,15 @@ in {
     services.nfs.server.enable = false;
 
     environment.systemPackages = lib.optional storage.enableVHD storage.libvhdiPackage;
-    systemd.tmpfiles.rules = [
-      "d ${storage.mountsDir} 0750 ${cfg.user} ${cfg.group} - -"
-    ];
+    systemd.tmpfiles.rules =
+      [
+        "d ${storage.mountsDir} 0750 ${cfg.user} ${cfg.group} - -"
+      ]
+      ++ lib.optionals storage.enableNFS [
+        "d /var/lib/nfs 0755 root root - -"
+        "d /var/lib/nfs/sm 0755 root root - -"
+        "d /var/lib/nfs/sm.bak 0755 root root - -"
+      ];
 
     security.sudo = {
       enable = true;

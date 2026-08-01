@@ -17,7 +17,7 @@ build {
   }
 
   provisioner "shell" {
-    execute_command = "sudo -n bash '{{ .Path }}'"
+    execute_command = "sudo -n env XO_READINESS_GRACE_SECONDS=240 bash '{{ .Path }}'"
     script          = "${path.root}/scripts/verify-template.sh"
   }
 

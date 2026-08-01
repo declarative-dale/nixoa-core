@@ -171,7 +171,7 @@ in {
       nixpkgs.config.allowUnfree = true;
 
       systemd.tmpfiles.rules = [
-        "d /var/lib/nixoa 0750 root root - -"
+        "d /var/lib/nixoa 0755 root root - -"
         "d /home/${cfg.username}/.ssh 0700 ${cfg.username} users - -"
       ];
 

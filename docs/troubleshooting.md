@@ -83,6 +83,21 @@ journalctl -u redis-xo.service -u xo-server.service -b
 Confirm `/etc/xo-server/config.nixoa.toml` exists and that the XO package has
 `bin/xo-server` plus `libexec/xen-orchestra`.
 
+## Xen clocksource or guest-agent warnings
+
+Valkey may warn that the Xen clocksource is slower than TSC. NiXOA retains the
+Xen-selected clocksource because forcing TSC can make timekeeping unsafe across
+VM save, restore, or migration. Xen's default TSC mode is designed to preserve
+correctness while using native TSC when the host and migration path make it
+safe. See the [Xen TSC mode documentation](https://xenbits.xen.org/docs/unstable/man/xen-tscmode.7.html).
+
+The Rust Xen guest agent may also report that a newer kernel supplied more
+IPv6 netlink data than its parser knows. If the service remains active, has no
+restarts, and reports addresses to XCP-ng, this is informational. Prefer the
+reviewed Nixpkgs package and update it with the locked nixpkgs input instead of
+substituting an uncached upstream development snapshot merely to hide the
+message.
+
 ## TLS fails
 
 ```bash

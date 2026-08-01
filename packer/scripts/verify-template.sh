@@ -3,7 +3,12 @@
 
 set -euo pipefail
 
-readonly XO_READINESS_GRACE_SECONDS=240
+readonly XO_READINESS_GRACE_SECONDS="${XO_READINESS_GRACE_SECONDS:-0}"
+
+[[ "$XO_READINESS_GRACE_SECONDS" =~ ^[0-9]+$ ]] || {
+  printf 'XO readiness grace period must be a non-negative integer.\n' >&2
+  exit 2
+}
 
 [[ "$(id -u)" -eq 0 ]] || {
   printf 'NiXOA template verification must run as root.\n' >&2
@@ -95,9 +100,11 @@ test "$(redis-cli -s /run/redis-xo/redis.sock --raw PING)" = PONG
 
 # systemd considers xo-server active as soon as the Node process starts, while
 # its plugins and HTTPS listener can need additional time on the first boot.
-printf 'Waiting %s seconds before checking Xen Orchestra HTTPS readiness.\n' \
-  "$XO_READINESS_GRACE_SECONDS"
-sleep "$XO_READINESS_GRACE_SECONDS"
+if ((XO_READINESS_GRACE_SECONDS > 0)); then
+  printf 'Waiting %s seconds before checking Xen Orchestra HTTPS readiness.\n' \
+    "$XO_READINESS_GRACE_SECONDS"
+  sleep "$XO_READINESS_GRACE_SECONDS"
+fi
 while ! curl \
   --connect-timeout 2 \
   --fail \

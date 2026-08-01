@@ -28,6 +28,9 @@ assert_sshd_directive() {
 
 repo=/home/nixoa/nixoa
 test -d "$repo/.git"
+export NIXOA_SYSTEM_ROOT=$repo
+# shellcheck source=scripts/lib/common.sh
+source "$repo/scripts/lib/common.sh"
 
 canonical_module="$(mktemp "$repo/host/.packer-canonical.XXXXXX")"
 cleanup() {
@@ -64,7 +67,11 @@ if ! git -C "$repo" diff --cached --quiet; then
     commit -m "Configure generated NiXOA template"
 fi
 test -z "$(git -C "$repo" status --short)"
+current_head="$(git -C "$repo" rev-parse HEAD)"
+nixoa_write_apply_state success switch "$current_head" 1 0
 chown -R nixoa:users "$repo"
+
+nh clean all --keep 1 --elevation-strategy none
 
 cloud-init clean --logs --machine-id --seed
 rm -f -- /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub

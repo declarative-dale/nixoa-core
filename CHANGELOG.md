@@ -3,7 +3,17 @@
 
 ## Unreleased
 
-_No changes yet._
+### Fixed
+
+- Record the Packer seal as the successful apply for its generated Git commit,
+  so a fresh clone no longer reports a rebuild before any configuration has
+  changed.
+- Create NFS status-monitor directories before services start, avoiding the
+  harmless first-boot `sm-notify` missing-directory error.
+- Run `nh clean all` while sealing the template so obsolete build generations
+  are not carried into every clone.
+- Apply XO's fixed four-minute readiness grace period only to the installed
+  system's first boot; the second verification begins retrying immediately.
 
 ## v0.9.1 — Cache-Rich Native Template Deployment
 

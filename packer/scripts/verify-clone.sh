@@ -41,6 +41,14 @@ assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication no
 assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
 test -s /home/nixoa/.ssh/authorized_keys
 
+apply_state=/var/lib/nixoa/apply-state.env
+test -r "$apply_state"
+grep -Fqx last_apply_result=success "$apply_state"
+grep -Fqx last_apply_action=switch "$apply_state"
+grep -Fqx \
+  "last_apply_head=$(git -C /home/nixoa/nixoa rev-parse HEAD)" \
+  "$apply_state"
+
 systemctl is-active --quiet \
   redis-xo.service \
   sshd.service \

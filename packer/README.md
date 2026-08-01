@@ -61,9 +61,12 @@ checkout while a newer `main` workflow is still running. Set
    only that single Packer disk, clones `core`, writes the operator key, and
    generates the hardware module.
 4. `nixos-install` installs `.#nixoa`; the VM reboots twice while Packer verifies
-   cloud-init, Xen guest integration, Redis, XO, TLS, and SSH.
+   cloud-init, Xen guest integration, Redis, XO, TLS, and SSH. Packer gives XO a
+   fixed four-minute startup grace period only on the installed system's first
+   boot; the second verification retries its endpoint immediately.
 5. The final provisioner restores key-only SSH, commits generated host policy,
-   clears cloud-init and machine identity, removes SSH host keys, and lets the
+   removes obsolete Nix generations and store paths with `nh clean all`, clears
+   cloud-init and machine identity, removes SSH host keys, and lets the
    XenServer plugin mark the VM as a native template.
 
 The installer is the only component that creates or formats partitions. The
