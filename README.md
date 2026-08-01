@@ -11,8 +11,7 @@ XCP-ng pool  →  NiXOA virtual machine  →  Xen Orchestra web interface
 
 ## What you get
 
-- Xen Orchestra Community Edition with NFS, CIFS, VHD, and VHDX support
-- repeatable, reviewable configuration
+- Xen Orchestra Community Edition with a repeatable, reviewable configuration
 - atomic upgrades and rollbacks
 - a guided console and a small command-line tool
 
