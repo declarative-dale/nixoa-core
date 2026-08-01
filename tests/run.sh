@@ -87,9 +87,9 @@ grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
 grep -Fq 'result-xen-orchestra-ce' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not build Xen Orchestra explicitly"
-grep -Fq 'actions/upload-artifact@v4' \
+grep -Fq 'actions/upload-artifact@v7' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "installer workflow does not publish a GitHub artifact"
+  || fail "installer workflow does not use the Node.js 24 artifact uploader"
 grep -Fq -- '- "!docs/**"' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not exclude documentation changes"

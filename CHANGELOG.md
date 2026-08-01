@@ -14,6 +14,8 @@
   are not carried into every clone.
 - Apply XO's fixed four-minute readiness grace period only to the installed
   system's first boot; the second verification begins retrying immediately.
+- Update the installer artifact upload to the Node.js 24-based GitHub Action,
+  removing the deprecated Node.js 20 runner warning.
 
 ## v0.9.1 — Cache-Rich Native Template Deployment
 
