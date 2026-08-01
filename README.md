@@ -108,6 +108,8 @@ local flake build, or `INSTALLER_ISO=/path/to/image.iso` for a specific image.
 A second workflow runs every Wednesday at 09:17 UTC and refreshes every input
 in `flake.lock`. When anything changes it creates or refreshes a pull request;
 merging that pull request is the only step that applies the new lock to `main`.
+Documentation-only pushes do not rebuild the installer or republish the rolling
+FlakeHub release. Version-tag pushes continue to publish tagged releases.
 
 ## Documentation
 

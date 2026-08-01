@@ -64,8 +64,9 @@ deployment path.
   process becoming active as endpoint readiness.
 - Check every flake input for updates each Wednesday and create or refresh a
   dedicated lock-file pull request without changing `main` until it is merged.
-- Prevent installer rebuilds when a push changes only documentation, Markdown,
-  README, or changelog files.
+- Prevent installer and rolling FlakeHub rebuilds when a push changes only
+  documentation, Markdown, README, or changelog files. Version-tag pushes
+  continue to publish releases.
 
 ### Removed
 

@@ -102,6 +102,14 @@ grep -Fq -- '- "!**/README*"' \
 grep -Fq -- '- "!**/CHANGELOG*"' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not exclude changelog changes"
+grep -Fq 'paths-ignore:' \
+  "$TEST_ROOT/.github/workflows/flakehub-publish-tagged.yml" \
+  || fail "FlakeHub workflow does not exclude documentation-only pushes"
+for ignored_path in 'docs/**' '**/*.md' '**/README*' '**/CHANGELOG*'; do
+  grep -Fq -- "- \"$ignored_path\"" \
+    "$TEST_ROOT/.github/workflows/flakehub-publish-tagged.yml" \
+    || fail "FlakeHub workflow does not ignore $ignored_path"
+done
 if grep -q 'result-installer)' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml"; then
   fail "installer workflow still pushes the full ISO closure to Cachix"
