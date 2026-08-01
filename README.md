@@ -1,8 +1,8 @@
 # NiXOA
 
-**Xen Orchestra, packaged as a focused NixOS appliance for XCP-ng.**
+**Xen Orchestra, packaged as a focused NixOS VM appliance for XCP-ng.**
 
-NiXOA turns one XCP-ng virtual machine into a reproducible Xen Orchestra
+NiXOA turns a NixOS virtual machine into a reproducible Xen Orchestra
 appliance.
 
 ```text
@@ -15,8 +15,6 @@ XCP-ng pool  →  NiXOA virtual machine  →  Xen Orchestra web interface
 - atomic upgrades and rollbacks
 - a guided console and a small command-line tool
 
-NiXOA has one supported target: an `x86_64` XCP-ng guest named `nixoa`.
-
 ## Start here
 
 Creating a template requires Git, an SSH public key, access to your XCP-ng pool
@@ -26,7 +24,7 @@ If you need Nix, choose one of these installers:
 
 - [Determinate Nix](https://docs.determinate.systems/getting-started/individuals/)
   is the recommended option. It offers an excellent macOS experience and
-  supports SELinux-enabled Linux systems.
+  supports SELinux-enabled Linux systems and provides [nixpkg cooldowns](https://determinate.systems/blog/nixpkgs-cooldown/).
 - The [upstream Nix installer](https://nixos.org/download/) is the official
   installer from the NixOS project.
 
