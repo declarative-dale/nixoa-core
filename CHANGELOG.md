@@ -16,6 +16,7 @@
   system's first boot; the second verification begins retrying immediately.
 - Update the installer artifact upload to the Node.js 24-based GitHub Action,
   removing the deprecated Node.js 20 runner warning.
+- Reduce the native template disk default and minimum from 40 GiB to 20 GiB.
 
 ## v0.9.1 — Cache-Rich Native Template Deployment
 

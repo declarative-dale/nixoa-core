@@ -15,7 +15,7 @@ nix run --accept-flake-config .#deploy-template -- \
   --export-network "VM network" \
   --template-name NiXOA \
   --memory-mb 4096 \
-  --disk-size-mb 51200 \
+  --disk-size-mb 20480 \
   --operator-key ~/.ssh/id_ed25519.pub
 ```
 

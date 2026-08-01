@@ -71,7 +71,7 @@ current_head="$(git -C "$repo" rev-parse HEAD)"
 nixoa_write_apply_state success switch "$current_head" 1 0
 chown -R nixoa:users "$repo"
 
-nh clean all --keep 1 --elevation-strategy none
+nh clean all
 
 cloud-init clean --logs --machine-id --seed
 rm -f -- /etc/ssh/ssh_host_*_key /etc/ssh/ssh_host_*_key.pub

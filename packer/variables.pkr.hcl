@@ -129,11 +129,11 @@ variable "memory_mb" {
 variable "disk_size_mb" {
   type        = number
   description = "Template disk size in MiB."
-  default     = 40960
+  default     = 20480
 
   validation {
-    condition     = var.disk_size_mb >= 40960
-    error_message = "The disk size must be at least 40960 MiB."
+    condition     = var.disk_size_mb >= 20480
+    error_message = "The disk size must be at least 20480 MiB."
   }
 }
 

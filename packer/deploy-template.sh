@@ -35,7 +35,7 @@ Options:
   --export-network NAME   network retained by the template
   --template-name NAME    native template name
   --memory-mb MIB         template memory (minimum 4096)
-  --disk-size-mb MIB      template disk size (minimum 40960)
+  --disk-size-mb MIB      template disk size (minimum 20480)
   --operator-key FILE     SSH public key for the nixoa operator
   --repo-url URL          core repository installed into the template
   --branch NAME           core repository branch
@@ -132,7 +132,7 @@ template_name=${template_name:-$(read_string vm_name)}
 memory_mb=${memory_mb:-$(read_number memory_mb)}
 disk_size_mb=${disk_size_mb:-$(read_number disk_size_mb)}
 memory_mb=${memory_mb:-4096}
-disk_size_mb=${disk_size_mb:-40960}
+disk_size_mb=${disk_size_mb:-20480}
 
 prompt_setting() {
   local variable_name=$1 label=$2 default_value=$3 current answer
@@ -174,8 +174,8 @@ done
   printf 'Memory must be an integer of at least 4096 MiB.\n' >&2
   exit 1
 }
-[[ "$disk_size_mb" =~ ^[0-9]+$ && "$disk_size_mb" -ge 40960 ]] || {
-  printf 'Disk size must be an integer of at least 40960 MiB.\n' >&2
+[[ "$disk_size_mb" =~ ^[0-9]+$ && "$disk_size_mb" -ge 20480 ]] || {
+  printf 'Disk size must be an integer of at least 20480 MiB.\n' >&2
   exit 1
 }
 [[ -r "$operator_key" ]] || {

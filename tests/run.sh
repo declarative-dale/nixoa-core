@@ -189,7 +189,7 @@ bash "$TEST_ROOT/packer/deploy-template.sh" \
   --export-network "Template network" \
   --template-name NiXOA \
   --memory-mb 4096 \
-  --disk-size-mb 51200 \
+  --disk-size-mb 20480 \
   --operator-key "$temporary/operator.pub" \
   --config "$temporary/packer.pkrvars.json" \
   --configure-only
@@ -202,7 +202,7 @@ jq -e '
   and .export_network_names == ["Template network"]
   and .vm_name == "NiXOA"
   and .memory_mb == 4096
-  and .disk_size_mb == 51200
+  and .disk_size_mb == 20480
   and (.remote_password? == null)
 ' "$temporary/packer.pkrvars.json" >/dev/null \
   || fail "Packer configuration generation is incorrect"
@@ -313,7 +313,7 @@ grep -q 'nixos-rebuild --accept-flake-config switch' \
 grep -q 'nixoa_write_apply_state success switch' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not record its successful system switch"
-grep -q 'nh clean all --keep 1 --elevation-strategy none' \
+grep -qx 'nh clean all' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not remove obsolete Nix generations"
 grep -q 'last_apply_head=.*git -C /home/nixoa/nixoa rev-parse HEAD' \
