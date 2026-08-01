@@ -1,5 +1,8 @@
 # Architecture
 
+> This is an advanced reference for contributors. For normal installation and
+> operation, start with [Getting started](getting-started.md).
+
 NiXOA is intentionally a single-appliance Den flake. `flake.nix` evaluates the
 `modules/` import tree, and Den materializes one host entity:
 
@@ -113,3 +116,5 @@ arguments.
 - initial state version: `26.05`
 - direct XO package:
   `inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce`
+
+[Back to documentation](index.md)

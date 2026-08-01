@@ -1,97 +1,79 @@
 # Configuration
 
-All appliance-specific configuration lives under `host/`.
+Most users only need one file:
 
-## `host/settings.nix`
-
-This is the durable, hand-maintained module. It sets native NixOS options plus
-the typed NiXOA option trees.
-
-Core NixOS settings include:
-
-```nix
-networking.hostName = "nixoa";
-time.timeZone = "America/Chicago";
-system.stateVersion = "26.05";
-boot.loader.systemd-boot.enable = true;
-networking.firewall.allowedTCPPorts = [80 443];
+```text
+host/settings.nix
 ```
 
-Do not change `system.stateVersion` after installation.
+It contains durable appliance settings such as the time zone, SSH keys,
+packages, TLS, and storage support. Run `nxcli host edit` to open the host
+configuration files.
 
-## Operator options
+## Configuration files
 
-`nixoa.operator` controls the fixed `nixoa` account:
+| File | Purpose | Edit by hand? |
+|---|---|---|
+| `host/settings.nix` | Durable appliance policy | Yes |
+| `host/hardware-configuration.nix` | Generated disks, filesystems, and detected hardware | Only when hardware changes |
+| `host/menu.nix` | Overrides written by `nixoa-menu` | No |
 
-| Option | Purpose |
+The menu rewrites `host/menu.nix` as a complete file. Put lasting manual
+changes in `host/settings.nix`.
+
+## Safe editing workflow
+
+```bash
+nxcli host edit
+nxcli diff
+nxcli apply --dry-run
+nxcli apply
+```
+
+NiXOA creates a new NixOS generation for every applied change. If needed, use
+`nxcli rollback --ask`.
+
+## Common settings
+
+The main NiXOA options are grouped by purpose:
+
+| Option group | Controls |
 |---|---|
-| `repoDir` | appliance checkout path |
-| `gitName`, `gitEmail` | commit identity |
-| `sshKeys` | authorized SSH public keys |
-| `enableExtras` | zsh and expanded shell tooling |
-| `developmentMode` | Rust, Node.js, and service-development tools |
-| `menuAutoStart` | launch the TUI automatically on SSH login |
-| `sudoNoPassword` | operator sudo policy |
-| `systemPackages`, `userPackages` | package attribute paths |
+| `nixoa.operator.sshKeys` | SSH public keys for the `nixoa` account |
+| `nixoa.operator.systemPackages` | Packages available system-wide |
+| `nixoa.operator.userPackages` | Packages for the operator |
+| `nixoa.operator.enableExtras` | Extra shell tools and zsh |
+| `nixoa.operator.developmentMode` | Rust, Node.js, and development tools |
+| `nixoa.operator.menuAutoStart` | Whether the console opens at SSH login |
+| `nixoa.xo.tls` | HTTPS certificates |
+| `nixoa.xo.storage` | NFS, CIFS, and VHD support |
 
-`username` is typed and read-only; it is always `nixoa`.
+The operator name, flake target, platform, and appliance role are fixed. They
+do not need configuration.
 
-## XO options
+See [Common tasks](common-tasks.md) for copyable examples.
 
-`nixoa.xo` controls Xen Orchestra:
+## Native NixOS settings
 
-| Option | Default |
-|---|---|
-| `enable` | configured `true` |
-| `package` | direct x86_64 `xo-nixpkg` output |
-| `user`, `group` | `xo`, `xo` |
-| `home` | `/var/lib/xo` |
-| `dataDir`, `cacheDir`, `tempDir` | under `home` |
-| `httpHost` | `0.0.0.0` |
-| `config.toml` | generated structured default |
-| `redis.maxmemory` | unlimited |
-| `redis.maxmemoryPolicy` | `noeviction` |
+`host/settings.nix` can also set normal NixOS options. The checked-in defaults
+include the host name, time zone, bootloader, firewall ports, and state version.
 
-TLS options are under `nixoa.xo.tls`: `enable`, `autoCert`, `dir`, `cert`, and
-`key`.
+Do not raise `system.stateVersion` just because NixOS was updated. It records
+the compatibility version used when the appliance was first installed.
 
-Storage options are under `nixoa.xo.storage`: `enableNFS`, `enableCIFS`,
-`enableVHD`, `mountsDir`, and `libvhdiPackage`.
+## Hardware changes
 
-When `config.toml` is empty, NiXOA generates an XO configuration for Valkey,
-HTTP/HTTPS listeners, web mounts, runtime directories, and privileged remote
-storage through the validated helper. A non-empty value replaces that generated
-TOML completely.
-
-## Hardware configuration
-
-`host/hardware-configuration.nix` is the only disk and filesystem source.
-Regenerate it on the appliance when hardware changes:
+`host/hardware-configuration.nix` is the only source of filesystem, swap, and
+disk declarations. If the VM hardware changes, generate a candidate on the
+appliance and review it before replacing the existing file:
 
 ```bash
 sudo nixos-generate-config --show-hardware-config \
   > /tmp/hardware-configuration.nix
-sudo install -m 0644 /tmp/hardware-configuration.nix \
-  /home/nixoa/nixoa/host/hardware-configuration.nix
 ```
 
-Review before applying.
+NoCloud may grow the existing root partition and filesystem when a cloned disk
+is larger. It does not create filesystems, install packages, or replace the
+declarative network and hardware configuration.
 
-## NoCloud clone data
-
-The appliance accepts a Xen Orchestra NoCloud config drive. Its public SSH keys
-are installed for the declared `nixoa` account. systemd-networkd remains
-authoritative for DHCP and may apply a DHCP-provided transient hostname.
-Cloud-init may grow only the existing root partition and its filesystem when a
-clone receives a larger virtual disk; it cannot create filesystems, render
-networking, install packages, or otherwise redefine the generated hardware
-layout.
-
-For a reusable template, clear cloud-init state, machine identity, and SSH host
-keys before sealing it. The Packer workflow performs and verifies that step.
-
-## TUI overrides
-
-`host/menu.nix` is generated. It may override SSH keys, extras, development
-mode, extra packages, and selected service enables. Do not put
-hand-maintained policy there; the next menu action rewrites the whole file.
+[Back to documentation](index.md)

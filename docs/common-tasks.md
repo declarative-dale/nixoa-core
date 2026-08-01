@@ -1,41 +1,70 @@
 # Common Tasks
 
-## Add an SSH key
-
-Use `nixoa-menu`, or edit `nixoa.operator.sshKeys` in
-`host/settings.nix`, then run:
+Put durable changes in `host/settings.nix`, then use the same safe workflow:
 
 ```bash
+nxcli diff
+nxcli apply --dry-run
 nxcli apply
 ```
+
+You can also make supported changes through `nixoa-menu`. The console stores
+its overrides separately in `host/menu.nix`.
+
+## Add an SSH key
+
+Add the complete public key to `nixoa.operator.sshKeys`:
+
+```nix
+nixoa.operator.sshKeys = [
+  "ssh-ed25519 AAAA... operator@example"
+];
+```
+
+Keep at least one known-good key until you have tested the new one in a second
+SSH session.
 
 ## Add packages
 
-Durable packages belong in `nixoa.operator.systemPackages` or
-`nixoa.operator.userPackages` in `host/settings.nix`. Values are nixpkgs
-attribute paths such as `"ripgrep"` or `"python313Packages.httpx"`.
+Use nixpkgs attribute paths as strings:
 
-Console-added packages are written to `host/menu.nix`.
+```nix
+nixoa.operator = {
+  systemPackages = ["ripgrep"];
+  userPackages = ["python313Packages.httpx"];
+};
+```
 
-## Toggle development mode
+System packages are available to the whole appliance. User packages belong to
+the `nixoa` operator.
+
+## Enable development tools
 
 ```bash
-nxcli host development-mode toggle
+nxcli host development-mode on
 nxcli apply
 ```
 
-## Use a supplied TLS certificate
+Disable them again with `nxcli host development-mode off`.
 
-Place the certificate and key outside the Nix store, set
-`nixoa.xo.tls.cert` and `key` to those runtime paths, and set:
+## Use your own TLS certificate
+
+Store the certificate and key outside the Nix store, then point NiXOA to their
+runtime paths:
 
 ```nix
-nixoa.xo.tls.autoCert = false;
+nixoa.xo.tls = {
+  autoCert = false;
+  cert = "/run/credentials/xo/certificate.pem";
+  key = "/run/credentials/xo/private-key.pem";
+};
 ```
 
-Ensure the `xo` user can read the files.
+The `xo` service user must be able to read both files. Never place a private
+key directly in a Nix file; that would copy it into the world-readable Nix
+store.
 
-## Change XO storage support
+## Change storage support
 
 ```nix
 nixoa.xo.storage = {
@@ -45,10 +74,11 @@ nixoa.xo.storage = {
 };
 ```
 
-Disabled protocols are rejected by the privileged helper.
+The privileged storage helper rejects disabled protocols.
 
-## Queue a menu rebuild
+## Queue a rebuild for next boot
 
-After a TUI change, choose “Queue rebuild for next boot.” This writes
-`/var/lib/nixoa/rebuild-on-boot.env`; `nixoa-rebuild.service` consumes it once
-on the next boot.
+In `nixoa-menu`, choose **Queue rebuild for next boot**. The request is consumed
+once during the next boot.
+
+[Back to documentation](index.md)

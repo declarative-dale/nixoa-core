@@ -1,47 +1,36 @@
 # Operations
 
-Run operator commands from the checkout or from the packages installed on the
-appliance. Every system action uses `.#nixoa`.
+NiXOA commands always operate on the single `.#nixoa` appliance. You never
+need to select a host.
 
-## Inspect
+## Everyday commands
+
+| Goal | Command |
+|---|---|
+| Check health | `nxcli status` |
+| Review local changes | `nxcli diff` |
+| Preview activation | `nxcli apply --dry-run` |
+| Build without activating | `nxcli apply --build` |
+| Build and activate | `nxcli apply` |
+| Use a new generation after reboot | `nxcli boot` |
+| Roll back | `nxcli rollback --ask` |
+| Follow XO logs | `nxcli xo logs` |
+| Open the console | `nixoa-menu` |
+
+For every available command and flag, see the [`nxcli` reference](nxcli.md).
+
+## Apply a change
+
+For a normal configuration change:
 
 ```bash
-nxcli status
-nxcli status --json
-nxcli host show
 nxcli diff
-nxcli history
-nxcli generations list
-```
-
-## Apply configuration
-
-Preview activation:
-
-```bash
 nxcli apply --dry-run
-```
-
-Build without activation:
-
-```bash
-nxcli apply --build
-```
-
-Switch immediately:
-
-```bash
 nxcli apply
 ```
 
-Set the next boot generation without changing the running system:
-
-```bash
-nxcli boot
-```
-
-`--ask`, `--cores N`, and `--verbose` are forwarded to `nh`. Arguments after
-`--` are forwarded to the underlying build.
+Use `nxcli boot` instead of `nxcli apply` when you want the new generation to
+take effect only after reboot.
 
 ## Roll back
 
@@ -49,50 +38,44 @@ nxcli boot
 nxcli rollback --ask
 ```
 
-For an unbootable generation, choose a prior generation in the bootloader.
-Boot entries are bounded to ten generations.
+If the appliance cannot boot, select an older generation from the boot menu.
+NiXOA keeps up to ten boot entries.
 
 ## Update
 
-Preview all input changes:
+Preview updates before changing the lock file:
 
 ```bash
 nxcli update flake --preview
+nxcli update xoa --preview
 ```
 
-Update all inputs:
+Apply either update with the same command minus `--preview`:
 
 ```bash
 nxcli update flake
-```
-
-Preview or update only Xen Orchestra:
-
-```bash
-nxcli update xoa --preview
 nxcli update xoa
 ```
 
-Review `flake.lock`, build, and commit intentionally.
+An update changes `flake.lock`; it does not rebuild or commit automatically.
+Review the diff, apply it, and commit it intentionally.
 
-## Logs
+## Inspect logs
 
-Follow XO and Valkey:
+Follow Xen Orchestra and Valkey together:
 
 ```bash
 nxcli xo logs
 ```
 
-Other useful units:
+Inspect an individual system service with `journalctl`, for example:
 
 ```bash
-journalctl -u xen-guest-agent.service
-journalctl -u xo-autocert.service
-journalctl -u xo-sudo-init.service
-journalctl -u nixoa-rebuild.service
+journalctl -u xo-server.service -b
+journalctl -u xen-guest-agent.service -b
 ```
 
-## Repository changes
+## Save repository changes
 
 ```bash
 nxcli diff
@@ -100,19 +83,16 @@ nxcli commit "Describe the appliance change"
 nxcli history
 ```
 
-The CLI tracks the configuration, scripts, packages, tests, and documentation.
+## Storage cleanup
 
-## Maintenance
+Automatic Nix garbage collection runs weekly and removes unreachable paths
+older than 30 days. The console also provides manual cleanup.
 
-Automatic Nix garbage collection runs weekly and deletes unreachable paths
-older than 30 days. The console also exposes an interactive `nh clean all`
-action. Be aware that manual garbage collection can remove generations needed
-for rollback.
-
-Development mode:
+Manual cleanup can remove generations that would otherwise be available for a
+rollback. Check the generation list first:
 
 ```bash
-nxcli host development-mode status
-nxcli host development-mode on
-nxcli host development-mode off
+nxcli generations list
 ```
+
+[Back to documentation](index.md)

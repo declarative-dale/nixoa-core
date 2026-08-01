@@ -1,66 +1,40 @@
 # Troubleshooting
 
-## Flake output is missing
-
-Confirm the checkout is complete and evaluate the fixed output:
+Start with the appliance summary and Xen Orchestra logs:
 
 ```bash
-nix flake show
-nix eval .#nixosConfigurations.nixoa.config.networking.hostName
+nxcli status
+nxcli xo logs
 ```
 
-New flake files must be staged or addressed through a `path:` flake reference.
-There should be no `vm`, `nixo-ce-example`, or `nixoaCore` output.
+Then use the section that matches the symptom.
 
-## Packer cannot discover the XenServer plugin
+| Symptom | Go to |
+|---|---|
+| SSH login fails | [SSH access](#ssh-access-fails) |
+| Xen Orchestra does not load | [XO service](#xen-orchestra-does-not-start) or [TLS](#tls-fails) |
+| A configuration change fails | [Builds and flake output](#a-build-or-flake-command-fails) |
+| A menu change vanished | [Generated menu settings](#a-menu-change-disappeared) |
+| NFS, CIFS, or VHD fails | [Remote storage](#remote-storage-fails) |
+| The VM does not boot | [Hardware and boot](#hardware-or-boot-fails) |
+| Template deployment fails | [Template deployment](#template-deployment-fails) |
 
-Use the flake app rather than a host Packer installation:
+## SSH access fails
 
-```bash
-nix run --accept-flake-config .#deploy-template -- --help
-```
+SSH allows only key-based login as `nixoa`. Root and the installer account are
+not allowed.
 
-The app wraps pinned nixpkgs Packer with the pinned plugin and an immutable
-checksum file. `packer init` must not need to write into the Nix store.
-
-## Packer cannot download the installer artifact
-
-Authenticate GitHub CLI and confirm that a successful installer workflow is
-available on `main`:
-
-```bash
-gh auth login
-gh run list --repo declarative-dale/nixoa-core \
-  --workflow cache-nixoa-menu.yml --branch main --status success
-```
-
-The default artifact is resolved at deployment time and is not pinned by
-`flake.lock`. If it is unavailable or the newest workflow has not completed,
-build the current checkout exactly with:
+From the VM console, check the account and effective SSH policy:
 
 ```bash
-INSTALLER_SOURCE=build \
-  nix run --accept-flake-config .#deploy-template -- ...
-```
-
-If a build VM remains after a failure, Packer's `keep_vm = "on_success"` policy
-means it was not finalized as the successful NiXOA template. Inspect its
-console and Packer output before removing it.
-
-## SSH access fails after bootstrap
-
-The final SSH policy allows only `nixoa`. Root and the installer `nixos`
-account are denied.
-
-Check the key list in `host/settings.nix` or `host/menu.nix`, then verify from
-the VM console:
-
-```bash
-sudo sshd -T | grep -E 'allowusers|passwordauthentication|permitrootlogin'
 getent passwd nixoa
+sudo sshd -T | grep -E 'allowusers|passwordauthentication|permitrootlogin'
 ```
 
-For a clone provisioned by Xen Orchestra, also inspect NoCloud:
+Confirm that your complete public key exists in `host/settings.nix` or
+`host/menu.nix`.
+
+For a VM cloned with a NoCloud config drive, also check:
 
 ```bash
 cloud-id
@@ -69,82 +43,112 @@ journalctl -u cloud-init-local.service -u cloud-init.service \
   -u cloud-config.service -b
 ```
 
-`cloud-id` should report `nocloud` when a config drive is attached. Without a
-config drive, the appliance uses the declared keys from `host/settings.nix` or
-`host/menu.nix`; password SSH remains disabled.
+`cloud-id` should report `nocloud`. Without a config drive, NiXOA uses the keys
+declared in its host configuration.
 
-## XO does not start
+## Xen Orchestra does not start
 
 ```bash
 systemctl status redis-xo.service xo-server.service
 journalctl -u redis-xo.service -u xo-server.service -b
 ```
 
-Confirm `/etc/xo-server/config.nixoa.toml` exists and that the XO package has
-`bin/xo-server` plus `libexec/xen-orchestra`.
-
-## Xen clocksource or guest-agent warnings
-
-Valkey may warn that the Xen clocksource is slower than TSC. NiXOA retains the
-Xen-selected clocksource because forcing TSC can make timekeeping unsafe across
-VM save, restore, or migration. Xen's default TSC mode is designed to preserve
-correctness while using native TSC when the host and migration path make it
-safe. See the [Xen TSC mode documentation](https://xenbits.xen.org/docs/unstable/man/xen-tscmode.7.html).
-
-The Rust Xen guest agent may also report that a newer kernel supplied more
-IPv6 netlink data than its parser knows. If the service remains active, has no
-restarts, and reports addresses to XCP-ng, this is informational. Prefer the
-reviewed Nixpkgs package and update it with the locked nixpkgs input instead of
-substituting an uncached upstream development snapshot merely to hide the
-message.
+Also confirm that `/etc/xo-server/config.nixoa.toml` exists.
 
 ## TLS fails
 
 ```bash
 systemctl status xo-autocert.service
 journalctl -u xo-autocert.service -b
-sudo openssl x509 -in /etc/ssl/xo/certificate.pem -noout -subject -dates
+sudo openssl x509 -in /etc/ssl/xo/certificate.pem \
+  -noout -subject -dates
 ```
 
-Remove or replace expired/broken runtime certificate files, then restart
-`xo-autocert.service` followed by `xo-server.service`.
+If you supplied your own certificate, confirm that the configured paths exist
+and the `xo` service user can read both files.
+
+## A build or flake command fails
+
+Check that the fixed appliance output exists:
+
+```bash
+nix flake show
+nix eval .#nixosConfigurations.nixoa.config.networking.hostName
+```
+
+Flakes do not see new, untracked files. Stage a new file before evaluating the
+flake, or use an explicit `path:` flake reference while developing.
+
+If `nxcli apply` reports a dirty checkout, inspect it with:
+
+```bash
+nxcli diff
+```
+
+A dirty checkout is allowed, but NiXOA reports it so changes are not applied by
+accident.
+
+## A menu change disappeared
+
+`nixoa-menu` rewrites `host/menu.nix` as a complete generated override. Move
+durable manual changes to `host/settings.nix`.
 
 ## Remote storage fails
 
-Follow XO logs while reproducing the operation:
+Follow the logs while reproducing the problem:
 
 ```bash
 nxcli xo logs
 ```
 
-Mount targets must be under `nixoa.xo.storage.mountsDir`. VHD paths must be
-under the XO mounts, data, or temporary directories. The helper rejects
-disabled filesystems, arbitrary commands, and CIFS secrets in command-line
-options.
+Mount targets must be below the configured `nixoa.xo.storage.mountsDir`. VHD
+paths must be below the XO mounts, data, or temporary directories. Confirm that
+the required protocol is enabled in `nixoa.xo.storage`.
 
-For CIFS probes, verify the service path includes the NiXOA `mount.cifs` shim.
-For VHD, verify the selected libvhdi package provides `vhdimount` and
-`vhdiinfo`.
+The privileged helper intentionally rejects arbitrary commands, disabled
+filesystems, unsafe paths, and CIFS secrets passed as command-line options.
 
 ## Hardware or boot fails
 
-NiXOA does not override filesystems. Compare
-`host/hardware-configuration.nix` with the VM's generated configuration and
-check that bootloader settings match its firmware.
+Compare `host/hardware-configuration.nix` with the VM's generated hardware
+configuration. Check that its filesystem declarations and firmware-specific
+bootloader settings still match the VM.
 
-Boot a previous generation from the systemd-boot menu if necessary.
+If a new generation cannot boot, select an older generation from the
+systemd-boot menu.
 
-## A TUI change disappeared
+## Template deployment fails
 
-The menu rewrites `host/menu.nix` as a complete generated override. Durable
-manual changes belong in `host/settings.nix`.
-
-## Apply reports a dirty checkout
-
-Dirty appliance paths are allowed for development but are reported. Inspect
-and commit them:
+Always run the flake-provided deployer; it includes the pinned Packer plugin:
 
 ```bash
-nxcli diff
-nxcli commit "Describe the change"
+nix run --accept-flake-config .#deploy-template -- --help
 ```
+
+If the installer artifact cannot be downloaded, authenticate GitHub CLI:
+
+```bash
+gh auth login
+```
+
+You can bypass the artifact and build the current checkout locally:
+
+```bash
+INSTALLER_SOURCE=build \
+  nix run --accept-flake-config .#deploy-template -- ...
+```
+
+For detailed Packer behavior and clone validation, see the
+[Packer reference](../packer/README.md).
+
+## Xen warnings
+
+A Valkey warning about the Xen clocksource is usually informational. NiXOA
+keeps Xen's selected clocksource because it remains safe across VM migration,
+save, and restore.
+
+The Xen guest agent may also report extra IPv6 netlink data from a newer
+kernel. If the service stays active and XCP-ng receives the guest addresses,
+the message is informational.
+
+[Back to documentation](index.md)

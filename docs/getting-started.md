@@ -1,48 +1,69 @@
 # Getting Started
 
-NiXOA expects an installed x86_64 NixOS guest running on XCP-ng. The guest
-should boot successfully and have:
+This guide begins after NiXOA is installed. If you still need to create the
+appliance, start with [Installation](installation.md).
 
-- working networking
-- `/etc/nixos/hardware-configuration.nix`
-- Git and Nix with flakes available
-- at least one operator SSH public key
+## 1. Connect
 
-Clone and bootstrap:
-
-```bash
-git clone https://codeberg.org/NiXOA/core.git /tmp/nixoa-bootstrap
-cd /tmp/nixoa-bootstrap
-sudo ./scripts/bootstrap.sh \
-  --repo-dir /home/nixoa/nixoa \
-  --ssh-key 'ssh-ed25519 AAAA... operator@example'
-```
-
-After the first switch, connect as the fixed operator:
+Find the VM address in XCP-ng or Xen Orchestra, then connect with the SSH key
+used during installation:
 
 ```bash
 ssh nixoa@<vm-address>
 ```
 
-Then inspect and operate the appliance:
+The operator name is always `nixoa`. Password login and root login are disabled.
+
+## 2. Open Xen Orchestra
+
+Visit:
+
+```text
+https://<vm-address>/
+```
+
+NiXOA creates a self-signed certificate by default, so your browser will show a
+warning on the first visit. You can replace the certificate later.
+
+## 3. Check the appliance
 
 ```bash
 nxcli status
-nxcli host show
 nxcli xo logs
+```
+
+For a guided interface, run:
+
+```bash
 nixoa-menu
 ```
 
-The XO UI is available at `https://<vm-address>/` by default. The initial
-certificate is self-signed.
+## 4. Make a safe change
 
-For a cautious configuration change:
+Use `nixoa-menu`, or edit the durable configuration:
+
+```bash
+nxcli host edit
+```
+
+Then review and preview the change before activating it:
 
 ```bash
 nxcli diff
 nxcli apply --dry-run
-nxcli boot
-sudo systemctl reboot
+nxcli apply
 ```
 
-Every command uses `.#nixoa`; no target argument is needed or accepted.
+If the new generation causes a problem:
+
+```bash
+nxcli rollback --ask
+```
+
+## Next steps
+
+- [Common tasks](common-tasks.md) for SSH keys, packages, TLS, and storage
+- [Operations](operations.md) for updates, boot generations, and logs
+- [Troubleshooting](troubleshooting.md) when something is not working
+
+[Back to documentation](index.md)

@@ -1,6 +1,9 @@
 # `nxcli` Reference
 
-`nxcli` is the canonical operator interface. It always targets `.#nixoa`.
+`nxcli` is the command-line interface for the NiXOA appliance. Every command
+targets `.#nixoa`; there is no host selector.
+
+## Commands
 
 ```text
 nxcli help
@@ -21,49 +24,46 @@ nxcli xo logs
 nxcli generations list
 ```
 
-## Fixed target
+## Build and activation
 
-Host selection and alias resolution were removed. `--target`, `--hostname`,
-`host add`, `host list`, and `host select-vm` return errors. The flake reference
-is always:
+| Command | Result |
+|---|---|
+| `nxcli apply --dry-run` | Shows what activation would change |
+| `nxcli apply --build` | Builds without activating |
+| `nxcli apply` | Builds and activates now |
+| `nxcli boot` | Builds and selects the generation for next boot |
+| `nxcli rollback` | Switches to the previous generation |
 
-```text
-path:<checkout>#nixoa
-```
+`--ask`, `--cores N`, and `--verbose` are passed to `nh`. Arguments after `--`
+are passed to the underlying build.
 
-## Apply, boot, and rollback
-
-Normal apply and boot operations use `nh os` with the direct
-`nixosConfigurations.nixoa` path. `--first-install` uses `nixos-rebuild`
-directly and supplies flake/cache options needed before the declarative Nix
-configuration is active.
-
-Rollback calls `nixos-rebuild switch --rollback`.
-
-Successful and failed operations write state under
-`/var/lib/nixoa/apply-state.env`. The TUI reads that file to report whether a
-rebuild is needed.
+`--first-install` is reserved for bootstrap. It uses `nixos-rebuild` directly
+before the appliance's declarative Nix configuration is active.
 
 ## Repository commands
 
-`diff`, `commit`, and `history` are scoped to NiXOA-owned paths. `commit` stages
-those paths and uses `nixoa.operator.gitName` and `gitEmail`.
+- `diff` shows changes to NiXOA-owned files.
+- `commit` stages those files and creates a commit using the configured Git
+  identity.
+- `history` shows the repository history.
 
 ## Host commands
 
-`host show` reports the fixed target and the three host policy files.
-`host edit` opens `host/settings.nix` and `host/menu.nix`.
-`host development-mode` changes only the generated menu override.
+- `host show` reports the fixed target and its policy files.
+- `host edit` opens the durable settings and generated menu overrides.
+- `host development-mode` changes the development-tools override.
 
 ## Updates
 
-`update flake --preview` and `update xoa --preview` write an updated temporary
-lock file and show the diff without changing the checkout.
+`update flake` updates all locked inputs. `update xoa` updates only Xen
+Orchestra. Add `--preview` to view the lock-file change without modifying the
+checkout.
 
-Without `--preview`, the corresponding input is updated in `flake.lock`. The
-CLI does not apply or commit the result automatically.
+Updates do not rebuild or commit automatically.
 
-## JSON
+## Machine-readable output
 
-`status --json` returns the same snapshot consumed by the TUI. `diff --json`
-returns tracked path statuses and names for machine-readable integrations.
+- `status --json` returns the status snapshot used by the console.
+- `diff --json` returns changed paths and Git status codes.
+
+[Back to documentation](index.md)
