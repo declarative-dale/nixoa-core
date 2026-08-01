@@ -40,7 +40,7 @@ chmod 0644 "$canonical_module"
 mv -f "$canonical_module" "$repo/host/packer.nix"
 canonical_module=
 
-nixos-rebuild switch --flake "path:$repo#nixoa"
+nixos-rebuild --accept-flake-config switch --flake "path:$repo#nixoa"
 
 sshd -t
 assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication no

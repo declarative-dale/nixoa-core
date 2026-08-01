@@ -287,6 +287,9 @@ grep -q 'mount -o fmask=0077,dmask=0077.*efi_partition' \
 grep -q 'cloud-init clean --logs --machine-id --seed' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not clear clone identity"
+grep -q 'nixos-rebuild --accept-flake-config switch' \
+  "$TEST_ROOT/packer/scripts/seal-template.sh" \
+  || fail "Packer sealing does not accept the flake cache configuration"
 grep -q 'org\.freedesktop\.hostname1\.set-hostname' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
   || fail "platform does not authorize DHCP hostname adoption"
