@@ -19,6 +19,17 @@ NiXOA has one supported target: an `x86_64` XCP-ng guest named `nixoa`.
 
 ## Start here
 
+Creating a template requires Git, an SSH public key, access to your XCP-ng pool
+master, an authenticated GitHub CLI (`gh auth login`), and Nix with flakes.
+
+If you need Nix, choose one of these installers:
+
+- [Determinate Nix](https://docs.determinate.systems/getting-started/individuals/)
+  is the recommended option. It offers an excellent macOS experience and
+  supports SELinux-enabled Linux systems.
+- The [upstream Nix installer](https://nixos.org/download/) is the official
+  installer from the NixOS project.
+
 | Where you are | Next step |
 |---|---|
 | Creating a new appliance | [Build an XCP-ng template](docs/installation.md#create-an-xcp-ng-template) |
