@@ -15,18 +15,32 @@ XCP-ng pool  →  NiXOA virtual machine  →  Xen Orchestra web interface
 - atomic upgrades and rollbacks
 - a guided console and a small command-line tool
 
+## Quick deploy
+
+With Nix, Git, an authenticated GitHub CLI (`gh auth login`), an SSH public
+key, and access to the XCP-ng pool master:
+
+```bash
+git clone https://github.com/declarative-dale/nixoa-core.git
+cd nixoa-core
+
+nix run --accept-flake-config .#deploy-template -- \
+  --host XCP_POOL_MASTER \
+  --iso-sr "ISO library" \
+  --sr "Local storage" \
+  --network "VM network" \
+  --export-network "VM network" \
+  --template-name NiXOA \
+  --operator-key ~/.ssh/id_ed25519.pub
+```
+
+The command downloads the latest verified installer, prompts for missing
+XCP-ng details, builds a sealed template, and never stores the XCP-ng password.
+Clone the resulting `NiXOA` template, attach a NoCloud config drive containing
+the operator SSH key, and boot it. See [installation](docs/installation.md) for
+prerequisites, alternate paths, and local installer builds.
+
 ## Start here
-
-Creating a template requires Git, an SSH public key, access to your XCP-ng pool
-master, an authenticated GitHub CLI (`gh auth login`), and Nix with flakes.
-
-If you need Nix, choose one of these installers:
-
-- [Determinate Nix](https://docs.determinate.systems/getting-started/individuals/)
-  is the recommended option. It offers an excellent macOS experience and
-  supports SELinux-enabled Linux systems and provides [nixpkg cooldowns](https://determinate.systems/blog/nixpkgs-cooldown/).
-- The [upstream Nix installer](https://nixos.org/download/) is the official
-  installer from the NixOS project.
 
 | Where you are | Next step |
 |---|---|

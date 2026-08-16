@@ -14,6 +14,10 @@
   that queues only Dependabot and the known flake-lock refresh branch.
 - Monitor the Rust application with grouped weekly Cargo updates and a
   dedicated security-update group, in addition to GitHub Actions updates.
+- Provide the repository's Rust, Nix, workflow, and Packer maintenance tools
+  through `nix develop` so local work does not depend on host tool versions.
+- Exclude the development-shell-only module from installer classification and
+  immutable build fingerprints, avoiding an unrelated ISO rebuild.
 - Add a fixture-tested installer input fingerprint and immutable artifact state
   pointer, allowing metadata-only commits to reuse the exact prior ISO and
   SBOM inventory without starting another Nix build.
