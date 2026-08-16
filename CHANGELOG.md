@@ -30,7 +30,11 @@
   Cachix cache. Select the free native GitHub cache explicitly rather than
   probing the separate FlakeHub Cache service.
 - Pin every GitHub Action to an immutable commit and let grouped Dependabot
-  updates maintain those pins after a seven-day cooldown.
+  updates maintain those pins after a seven-day cooldown. Use FlakeHub push's
+  current Node.js 24 revision while its latest v6 tag still targets Node.js 20.
+- Move rolling FlakeHub publication to the collision-free `0.2` line and keep
+  a verified installer artifact reusable if only that external publication
+  fails after the artifact has already been uploaded.
 - Check FlakeHub-backed Nixpkgs lock health as part of the main validation lane
   and use Determinate's flake input updater for weekly pull requests.
 - Refresh the Xen Orchestra input to the current cached release and require the

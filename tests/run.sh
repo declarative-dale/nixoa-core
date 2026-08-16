@@ -136,9 +136,15 @@ grep -Fq 'nixoa-system.spdx.json' \
 grep -Fq 'nixoa-system.cdx.json' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not publish a CycloneDX SBOM"
-grep -Fq 'DeterminateSystems/flakehub-push@71f57208810a5d299fc6545350981de98fdbc860' \
+grep -Fq 'DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "rolling FlakeHub publication was not consolidated into the installer build"
+  || fail "rolling FlakeHub publication does not use the current Node.js 24 action"
+grep -Fq 'rolling-minor: 2' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "rolling FlakeHub publication does not avoid the legacy version line"
+grep -Fq -- '--status completed' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer state cannot recover verified artifacts from late failures"
 grep -Fq -- '- "!docs/**"' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not exclude documentation changes"

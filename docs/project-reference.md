@@ -77,7 +77,8 @@ public keys are declared in `flake.nix`.
 - Weekly grouped Dependabot updates carry a seven-day cooldown. A narrow bot
   may enable auto-merge only for Dependabot or the known flake refresh branch;
   required validation and merge-queue policy still decide when they merge.
-- Successful installer builds publish the rolling FlakeHub release. The
+- Successful installer builds publish the `0.2` rolling FlakeHub release; a
+  late publication failure does not invalidate an already verified artifact. The
   dedicated release workflow selects a semantic version, verifies a tested
   artifact inventory, fills a draft GitHub release, publishes the versioned
   flake, and only then makes the release immutable.
