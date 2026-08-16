@@ -15,14 +15,19 @@
 - Add a fixture-tested installer input fingerprint and immutable artifact state
   pointer, allowing metadata-only commits to reuse the exact prior ISO and
   SBOM inventory without starting another Nix build.
+- Add a QEMU installer boot smoke test, a stable required `CI gate`, a tested
+  up-to-date-branch ruleset, and bimonthly forced artifact validation.
+- Bind the sbomnix SPDX inventory to both the built and versioned installer
+  filenames with signed GitHub attestations.
 
 ### Changed
 
 - Start automated versioning from the published `v2.0.0` release and advance
   the working version to `2.0.1-dev.0`.
-- Split lightweight pull-request and merge-queue validation from the expensive
-  main-branch installer build, then consolidate rolling FlakeHub publication
-  into that already-running build job.
+- Consolidate validation, immutable state planning, installer production,
+  boot testing, and rolling publication into one conditional CI graph. Pull
+  documentation-only requests stay lightweight while relevant pull requests
+  produce the reusable candidate that `main` consumes.
 - Resolve Packer and release inputs through the build-state pointer so skipped
   builds still select and verify the matching immutable artifact run.
 - Use Determinate Magic Nix Cache for GitHub-native build reuse while retaining
@@ -39,11 +44,16 @@
   and use Determinate's flake input updater for weekly pull requests.
 - Refresh the Xen Orchestra input to the current cached release and require the
   installer workflow to verify that exact output in the public XO Cachix cache.
+- Route release and post-release version changes through validated automation
+  pull requests instead of bypassing protected `main`.
 
 ### Security
 
 - Attest each tested installer build and publish release assets through a
   verified draft before making the GitHub release immutable.
+- Verify builder workflow identity, source commit, provenance, and SPDX
+  predicate before staging a release. Audit workflows with `zizmor` and grant
+  signing permissions only to the jobs that use them.
 
 ### Fixed
 

@@ -19,9 +19,16 @@ temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 
 bash "$TEST_ROOT/tests/installer-build-input.sh"
+bash "$TEST_ROOT/tests/ci-helpers.sh"
 
 bash -n \
   "$TEST_ROOT/ci/installer-build-input.sh" \
+  "$TEST_ROOT/ci/installer-changes.sh" \
+  "$TEST_ROOT/ci/build-release-assets.sh" \
+  "$TEST_ROOT/ci/boot-installer-iso.sh" \
+  "$TEST_ROOT/ci/find-installer-state.sh" \
+  "$TEST_ROOT/ci/release-version.sh" \
+  "$TEST_ROOT/ci/trusted-update.sh" \
   "$TEST_ROOT/scripts/lib/common.sh" \
   "$TEST_ROOT/scripts/nxcli.sh" \
   "$TEST_ROOT/scripts/bootstrap.sh" \
@@ -32,6 +39,7 @@ bash -n \
   "$TEST_ROOT/packer/build.sh" \
   "$TEST_ROOT/packer/deploy-template.sh" \
   "$TEST_ROOT/tests/installer-build-input.sh" \
+  "$TEST_ROOT/tests/ci-helpers.sh" \
   "$TEST_ROOT"/packer/scripts/*.sh
 
 # Fixed target resolution.
@@ -89,78 +97,80 @@ grep -Fq 'nixoaMenu' "$TEST_ROOT/installer/default.nix" \
 grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits Xen Orchestra"
 grep -Fq '.#packages.x86_64-linux.xen-orchestra-ce' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/ci/build-release-assets.sh" \
   || fail "installer workflow does not build Xen Orchestra explicitly"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "${xo_out}"' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"' \
+  "$TEST_ROOT/ci/build-release-assets.sh" \
   || fail "installer workflow does not verify that its Xen Orchestra output is cached"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not pin Determinate Nix to an immutable revision"
 grep -Fq 'DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not use the GitHub-backed Magic Nix Cache"
 grep -Fq 'use-gha-cache: enabled' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not explicitly use the free GitHub cache"
 grep -Fq 'use-flakehub: disabled' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow unexpectedly probes the paid FlakeHub cache"
 grep -Fq 'cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow no longer retains Cachix publishing support"
 grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not pin the Node.js 24 artifact uploader"
 # The command substitution must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'build_input=$(./ci/installer-build-input.sh)' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/ci/find-installer-state.sh" \
   || fail "installer workflow does not calculate deterministic build state"
 grep -Fq "if: needs.plan.outputs.should_build == 'true'" \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer build is not gated by the state planner"
 grep -Fq 'name: nixoa-build-state' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq '"${sbomnix_out}/bin/sbomnix"' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+grep -Fq '"$sbomnix_out/bin/sbomnix"' \
+  "$TEST_ROOT/ci/build-release-assets.sh" \
   || fail "installer workflow does not generate SBOMs with sbomnix"
 grep -Fq 'nixoa-system.spdx.json' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish an SPDX SBOM"
 grep -Fq 'nixoa-system.cdx.json' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish a CycloneDX SBOM"
 grep -Fq 'DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "rolling FlakeHub publication does not use the current Node.js 24 action"
 grep -Fq 'rolling-minor: 2' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "rolling FlakeHub publication does not avoid the legacy version line"
 grep -Fq -- '--status completed' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  "$TEST_ROOT/ci/find-installer-state.sh" \
   || fail "installer state cannot recover verified artifacts from late failures"
-grep -Fq -- '- "!docs/**"' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "installer workflow does not exclude documentation changes"
-grep -Fq -- '- "!**/*.md"' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "installer workflow does not exclude Markdown changes"
-grep -Fq -- '- "!**/README*"' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "installer workflow does not exclude README changes"
-grep -Fq -- '- "!**/CHANGELOG*"' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
-  || fail "installer workflow does not exclude changelog changes"
+grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "consolidated CI does not expose a stable gate"
+grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer SBOM is not bound by an attestation"
+grep -Fq './ci/boot-installer-iso.sh' "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer workflow does not boot the ISO"
+grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "attestation job lacks current artifact metadata permission"
+grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer reproducibility is not validated before artifact expiry"
+[[ ! -e "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" ]] \
+  || fail "superseded installer workflow still exists"
+[[ ! -e "$TEST_ROOT/.github/workflows/validate.yml" ]] \
+  || fail "superseded validation workflow still exists"
 [[ ! -e "$TEST_ROOT/.github/workflows/flakehub-publish-tagged.yml" ]] \
   || fail "obsolete standalone FlakeHub runner still exists"
 if grep -q 'result-installer)' \
-  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml"; then
+  "$TEST_ROOT/.github/workflows/ci.yml"; then
   fail "installer workflow still pushes the full ISO closure to Cachix"
 fi
 grep -Fq 'cron: "17 9 * * 3"' \
@@ -170,22 +180,38 @@ grep -Fq 'DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh does not pin the lock update action"
 grep -Fq 'DeterminateSystems/flake-checker-action@de924abd783455e8429c858962b9e43062d19da1' \
-  "$TEST_ROOT/.github/workflows/validate.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "validation does not pin the flake checker action"
 grep -Fq 'fail-mode: true' \
-  "$TEST_ROOT/.github/workflows/validate.yml" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "validation does not enforce flake input findings"
 if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
 fi
-grep -Fq '2.0.1-dev.0' "$TEST_ROOT/VERSION" \
-  || fail "development version does not follow the published v2.0.0 release"
+grep -Fq '2.0.2-dev.0' "$TEST_ROOT/VERSION" \
+  || fail "development version was not advanced after CI hardening"
 grep -Fq -- '--draft' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not stage assets in a draft"
 grep -Fq 'candidate-state/nixoa-build-state.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not resolve the immutable build state"
+# The variable reference must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq 'gh attestation verify "${installer}"' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow does not verify builder attestations"
+# The variable reference must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq -- '--signer-workflow "${signer_workflow}"' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release verification does not constrain the signer workflow"
+grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "versioned release filename is not bound to the SPDX SBOM"
+grep -Fq './ci/trusted-update.sh' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not use the latest immutable artifact downloader"
@@ -205,6 +231,9 @@ grep -Fq 'package-ecosystem: github-actions' \
 grep -Fq 'automation/weekly-flake-input-refresh' \
   "$TEST_ROOT/.github/workflows/queue-automation.yml" \
   || fail "trusted flake updates are not eligible for the automation queue"
+grep -Fq 'actions: write' \
+  "$TEST_ROOT/.github/workflows/queue-automation.yml" \
+  || fail "trusted update validation cannot dispatch fallback CI"
 grep -Fq '"growpart"' "$TEST_ROOT/modules/_nixos/xcp-ng.nix" \
   || fail "installed appliance does not enable cloud-init growpart"
 grep -Fq '"resizefs"' "$TEST_ROOT/modules/_nixos/xcp-ng.nix" \
@@ -306,7 +335,7 @@ cp \
     >nixoa-installer.iso.sha256
 )
 printf '%s\n' \
-  '{"schema_version":1,"build_input":"fixture-state","source_commit":"fixture-source","artifact_source_commit":"fixture-source","artifact_run_id":12345}' \
+  '{"schema_version":2,"build_input":"fixture-state","source_commit":"fixture-source","artifact_source_commit":"fixture-source","producer_event":"push","artifact_run_id":12345}' \
   >"$temporary/fake-state/nixoa-build-state.json"
 cp "$temporary/fake-state/nixoa-build-state.json" \
   "$temporary/fake-artifact/nixoa-build-state.json"
@@ -361,7 +390,7 @@ FAKE_ARTIFACT_DIR="$temporary/fake-artifact" \
 grep -Eq '^iso_url=.*/nixoa-installer\.iso$' \
   "$temporary/packer.args" \
   || fail "Packer build did not use the downloaded GitHub artifact"
-grep -Fq -- '--workflow cache-nixoa-menu.yml' "$temporary/gh.args" \
+grep -Fq -- '--workflow ci.yml' "$temporary/gh.args" \
   || fail "artifact lookup did not select the installer workflow"
 grep -Fq -- '--name nixoa-installer' "$temporary/gh.args" \
   || fail "artifact download did not select the installer artifact"

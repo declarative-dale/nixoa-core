@@ -11,30 +11,35 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  actions: write
+  contents: read
   pull-requests: write
 
 jobs:
   enqueue:
-    name: Enable auto-merge for trusted update pull requests
+    name: Validate and enqueue trusted updates
     runs-on: ubuntu-slim
-    timeout-minutes: 5
+    timeout-minutes: 180
     steps:
-      - name: Verify and enqueue trusted updates
+      - name: Checkout trusted automation
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Verify, validate, and enqueue updates
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN || github.token }}
+          TRUSTED_FLAKE_AUTHOR: ${{ vars.FLAKE_UPDATE_LOGIN || 'github-actions[bot]' }}
         shell: bash
         run: |
           set -euo pipefail
-          pull_requests="$({
-            gh api --paginate \
-              "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
-              --slurp
-          })"
-
+          pull_requests=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
+            --slurp)
           jq -c \
             --arg branch "${DEFAULT_BRANCH}" \
+            --arg flake_author "${TRUSTED_FLAKE_AUTHOR}" \
             --arg repository "${GITHUB_REPOSITORY}" '
               add[] |
               select(.draft == false) |
@@ -43,18 +48,21 @@ jobs:
               select(
                 .user.login == "dependabot[bot]" or
                 (
+                  .user.login == $flake_author and
                   .head.ref == "automation/weekly-flake-input-refresh" and
                   .title == "flake.lock: refresh all inputs"
                 )
               ) |
-              {sha: .head.sha, url: .html_url}
+              {author:.user.login,branch:.head.ref,number,title}
             ' <<<"${pull_requests}" |
           while IFS= read -r pull_request; do
-            head_sha=$(jq -er '.sha' <<<"${pull_request}")
-            pr_url=$(jq -er '.url' <<<"${pull_request}")
-            gh pr merge \
-              --auto \
-              --merge \
-              --match-head-commit "${head_sha}" \
-              "${pr_url}"
+            export PR_NUMBER
+            export EXPECTED_BRANCH
+            export EXPECTED_TITLE
+            export EXPECTED_AUTHOR
+            PR_NUMBER=$(jq -er .number <<<"${pull_request}")
+            EXPECTED_BRANCH=$(jq -er .branch <<<"${pull_request}")
+            EXPECTED_TITLE=$(jq -er .title <<<"${pull_request}")
+            EXPECTED_AUTHOR=$(jq -er .author <<<"${pull_request}")
+            ./ci/trusted-update.sh
           done

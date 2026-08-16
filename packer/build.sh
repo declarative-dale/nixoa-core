@@ -14,7 +14,7 @@ OPERATOR_PUBLIC_KEY_FILE=${OPERATOR_PUBLIC_KEY_FILE:-${HOME:-}/.ssh/id_ed25519.p
 INSTALLER_ISO=${INSTALLER_ISO:-}
 INSTALLER_SOURCE=${INSTALLER_SOURCE:-github}
 GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-declarative-dale/nixoa-core}
-GITHUB_WORKFLOW=${GITHUB_WORKFLOW:-cache-nixoa-menu.yml}
+GITHUB_WORKFLOW=${GITHUB_WORKFLOW:-ci.yml}
 GITHUB_BRANCH=${GITHUB_BRANCH:-main}
 GITHUB_ARTIFACT_NAME=${GITHUB_ARTIFACT_NAME:-nixoa-installer}
 GITHUB_STATE_ARTIFACT_NAME=${GITHUB_STATE_ARTIFACT_NAME:-nixoa-build-state}
@@ -91,7 +91,7 @@ case "$INSTALLER_SOURCE" in
           exit 1
         }
         if ! "$JQ_BIN" -e \
-          '.schema_version == 1 and (.artifact_run_id | type == "number") and (.build_input | type == "string")' \
+          '.schema_version == 2 and (.artifact_run_id | type == "number") and (.build_input | type == "string")' \
           "$state_dir/nixoa-build-state.json" >/dev/null; then
           rm -rf -- "$state_dir"
           continue
@@ -118,7 +118,7 @@ case "$INSTALLER_SOURCE" in
           ! "$JQ_BIN" -e \
             --arg build_input "$expected_build_input" \
             --argjson artifact_run_id "$artifact_run_id" \
-            '.schema_version == 1 and .build_input == $build_input and .artifact_run_id == $artifact_run_id' \
+            '.schema_version == 2 and .build_input == $build_input and .artifact_run_id == $artifact_run_id' \
             "$candidate_dir/nixoa-build-state.json" >/dev/null; then
           rm -rf -- "$candidate_dir"
           continue

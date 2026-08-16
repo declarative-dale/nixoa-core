@@ -36,22 +36,26 @@ Run `nix flake show` for the complete evaluated output tree.
 
 GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
-workflow artifact; smaller reusable package closures are published to Cachix.
+artifact from the consolidated `CI` workflow; smaller reusable package
+closures are published to Cachix.
 Determinate Magic Nix Cache reuses CI-only build results through GitHub's
 free native cache without replacing the public Cachix publishing path. CI
 explicitly disables the separate FlakeHub Cache service.
 
 The build also uses `sbomnix` to create SPDX and CycloneDX runtime SBOMs for
-the complete appliance closure. The tested installer, both SBOMs, their
-checksums, and a release manifest become immutable GitHub release assets.
+the complete appliance closure. CI boots the ISO with QEMU, signs its build
+provenance, and binds the SPDX document to the installer. The tested installer,
+both SBOMs, their checksums, and a release manifest become immutable GitHub
+release assets.
 
-Before allocating a Nix runner, a small planning job fingerprints only the
+Before allocating the installer runner, a small planning job fingerprints only the
 tracked files that affect the appliance, installer, and SBOM outputs. If that
 input state matches a successful unexpired build, CI publishes a tiny state
 pointer to the original immutable artifact instead of rebuilding it. A fixture
-test proves that appliance changes alter the fingerprint while version, docs,
-tests, workflow maintenance, and Packer-only changes do not. Artifact recipe
-changes deliberately update the fingerprint script's state schema.
+test proves that appliance and artifact-recipe changes alter the fingerprint
+while version, docs, tests, workflow maintenance, and Packer-only changes do
+not. A relevant up-to-date pull-request candidate is built and booted once;
+the resulting state can then be reused by the identical `main` tree.
 
 The installer artifact is not a flake input and does not appear in
 `flake.lock`. At deployment time, `deploy-template` downloads the newest
@@ -67,21 +71,25 @@ public keys are declared in `flake.nix`.
 
 ## Automation
 
-- Pull requests, merge-queue candidates, and `main` run the lightweight flake,
-  source, workflow, and lock-health validation lane.
-- Installer CI fingerprints appliance code and locked inputs, then reuses a
-  matching immutable artifact for metadata-only commits. Documentation-only
-  changes do not start even the planning workflow.
+- Pull requests run the flake, source, workflow, lock-health, ShellCheck,
+  actionlint, and `zizmor` checks. The stable `CI gate` is the only required
+  status context.
+- Relevant pull requests build and boot the installer. The protected branch
+  must be current before auto-merge, then `main` reuses the identical immutable
+  artifact while metadata-only changes skip planning.
+- A forced build and boot runs every other month so runtime and cache drift are
+  detected before the 90-day artifact expires.
 - A scheduled workflow refreshes all locked inputs every Wednesday at 09:17
   UTC and opens or updates a pull request.
 - Weekly grouped Dependabot updates carry a seven-day cooldown. A narrow bot
-  may enable auto-merge only for Dependabot or the known flake refresh branch;
-  required validation and merge-queue policy still decide when they merge.
+  verifies the exact trusted author, repository, branch, title, and head SHA,
+  waits for that SHA's CI, and only then enables protected-branch auto-merge.
 - Successful installer builds publish the `0.2` rolling FlakeHub release; a
   late publication failure does not invalidate an already verified artifact. The
-  dedicated release workflow selects a semantic version, verifies a tested
-  artifact inventory, fills a draft GitHub release, publishes the versioned
-  flake, and only then makes the release immutable.
+  dedicated release workflow selects a semantic version through a protected
+  pull request, verifies both builder attestations, fills a draft GitHub
+  release, publishes the versioned flake, and only then makes the release
+  immutable. The next development version also passes through the queue.
 - `VERSION` records the current development release. The release workflow
   changes it to the selected stable version and advances it to the next patch
   development version after publication.

@@ -16,8 +16,12 @@ mkdir -p \
   "${fixture}/tests"
 cp "${test_root}/ci/installer-build-input.sh" \
   "${fixture}/ci/installer-build-input.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'printf build' \
+  >"${fixture}/ci/build-release-assets.sh"
+printf '%s\n' '#!/usr/bin/env bash' 'printf boot' \
+  >"${fixture}/ci/boot-installer-iso.sh"
 printf '%s\n' 'workflow: installer' \
-  >"${fixture}/.github/workflows/cache-nixoa-menu.yml"
+  >"${fixture}/.github/workflows/ci.yml"
 printf '%s\n' '{ outputs = {}; }' >"${fixture}/flake.nix"
 printf '%s\n' '{ "nodes": {}, "root": "root", "version": 7 }' \
   >"${fixture}/flake.lock"
@@ -38,12 +42,19 @@ printf '%s\n' '2.0.2-dev.0' >"${fixture}/VERSION"
 printf '%s\n' '#!/usr/bin/env bash' 'printf test' \
   >"${fixture}/tests/example.sh"
 printf '%s\n' 'updated packer fixture' >"${fixture}/packer/example.pkr.hcl"
-printf '%s\n' 'workflow: updated installer runner' \
-  >"${fixture}/.github/workflows/cache-nixoa-menu.yml"
 git -C "${fixture}" add .
 metadata_only=$(bash "${fixture}/ci/installer-build-input.sh")
 [[ "${metadata_only}" == "${baseline}" ]] || {
   printf 'Metadata-only fixture unexpectedly changed installer state.\n' >&2
+  exit 1
+}
+
+printf '%s\n' 'workflow: updated installer runner' \
+  >"${fixture}/.github/workflows/ci.yml"
+git -C "${fixture}" add .github/workflows/ci.yml
+workflow_change=$(bash "${fixture}/ci/installer-build-input.sh")
+[[ "${workflow_change}" != "${baseline}" ]] || {
+  printf 'CI workflow fixture did not change installer state.\n' >&2
   exit 1
 }
 
@@ -53,6 +64,15 @@ git -C "${fixture}" add modules/appliance.nix
 appliance_change=$(bash "${fixture}/ci/installer-build-input.sh")
 [[ "${appliance_change}" != "${baseline}" ]] || {
   printf 'Appliance fixture did not change installer state.\n' >&2
+  exit 1
+}
+
+printf '%s\n' '#!/usr/bin/env bash' 'printf updated-build' \
+  >"${fixture}/ci/build-release-assets.sh"
+git -C "${fixture}" add ci/build-release-assets.sh
+recipe_change=$(bash "${fixture}/ci/installer-build-input.sh")
+[[ "${recipe_change}" != "${workflow_change}" ]] || {
+  printf 'Artifact recipe fixture did not change installer state.\n' >&2
   exit 1
 }
 

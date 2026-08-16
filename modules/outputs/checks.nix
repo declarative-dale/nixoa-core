@@ -34,12 +34,14 @@ in {
             pkgs.gnused
             pkgs.jq
             pkgs.shellcheck
+            pkgs.zizmor
           ];
         } ''
           cp -R ${inputs.self} source
           chmod -R u+w source
           cd source
           actionlint .github/workflows/*.yml
+          zizmor .github/workflows
           shellcheck \
             installer/*.sh \
             packer/*.sh \

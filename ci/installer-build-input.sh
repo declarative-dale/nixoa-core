@@ -10,8 +10,11 @@ repo_root=$(git -C "${script_dir}" rev-parse --show-toplevel)
 # can reuse the exact tested artifact. Modes, blob IDs, and paths are all part
 # of the state. Edit this script whenever the artifact recipe itself changes.
 {
-  printf '%s\0' 'nixoa-installer-state-v1'
+  printf '%s\0' 'nixoa-installer-state-v2'
   git -C "${repo_root}" ls-files -s -z -- \
+    .github/workflows/ci.yml \
+    ci/boot-installer-iso.sh \
+    ci/build-release-assets.sh \
     ci/installer-build-input.sh \
     flake.lock \
     flake.nix \

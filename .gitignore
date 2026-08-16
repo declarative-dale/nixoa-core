@@ -23,6 +23,12 @@ packer/*.pkrvars.json
 /sbom.csv
 /sbom.spdx.json
 /sbom.cdx.json
+/nixoa-build-state.json
+/nixoa-installer.iso.sha256
+/nixoa-system.cdx.json
+/nixoa-system.cdx.json.sha256
+/nixoa-system.spdx.json
+/nixoa-system.spdx.json.sha256
 
 # Editor/IDE
 .vscode/

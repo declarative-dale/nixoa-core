@@ -40,4 +40,4 @@ jobs:
           pr-body: |
             Automated weekly refresh of every locked flake input.
 
-            Required validation and merge-queue policy still apply.
+            Required validation and protected-branch policy still apply.
