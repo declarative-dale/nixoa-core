@@ -1,0 +1,424 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Release NiXOA
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Automatic uses conventional commits; override only when release impact differs
+        required: true
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
+        default: auto
+
+concurrency:
+  group: nixoa-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  prepare:
+    name: Select and commit the release version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      actions: write
+      contents: write
+    outputs:
+      run_id: ${{ steps.candidate.outputs.run_id }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: main
+
+      - name: Calculate and commit the release version
+        id: version
+        env:
+          REQUESTED_BUMP: ${{ inputs.bump }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "${GITHUB_REF}" == refs/heads/main ]] || {
+            echo "Releases may run only from main" >&2
+            exit 1
+          }
+          initial_sha=$(git rev-parse HEAD)
+          [[ "${initial_sha}" == "${GITHUB_SHA}" ]] || {
+            echo "Checkout does not match the dispatched commit" >&2
+            exit 1
+          }
+          source_version=$(<VERSION)
+          [[ "${source_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ ]] || {
+            echo "VERSION must contain X.Y.Z or X.Y.Z-dev.N" >&2
+            exit 1
+          }
+
+          last_tag=''
+          while IFS= read -r candidate_tag; do
+            if release_state=$(gh release view "${candidate_tag}" --json isDraft 2>/dev/null) &&
+              [[ $(jq -r .isDraft <<<"${release_state}") == true ]]; then
+              continue
+            fi
+            last_tag=${candidate_tag}
+            break
+          done < <(
+            git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname |
+              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$'
+          )
+          if [[ -z "${last_tag}" ]]; then
+            version=${source_version%%-dev.*}
+            selected_bump="initial"
+          else
+            git merge-base --is-ancestor "${last_tag}" HEAD || {
+              echo "Latest release tag ${last_tag} is not an ancestor of main" >&2
+              exit 1
+            }
+            meaningful_commits="$({
+              git log "${last_tag}..HEAD" \
+                --format='%H' \
+                --invert-grep \
+                --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$'
+            })"
+            [[ -n "${meaningful_commits}" ]] || {
+              echo "No releasable commits exist after ${last_tag}" >&2
+              exit 1
+            }
+
+            base_version=${last_tag#v}
+            IFS=. read -r major minor patch <<<"${base_version}"
+            selected_bump=${REQUESTED_BUMP}
+            if [[ "${selected_bump}" == auto ]]; then
+              release_log="$({
+                git log "${last_tag}..HEAD" \
+                  --format='%s%n%b' \
+                  --invert-grep \
+                  --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$'
+              })"
+              if grep -Eq \
+                '(^[[:alnum:]-]+(\([^)]*\))?!:)|(^BREAKING[ -]CHANGE:)' \
+                <<<"${release_log}"; then
+                selected_bump="major"
+              elif grep -Eq '^feat(\([^)]*\))?:' <<<"${release_log}"; then
+                selected_bump="minor"
+              else
+                selected_bump="patch"
+              fi
+            fi
+            case "${selected_bump}" in
+              major) version="$((major + 1)).0.0" ;;
+              minor) version="${major}.$((minor + 1)).0" ;;
+              patch) version="${major}.${minor}.$((patch + 1))" ;;
+              *)
+                echo "Unsupported release bump: ${selected_bump}" >&2
+                exit 1
+                ;;
+            esac
+          fi
+
+          tag=v${version}
+          if tag_commit=$(git rev-parse --verify --quiet "refs/tags/${tag}^{commit}"); then
+            if ! release_state=$(gh release view "${tag}" --json isDraft,targetCommitish 2>/dev/null) ||
+              [[ $(jq -r .isDraft <<<"${release_state}") != true ]] ||
+              [[ "${tag_commit}" != "${initial_sha}" ]]; then
+              echo "Release tag ${tag} already exists without a matching resumable draft" >&2
+              exit 1
+            fi
+          fi
+          remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+          [[ "${remote_sha}" == "${initial_sha}" ]] || {
+            echo "Main advanced after this release was dispatched" >&2
+            exit 1
+          }
+
+          if [[ "${source_version}" != "${version}" ]]; then
+            printf '%s\n' "${version}" >VERSION
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git add VERSION
+            git commit -m "Release NiXOA ${version}"
+            gh auth setup-git
+            git push origin HEAD:main
+          fi
+          source_sha=$(git rev-parse HEAD)
+          {
+            echo "source_sha=${source_sha}"
+            echo "tag=${tag}"
+            echo "version=${version}"
+          } >>"${GITHUB_OUTPUT}"
+          printf 'Selected %s with a %s bump from %s\n' \
+            "${tag}" "${selected_bump}" "${last_tag:-VERSION seed}"
+
+      - name: Reuse or dispatch the release-candidate build
+        id: candidate
+        env:
+          SOURCE_SHA: ${{ steps.version.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id=''
+          for _ in {1..6}; do
+            run_id="$({
+              gh run list \
+                --workflow cache-nixoa-menu.yml \
+                --commit "${SOURCE_SHA}" \
+                --limit 20 \
+                --json conclusion,databaseId,status \
+                --jq '.[] | select(.status == "queued" or .status == "in_progress" or .conclusion == "success") | .databaseId' |
+                head -n 1
+            })"
+            [[ -z "${run_id}" ]] || break
+            sleep 5
+          done
+          if [[ -z "${run_id}" ]]; then
+            remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+            [[ "${remote_sha}" == "${SOURCE_SHA}" ]] || {
+              echo "Main advanced before the candidate build was dispatched" >&2
+              exit 1
+            }
+            previous_run_id="$({
+              gh run list \
+                --workflow cache-nixoa-menu.yml \
+                --event workflow_dispatch \
+                --commit "${SOURCE_SHA}" \
+                --limit 1 \
+                --json databaseId \
+                --jq '.[0].databaseId // empty'
+            })"
+            gh workflow run cache-nixoa-menu.yml --ref main
+            for _ in {1..24}; do
+              run_id="$({
+                gh run list \
+                  --workflow cache-nixoa-menu.yml \
+                  --event workflow_dispatch \
+                  --commit "${SOURCE_SHA}" \
+                  --limit 5 \
+                  --json databaseId \
+                  --jq ".[] | select((.databaseId | tostring) != \"${previous_run_id}\") | .databaseId" |
+                  head -n 1
+              })"
+              [[ -z "${run_id}" ]] || break
+              sleep 5
+            done
+          fi
+          [[ -n "${run_id}" ]] || {
+            echo "Could not locate the release-candidate build" >&2
+            exit 1
+          }
+          echo "run_id=${run_id}" >>"${GITHUB_OUTPUT}"
+
+      - name: Wait for the release-candidate build
+        env:
+          RUN_ID: ${{ steps.candidate.outputs.run_id }}
+        run: gh run watch "${RUN_ID}" --exit-status
+
+  release:
+    name: Publish immutable release assets
+    needs: prepare
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+    steps:
+      - name: Checkout release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ needs.prepare.outputs.source_sha }}
+
+      - name: Download the tested installer state
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          github-token: ${{ github.token }}
+          name: nixoa-build-state
+          path: candidate-state
+          run-id: ${{ needs.prepare.outputs.run_id }}
+
+      - name: Resolve the immutable installer inventory
+        id: inventory
+        env:
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected_build_input=$(./ci/installer-build-input.sh)
+          jq -e \
+            --arg build_input "${expected_build_input}" \
+            --arg source_commit "${SOURCE_SHA}" \
+            '.schema_version == 1 and .build_input == $build_input and .source_commit == $source_commit and (.artifact_run_id | type == "number")' \
+            candidate-state/nixoa-build-state.json >/dev/null
+          artifact_run_id=$(jq -r .artifact_run_id \
+            candidate-state/nixoa-build-state.json)
+          artifact_source_commit=$(jq -r .artifact_source_commit \
+            candidate-state/nixoa-build-state.json)
+          {
+            echo "artifact_run_id=${artifact_run_id}"
+            echo "artifact_source_commit=${artifact_source_commit}"
+            echo "build_input=${expected_build_input}"
+          } >>"${GITHUB_OUTPUT}"
+
+      - name: Download the tested installer inventory
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          github-token: ${{ github.token }}
+          name: nixoa-installer
+          path: candidate
+          run-id: ${{ steps.inventory.outputs.artifact_run_id }}
+
+      - name: Verify and stage release assets
+        env:
+          ARTIFACT_RUN_ID: ${{ steps.inventory.outputs.artifact_run_id }}
+          ARTIFACT_SOURCE_COMMIT: ${{ steps.inventory.outputs.artifact_source_commit }}
+          BUILD_INPUT: ${{ steps.inventory.outputs.build_input }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd candidate
+            sha256sum --check --strict nixoa-installer.iso.sha256
+            sha256sum --check --strict nixoa-system.spdx.json.sha256
+            sha256sum --check --strict nixoa-system.cdx.json.sha256
+          )
+          jq -e \
+            --arg build_input "${BUILD_INPUT}" \
+            --arg artifact_source_commit "${ARTIFACT_SOURCE_COMMIT}" \
+            --argjson artifact_run_id "${ARTIFACT_RUN_ID}" \
+            '.schema_version == 1 and .build_input == $build_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id' \
+            candidate/nixoa-build-state.json >/dev/null
+          [[ "${SOURCE_SHA}" == "$(git rev-parse HEAD)" ]]
+          [[ "$(<VERSION)" == "${RELEASE_VERSION}" ]]
+          install -d -m 0755 release
+          install -m 0644 \
+            candidate/result-installer/iso/nixoa-installer.iso \
+            "release/nixoa-${RELEASE_TAG}.iso"
+          gzip -9c candidate/nixoa-system.spdx.json \
+            >"release/nixoa-${RELEASE_TAG}.spdx.json.gz"
+          gzip -9c candidate/nixoa-system.cdx.json \
+            >"release/nixoa-${RELEASE_TAG}.cdx.json.gz"
+          (
+            cd release
+            sha256sum "nixoa-${RELEASE_TAG}.iso" \
+              >"nixoa-${RELEASE_TAG}.iso.sha256"
+            sha256sum "nixoa-${RELEASE_TAG}.spdx.json.gz" \
+              >"nixoa-${RELEASE_TAG}.spdx.json.gz.sha256"
+            sha256sum "nixoa-${RELEASE_TAG}.cdx.json.gz" \
+              >"nixoa-${RELEASE_TAG}.cdx.json.gz.sha256"
+          )
+          created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          installer_sha256=$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.iso.sha256")
+          spdx_sha256=$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.spdx.json.gz.sha256")
+          cdx_sha256=$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.cdx.json.gz.sha256")
+          jq -n \
+            --arg version "${RELEASE_VERSION}" \
+            --arg tag "${RELEASE_TAG}" \
+            --arg source_commit "${SOURCE_SHA}" \
+            --arg artifact_source_commit "${ARTIFACT_SOURCE_COMMIT}" \
+            --arg build_input "${BUILD_INPUT}" \
+            --arg created_at "${created_at}" \
+            --arg repository "${GITHUB_REPOSITORY}" \
+            --arg release_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            --arg artifact_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${ARTIFACT_RUN_ID}" \
+            --arg installer "nixoa-${RELEASE_TAG}.iso" \
+            --arg installer_sha256 "${installer_sha256}" \
+            --arg spdx "nixoa-${RELEASE_TAG}.spdx.json.gz" \
+            --arg spdx_sha256 "${spdx_sha256}" \
+            --arg cdx "nixoa-${RELEASE_TAG}.cdx.json.gz" \
+            --arg cdx_sha256 "${cdx_sha256}" \
+            '{schema_version:1,version:$version,tag:$tag,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,build_input:$build_input,created_at:$created_at,repository:$repository,release_run:$release_run,artifact_run:$artifact_run,assets:{installer:{name:$installer,sha256:$installer_sha256},spdx:{name:$spdx,sha256:$spdx_sha256},cyclonedx:{name:$cdx,sha256:$cdx_sha256}}}' \
+            >release/release-manifest.json
+          (
+            cd release
+            sha256sum release-manifest.json >release-manifest.json.sha256
+          )
+
+      - name: Create or refresh the draft release
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t assets < <(find release -maxdepth 1 -type f -print | sort)
+          [[ ${#assets[@]} -eq 8 ]] || {
+            echo "Expected installer, two SBOMs, manifest, and four checksums" >&2
+            exit 1
+          }
+          if release_state=$(gh release view "${RELEASE_TAG}" --json isDraft,targetCommitish 2>/dev/null); then
+            [[ $(jq -r .isDraft <<<"${release_state}") == true ]]
+            [[ $(jq -r .targetCommitish <<<"${release_state}") == "${SOURCE_SHA}" ]]
+            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
+          else
+            gh release create "${RELEASE_TAG}" \
+              "${assets[@]}" \
+              --draft \
+              --generate-notes \
+              --target "${SOURCE_SHA}" \
+              --title "NiXOA ${RELEASE_VERSION}"
+          fi
+          mapfile -t expected < <(printf '%s\n' "${assets[@]##*/}" | sort)
+          mapfile -t actual < <(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' | sort)
+          [[ "${expected[*]}" == "${actual[*]}" ]] || {
+            echo "Draft release asset set does not match the verified inventory" >&2
+            exit 1
+          }
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
+      - name: Publish the versioned flake
+        uses: DeterminateSystems/flakehub-push@71f57208810a5d299fc6545350981de98fdbc860 # v6
+        with:
+          visibility: public
+          name: declarative-dale/nixoa-core
+          rolling: false
+          tag: ${{ needs.prepare.outputs.tag }}
+          include-output-paths: true
+
+      - name: Publish the immutable GitHub release
+        env:
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: gh release edit "${RELEASE_TAG}" --draft=false --latest
+
+      - name: Start the next development version
+        env:
+          RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
+          SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS=. read -r major minor patch <<<"${RELEASE_VERSION}"
+          next_version="${major}.${minor}.$((patch + 1))-dev.0"
+          remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
+          [[ "${remote_sha}" == "${SOURCE_SHA}" ]] || {
+            echo "Main advanced before the post-release version commit" >&2
+            exit 1
+          }
+          printf '%s\n' "${next_version}" >VERSION
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add VERSION
+          git commit -m "Start NiXOA ${next_version}"
+          gh auth setup-git
+          git push origin HEAD:main

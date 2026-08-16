@@ -661,11 +661,11 @@
         "nixpkgs": "nixpkgs_5"
       },
       "locked": {
-        "lastModified": 1785434023,
-        "narHash": "sha256-+YI/krj+vQXlKnkK/5L6WRCNE/HBUEV+/ZJN5iQrwCc=",
+        "lastModified": 1785855172,
+        "narHash": "sha256-5KTEFFJ6awonny6rjEx2YHXdScMvwqTM+vS5Q3dC7fM=",
         "ref": "refs/heads/main",
-        "rev": "b95e6e64e24bce115924fb280a69a8ef6cdfe898",
-        "revCount": 92,
+        "rev": "ef150e613dbbad38a8a9f3ed44b7ce6b7edc819a",
+        "revCount": 94,
         "type": "git",
         "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       },

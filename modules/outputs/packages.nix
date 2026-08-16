@@ -67,6 +67,7 @@ in {
     in
       {
         xen-orchestra-ce = xenOrchestraCe;
+        sbomnix = pkgs.sbomnix;
         libvhdi =
           inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi-fuse2
           or inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;

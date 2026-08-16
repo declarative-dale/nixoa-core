@@ -9,6 +9,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 PACKER_BIN=${PACKER_BIN:-packer-xenserver}
 NIX_BIN=${NIX_BIN:-nix}
 GH_BIN=${GH_BIN:-gh}
+JQ_BIN=${JQ_BIN:-jq}
 OPERATOR_PUBLIC_KEY_FILE=${OPERATOR_PUBLIC_KEY_FILE:-${HOME:-}/.ssh/id_ed25519.pub}
 INSTALLER_ISO=${INSTALLER_ISO:-}
 INSTALLER_SOURCE=${INSTALLER_SOURCE:-github}
@@ -16,6 +17,7 @@ GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-declarative-dale/nixoa-core}
 GITHUB_WORKFLOW=${GITHUB_WORKFLOW:-cache-nixoa-menu.yml}
 GITHUB_BRANCH=${GITHUB_BRANCH:-main}
 GITHUB_ARTIFACT_NAME=${GITHUB_ARTIFACT_NAME:-nixoa-installer}
+GITHUB_STATE_ARTIFACT_NAME=${GITHUB_STATE_ARTIFACT_NAME:-nixoa-build-state}
 
 if [[ ${BUILD_INSTALLER+x} ]]; then
   case "$BUILD_INSTALLER" in
@@ -61,30 +63,76 @@ case "$INSTALLER_SOURCE" in
       printf 'GitHub CLI executable not found: %s\n' "$GH_BIN" >&2
       exit 1
     }
-    run_id=$(
+    mapfile -t run_ids < <(
       "$GH_BIN" run list \
         --repo "$GITHUB_REPOSITORY" \
         --workflow "$GITHUB_WORKFLOW" \
         --branch "$GITHUB_BRANCH" \
         --status success \
-        --limit 1 \
+        --limit 20 \
         --json databaseId \
-        --jq '.[0].databaseId'
+        --jq '.[].databaseId'
     )
-    [[ "$run_id" =~ ^[0-9]+$ ]] || {
+    [[ ${#run_ids[@]} -gt 0 ]] || {
       printf 'No successful NiXOA installer workflow run was found.\n' >&2
       exit 1
     }
-    artifact_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-installer.XXXXXX")
-    "$GH_BIN" run download "$run_id" \
-      --repo "$GITHUB_REPOSITORY" \
-      --name "$GITHUB_ARTIFACT_NAME" \
-      --dir "$artifact_dir"
-    installer_iso="$artifact_dir/result-installer/iso/nixoa-installer.iso"
-    (
-      cd "$artifact_dir"
-      sha256sum --check --strict nixoa-installer.iso.sha256
-    )
+    for run_id in "${run_ids[@]}"; do
+      [[ "$run_id" =~ ^[0-9]+$ ]] || continue
+      artifact_run_id=$run_id
+      expected_build_input=
+      state_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-state.XXXXXX")
+      if "$GH_BIN" run download "$run_id" \
+        --repo "$GITHUB_REPOSITORY" \
+        --name "$GITHUB_STATE_ARTIFACT_NAME" \
+        --dir "$state_dir" >/dev/null 2>&1; then
+        command -v "$JQ_BIN" >/dev/null 2>&1 || {
+          printf 'jq is required to verify installer artifact state.\n' >&2
+          exit 1
+        }
+        if ! "$JQ_BIN" -e \
+          '.schema_version == 1 and (.artifact_run_id | type == "number") and (.build_input | type == "string")' \
+          "$state_dir/nixoa-build-state.json" >/dev/null; then
+          rm -rf -- "$state_dir"
+          continue
+        fi
+        artifact_run_id=$("$JQ_BIN" -r .artifact_run_id \
+          "$state_dir/nixoa-build-state.json")
+        expected_build_input=$("$JQ_BIN" -r .build_input \
+          "$state_dir/nixoa-build-state.json")
+      fi
+      rm -rf -- "$state_dir"
+
+      candidate_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-installer.XXXXXX")
+      if "$GH_BIN" run download "$artifact_run_id" \
+        --repo "$GITHUB_REPOSITORY" \
+        --name "$GITHUB_ARTIFACT_NAME" \
+        --dir "$candidate_dir" >/dev/null 2>&1 &&
+        (
+          cd "$candidate_dir"
+          sha256sum --check --strict nixoa-installer.iso.sha256
+        ); then
+        # jq variables are intentionally protected from the shell.
+        # shellcheck disable=SC2016
+        if [[ -n "$expected_build_input" ]] &&
+          ! "$JQ_BIN" -e \
+            --arg build_input "$expected_build_input" \
+            --argjson artifact_run_id "$artifact_run_id" \
+            '.schema_version == 1 and .build_input == $build_input and .artifact_run_id == $artifact_run_id' \
+            "$candidate_dir/nixoa-build-state.json" >/dev/null; then
+          rm -rf -- "$candidate_dir"
+          continue
+        fi
+        artifact_dir=$candidate_dir
+        installer_iso="$artifact_dir/result-installer/iso/nixoa-installer.iso"
+        break
+      fi
+      rm -rf -- "$candidate_dir"
+    done
+    [[ -n "$artifact_dir" ]] || {
+      printf 'No valid immutable NiXOA installer artifact was found.\n' >&2
+      exit 1
+    }
     ;;
   build)
     command -v "$NIX_BIN" >/dev/null 2>&1 || {

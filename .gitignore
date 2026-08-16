@@ -18,6 +18,12 @@ packer/*.pkrvars.json
 .direnv/
 .envrc
 
+# Local sbomnix output
+/http_cache.sqlite
+/sbom.csv
+/sbom.spdx.json
+/sbom.cdx.json
+
 # Editor/IDE
 .vscode/
 *.code-workspace

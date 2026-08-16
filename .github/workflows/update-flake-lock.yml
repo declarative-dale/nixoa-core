@@ -1,4 +1,5 @@
-name: Refresh flake inputs
+# SPDX-License-Identifier: Apache-2.0
+name: Update Nix flake inputs
 
 on:
   schedule:
@@ -6,8 +7,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: weekly-flake-input-refresh
-  cancel-in-progress: true
+  group: update-flake-lock
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -15,20 +16,23 @@ permissions:
   pull-requests: write
 
 jobs:
-  update-flake-lock:
-    name: Update all locked inputs
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+  update:
+    name: Refresh every locked input
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-
-      - name: Install Nix
-        uses: DeterminateSystems/determinate-nix-action@v3
-
-      - name: Update all flake inputs and open a pull request
-        uses: DeterminateSystems/update-flake-lock@v28
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          persist-credentials: false
+
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
+      - name: Update the lock file and open a pull request
+        uses: DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6 # v28
+        with:
+          token: ${{ secrets.MERGE_QUEUE_TOKEN || github.token }}
           base: main
           branch: automation/weekly-flake-input-refresh
           commit-msg: "flake.lock: refresh all inputs"
@@ -36,4 +40,4 @@ jobs:
           pr-body: |
             Automated weekly refresh of every locked flake input.
 
-            Review and merge this pull request to update `flake.lock` on `main`.
+            Required validation and merge-queue policy still apply.

@@ -3,6 +3,43 @@
 
 ## Unreleased
 
+### Added
+
+- Generate SPDX and CycloneDX runtime SBOMs for the complete NiXOA system with
+  `sbomnix`, validate and checksum them, and ship them beside every installer.
+- Add draft-first immutable GitHub releases containing the tested installer,
+  both SBOM formats, checksums, and a release manifest, with automatic semantic
+  version selection and post-release development-version bumps.
+- Add grouped weekly Dependabot updates and a narrowly scoped automation bot
+  that queues only Dependabot and the known flake-lock refresh branch.
+- Add a fixture-tested installer input fingerprint and immutable artifact state
+  pointer, allowing metadata-only commits to reuse the exact prior ISO and
+  SBOM inventory without starting another Nix build.
+
+### Changed
+
+- Start automated versioning from the published `v2.0.0` release and advance
+  the working version to `2.0.1-dev.0`.
+- Split lightweight pull-request and merge-queue validation from the expensive
+  main-branch installer build, then consolidate rolling FlakeHub publication
+  into that already-running build job.
+- Resolve Packer and release inputs through the build-state pointer so skipped
+  builds still select and verify the matching immutable artifact run.
+- Use Determinate Magic Nix Cache for GitHub-native build reuse while retaining
+  explicit publication of the small reusable outputs to the public NiXOA
+  Cachix cache.
+- Pin every GitHub Action to an immutable commit and let grouped Dependabot
+  updates maintain those pins after a seven-day cooldown.
+- Check FlakeHub-backed Nixpkgs lock health as part of the main validation lane
+  and use Determinate's flake input updater for weekly pull requests.
+- Refresh the Xen Orchestra input to the current cached release and require the
+  installer workflow to verify that exact output in the public XO Cachix cache.
+
+### Security
+
+- Attest each tested installer build and publish release assets through a
+  verified draft before making the GitHub release immutable.
+
 ### Fixed
 
 - Record the Packer seal as the successful apply for its generated Git commit,

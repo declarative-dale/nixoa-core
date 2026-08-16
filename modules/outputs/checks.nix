@@ -26,6 +26,7 @@ in {
         pkgs.runCommandLocal "nixoa-shell-tests" {
           nativeBuildInputs = [
             pkgs.bash
+            pkgs.actionlint
             pkgs.coreutils
             pkgs.findutils
             pkgs.git
@@ -38,6 +39,7 @@ in {
           cp -R ${inputs.self} source
           chmod -R u+w source
           cd source
+          actionlint .github/workflows/*.yml
           shellcheck \
             installer/*.sh \
             packer/*.sh \
@@ -45,7 +47,7 @@ in {
             scripts/*.sh \
             scripts/lib/*.sh \
             scripts/tui/*.sh \
-            tests/run.sh
+            tests/*.sh
           NIXOA_SKIP_EVAL=1 bash ./tests/run.sh
           touch "$out"
         '';
