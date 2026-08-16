@@ -38,15 +38,18 @@ exit 0
 EOF
 cat >"$temporary/bin/qemu-system-x86_64" <<'EOF'
 #!/usr/bin/env bash
+trap 'exit 0' TERM
 printf 'nixoa-installer login:\n'
+sleep 30
 EOF
 sed -i "1c#!${BASH}" \
   "$temporary/bin/qemu-img" \
   "$temporary/bin/qemu-system-x86_64"
 chmod +x "$temporary/bin/qemu-img" "$temporary/bin/qemu-system-x86_64"
 PATH="$temporary/bin:$PATH" \
+  BOOT_TIMEOUT=20s \
   BOOT_LOG="$temporary/boot.log" \
-  bash "$test_root/ci/boot-installer-iso.sh" "$temporary/installer.iso"
+  timeout 5s bash "$test_root/ci/boot-installer-iso.sh" "$temporary/installer.iso"
 grep -Fq 'nixoa-installer login:' "$temporary/boot.log"
 
 cat >"$temporary/bin/gh" <<'EOF'

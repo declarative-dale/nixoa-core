@@ -25,7 +25,9 @@ if [[ -r /dev/kvm && -w /dev/kvm ]]; then
   acceleration=(-accel kvm)
 fi
 
-set +e
+boot_pattern='nixoa-installer login:|Reached target .*Multi-User System|Started OpenSSH'
+: >"$log"
+
 timeout --signal=TERM "$boot_timeout" \
   "$qemu_bin" \
     "${acceleration[@]}" \
@@ -39,9 +41,27 @@ timeout --signal=TERM "$boot_timeout" \
     -no-reboot \
     -chardev stdio,id=nixoa-console,signal=off \
     -device virtio-serial-pci \
-    -device virtconsole,chardev=nixoa-console 2>&1 | tee "$log"
-qemu_status=${PIPESTATUS[0]}
+    -device virtconsole,chardev=nixoa-console >"$log" 2>&1 &
+qemu_pid=$!
+
+reached_target=false
+while kill -0 "$qemu_pid" 2>/dev/null; do
+  if grep -Eqi "$boot_pattern" "$log"; then
+    reached_target=true
+    kill -TERM "$qemu_pid" 2>/dev/null || true
+    break
+  fi
+  sleep 1
+done
+
+set +e
+wait "$qemu_pid"
+qemu_status=$?
 set -e
+
+if grep -Eqi "$boot_pattern" "$log"; then
+  reached_target=true
+fi
 
 case "$qemu_status" in
   0|124|143) ;;
@@ -51,7 +71,8 @@ case "$qemu_status" in
     ;;
 esac
 
-grep -Eqi 'nixoa-installer login:|Reached target .*Multi-User System|Started OpenSSH' "$log" || {
+[[ "$reached_target" == true ]] || {
+  cat "$log" >&2
   printf 'The ISO did not reach the NiXOA installer login target.\n' >&2
   exit 1
 }
