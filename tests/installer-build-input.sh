@@ -38,6 +38,8 @@ printf '%s\n' '2.0.2-dev.0' >"${fixture}/VERSION"
 printf '%s\n' '#!/usr/bin/env bash' 'printf test' \
   >"${fixture}/tests/example.sh"
 printf '%s\n' 'updated packer fixture' >"${fixture}/packer/example.pkr.hcl"
+printf '%s\n' 'workflow: updated installer runner' \
+  >"${fixture}/.github/workflows/cache-nixoa-menu.yml"
 git -C "${fixture}" add .
 metadata_only=$(bash "${fixture}/ci/installer-build-input.sh")
 [[ "${metadata_only}" == "${baseline}" ]] || {

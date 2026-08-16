@@ -38,7 +38,8 @@ GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
 workflow artifact; smaller reusable package closures are published to Cachix.
 Determinate Magic Nix Cache reuses CI-only build results through GitHub's
-native cache without replacing the public Cachix publishing path.
+free native cache without replacing the public Cachix publishing path. CI
+explicitly disables the separate FlakeHub Cache service.
 
 The build also uses `sbomnix` to create SPDX and CycloneDX runtime SBOMs for
 the complete appliance closure. The tested installer, both SBOMs, their
@@ -49,7 +50,8 @@ tracked files that affect the appliance, installer, and SBOM outputs. If that
 input state matches a successful unexpired build, CI publishes a tiny state
 pointer to the original immutable artifact instead of rebuilding it. A fixture
 test proves that appliance changes alter the fingerprint while version, docs,
-tests, and Packer-only changes do not.
+tests, workflow maintenance, and Packer-only changes do not. Artifact recipe
+changes deliberately update the fingerprint script's state schema.
 
 The installer artifact is not a flake input and does not appear in
 `flake.lock`. At deployment time, `deploy-template` downloads the newest

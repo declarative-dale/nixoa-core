@@ -39,6 +39,9 @@ jobs:
 
       - name: Enable the GitHub-backed Nix build cache
         uses: DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d # v14
+        with:
+          use-gha-cache: enabled
+          use-flakehub: disabled
 
       - name: Check flake inputs
         uses: DeterminateSystems/flake-checker-action@de924abd783455e8429c858962b9e43062d19da1 # v13

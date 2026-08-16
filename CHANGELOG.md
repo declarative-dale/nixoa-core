@@ -27,7 +27,8 @@
   builds still select and verify the matching immutable artifact run.
 - Use Determinate Magic Nix Cache for GitHub-native build reuse while retaining
   explicit publication of the small reusable outputs to the public NiXOA
-  Cachix cache.
+  Cachix cache. Select the free native GitHub cache explicitly rather than
+  probing the separate FlakeHub Cache service.
 - Pin every GitHub Action to an immutable commit and let grouped Dependabot
   updates maintain those pins after a seven-day cooldown.
 - Check FlakeHub-backed Nixpkgs lock health as part of the main validation lane

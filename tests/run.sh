@@ -102,6 +102,12 @@ grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c
 grep -Fq 'DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow does not use the GitHub-backed Magic Nix Cache"
+grep -Fq 'use-gha-cache: enabled' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow does not explicitly use the free GitHub cache"
+grep -Fq 'use-flakehub: disabled' \
+  "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
+  || fail "installer workflow unexpectedly probes the paid FlakeHub cache"
 grep -Fq 'cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71' \
   "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" \
   || fail "installer workflow no longer retains Cachix publishing support"
@@ -174,6 +180,9 @@ grep -Fq -- '--draft' "$TEST_ROOT/.github/workflows/release.yml" \
 grep -Fq 'candidate-state/nixoa-build-state.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not resolve the immutable build state"
+grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow does not use the latest immutable artifact downloader"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'gh release edit "${RELEASE_TAG}" --draft=false --latest' \
