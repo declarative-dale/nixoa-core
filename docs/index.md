@@ -14,6 +14,7 @@ reach the appliance, check its health, and make a safe first change.
 | update, apply, or roll back the appliance | [Operations](operations.md) |
 | look up a command | [`nxcli` reference](nxcli.md) |
 | fix a problem | [Troubleshooting](troubleshooting.md) |
+| develop or validate a change | [Development](development.md) |
 | understand how NiXOA is built | [Architecture](architecture.md) |
 | inspect flake outputs, artifacts, or automation | [Project reference](project-reference.md) |
 

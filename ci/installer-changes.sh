@@ -7,7 +7,7 @@ required=false
 while IFS= read -r path; do
   [[ -n "$path" ]] || continue
   case "$path" in
-    AGENTS.md|LICENSE|VERSION|README*|CHANGELOG*|docs/*|packer/*|tests/*)
+    AGENTS.md|LICENSE|VERSION|README*|CHANGELOG*|docs/*|packer/*|tests/*|modules/outputs/dev-shells.nix)
       ;;
     .github/workflows/ci.yml)
       required=true

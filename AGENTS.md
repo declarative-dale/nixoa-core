@@ -38,9 +38,11 @@ successful installer artifact to a temporary directory, verifies its checksum,
 and passes it directly to Packer. `INSTALLER_SOURCE=build` is the explicit local
 flake-build fallback.
 
-Run `bash -n` and ShellCheck for shell changes, and `cargo fmt --check`,
-`cargo check`, and `cargo test` for menu changes. Run `packer fmt -check` and
-`packer validate -syntax-only` for Packer changes.
+Enter the flake-provided toolchain with `nix develop --accept-flake-config`.
+Run `bash -n` and ShellCheck for shell changes, and run Cargo and Packer checks
+through `nix develop --accept-flake-config --command`; for example,
+`nix develop --accept-flake-config --command cargo test`. Do not use a
+host-installed Cargo or Packer toolchain for repository work.
 
 ## Configuration rules
 
@@ -55,6 +57,7 @@ Run `bash -n` and ShellCheck for shell changes, and `cargo fmt --check`,
 
 ## Commits
 
-Commit coherent implementation, tests, and documentation checkpoints. Keep
-historical changelog entries intact and describe public-interface changes in
-the current changelog section.
+Use `jj` for local status, history, commits, and bookmarks; GitHub remains the
+push and pull-request transport. Commit coherent implementation, tests, and
+documentation checkpoints. Keep historical changelog entries intact and
+describe public-interface changes in the current changelog section.

@@ -7,7 +7,7 @@ test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-ci-helpers.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
 
-[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh | bash "$test_root/ci/installer-changes.sh") == false ]]
+[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/dev-shells.nix | bash "$test_root/ci/installer-changes.sh") == false ]]
 [[ $(printf '%s\n' modules/_nixos/platform.nix | bash "$test_root/ci/installer-changes.sh") == true ]]
 [[ $(printf '%s\n' ci/build-release-assets.sh | bash "$test_root/ci/installer-changes.sh") == true ]]
 [[ $(printf '%s\n' .github/workflows/ci.yml | bash "$test_root/ci/installer-changes.sh") == true ]]
