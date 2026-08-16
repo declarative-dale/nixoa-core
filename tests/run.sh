@@ -237,6 +237,15 @@ grep -Fq 'directory: /pkgs/nixoa-menu' \
 grep -Fq 'applies-to: security-updates' \
   "$TEST_ROOT/.github/dependabot.yml" \
   || fail "Dependabot does not group Rust security updates"
+grep -Fq 'flake.devShells = lib.genAttrs systems' \
+  "$TEST_ROOT/modules/outputs/dev-shells.nix" \
+  || fail "flake does not expose its development toolchain"
+grep -Fq 'pkgs.cargo' \
+  "$TEST_ROOT/modules/outputs/dev-shells.nix" \
+  || fail "development shell does not provide Cargo"
+grep -Fq 'nix develop --accept-flake-config --command cargo test' \
+  "$TEST_ROOT/AGENTS.md" \
+  || fail "repository guidance bypasses the flake-provided Rust toolchain"
 grep -Fq 'automation/weekly-flake-input-refresh' \
   "$TEST_ROOT/.github/workflows/queue-automation.yml" \
   || fail "trusted flake updates are not eligible for the automation queue"

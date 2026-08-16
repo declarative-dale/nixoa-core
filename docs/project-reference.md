@@ -32,6 +32,10 @@ The flake also exposes operator apps for `nxcli`, `apply`, `bootstrap`,
 
 Run `nix flake show` for the complete evaluated output tree.
 
+The default `devShells.x86_64-linux` output supplies the repository toolchain.
+Use `nix develop` for Rust, Packer, and validation work; the exact commands are
+in the [development guide](development.md).
+
 ## Installer delivery
 
 GitHub Actions builds the complete system, public packages, and a
