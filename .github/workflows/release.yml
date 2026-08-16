@@ -65,18 +65,11 @@ jobs:
           source_version=$(<VERSION)
           [[ "${source_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ ]]
 
-          last_tag=
-          while IFS= read -r candidate_tag; do
-            if release_state=$(gh release view "${candidate_tag}" --json isDraft 2>/dev/null) &&
-              [[ $(jq -r .isDraft <<<"${release_state}") == true ]]; then
-              continue
-            fi
-            last_tag=${candidate_tag}
-            break
-          done < <(
-            git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname |
-              grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$'
-          )
+          last_tag=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
+          if [[ -n "${last_tag}" ]]; then
+            [[ "${last_tag}" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
+            git rev-parse --verify "refs/tags/${last_tag}" >/dev/null
+          fi
 
           if [[ -z "${last_tag}" ]]; then
             version=${source_version%%-dev.*}

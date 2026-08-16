@@ -189,7 +189,7 @@ if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
 fi
-grep -Fq '2.0.2-dev.0' "$TEST_ROOT/VERSION" \
+grep -Fq '1.0.1-dev.0' "$TEST_ROOT/VERSION" \
   || fail "development version was not advanced after CI hardening"
 grep -Fq -- '--draft' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not stage assets in a draft"

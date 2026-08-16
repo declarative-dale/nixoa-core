@@ -16,6 +16,8 @@ trap 'rm -rf -- "$temporary"' EXIT
 
 read -r version bump < <(printf '%s\n' 'fix: correction' | bash "$test_root/ci/release-version.sh" 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]
+read -r version bump < <(printf '%s\n' 'fix: correction' | bash "$test_root/ci/release-version.sh" 1.0 auto)
+[[ "$version $bump" == '1.0.1 patch' ]]
 read -r version bump < <(printf '%s\n' 'feat(core): capability' | bash "$test_root/ci/release-version.sh" 2.0.0 auto)
 [[ "$version $bump" == '2.1.0 minor' ]]
 
@@ -29,6 +31,14 @@ read -r version bump < <(printf '%s\n' 'feat!: incompatible' | bash "$test_root/
 [[ "$version $bump" == '3.0.0 major' ]]
 read -r version bump < <(printf '%s\n' 'fix: correction' | bash "$test_root/ci/release-version.sh" 2.0.0 minor)
 [[ "$version $bump" == '2.1.0 minor' ]]
+
+grep -Fq 'gh release view --json tagName --jq .tagName' \
+  "$test_root/.github/workflows/release.yml"
+if grep -Fq "git tag --list 'v[0-9]*.[0-9]*.[0-9]*'" \
+  "$test_root/.github/workflows/release.yml"; then
+  printf 'Release automation still derives its baseline from unpublished tags.\n' >&2
+  exit 1
+fi
 
 mkdir -p "$temporary/bin"
 printf 'fixture iso\n' >"$temporary/installer.iso"

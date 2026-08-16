@@ -22,8 +22,9 @@
 
 ### Changed
 
-- Start automated versioning from the published `v2.0.0` release and advance
-  the working version to `2.0.1-dev.0`.
+- Start automated versioning from the latest GitHub release rather than the
+  newest tag. Normalize the published `v1.0` baseline to `1.0.0` and advance
+  the working version to `1.0.1-dev.0`.
 - Consolidate validation, immutable state planning, installer production,
   boot testing, and rolling publication into one conditional CI graph. Pull
   documentation-only requests stay lightweight while relevant pull requests

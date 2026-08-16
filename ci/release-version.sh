@@ -5,6 +5,9 @@ set -euo pipefail
 
 base_version=${1:?usage: release-version.sh BASE_VERSION BUMP}
 requested_bump=${2:?usage: release-version.sh BASE_VERSION BUMP}
+if [[ "$base_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+  base_version="${base_version}.0"
+fi
 [[ "$base_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
   printf 'Invalid base version: %s\n' "$base_version" >&2
   exit 2
