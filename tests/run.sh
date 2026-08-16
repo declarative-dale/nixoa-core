@@ -228,6 +228,15 @@ grep -Fq 'Start NiXOA ${next_version}' \
 grep -Fq 'package-ecosystem: github-actions' \
   "$TEST_ROOT/.github/dependabot.yml" \
   || fail "GitHub Actions updates are not managed by Dependabot"
+grep -Fq 'package-ecosystem: cargo' \
+  "$TEST_ROOT/.github/dependabot.yml" \
+  || fail "Dependabot does not monitor the Rust application"
+grep -Fq 'directory: /pkgs/nixoa-menu' \
+  "$TEST_ROOT/.github/dependabot.yml" \
+  || fail "Dependabot does not target the Rust manifest directory"
+grep -Fq 'applies-to: security-updates' \
+  "$TEST_ROOT/.github/dependabot.yml" \
+  || fail "Dependabot does not group Rust security updates"
 grep -Fq 'automation/weekly-flake-input-refresh' \
   "$TEST_ROOT/.github/workflows/queue-automation.yml" \
   || fail "trusted flake updates are not eligible for the automation queue"
