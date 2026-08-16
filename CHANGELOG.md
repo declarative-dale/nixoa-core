@@ -12,6 +12,8 @@
   version selection and post-release development-version bumps.
 - Add grouped weekly Dependabot updates and a narrowly scoped automation bot
   that queues only Dependabot and the known flake-lock refresh branch.
+- Monitor the Rust application with grouped weekly Cargo updates and a
+  dedicated security-update group, in addition to GitHub Actions updates.
 - Add a fixture-tested installer input fingerprint and immutable artifact state
   pointer, allowing metadata-only commits to reuse the exact prior ISO and
   SBOM inventory without starting another Nix build.
