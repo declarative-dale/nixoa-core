@@ -14,6 +14,7 @@ set -euo pipefail
 ci_workflow=${CI_WORKFLOW:-ci.yml}
 wait_for_merge=${WAIT_FOR_MERGE:-false}
 validate_only=${VALIDATE_ONLY:-false}
+expected_change_kind=${EXPECTED_CHANGE_KIND:-any}
 
 read_pr() {
   gh pr view "$PR_NUMBER" \
@@ -31,12 +32,50 @@ validate_pr() {
   [[ $(jq -er .headRefName <<<"$candidate") == "$EXPECTED_BRANCH" ]]
 }
 
+validate_changes() {
+  local candidate=$1
+  local head_sha
+  local -a changed_files
+
+  case "$expected_change_kind" in
+    any)
+      return
+      ;;
+    flake-lock | version)
+      mapfile -t changed_files < <(
+        gh api --paginate \
+          "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/files?per_page=100" \
+          --jq '.[].filename'
+      )
+      ;;
+    *)
+      printf 'Unknown trusted change kind: %s\n' "$expected_change_kind" >&2
+      return 1
+      ;;
+  esac
+
+  [[ ${#changed_files[@]} -eq 1 ]]
+  if [[ "$expected_change_kind" == flake-lock ]]; then
+    [[ ${changed_files[0]} == flake.lock ]]
+    return
+  fi
+
+  : "${EXPECTED_VERSION:?EXPECTED_VERSION must be set for version changes}"
+  [[ ${changed_files[0]} == VERSION ]]
+  head_sha=$(jq -er .headRefOid <<<"$candidate")
+  [[ $(gh api \
+    -H 'Accept: application/vnd.github.raw+json' \
+    "repos/${GITHUB_REPOSITORY}/contents/VERSION?ref=${head_sha}") == "$EXPECTED_VERSION" ]]
+}
+
 pr=$(read_pr)
 validate_pr "$pr"
+validate_changes "$pr"
 if [[ $(jq -er .mergeStateStatus <<<"$pr") == BEHIND ]]; then
   gh pr update-branch "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
   pr=$(read_pr)
   validate_pr "$pr"
+  validate_changes "$pr"
 fi
 branch=$(jq -er .headRefName <<<"$pr")
 head_sha=$(jq -er .headRefOid <<<"$pr")

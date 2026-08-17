@@ -51,10 +51,22 @@
       "Release publication must explicitly publish the verified draft")
     (contains ".github/workflows/release.yml" "./ci/trusted-update.sh"
       "Release version changes must pass through protected main")
-    (contains ".github/workflows/release.yml" "vars.RELEASE_AUTOMATION_LOGIN || github.actor"
-      "Release automation must validate the configured token owner")
-    (contains ".github/workflows/release.yml" "secrets.MERGE_QUEUE_TOKEN != ''"
-      "Protected release PR creation must require an external automation token")
+    (contains ".github/workflows/release.yml" "GH_TOKEN: \${{ github.token }}"
+      "Release automation must use the repository-scoped GitHub token")
+    (contains ".github/workflows/release.yml" "EXPECTED_AUTHOR: github-actions"
+      "Release automation must validate GitHub Actions' GraphQL identity")
+    (contains ".github/workflows/release.yml" "EXPECTED_CHANGE_KIND=version"
+      "Release automation must allowlist version-only changes")
+    (excludes ".github/workflows/release.yml" "MERGE_QUEUE_TOKEN"
+      "Release automation must not require an external merge token")
+    (contains ".github/workflows/queue-automation.yml" "EXPECTED_AUTHOR=github-actions"
+      "Scheduled recovery must normalize GitHub Actions' bot identity")
+    (contains ".github/workflows/queue-automation.yml" "EXPECTED_CHANGE_KIND=version"
+      "Scheduled recovery must validate version-only pull requests")
+    (excludes ".github/workflows/queue-automation.yml" "MERGE_QUEUE_TOKEN"
+      "Scheduled recovery must not require an external merge token")
+    (contains "ci/trusted-update.sh" "changed_files[0]} == VERSION"
+      "Trusted version updates must change only VERSION")
     (excludes ".github/workflows/release.yml" "--generate-notes"
       "Release notes must come from the curated changelog")
     (contains ".github/workflows/update-flake-lock.yml" "cron: \"17 9 * * 3\""
@@ -62,6 +74,10 @@
     (contains ".github/workflows/update-flake-lock.yml"
       "DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6"
       "Flake input refresh must pin the reviewed action revision")
+    (contains ".github/workflows/update-flake-lock.yml" "token: \${{ github.token }}"
+      "Flake input refresh must use the repository-scoped GitHub token")
+    (excludes ".github/workflows/update-flake-lock.yml" "MERGE_QUEUE_TOKEN"
+      "Flake input refresh must not require an external merge token")
     (excludes ".github/workflows/update-flake-lock.yml" "inputs:"
       "Flake input refresh must not silently omit inputs")
     (contains ".github/dependabot.yml" "package-ecosystem: github-actions"

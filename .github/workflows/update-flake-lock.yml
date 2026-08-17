@@ -32,7 +32,7 @@ jobs:
       - name: Update the lock file and open a pull request
         uses: DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6 # v28
         with:
-          token: ${{ secrets.MERGE_QUEUE_TOKEN || github.token }}
+          token: ${{ github.token }}
           base: main
           branch: automation/weekly-flake-input-refresh
           commit-msg: "flake.lock: refresh all inputs"

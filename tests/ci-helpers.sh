@@ -46,6 +46,14 @@ fi
 
 grep -Fq 'gh release view --json tagName --jq .tagName' \
   "$test_root/.github/workflows/release.yml"
+if grep -Eq 'MERGE_QUEUE_TOKEN|RELEASE_AUTOMATION_LOGIN' \
+  "$test_root/.github/workflows/release.yml" \
+  "$test_root/.github/workflows/queue-automation.yml" \
+  "$test_root/.github/workflows/update-flake-lock.yml" \
+  "$test_root/docs/project-reference.md"; then
+  printf 'Token-free automation still references an external merge token or owner.\n' >&2
+  exit 1
+fi
 if grep -Fq "git tag --list 'v[0-9]*.[0-9]*.[0-9]*'" \
   "$test_root/.github/workflows/release.yml"; then
   printf 'Release automation still derives its baseline from unpublished tags.\n' >&2
@@ -87,6 +95,10 @@ elif [[ "$1 $2" == 'run watch' ]]; then
   exit 0
 elif [[ "$1 $2" == 'pr merge' ]]; then
   printf '%s\n' "$*" >"$FAKE_MERGE_LOG"
+elif [[ "$1" == api && "$*" == *'/pulls/1/files?'* ]]; then
+  printf '%s\n' "${FAKE_FILES:-VERSION}"
+elif [[ "$1" == api && "$*" == *'/contents/VERSION?'* ]]; then
+  printf '%s\n' "${FAKE_VERSION:-1.2.3}"
 else
   printf 'unexpected gh call: %s\n' "$*" >&2
   exit 1
@@ -110,6 +122,24 @@ grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
   bash "$test_root/ci/trusted-update.sh" >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong author.\n' >&2
+  exit 1
+fi
+
+version_env=(
+  "${trusted_env[@]}"
+  EXPECTED_CHANGE_KIND=version
+  EXPECTED_VERSION=1.2.3
+)
+env PATH="$temporary/bin:$PATH" "${version_env[@]}" \
+  bash "$test_root/ci/trusted-update.sh"
+if env PATH="$temporary/bin:$PATH" FAKE_VERSION=1.2.4 "${version_env[@]}" \
+  bash "$test_root/ci/trusted-update.sh" >/dev/null 2>&1; then
+  printf 'Trusted update accepted the wrong VERSION content.\n' >&2
+  exit 1
+fi
+if env PATH="$temporary/bin:$PATH" FAKE_FILES=$'VERSION\nREADME.md' "${version_env[@]}" \
+  bash "$test_root/ci/trusted-update.sh" >/dev/null 2>&1; then
+  printf 'Trusted update accepted an extra version-PR file.\n' >&2
   exit 1
 fi
 
