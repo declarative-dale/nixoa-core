@@ -85,6 +85,16 @@
       source = ./classify.sh;
     };
     classify-paths = classifyPaths;
+    gate = mkCommand {
+      name = "gate";
+      runtimeInputs = commonInputs;
+      source = ./gate.sh;
+    };
+    lock-validate = mkCommand {
+      name = "lock-validate";
+      runtimeInputs = commonInputs;
+      source = ./lock-validate.sh;
+    };
     release-notes = mkCommand {
       name = "release-notes";
       runtimeInputs = commonInputs;
@@ -141,6 +151,7 @@ in
       export NIXOA_SYSTEM_ROOT="$repo_root"
       export NIXOA_CI_BUILD_INPUT=${commandPath "build-input"}
       export NIXOA_CI_CLASSIFY_PATHS=${commandPath "classify-paths"}
+      export NIXOA_CI_LOCK_VALIDATE=${commandPath "lock-validate"}
       export NIXOA_CI_RELEASE_NOTES=${commandPath "release-notes"}
       export NIXOA_CI_RELEASE_STAGE=${commandPath "release-stage"}
       export NIXOA_CI_RELEASE_VERSION=${commandPath "release-version"}
@@ -153,10 +164,12 @@ in
       Commands:
         classify                        Classify the current GitHub event
         classify-paths                  Classify newline-delimited changed paths
+        gate                            Enforce the conditional GitHub CI graph
         installer build-input           Print the immutable installer input digest
         installer resolve-state         Resolve reusable GitHub installer state
         installer build-assets          Build the installer, packages, and SBOMs
         installer boot [ISO]            Boot-test an installer ISO
+        locks validate [LOCKS...]        Verify shared native and flake input pins
         release version LAST BUMP        Select a semantic release version from stdin
         release notes VERSION [FILE]     Extract curated notes from CHANGELOG.md
         release split SOURCE TARGET DIR  Split a release installer for GitHub assets
@@ -180,6 +193,10 @@ in
           shift
           exec ${commandPath "classify-paths"} "$@"
           ;;
+        gate)
+          shift
+          exec ${commandPath "gate"} "$@"
+          ;;
         installer)
           subcommand="''${2:-}"
           shift 2 || true
@@ -188,6 +205,14 @@ in
             resolve-state) exec ${commandPath "resolve-state"} "$@" ;;
             build-assets) exec ${commandPath "build-assets"} "$@" ;;
             boot) exec ${commandPath "boot"} "$@" ;;
+            *) usage >&2; exit 2 ;;
+          esac
+          ;;
+        locks)
+          subcommand="''${2:-}"
+          shift 2 || true
+          case "$subcommand" in
+            validate) exec ${commandPath "lock-validate"} "$@" ;;
             *) usage >&2; exit 2 ;;
           esac
           ;;
@@ -215,7 +240,12 @@ in
         check)
           shift
           cd "$repo_root"
-          exec nix flake check --accept-flake-config --print-build-logs "$@"
+          flake_ref="path:$repo_root"
+          if git -C "$repo_root" rev-parse --show-toplevel >/dev/null 2>&1; then
+            flake_ref="git+file:$repo_root"
+          fi
+          exec nix flake check --accept-flake-config --print-build-logs \
+            "$flake_ref" "$@"
           ;;
         help|-h|--help)
           usage

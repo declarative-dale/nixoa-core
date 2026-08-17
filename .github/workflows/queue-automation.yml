@@ -26,11 +26,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
+          profile: github-publish
 
       - name: Verify, validate, and enqueue updates
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run .#nixoa-ci -- queue
+        run: devenv --no-tui tasks run automation:queue

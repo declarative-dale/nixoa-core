@@ -23,17 +23,26 @@
       ok = builtins.match "[0-9]+\\.[0-9]+\\.[0-9]+(-dev\\.[0-9]+)?" version != null;
       message = "VERSION must be a stable or development semantic version";
     }
-    (contains ".github/workflows/ci.yml"
+    (contains ".github/actions/setup-devenv/action.yml"
       "DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858"
       "CI must pin Determinate Nix to the reviewed revision")
     (excludes ".github/workflows/ci.yml" "magic-nix-cache-action"
       "CI must use the shared Cachix cache instead of Magic Cache")
-    (contains ".github/workflows/ci.yml"
-      "cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71"
+    (contains ".github/actions/setup-devenv/action.yml"
+      "cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13"
       "CI must share Nix outputs through Cachix")
-    (contains ".github/workflows/ci.yml"
+    (contains ".github/actions/setup-devenv/action.yml"
       "cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f"
       "CI must resolve cache configuration through pinned Secretspec automation")
+    (contains ".github/actions/setup-devenv/action.yml"
+      "actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9"
+      "CI must persist only the reviewed devenv metadata cache")
+    (contains ".github/actions/setup-devenv/action.yml"
+      ".devenv/nix-eval-cache.db*"
+      "CI must persist devenv evaluation metadata")
+    (contains ".github/actions/setup-devenv/action.yml"
+      ".devenv/tasks.db*"
+      "CI must persist devenv task metadata")
     (contains "secretspec.toml" "CACHIX_AUTH_TOKEN"
       "Secretspec must declare the Cachix publishing credential")
     (contains "secretspec.toml" "CACHIX_CACHE_NAME"
@@ -42,15 +51,15 @@
       "CI must not retain the superseded closure artifact cache")
     (contains ".github/workflows/ci.yml" "name: CI gate"
       "CI must expose its stable required status")
-    (contains ".github/workflows/release.yml" "nix run .#nixoa-ci -- release stage"
-      "Release staging must use the consolidated Nix automation app")
+    (contains ".github/workflows/release.yml" "tasks run release:stage"
+      "Release staging must use the devenv task graph")
     (contains "nix/automation/release.sh" "--draft"
       "Release publication must pass through a verified draft")
     (contains "nix/automation/release.sh"
       "gh release edit \"$RELEASE_TAG\" --draft=false --latest"
       "Release publication must explicitly publish the verified draft")
-    (contains ".github/workflows/release.yml" "nix run .#nixoa-ci -- release prepare"
-      "Release version changes must use the protected Nix release state machine")
+    (contains ".github/workflows/release.yml" "tasks run release:prepare"
+      "Release version changes must use the protected devenv release task")
     (contains ".github/workflows/release.yml" "GH_TOKEN: \${{ github.token }}"
       "Release automation must use the repository-scoped GitHub token")
     (contains ".github/workflows/release.yml" "EXPECTED_AUTHOR: github-actions"
@@ -59,12 +68,14 @@
       "Release automation must allowlist version-only changes")
     (excludes ".github/workflows/release.yml" "MERGE_QUEUE_TOKEN"
       "Release automation must not require an external merge token")
-    (contains ".github/workflows/queue-automation.yml" "nix run .#nixoa-ci -- queue"
-      "Scheduled recovery must use the consolidated trusted-update queue")
+    (contains ".github/workflows/queue-automation.yml" "tasks run automation:queue"
+      "Scheduled recovery must use the devenv trusted-update task")
     (excludes ".github/workflows/queue-automation.yml" "MERGE_QUEUE_TOKEN"
       "Scheduled recovery must not require an external merge token")
     (contains "nix/automation/trusted-update.sh" "changed_files[0]} == VERSION"
       "Trusted version updates must change only VERSION")
+    (contains "nix/automation/trusted-update.sh" "devenv.lock | flake.lock"
+      "Trusted lock updates must allowlist only the two Nix lockfiles")
     (excludes ".github/workflows/release.yml" "--generate-notes"
       "Release notes must come from the curated changelog")
     (contains ".github/workflows/update-flake-lock.yml" "cron: \"17 9 * * 3\""
@@ -72,6 +83,12 @@
     (contains ".github/workflows/update-flake-lock.yml"
       "DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6"
       "Flake input refresh must pin the reviewed action revision")
+    (contains ".github/workflows/update-flake-lock.yml"
+      "tasks run automation:update-locks"
+      "Input refresh must update the native devenv lock before the flake lock")
+    (contains ".github/workflows/update-flake-lock.yml"
+      "tasks run automation:validate-locks"
+      "Input refresh must validate the synchronized lockfiles")
     (contains ".github/workflows/update-flake-lock.yml" "token: \${{ github.token }}"
       "Flake input refresh must use the repository-scoped GitHub token")
     (excludes ".github/workflows/update-flake-lock.yml" "MERGE_QUEUE_TOKEN"
@@ -82,12 +99,14 @@
       "Dependabot must monitor GitHub Actions")
     (contains ".github/dependabot.yml" "package-ecosystem: cargo"
       "Dependabot must monitor Cargo dependencies")
-    (contains ".github/workflows/ci.yml" "nix run .#nixoa-ci -- classify"
-      "CI change classification must use the consolidated Nix automation app")
-    (contains ".github/workflows/ci.yml" "nix run .#nixoa-ci -- installer resolve-state"
-      "Installer state resolution must use the consolidated Nix automation app")
-    (contains ".github/workflows/ci.yml" "nix run .#nixoa-ci -- installer build-assets"
-      "Installer builds must use the consolidated Nix automation app")
+    (contains ".github/workflows/ci.yml" "tasks run ci:classify"
+      "CI change classification must use the devenv task graph")
+    (contains ".github/workflows/ci.yml" "tasks run ci:installer:plan"
+      "Installer state resolution must use the devenv task graph")
+    (contains ".github/workflows/ci.yml" "tasks run ci:installer:build"
+      "Installer builds must use the devenv task graph")
+    (contains ".github/workflows/ci.yml" "uses: ./.github/actions/ci-gate"
+      "The stable CI gate must avoid provisioning an unnecessary Nix runner")
     (excludes ".github/workflows/ci.yml" "./ci/"
       "CI must not call unpackaged repository scripts")
     (excludes ".github/workflows/release.yml" "./ci/"

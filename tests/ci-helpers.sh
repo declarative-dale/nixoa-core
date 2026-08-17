@@ -15,6 +15,18 @@ trap 'rm -rf -- "$temporary"' EXIT
 [[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI" classify-paths) == false ]]
 [[ $(printf '%s\n' future/unknown-output | "$NIXOA_CI" classify-paths) == true ]]
 
+env CHECK_RESULT=success INSTALLER_REQUIRED=false PLAN_RESULT=skipped \
+  BUILD_RESULT=skipped "$NIXOA_CI" gate
+env CHECK_RESULT=success INSTALLER_REQUIRED=true PLAN_RESULT=success \
+  SHOULD_BUILD=false BUILD_RESULT=skipped "$NIXOA_CI" gate
+env CHECK_RESULT=success INSTALLER_REQUIRED=true PLAN_RESULT=success \
+  SHOULD_BUILD=true BUILD_RESULT=success "$NIXOA_CI" gate
+if env CHECK_RESULT=failure INSTALLER_REQUIRED=false PLAN_RESULT=skipped \
+  BUILD_RESULT=skipped "$NIXOA_CI" gate; then
+  printf 'CI gate accepted a failed repository check.\n' >&2
+  exit 1
+fi
+
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI" release version 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI" release version 1.0 auto)
@@ -119,6 +131,8 @@ trusted_env=(
 )
 env PATH="$temporary/bin:$PATH" "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update
+grep -Fq -- '--auto' "$temporary/merge.log"
+grep -Fq -- '--merge' "$temporary/merge.log"
 grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
@@ -143,5 +157,21 @@ if env PATH="$temporary/bin:$PATH" FAKE_FILES=$'VERSION\nREADME.md' "${version_e
   printf 'Trusted update accepted an extra version-PR file.\n' >&2
   exit 1
 fi
+
+lock_env=(
+  "${trusted_env[@]}"
+  EXPECTED_CHANGE_KIND=flake-lock
+)
+env PATH="$temporary/bin:$PATH" FAKE_FILES=$'devenv.lock\nflake.lock' \
+  "${lock_env[@]}" "$NIXOA_CI" trusted-update
+env PATH="$temporary/bin:$PATH" FAKE_FILES=flake.lock \
+  "${lock_env[@]}" "$NIXOA_CI" trusted-update
+if env PATH="$temporary/bin:$PATH" FAKE_FILES=$'flake.lock\nREADME.md' \
+  "${lock_env[@]}" "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
+  printf 'Trusted lock update accepted a non-lockfile change.\n' >&2
+  exit 1
+fi
+
+"$NIXOA_CI" locks validate
 
 printf 'CI helper fixture checks passed.\n'

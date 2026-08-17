@@ -71,13 +71,49 @@ in {
                 ;;
             esac
           done < <(
-            yq -r '.. | .uses? | select(. != null)' .github/workflows/*.yml |
+            yq -r '.. | .uses? | select(. != null)' \
+              .github/workflows/*.yml \
+              .github/actions/*/action.yml |
               grep -v '^---$'
           )
-          if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml | grep -F './ci/'; then
-            printf 'Workflow directly invokes an unpackaged ci script.\n' >&2
+          if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
+            grep -v '^---$' |
+            grep -Ev '^$|^devenv --no-tui '; then
+            printf 'Workflow command bypasses the devenv task graph.\n' >&2
             exit 1
           fi
+          touch "$out"
+        '';
+
+      devenv-contract =
+        pkgs.runCommandLocal "nixoa-devenv-contract" {
+          nativeBuildInputs = [
+            pkgs.coreutils
+            pkgs.gnugrep
+            pkgs.jq
+          ];
+        } ''
+          cd ${inputs.self}
+          for task in \
+            ci:classify ci:check ci:installer:plan ci:installer:build \
+            ci:installer:boot ci:publish ci:gate automation:queue \
+            automation:update-locks automation:validate-locks \
+            release:prepare release:dispatch release:inventory release:verify \
+            release:stage release:draft release:publish release:advance; do
+            grep -Fq "\"$task\"" nix/devenv.nix
+          done
+          test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
+          grep -Fq "git ls-files -z -- '*.nix'" nix/devenv.nix
+          grep -Fq -- "-path './.devenv'" nix/devenv.nix
+          grep -Fq '.devenv/nix-eval-cache.db*' .github/actions/setup-devenv/action.yml
+          grep -Fq '.devenv/tasks.db*' .github/actions/setup-devenv/action.yml
+          if grep -Eq '\.devenv/(profile|gc|state)|CACHIX_AUTH_TOKEN.*actions/cache' \
+            .github/actions/setup-devenv/action.yml; then
+            printf 'The GitHub cache includes runtime state, roots, or secrets.\n' >&2
+            exit 1
+          fi
+          ${lib.getExe packages.nixoa-ci} locks validate \
+            ${inputs.self}/flake.lock ${inputs.self}/devenv.lock
           touch "$out"
         '';
 

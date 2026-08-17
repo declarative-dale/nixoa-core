@@ -35,7 +35,7 @@ while IFS= read -r pull_request; do
   elif [[ "$rest_author" == 'github-actions[bot]' ]]; then
     EXPECTED_AUTHOR=github-actions
     if [[ "$EXPECTED_BRANCH" == automation/weekly-flake-input-refresh &&
-          "$EXPECTED_TITLE" == 'flake.lock: refresh all inputs' ]]; then
+          "$EXPECTED_TITLE" == 'locks: refresh Nix and devenv inputs' ]]; then
       EXPECTED_CHANGE_KIND=flake-lock
     elif [[ "$EXPECTED_BRANCH" =~ ^automation/release-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
       EXPECTED_VERSION=${BASH_REMATCH[1]}

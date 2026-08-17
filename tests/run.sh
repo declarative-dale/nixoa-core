@@ -96,37 +96,40 @@ grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer workflow does not verify that its Xen Orchestra output is cached"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
   || fail "installer workflow does not pin Determinate Nix to an immutable revision"
-if grep -Fq 'magic-nix-cache-action' "$TEST_ROOT/.github/workflows/ci.yml"; then
+if grep -Fq 'magic-nix-cache-action' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml"; then
   fail "installer workflow still uses the superseded Magic Cache"
 fi
-grep -Fq 'cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq 'cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
   || fail "installer workflow does not share Nix outputs through Cachix"
-cachix_steps=$(grep -Fc \
-  'cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71' \
+setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-devenv' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$cachix_steps" 5
-secretspec_steps=$(grep -Fc \
-  'cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f' \
-  "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$secretspec_steps" 5
+assert_eq "$setup_steps" 5
+grep -Fq 'uses: ./.github/actions/ci-gate' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "stable CI gate still provisions the full Nix toolchain"
+grep -Fq 'cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  || fail "shared CI setup does not resolve Cachix through Secretspec"
 # The GitHub expression must remain literal in the workflow source.
 # shellcheck disable=SC2016
 if grep -Fq 'authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}' \
-  "$TEST_ROOT/.github/workflows/ci.yml"; then
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml"; then
   fail "Cachix action bypasses the Secretspec environment"
 fi
 # The GitHub expression must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'authToken: ${{ env.CACHIX_AUTH_TOKEN }}' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
   || fail "Cachix action does not consume the Secretspec token"
 # The GitHub expression must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'name: ${{ env.CACHIX_CACHE_NAME }}' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
   || fail "Cachix action does not consume the Secretspec cache name"
 grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
@@ -169,7 +172,7 @@ grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable gate"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq 'nix run .#nixoa-ci -- installer boot' "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq 'tasks run ci:installer:boot' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
@@ -199,7 +202,7 @@ if grep -Fq 'inputs:' \
 fi
 grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
   || fail "repository version is not a stable or development semantic version"
-grep -Fq 'nix run .#nixoa-ci -- release stage' "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq 'tasks run release:stage' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not split oversized installer assets"
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
@@ -239,7 +242,7 @@ grep -Fq -- '--signer-workflow "$signer_workflow"' \
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
-grep -Fq 'nix run .#nixoa-ci -- release prepare' \
+grep -Fq 'tasks run release:prepare' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
@@ -271,9 +274,9 @@ grep -Fq 'flake.devShells = lib.genAttrs systems' \
   "$TEST_ROOT/modules/outputs/dev-shells.nix" \
   || fail "flake does not expose its development toolchain"
 grep -Fq 'pkgs.cargo' \
-  "$TEST_ROOT/modules/outputs/dev-shells.nix" \
+  "$TEST_ROOT/nix/devenv-packages.nix" \
   || fail "development shell does not provide Cargo"
-grep -Fq 'nix develop --accept-flake-config --command cargo test' \
+grep -Fq 'devenv shell -- cargo test' \
   "$TEST_ROOT/AGENTS.md" \
   || fail "repository guidance bypasses the flake-provided Rust toolchain"
 grep -Fq 'automation/weekly-flake-input-refresh' \

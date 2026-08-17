@@ -26,18 +26,28 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
+        with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
+          profile: github-publish
 
-      - name: Update the lock file and open a pull request
+      - name: Refresh native devenv inputs
+        run: devenv --no-tui tasks run automation:update-locks
+
+      - name: Refresh flake inputs and open one lock-file pull request
         uses: DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6 # v28
         with:
           token: ${{ github.token }}
           base: main
           branch: automation/weekly-flake-input-refresh
-          commit-msg: "flake.lock: refresh all inputs"
-          pr-title: "flake.lock: refresh all inputs"
+          commit-msg: "locks: refresh Nix and devenv inputs"
+          pr-title: "locks: refresh Nix and devenv inputs"
           pr-body: |
-            Automated weekly refresh of every locked flake input.
+            Automated weekly refresh of every locked flake and devenv input.
 
             Required validation and protected-branch policy still apply.
+
+      - name: Validate the synchronized lockfiles
+        run: devenv --no-tui tasks run automation:validate-locks

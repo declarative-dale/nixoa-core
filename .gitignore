@@ -17,6 +17,9 @@ packer/*.pkrvars.json
 # Nix build artifacts
 .direnv/
 .envrc
+/.devenv/
+/devenv.local.nix
+/devenv.local.yaml
 
 # Local sbomnix output
 /http_cache.sqlite

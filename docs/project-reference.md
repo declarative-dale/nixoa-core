@@ -23,6 +23,7 @@ Public packages include:
 - `nxcli`
 - `nixoa-menu`
 - `deploy-template`
+- `devenv`
 - `installer-iso`
 - `metadata`
 - `sbomnix`
@@ -32,9 +33,10 @@ The flake also exposes operator apps for `nxcli`, `apply`, `bootstrap`,
 
 Run `nix flake show` for the complete evaluated output tree.
 
-The default `devShells.x86_64-linux` output supplies the repository toolchain.
-Use `nix develop` for Rust, Packer, and validation work; the exact commands are
-in the [development guide](development.md).
+Native devenv and the default `devShells.x86_64-linux` output share the
+repository toolchain module. Use `devenv shell` and `devenv tasks run ci:check`
+for normal work; `nix develop` remains the flake-only fallback. Exact commands
+are in the [development guide](development.md).
 
 ## Installer delivery
 
@@ -42,8 +44,10 @@ GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
 artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
 from the public NiXOA Cachix cache and, on trusted repository events, streams
-new outputs back through Cachix's daemon. Later jobs therefore reuse the same
-store paths without a second GitHub cache layer or a temporary NAR artifact.
+new outputs back through Cachix's daemon. GitHub's cache separately restores
+only devenv evaluation and task metadata; it never transports Nix store paths,
+runtime state, garbage-collection roots, or secrets. Later jobs therefore
+reuse the same store paths without a temporary NAR artifact.
 Fork pull requests remain read-only when the publishing token is unavailable.
 
 The Cachix token and cache name are declared in `secretspec.toml`. GitHub
@@ -97,8 +101,9 @@ kept in the runtime Secretspec contract.
   artifact while metadata-only changes skip planning.
 - A forced build and boot runs every other month so runtime and cache drift are
   detected before the 90-day artifact expires.
-- A scheduled workflow refreshes all locked inputs every Wednesday at 09:17
-  UTC and opens or updates a pull request.
+- A scheduled workflow refreshes `devenv.lock` and `flake.lock` every Wednesday
+  at 09:17 UTC, verifies their shared pins, and opens or updates one pull
+  request.
 - Weekly grouped Dependabot updates carry a seven-day cooldown. A narrow bot
   verifies the exact trusted author, repository, branch, title, and head SHA,
   waits for that SHA's CI, and only then enables protected-branch auto-merge.

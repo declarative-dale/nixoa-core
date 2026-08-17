@@ -6,6 +6,9 @@
     "VERSION"
     "README*"
     "CHANGELOG*"
+    "devenv.lock"
+    "devenv.nix"
+    "devenv.yaml"
     "secretspec.toml"
     "docs/*"
     "packer/*"
@@ -13,6 +16,7 @@
     "modules/outputs/checks.nix"
     "modules/outputs/dev-shells.nix"
     "nix/checks/*"
+    "nix/devenv.nix"
     "nix/automation/github/*"
     ".github/*"
   ];

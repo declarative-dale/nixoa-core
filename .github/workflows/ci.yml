@@ -20,6 +20,11 @@ on:
         required: false
         type: boolean
         default: false
+      refresh_devenv_cache:
+        description: Discard restored devenv evaluation and task metadata
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -42,26 +47,12 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Resolve shared cache configuration
-        uses: cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f # main, 2026-07-27
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
         with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: ${{ github.event_name == 'pull_request' && 'github' || 'github-publish' }}
-          scope: cachix
-          provider: env
-          version: 0.19.1
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
-
-      - name: Share Nix outputs through Cachix
-        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
-        with:
-          name: ${{ env.CACHIX_CACHE_NAME }}
-          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
-          skipPush: ${{ env.CACHIX_AUTH_TOKEN == '' }}
 
       - name: Decide whether installer validation is required
         id: classify
@@ -74,7 +65,7 @@ jobs:
           VALIDATE_ONLY: ${{ inputs.validate_only || false }}
           FORCE_ARTIFACT: ${{ inputs.force_artifact || false }}
         shell: bash
-        run: nix run .#nixoa-ci -- classify
+        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:classify
 
   check:
     name: Flake, source, workflow, and security checks
@@ -90,30 +81,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve shared cache configuration
-        uses: cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f # main, 2026-07-27
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
         with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: ${{ github.event_name == 'pull_request' && 'github' || 'github-publish' }}
-          scope: cachix
-          provider: env
-          version: 0.19.1
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
-        with:
-          extra-conf: |
-            extra-substituters = https://install.determinate.systems https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org
-            extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=
-
-      - name: Share Nix outputs through Cachix
-        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
-        with:
-          name: ${{ env.CACHIX_CACHE_NAME }}
-          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
-          skipPush: ${{ env.CACHIX_AUTH_TOKEN == '' }}
 
       - name: Check flake inputs
         uses: DeterminateSystems/flake-checker-action@de924abd783455e8429c858962b9e43062d19da1 # v13
@@ -123,7 +96,7 @@ jobs:
           send-statistics: false
 
       - name: Validate repository
-        run: nix flake check --accept-flake-config --print-build-logs
+        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:check
 
   plan:
     name: Plan immutable installer state
@@ -146,26 +119,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve shared cache configuration
-        uses: cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f # main, 2026-07-27
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
         with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: ${{ github.event_name == 'pull_request' && 'github' || 'github-publish' }}
-          scope: cachix
-          provider: env
-          version: 0.19.1
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
-
-      - name: Share Nix outputs through Cachix
-        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
-        with:
-          name: ${{ env.CACHIX_CACHE_NAME }}
-          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
-          skipPush: ${{ env.CACHIX_AUTH_TOKEN == '' }}
 
       - name: Resolve immutable installer state
         id: state
@@ -173,7 +132,7 @@ jobs:
           ALLOW_REUSE: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.force_artifact != true)) && 'true' || 'false' }}
           FORCE_BUILD: ${{ (github.event_name == 'schedule' || inputs.force_artifact == true) && 'true' || 'false' }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run .#nixoa-ci -- installer resolve-state
+        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:installer:plan
 
       - name: Upload installer state pointer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -201,41 +160,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve shared cache configuration
-        uses: cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f # main, 2026-07-27
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
         with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: ${{ github.event_name == 'pull_request' && 'github' || 'github-publish' }}
-          scope: cachix
-          provider: env
-          version: 0.19.1
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
-        with:
-          extra-conf: |
-            extra-substituters = https://install.determinate.systems https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org
-            extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=
-
-      - name: Share Nix outputs through Cachix
-        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
-        with:
-          name: ${{ env.CACHIX_CACHE_NAME }}
-          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
-          skipPush: ${{ env.CACHIX_AUTH_TOKEN == '' }}
 
       - name: Build installer and sbomnix inventories
-        run: nix run .#nixoa-ci -- installer build-assets
+        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:installer:build
 
       - name: Boot the installer ISO
         env:
           BOOT_LOG: ${{ runner.temp }}/qemu-boot.log
-        run: >-
-          nix shell --inputs-from . nixpkgs#qemu_kvm --command
-          nix run .#nixoa-ci -- installer boot
-          result-installer/iso/nixoa-installer.iso
+        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:installer:boot
 
       - name: Upload boot log after failure
         if: failure()
@@ -308,50 +246,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve shared cache configuration
-        uses: cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f # main, 2026-07-27
+      - name: Set up devenv and shared Nix caching
+        uses: ./.github/actions/setup-devenv
         with:
+          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: github-publish
-          scope: cachix
-          provider: env
-          version: 0.19.1
-        env:
-          CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
-
-      - name: Share Nix outputs through Cachix
-        uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17
-        with:
-          name: ${{ env.CACHIX_CACHE_NAME }}
-          authToken: ${{ env.CACHIX_AUTH_TOKEN }}
 
       - name: Build reusable outputs
-        run: |
-          nix build .#deploy-template -o result-deploy-template
-          nix build .#metadata -o result-metadata
-          nix build .#nixoa-menu -o result-nixoa-menu
-          nix build .#nxcli -o result-nxcli
-
-      - name: Push reusable package closures to Cachix
-        continue-on-error: true
-        env:
-          CACHE_NAME: ${{ env.CACHIX_CACHE_NAME }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [[ -z "${CACHIX_AUTH_TOKEN:-}" ]]; then
-            echo 'CACHIX_AUTH_TOKEN is unset; GitHub artifacts remain available.'
-            exit 0
-          fi
-          readlink -f \
-            result-deploy-template \
-            result-metadata \
-            result-nixoa-menu \
-            result-nxcli |
-            cachix push "${CACHE_NAME}"
+        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:publish
 
       - name: Publish the rolling flake to FlakeHub
         continue-on-error: true
@@ -371,29 +274,19 @@ jobs:
       - check
       - plan
       - build
-    runs-on: ubuntu-slim
-    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
       - name: Enforce the conditional CI graph
-        env:
-          BUILD_RESULT: ${{ needs.build.result }}
-          CHECK_RESULT: ${{ needs.check.result }}
-          EVENT_NAME: ${{ github.event_name }}
-          INSTALLER_REQUIRED: ${{ needs.changes.outputs.installer }}
-          PLAN_RESULT: ${{ needs.plan.result }}
-          SHOULD_BUILD: ${{ needs.plan.outputs.should_build }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "${CHECK_RESULT}" == success ]]
-          if [[ "${INSTALLER_REQUIRED}" == true ]]; then
-            [[ "${PLAN_RESULT}" == success ]]
-            if [[ "${SHOULD_BUILD}" == true ]]; then
-              [[ "${BUILD_RESULT}" == success ]]
-            else
-              [[ "${BUILD_RESULT}" == skipped ]]
-            fi
-          else
-            [[ "${PLAN_RESULT}" == skipped ]]
-            [[ "${BUILD_RESULT}" == skipped ]]
-          fi
+        uses: ./.github/actions/ci-gate
+        with:
+          build_result: ${{ needs.build.result }}
+          check_result: ${{ needs.check.result }}
+          installer_required: ${{ needs.changes.outputs.installer }}
+          plan_result: ${{ needs.plan.result }}
+          should_build: ${{ needs.plan.outputs.should_build }}

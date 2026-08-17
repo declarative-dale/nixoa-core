@@ -11,26 +11,12 @@ in {
       config.allowUnfreePredicate = package:
         lib.getName package == "packer";
     };
-    secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
   in {
+    # Keep `nix develop` as a lightweight compatibility entry point. Native
+    # devenv owns the task graph and evaluation cache; both shells consume the
+    # same package definition without compiling devenv's task engine here.
     default = pkgs.mkShellNoCC {
-      packages = [
-        pkgs.actionlint
-        pkgs.alejandra
-        pkgs.cargo
-        pkgs.clippy
-        pkgs.gh
-        pkgs.jq
-        pkgs.nixd
-        pkgs.packer
-        pkgs.rust-analyzer
-        pkgs.rustc
-        pkgs.rustfmt
-        secretspec
-        pkgs.shellcheck
-        pkgs.zizmor
-        pkgs.yq-go
-      ];
+      packages = import ../../nix/devenv-packages.nix {inherit pkgs;};
     };
   });
 }
