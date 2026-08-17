@@ -52,9 +52,12 @@ public cache. CI explicitly disables the separate FlakeHub Cache service.
 
 The build also uses `sbomnix` to create SPDX and CycloneDX runtime SBOMs for
 the complete appliance closure. CI boots the ISO with QEMU, signs its build
-provenance, and binds the SPDX document to the installer. The tested installer,
-both SBOMs, their checksums, and a release manifest become immutable GitHub
-release assets.
+provenance, and binds the SPDX document to the installer. GitHub release assets
+carry the tested installer in numbered parts below GitHub's 2 GiB per-asset
+limit, plus its whole-file checksum, both SBOMs, and a checksummed manifest.
+Reassemble a directly downloaded installer with `cat nixoa-v*.iso.part-* >
+nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
+`deploy-template` path performs artifact retrieval and verification itself.
 
 Before allocating the installer runner, a small planning job fingerprints only the
 tracked files that affect the appliance, installer, and SBOM outputs. If that

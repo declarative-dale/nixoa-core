@@ -13,7 +13,7 @@ while IFS= read -r path; do
       required=true
       break
       ;;
-    .github/*|ci/github/*|ci/release-notes.sh|ci/release-version.sh|ci/trusted-update.sh)
+    .github/*|ci/github/*|ci/installer-changes.sh|ci/release-notes.sh|ci/release-version.sh|ci/stage-release-installer.sh|ci/trusted-update.sh)
       ;;
     *)
       required=true
