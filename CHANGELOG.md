@@ -9,6 +9,12 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Fixed
+
+- Remove the external release-token assumption from protected version and
+  flake-input updates. Repository-scoped automation now dispatches CI for the
+  exact bot-authored head SHA and validates version-only changes before merge.
+
 ## [1.1.1] - 2026-08-17
 
 Version 1.1.1 corrects the protected post-release handoff and makes CI policy

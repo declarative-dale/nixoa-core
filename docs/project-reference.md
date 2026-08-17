@@ -101,10 +101,12 @@ public keys are declared in `flake.nix`.
   pull request, verifies both builder attestations, fills a draft GitHub
   release, publishes the versioned flake, and only then makes the release
   immutable. The next development version also passes through the queue.
-- Protected release-version PRs require a `MERGE_QUEUE_TOKEN` repository secret
-  whose owner can trigger pull-request workflows. Set `RELEASE_AUTOMATION_LOGIN`
-  when that token belongs to a dedicated bot account; the workflow refuses to
-  fall back to `GITHUB_TOKEN`, whose PRs cannot trigger the required CI event.
+- Release, development-version, and flake-input pull requests use only the
+  repository-scoped `GITHUB_TOKEN`. Because its pull requests do not emit a new
+  pull-request workflow event, trusted automation dispatches CI for the exact
+  head SHA, waits for the protected `CI gate`, and then enables auto-merge.
+  Scheduled recovery accepts only exact bot identities, branch/title shapes,
+  and allowlisted file changes; version pull requests may change only `VERSION`.
 - `VERSION` records the current development release. The release workflow
   changes it to the selected stable version and advances it to the next patch
   development version after publication.
