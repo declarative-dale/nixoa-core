@@ -22,6 +22,7 @@ repo_root=$(git -C "${script_dir}" rev-parse --show-toplevel)
     host \
     installer \
     modules \
+    ':(exclude)modules/outputs/checks.nix' \
     ':(exclude)modules/outputs/dev-shells.nix' \
     pkgs \
     scripts

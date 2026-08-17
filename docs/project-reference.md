@@ -101,6 +101,10 @@ public keys are declared in `flake.nix`.
   pull request, verifies both builder attestations, fills a draft GitHub
   release, publishes the versioned flake, and only then makes the release
   immutable. The next development version also passes through the queue.
+- Protected release-version PRs require a `MERGE_QUEUE_TOKEN` repository secret
+  whose owner can trigger pull-request workflows. Set `RELEASE_AUTOMATION_LOGIN`
+  when that token belongs to a dedicated bot account; the workflow refuses to
+  fall back to `GITHUB_TOKEN`, whose PRs cannot trigger the required CI event.
 - `VERSION` records the current development release. The release workflow
   changes it to the selected stable version and advances it to the next patch
   development version after publication.

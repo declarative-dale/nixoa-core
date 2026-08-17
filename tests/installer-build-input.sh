@@ -31,6 +31,8 @@ printf '%s\n' '{ config.system.stateVersion = "26.05"; }' \
   >"${fixture}/modules/appliance.nix"
 printf '%s\n' '{ flake.devShells = {}; }' \
   >"${fixture}/modules/outputs/dev-shells.nix"
+printf '%s\n' '{ flake.checks = {}; }' \
+  >"${fixture}/modules/outputs/checks.nix"
 printf '%s\n' '# Contributor notes' >"${fixture}/docs/notes.md"
 printf '%s\n' '2.0.1-dev.0' >"${fixture}/VERSION"
 printf '%s\n' '#!/usr/bin/env bash' >"${fixture}/tests/example.sh"
@@ -48,6 +50,8 @@ printf '%s\n' '#!/usr/bin/env bash' 'printf test' \
 printf '%s\n' 'updated packer fixture' >"${fixture}/packer/example.pkr.hcl"
 printf '%s\n' '{ flake.devShells = { updated = true; }; }' \
   >"${fixture}/modules/outputs/dev-shells.nix"
+printf '%s\n' '{ flake.checks = { updated = true; }; }' \
+  >"${fixture}/modules/outputs/checks.nix"
 git -C "${fixture}" add .
 metadata_only=$(bash "${fixture}/ci/installer-build-input.sh")
 [[ "${metadata_only}" == "${baseline}" ]] || {

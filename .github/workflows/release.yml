@@ -51,7 +51,8 @@ jobs:
         id: version
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          EXPECTED_AUTHOR: ${{ vars.RELEASE_AUTOMATION_LOGIN || 'github-actions[bot]' }}
+          EXPECTED_AUTHOR: ${{ vars.RELEASE_AUTOMATION_LOGIN || github.actor }}
+          HAS_MERGE_QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN != '' }}
           REQUESTED_BUMP: ${{ inputs.bump }}
         shell: bash
         run: |
@@ -106,6 +107,10 @@ jobs:
           if [[ "${source_version}" == "${version}" ]]; then
             source_sha=${initial_sha}
           else
+            [[ "${HAS_MERGE_QUEUE_TOKEN}" == true ]] || {
+              echo 'Configure MERGE_QUEUE_TOKEN before creating a protected release-version PR.' >&2
+              exit 1
+            }
             remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
             [[ "${remote_sha}" == "${initial_sha}" ]]
             branch=automation/release-${tag}
@@ -437,7 +442,8 @@ jobs:
       - name: Merge next development version
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          EXPECTED_AUTHOR: ${{ vars.RELEASE_AUTOMATION_LOGIN || 'github-actions[bot]' }}
+          EXPECTED_AUTHOR: ${{ vars.RELEASE_AUTOMATION_LOGIN || github.actor }}
+          HAS_MERGE_QUEUE_TOKEN: ${{ secrets.MERGE_QUEUE_TOKEN != '' }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         shell: bash
         run: |
@@ -447,6 +453,10 @@ jobs:
           current_version=$(<VERSION)
           [[ "${current_version}" == "${RELEASE_VERSION}" || "${current_version}" == "${next_version}" ]]
           [[ "${current_version}" == "${next_version}" ]] && exit 0
+          [[ "${HAS_MERGE_QUEUE_TOKEN}" == true ]] || {
+            echo 'Configure MERGE_QUEUE_TOKEN before creating a protected development-version PR.' >&2
+            exit 1
+          }
           branch=automation/start-${next_version}
           title="Start NiXOA ${next_version}"
           pr_number=$(gh pr list \

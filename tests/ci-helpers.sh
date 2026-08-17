@@ -7,7 +7,7 @@ test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-ci-helpers.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
 
-[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/dev-shells.nix ci/installer-changes.sh ci/release-notes.sh ci/stage-release-installer.sh | bash "$test_root/ci/installer-changes.sh") == false ]]
+[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/checks.nix modules/outputs/dev-shells.nix nix/checks/repository-policy.nix ci/installer-build-input.sh ci/installer-changes.sh ci/release-notes.sh ci/stage-release-installer.sh | bash "$test_root/ci/installer-changes.sh") == false ]]
 [[ $(printf '%s\n' modules/_nixos/platform.nix | bash "$test_root/ci/installer-changes.sh") == true ]]
 [[ $(printf '%s\n' ci/build-release-assets.sh | bash "$test_root/ci/installer-changes.sh") == true ]]
 [[ $(printf '%s\n' .github/workflows/ci.yml | bash "$test_root/ci/installer-changes.sh") == true ]]
@@ -79,7 +79,7 @@ cat >"$temporary/bin/gh" <<'EOF'
 set -euo pipefail
 if [[ "$1 $2" == 'pr view' ]]; then
   jq -n \
-    --arg author "${FAKE_AUTHOR:-github-actions[bot]}" \
+    --arg author "${FAKE_AUTHOR:-release-bot}" \
     '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:"abc123",headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
 elif [[ "$1 $2" == 'run list' ]]; then
   printf '42\n'
@@ -100,7 +100,7 @@ trusted_env=(
   PR_NUMBER=1
   EXPECTED_BRANCH=automation/test
   EXPECTED_TITLE='Trusted update'
-  EXPECTED_AUTHOR='github-actions[bot]'
+  EXPECTED_AUTHOR='release-bot'
   DEFAULT_BRANCH=main
   FAKE_MERGE_LOG="$temporary/merge.log"
 )

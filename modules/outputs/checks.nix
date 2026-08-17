@@ -22,26 +22,27 @@ in {
         printf '%s\n' "NiXOA appliance flake evaluation smoke check" > "$out/README"
       '';
 
-      shell-tests =
-        pkgs.runCommandLocal "nixoa-shell-tests" {
+      workflow-policy =
+        pkgs.runCommandLocal "nixoa-workflow-policy" {
           nativeBuildInputs = [
-            pkgs.bash
             pkgs.actionlint
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.git
-            pkgs.gnugrep
-            pkgs.gnused
-            pkgs.jq
-            pkgs.shellcheck
             pkgs.zizmor
           ];
         } ''
           cp -R ${inputs.self} source
-          chmod -R u+w source
           cd source
           actionlint .github/workflows/*.yml
           zizmor .github/workflows
+          touch "$out"
+        '';
+
+      shell-lint =
+        pkgs.runCommandLocal "nixoa-shell-lint" {
+          nativeBuildInputs = [
+            pkgs.shellcheck
+          ];
+        } ''
+          cd ${inputs.self}
           shellcheck \
             ci/*.sh \
             installer/*.sh \
@@ -51,9 +52,32 @@ in {
             scripts/lib/*.sh \
             scripts/tui/*.sh \
             tests/*.sh
+          touch "$out"
+        '';
+
+      fixture-tests =
+        pkgs.runCommandLocal "nixoa-fixture-tests" {
+          nativeBuildInputs = [
+            pkgs.bash
+            pkgs.coreutils
+            pkgs.findutils
+            pkgs.git
+            pkgs.gnugrep
+            pkgs.gnused
+            pkgs.jq
+          ];
+        } ''
+          cp -R ${inputs.self} source
+          chmod -R u+w source
+          cd source
           NIXOA_SKIP_EVAL=1 bash ./tests/run.sh
           touch "$out"
         '';
+
+      repository-policy = import ../../nix/checks/repository-policy.nix {
+        inherit lib pkgs;
+        source = inputs.self;
+      };
 
       configuration = assert appliance.nixoa.xo.enable;
       assert appliance.nixoa.xo.package == inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
