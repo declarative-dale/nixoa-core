@@ -7,7 +7,7 @@ test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-ci-helpers.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
 
-[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/dev-shells.nix | bash "$test_root/ci/installer-changes.sh") == false ]]
+[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/dev-shells.nix ci/release-notes.sh | bash "$test_root/ci/installer-changes.sh") == false ]]
 [[ $(printf '%s\n' modules/_nixos/platform.nix | bash "$test_root/ci/installer-changes.sh") == true ]]
 [[ $(printf '%s\n' ci/build-release-assets.sh | bash "$test_root/ci/installer-changes.sh") == true ]]
 [[ $(printf '%s\n' .github/workflows/ci.yml | bash "$test_root/ci/installer-changes.sh") == true ]]
@@ -31,6 +31,18 @@ read -r version bump < <(printf '%s\n' 'feat!: incompatible' | bash "$test_root/
 [[ "$version $bump" == '3.0.0 major' ]]
 read -r version bump < <(printf '%s\n' 'fix: correction' | bash "$test_root/ci/release-version.sh" 2.0.0 minor)
 [[ "$version $bump" == '2.1.0 minor' ]]
+
+release_notes=$(bash "$test_root/ci/release-notes.sh" 1.1.0 "$test_root/CHANGELOG.md")
+grep -Fq 'Security' <<<"$release_notes"
+grep -Fq 'Magic Cache' <<<"$release_notes"
+if grep -Fq 'Unreleased' <<<"$release_notes"; then
+  printf 'Release notes include the Unreleased section.\n' >&2
+  exit 1
+fi
+if bash "$test_root/ci/release-notes.sh" 9.9.9 "$test_root/CHANGELOG.md" >/dev/null 2>&1; then
+  printf 'Release notes accepted a missing version.\n' >&2
+  exit 1
+fi
 
 grep -Fq 'gh release view --json tagName --jq .tagName' \
   "$test_root/.github/workflows/release.yml"

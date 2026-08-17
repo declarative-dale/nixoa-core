@@ -27,6 +27,7 @@ bash -n \
   "$TEST_ROOT/ci/build-release-assets.sh" \
   "$TEST_ROOT/ci/boot-installer-iso.sh" \
   "$TEST_ROOT/ci/find-installer-state.sh" \
+  "$TEST_ROOT/ci/release-notes.sh" \
   "$TEST_ROOT/ci/release-version.sh" \
   "$TEST_ROOT/ci/trusted-update.sh" \
   "$TEST_ROOT/scripts/lib/common.sh" \
@@ -110,6 +111,18 @@ grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c
 grep -Fq 'DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not use the GitHub-backed Magic Nix Cache"
+magic_cache_steps=$(grep -Fc \
+  'DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d' \
+  "$TEST_ROOT/.github/workflows/ci.yml")
+assert_eq "$magic_cache_steps" 2
+publish_job=$(awk '
+  /^  publish:/ { copying = 1 }
+  copying && /^  gate:/ { exit }
+  copying { print }
+' "$TEST_ROOT/.github/workflows/ci.yml")
+if grep -Fq 'magic-nix-cache-action' <<<"$publish_job"; then
+  fail "publisher redundantly uploads its outputs to Magic Cache"
+fi
 grep -Fq 'use-gha-cache: enabled' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not explicitly use the free GitHub cache"
@@ -189,10 +202,23 @@ if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
 fi
-grep -Fq '1.0.1-dev.0' "$TEST_ROOT/VERSION" \
-  || fail "development version was not advanced after CI hardening"
+grep -Fxq '1.1.0' "$TEST_ROOT/VERSION" \
+  || fail "repository is not prepared for the v1.1.0 release"
 grep -Fq -- '--draft' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not stage assets in a draft"
+# The variable reference must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq './ci/release-notes.sh "${RELEASE_VERSION}" CHANGELOG.md' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow does not use the curated changelog entry"
+# The variable reference must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq -- '--notes-file "${notes_file}"' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow does not publish curated release notes"
+if grep -Fq -- '--generate-notes' "$TEST_ROOT/.github/workflows/release.yml"; then
+  fail "release workflow still substitutes generated notes for the changelog"
+fi
 grep -Fq 'candidate-state/nixoa-build-state.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not resolve the immutable build state"

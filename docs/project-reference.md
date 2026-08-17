@@ -42,9 +42,11 @@ GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
 artifact from the consolidated `CI` workflow; smaller reusable package
 closures are published to Cachix.
-Determinate Magic Nix Cache reuses CI-only build results through GitHub's
-free native cache without replacing the public Cachix publishing path. CI
-explicitly disables the separate FlakeHub Cache service.
+Determinate Magic Nix Cache reuses results in validation and installer-build
+jobs through GitHub's free native cache. The publication job writes its small
+reusable closures directly to Cachix and FlakeHub, avoiding a second upload of
+the same outputs to GitHub's cache. CI explicitly disables the separate
+FlakeHub Cache service.
 
 The build also uses `sbomnix` to create SPDX and CycloneDX runtime SBOMs for
 the complete appliance closure. CI boots the ISO with QEMU, signs its build
