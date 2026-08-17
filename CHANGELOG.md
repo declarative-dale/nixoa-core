@@ -9,6 +9,32 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Added
+
+- Add the flake-packaged `nixoa-ci` interface for local and GitHub automation,
+  including installer classification and state, trusted updates, and the
+  immutable release state machine.
+- Add a flake-validated Secretspec contract for Cachix's GitHub repository
+  secret and variable, with token-free pull-request and required publishing
+  profiles.
+
+### Changed
+
+- Reduce GitHub workflows to permissions, runner setup, artifact transport,
+  attestations, and calls into `nixoa-ci`; repository-specific decisions are
+  now reproducible through the flake.
+- Declare installer-impact and build-input paths in one Nix policy, and split
+  automation, installer-state, release, operator, Secretspec, workflow, and
+  shell fixtures into independently cached checks.
+- Replace Magic Cache and the temporary closure artifact bridge with Cachix
+  daemon sharing for every Nix-producing CI job. Trusted events publish all new
+  build outputs; fork pull requests consume the same public cache read-only.
+- Cache the tested ISO, SPDX and CycloneDX inventories, checksums, and immutable
+  state together in one 90-day GitHub artifact used by later runs and releases;
+  Cachix separately shares the system closure and SBOM tooling between jobs.
+- Validate workflow structure with Actionlint, Zizmor, and YAML-aware action
+  pin and direct-script policies.
+
 ### Fixed
 
 - Remove the external release-token assumption from protected version and

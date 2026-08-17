@@ -10,10 +10,36 @@ in {
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       packages = inputs.self.packages.${system};
       appliance = inputs.self.nixosConfigurations.nixoa.config;
+      fixtureInputs = [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.git
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.jq
+      ];
+      mkSourceCheck = {
+        name,
+        command,
+        nativeBuildInputs ? fixtureInputs,
+      }:
+        pkgs.runCommandLocal "nixoa-${name}" {inherit nativeBuildInputs;} ''
+          cp -R ${inputs.self} source
+          chmod -R u+w source
+          cd source
+          export HOME="$TMPDIR/home"
+          export NIXOA_CI=${lib.getExe packages.nixoa-ci}
+          export NIXOA_SYSTEM_ROOT="$PWD"
+          mkdir -p "$HOME"
+          ${command}
+          touch "$out"
+        '';
     in {
       inherit
         (packages)
         metadata
+        nixoa-ci
         nxcli
         ;
 
@@ -26,6 +52,8 @@ in {
         pkgs.runCommandLocal "nixoa-workflow-policy" {
           nativeBuildInputs = [
             pkgs.actionlint
+            pkgs.bash
+            pkgs.yq-go
             pkgs.zizmor
           ];
         } ''
@@ -33,6 +61,23 @@ in {
           cd source
           actionlint .github/workflows/*.yml
           zizmor .github/workflows
+          while IFS= read -r action; do
+            case "$action" in
+              ./*) ;;
+              *@????????????????????????????????????????) ;;
+              *)
+                printf 'Action is not pinned to a full commit: %s\n' "$action" >&2
+                exit 1
+                ;;
+            esac
+          done < <(
+            yq -r '.. | .uses? | select(. != null)' .github/workflows/*.yml |
+              grep -v '^---$'
+          )
+          if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml | grep -F './ci/'; then
+            printf 'Workflow directly invokes an unpackaged ci script.\n' >&2
+            exit 1
+          fi
           touch "$out"
         '';
 
@@ -44,35 +89,60 @@ in {
         } ''
           cd ${inputs.self}
           shellcheck \
-            ci/*.sh \
             installer/*.sh \
             packer/*.sh \
             packer/scripts/*.sh \
             scripts/*.sh \
             scripts/lib/*.sh \
             scripts/tui/*.sh \
+            nix/automation/*.sh \
             tests/*.sh
           touch "$out"
         '';
 
-      fixture-tests =
-        pkgs.runCommandLocal "nixoa-fixture-tests" {
+      automation-fixtures = mkSourceCheck {
+        name = "automation-fixtures";
+        command = "bash ./tests/ci-helpers.sh";
+      };
+
+      installer-input-fixtures = mkSourceCheck {
+        name = "installer-input-fixtures";
+        command = "bash ./tests/installer-build-input.sh";
+      };
+
+      release-fixtures = mkSourceCheck {
+        name = "release-fixtures";
+        command = "bash ./tests/release-assets.sh";
+      };
+
+      secretspec-contract =
+        pkgs.runCommandLocal "nixoa-secretspec-contract" {
           nativeBuildInputs = [
-            pkgs.bash
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.git
-            pkgs.gnugrep
-            pkgs.gnused
             pkgs.jq
+            packages.secretspec
           ];
         } ''
-          cp -R ${inputs.self} source
-          chmod -R u+w source
-          cd source
-          NIXOA_SKIP_EVAL=1 bash ./tests/run.sh
+          export HOME="$TMPDIR/home"
+          mkdir -p "$HOME"
+          secretspec schema \
+            --file ${inputs.self}/secretspec.toml \
+            --profile github \
+            --output github-schema.json
+          jq -e '.required == ["CACHIX_CACHE_NAME"]' github-schema.json >/dev/null
+          secretspec schema \
+            --file ${inputs.self}/secretspec.toml \
+            --profile github-publish \
+            --output publish-schema.json
+          jq -e \
+            '.required == ["CACHIX_AUTH_TOKEN", "CACHIX_CACHE_NAME"]' \
+            publish-schema.json >/dev/null
           touch "$out"
         '';
+
+      operator-fixtures = mkSourceCheck {
+        name = "operator-fixtures";
+        command = "NIXOA_SKIP_EVAL=1 bash ./tests/run.sh";
+      };
 
       repository-policy = import ../../nix/checks/repository-policy.nix {
         inherit lib pkgs;

@@ -1,9 +1,8 @@
 {
   description = "NiXOA - a focused Xen Orchestra appliance for XCP-ng";
 
-  # GitHub Actions publishes reusable package outputs to these caches. The
-  # multi-gigabyte, closure-preseeded installer is a workflow artifact instead
-  # so it does not consume the small NiXOA Cachix storage allocation.
+  # GitHub Actions shares Nix build outputs through these public caches while
+  # release artifacts remain immutable GitHub assets.
   nixConfig = {
     extra-substituters = [
       "https://install.determinate.systems"

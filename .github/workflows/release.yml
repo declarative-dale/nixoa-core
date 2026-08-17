@@ -47,160 +47,22 @@ jobs:
           persist-credentials: false
           ref: main
 
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
       - name: Calculate and merge the release version
         id: version
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           EXPECTED_AUTHOR: github-actions
           REQUESTED_BUMP: ${{ inputs.bump }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "${GITHUB_REF}" == refs/heads/main ]]
-          initial_sha=$(git rev-parse HEAD)
-          [[ "${initial_sha}" == "${GITHUB_SHA}" ]] || {
-            echo 'Main advanced after this release was dispatched.' >&2
-            exit 1
-          }
-          source_version=$(<VERSION)
-          [[ "${source_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$ ]]
-
-          last_tag=$(gh release view --json tagName --jq .tagName 2>/dev/null || true)
-          if [[ -n "${last_tag}" ]]; then
-            [[ "${last_tag}" =~ ^v[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]
-            git rev-parse --verify "refs/tags/${last_tag}" >/dev/null
-          fi
-
-          if [[ -z "${last_tag}" ]]; then
-            version=${source_version%%-dev.*}
-            selected_bump=initial
-          else
-            git merge-base --is-ancestor "${last_tag}" HEAD
-            meaningful_commits=$(git log "${last_tag}..HEAD" \
-              --format='%H' \
-              --invert-grep \
-              --grep='^Release NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+$' \
-              --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
-            [[ -n "${meaningful_commits}" ]] || {
-              echo "No releasable commits exist after ${last_tag}." >&2
-              exit 1
-            }
-            release_log=$(git log "${last_tag}..HEAD" \
-              --format='%s%n%b' \
-              --invert-grep \
-              --grep='^Release NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+$' \
-              --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
-            read -r version selected_bump < <(
-              ./ci/release-version.sh "${last_tag#v}" "${REQUESTED_BUMP}" <<<"${release_log}"
-            )
-          fi
-
-          tag=v${version}
-          if release_state=$(gh release view "${tag}" --json isDraft 2>/dev/null); then
-            [[ $(jq -r .isDraft <<<"${release_state}") == true ]] || {
-              echo "Release ${tag} is already published." >&2
-              exit 1
-            }
-          fi
-
-          if [[ "${source_version}" == "${version}" ]]; then
-            source_sha=${initial_sha}
-          else
-            remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
-            [[ "${remote_sha}" == "${initial_sha}" ]]
-            branch=automation/release-${tag}
-            title="Release NiXOA ${version}"
-            pr_number=$(gh pr list \
-              --repo "${GITHUB_REPOSITORY}" \
-              --state open \
-              --head "${branch}" \
-              --json number \
-              --jq '.[0].number // empty')
-            if [[ -z "${pr_number}" ]]; then
-              if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
-                echo "Release branch ${branch} exists without an open pull request." >&2
-                exit 1
-              fi
-              git switch -c "${branch}"
-              printf '%s\n' "${version}" >VERSION
-              git config user.name github-actions[bot]
-              git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-              git add VERSION
-              git commit -m "${title}"
-              gh auth setup-git
-              git push origin "HEAD:${branch}"
-              pr_url=$(gh pr create \
-                --repo "${GITHUB_REPOSITORY}" \
-                --base main \
-                --head "${branch}" \
-                --title "${title}" \
-                --body "Prepare the protected, immutable ${tag} release.")
-              pr_number=$(gh pr view "${pr_url}" --repo "${GITHUB_REPOSITORY}" --json number --jq .number)
-            fi
-            export PR_NUMBER=${pr_number}
-            export EXPECTED_BRANCH=${branch}
-            export EXPECTED_TITLE=${title}
-            export EXPECTED_CHANGE_KIND=version
-            export EXPECTED_VERSION=${version}
-            export VALIDATE_ONLY=true
-            export WAIT_FOR_MERGE=true
-            ./ci/trusted-update.sh
-            source_sha=$(gh pr view "${pr_number}" \
-              --repo "${GITHUB_REPOSITORY}" \
-              --json mergeCommit \
-              --jq .mergeCommit.oid)
-          fi
-
-          remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
-          [[ "${remote_sha}" == "${source_sha}" ]] || {
-            echo 'Main advanced before release publication; dispatch again.' >&2
-            exit 1
-          }
-          {
-            echo "source_sha=${source_sha}"
-            echo "tag=${tag}"
-            echo "version=${version}"
-          } >>"${GITHUB_OUTPUT}"
-          printf 'Selected %s with a %s bump.\n' "${tag}" "${selected_bump}"
+        run: nix run .#nixoa-ci -- release prepare
 
       - name: Dispatch immutable artifact resolution
         id: candidate
         env:
           SOURCE_SHA: ${{ steps.version.outputs.source_sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
-          [[ "${remote_sha}" == "${SOURCE_SHA}" ]]
-          previous_run_id=$(gh run list \
-            --workflow ci.yml \
-            --event workflow_dispatch \
-            --branch main \
-            --commit "${SOURCE_SHA}" \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId // empty')
-          gh workflow run ci.yml \
-            --ref main \
-            -f validate_only=false \
-            -f force_artifact=false
-          run_id=
-          for _ in {1..24}; do
-            run_id=$(gh run list \
-              --workflow ci.yml \
-              --event workflow_dispatch \
-              --branch main \
-              --commit "${SOURCE_SHA}" \
-              --limit 5 \
-              --json databaseId \
-              --jq ".[] | select((.databaseId | tostring) != \"${previous_run_id}\") | .databaseId" |
-              head -n 1)
-            [[ -z "${run_id}" ]] || break
-            sleep 5
-          done
-          [[ -n "${run_id}" ]]
-          gh run watch "${run_id}" --exit-status
-          echo "run_id=${run_id}" >>"${GITHUB_OUTPUT}"
+        run: nix run .#nixoa-ci -- release dispatch
 
   release:
     name: Verify and publish immutable release assets
@@ -222,6 +84,9 @@ jobs:
           persist-credentials: false
           ref: ${{ needs.prepare.outputs.source_sha }}
 
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
       - name: Download tested installer state
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -234,20 +99,7 @@ jobs:
         id: inventory
         env:
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          expected_build_input=$(./ci/installer-build-input.sh)
-          jq -e \
-            --arg build_input "${expected_build_input}" \
-            --arg source_commit "${SOURCE_SHA}" \
-            '.schema_version == 2 and .build_input == $build_input and .source_commit == $source_commit and (.artifact_run_id | type == "number")' \
-            candidate-state/nixoa-build-state.json >/dev/null
-          {
-            echo "artifact_run_id=$(jq -r .artifact_run_id candidate-state/nixoa-build-state.json)"
-            echo "artifact_source_commit=$(jq -r .artifact_source_commit candidate-state/nixoa-build-state.json)"
-            echo "build_input=${expected_build_input}"
-          } >>"${GITHUB_OUTPUT}"
+        run: nix run .#nixoa-ci -- release inventory
 
       - name: Download tested installer inventory
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -262,35 +114,7 @@ jobs:
           ARTIFACT_RUN_ID: ${{ steps.inventory.outputs.artifact_run_id }}
           ARTIFACT_SOURCE_COMMIT: ${{ steps.inventory.outputs.artifact_source_commit }}
           BUILD_INPUT: ${{ steps.inventory.outputs.build_input }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          (
-            cd candidate
-            sha256sum --check --strict nixoa-installer.iso.sha256
-            sha256sum --check --strict nixoa-system.spdx.json.sha256
-            sha256sum --check --strict nixoa-system.cdx.json.sha256
-          )
-          jq -e \
-            --arg build_input "${BUILD_INPUT}" \
-            --arg artifact_source_commit "${ARTIFACT_SOURCE_COMMIT}" \
-            --argjson artifact_run_id "${ARTIFACT_RUN_ID}" \
-            '.schema_version == 2 and .build_input == $build_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id' \
-            candidate/nixoa-build-state.json >/dev/null
-          installer=candidate/result-installer/iso/nixoa-installer.iso
-          signer_workflow="${GITHUB_REPOSITORY}/.github/workflows/ci.yml"
-          gh attestation verify "${installer}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --signer-workflow "${signer_workflow}" \
-            --source-digest "${ARTIFACT_SOURCE_COMMIT}" \
-            --deny-self-hosted-runners
-          spdx_version=$(jq -er .spdxVersion candidate/nixoa-system.spdx.json)
-          gh attestation verify "${installer}" \
-            --repo "${GITHUB_REPOSITORY}" \
-            --signer-workflow "${signer_workflow}" \
-            --source-digest "${ARTIFACT_SOURCE_COMMIT}" \
-            --predicate-type "https://spdx.dev/Document/v${spdx_version#SPDX-}" \
-            --deny-self-hosted-runners
+        run: nix run .#nixoa-ci -- release verify
 
       - name: Stage versioned release assets
         env:
@@ -300,93 +124,14 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          [[ "${SOURCE_SHA}" == "$(git rev-parse HEAD)" ]]
-          [[ "$(<VERSION)" == "${RELEASE_VERSION}" ]]
-          install -d -m 0755 release
-          versioned_installer="${RUNNER_TEMP}/nixoa-${RELEASE_TAG}.iso"
-          ./ci/stage-release-installer.sh \
-            candidate/result-installer/iso/nixoa-installer.iso \
-            "${versioned_installer}" \
-            release
-          gzip -9c candidate/nixoa-system.spdx.json >"release/nixoa-${RELEASE_TAG}.spdx.json.gz"
-          gzip -9c candidate/nixoa-system.cdx.json >"release/nixoa-${RELEASE_TAG}.cdx.json.gz"
-          (
-            cd release
-            sha256sum "nixoa-${RELEASE_TAG}.spdx.json.gz" >"nixoa-${RELEASE_TAG}.spdx.json.gz.sha256"
-            sha256sum "nixoa-${RELEASE_TAG}.cdx.json.gz" >"nixoa-${RELEASE_TAG}.cdx.json.gz.sha256"
-          )
-          mapfile -t installer_parts < <(
-            find release -maxdepth 1 -type f \
-              -name "nixoa-${RELEASE_TAG}.iso.part-*" -print | sort
-          )
-          installer_parts_json=$(
-            for part in "${installer_parts[@]}"; do
-              jq -n \
-                --arg name "${part##*/}" \
-                --arg sha256 "$(sha256sum "$part" | cut -d' ' -f1)" \
-                '{name:$name,sha256:$sha256}'
-            done | jq -s .
-          )
-          created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-          jq -n \
-            --arg version "${RELEASE_VERSION}" \
-            --arg tag "${RELEASE_TAG}" \
-            --arg source_commit "${SOURCE_SHA}" \
-            --arg artifact_source_commit "${ARTIFACT_SOURCE_COMMIT}" \
-            --arg build_input "${BUILD_INPUT}" \
-            --arg created_at "${created_at}" \
-            --arg repository "${GITHUB_REPOSITORY}" \
-            --arg release_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
-            --arg artifact_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${ARTIFACT_RUN_ID}" \
-            --arg installer "nixoa-${RELEASE_TAG}.iso" \
-            --arg installer_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.iso.sha256")" \
-            --argjson installer_parts "${installer_parts_json}" \
-            --arg spdx "nixoa-${RELEASE_TAG}.spdx.json.gz" \
-            --arg spdx_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.spdx.json.gz.sha256")" \
-            --arg cdx "nixoa-${RELEASE_TAG}.cdx.json.gz" \
-            --arg cdx_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.cdx.json.gz.sha256")" \
-            '{schema_version:2,version:$version,tag:$tag,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,build_input:$build_input,created_at:$created_at,repository:$repository,release_run:$release_run,artifact_run:$artifact_run,assets:{installer:{name:$installer,sha256:$installer_sha256,parts:$installer_parts},spdx:{name:$spdx,sha256:$spdx_sha256},cyclonedx:{name:$cdx,sha256:$cdx_sha256}}}' \
-            >release/release-manifest.json
-          (cd release && sha256sum release-manifest.json >release-manifest.json.sha256)
+        run: nix run .#nixoa-ci -- release stage
 
       - name: Create or refresh verified draft
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          notes_file="${RUNNER_TEMP}/release-notes.md"
-          ./ci/release-notes.sh "${RELEASE_VERSION}" CHANGELOG.md >"${notes_file}"
-          mapfile -t assets < <(find release -maxdepth 1 -type f -print | sort)
-          mapfile -t installer_parts < <(
-            find release -maxdepth 1 -type f \
-              -name "nixoa-${RELEASE_TAG}.iso.part-*" -print | sort
-          )
-          [[ ${#assets[@]} -eq $((${#installer_parts[@]} + 7)) ]]
-          if release_state=$(gh release view "${RELEASE_TAG}" --json isDraft,targetCommitish 2>/dev/null); then
-            [[ $(jq -r .isDraft <<<"${release_state}") == true ]]
-            draft_target=$(jq -r .targetCommitish <<<"${release_state}")
-            git merge-base --is-ancestor "${draft_target}" "${SOURCE_SHA}"
-            gh release edit "${RELEASE_TAG}" \
-              --notes-file "${notes_file}" \
-              --target "${SOURCE_SHA}"
-            gh release upload "${RELEASE_TAG}" "${assets[@]}" --clobber
-          else
-            gh release create "${RELEASE_TAG}" \
-              "${assets[@]}" \
-              --draft \
-              --notes-file "${notes_file}" \
-              --target "${SOURCE_SHA}" \
-              --title "NiXOA ${RELEASE_VERSION}"
-          fi
-          mapfile -t expected < <(printf '%s\n' "${assets[@]##*/}" | sort)
-          mapfile -t actual < <(gh release view "${RELEASE_TAG}" --json assets --jq '.assets[].name' | sort)
-          [[ "${expected[*]}" == "${actual[*]}" ]]
+        run: nix run .#nixoa-ci -- release draft
 
       - name: Attest final release filename
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -398,9 +143,6 @@ jobs:
         with:
           subject-path: ${{ runner.temp }}/nixoa-${{ needs.prepare.outputs.tag }}.iso
           sbom-path: candidate/nixoa-system.spdx.json
-
-      - name: Install Determinate Nix
-        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
 
       - name: Publish versioned flake
         uses: DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4 # main, Node.js 24 (post-v6)
@@ -415,7 +157,7 @@ jobs:
       - name: Publish immutable GitHub release
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-        run: gh release edit "${RELEASE_TAG}" --draft=false --latest
+        run: nix run .#nixoa-ci -- release publish
 
   advance:
     name: Merge the next development version
@@ -436,53 +178,12 @@ jobs:
           persist-credentials: false
           ref: main
 
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
       - name: Merge next development version
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           EXPECTED_AUTHOR: github-actions
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          IFS=. read -r major minor patch <<<"${RELEASE_VERSION}"
-          next_version="${major}.${minor}.$((patch + 1))-dev.0"
-          current_version=$(<VERSION)
-          [[ "${current_version}" == "${RELEASE_VERSION}" || "${current_version}" == "${next_version}" ]]
-          [[ "${current_version}" == "${next_version}" ]] && exit 0
-          branch=automation/start-${next_version}
-          title="Start NiXOA ${next_version}"
-          pr_number=$(gh pr list \
-            --repo "${GITHUB_REPOSITORY}" \
-            --state open \
-            --head "${branch}" \
-            --json number \
-            --jq '.[0].number // empty')
-          if [[ -z "${pr_number}" ]]; then
-            if git ls-remote --exit-code --heads origin "${branch}" >/dev/null 2>&1; then
-              echo "Development branch ${branch} exists without an open pull request." >&2
-              exit 1
-            fi
-            git switch -c "${branch}"
-            printf '%s\n' "${next_version}" >VERSION
-            git config user.name github-actions[bot]
-            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-            git add VERSION
-            git commit -m "${title}"
-            gh auth setup-git
-            git push origin "HEAD:${branch}"
-            pr_url=$(gh pr create \
-              --repo "${GITHUB_REPOSITORY}" \
-              --base main \
-              --head "${branch}" \
-              --title "${title}" \
-              --body "Advance development after the immutable v${RELEASE_VERSION} release.")
-            pr_number=$(gh pr view "${pr_url}" --repo "${GITHUB_REPOSITORY}" --json number --jq .number)
-          fi
-          export PR_NUMBER=${pr_number}
-          export EXPECTED_BRANCH=${branch}
-          export EXPECTED_TITLE=${title}
-          export EXPECTED_CHANGE_KIND=version
-          export EXPECTED_VERSION=${next_version}
-          export VALIDATE_ONLY=true
-          export WAIT_FOR_MERGE=true
-          ./ci/trusted-update.sh
+        run: nix run .#nixoa-ci -- release advance

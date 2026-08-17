@@ -26,46 +26,44 @@
     (contains ".github/workflows/ci.yml"
       "DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858"
       "CI must pin Determinate Nix to the reviewed revision")
-    (contains ".github/workflows/ci.yml"
-      "DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d"
-      "CI must retain the GitHub-backed Magic Nix Cache")
-    (contains ".github/workflows/ci.yml" "use-gha-cache: enabled"
-      "Magic Cache must explicitly use GitHub's cache")
-    (contains ".github/workflows/ci.yml" "use-flakehub: disabled"
-      "CI must not probe the separate FlakeHub Cache service")
+    (excludes ".github/workflows/ci.yml" "magic-nix-cache-action"
+      "CI must use the shared Cachix cache instead of Magic Cache")
     (contains ".github/workflows/ci.yml"
       "cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71"
-      "CI must retain public Cachix publishing")
-    (contains ".github/workflows/ci.yml" "name: nixoa-reusable-cache"
-      "CI must publish the bounded reusable closure cache")
-    (contains ".github/workflows/ci.yml" "retention-days: 14"
-      "The reusable closure cache must remain short-lived")
+      "CI must share Nix outputs through Cachix")
+    (contains ".github/workflows/ci.yml"
+      "cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f"
+      "CI must resolve cache configuration through pinned Secretspec automation")
+    (contains "secretspec.toml" "CACHIX_AUTH_TOKEN"
+      "Secretspec must declare the Cachix publishing credential")
+    (contains "secretspec.toml" "CACHIX_CACHE_NAME"
+      "Secretspec must declare the Cachix repository variable")
+    (excludes ".github/workflows/ci.yml" "nixoa-reusable-cache"
+      "CI must not retain the superseded closure artifact cache")
     (contains ".github/workflows/ci.yml" "name: CI gate"
       "CI must expose its stable required status")
-    (contains ".github/workflows/release.yml" "stage-release-installer.sh"
-      "Release staging must partition oversized installers")
-    (contains ".github/workflows/release.yml" "--draft"
+    (contains ".github/workflows/release.yml" "nix run .#nixoa-ci -- release stage"
+      "Release staging must use the consolidated Nix automation app")
+    (contains "nix/automation/release.sh" "--draft"
       "Release publication must pass through a verified draft")
-    (contains ".github/workflows/release.yml"
-      "gh release edit \"\${RELEASE_TAG}\" --draft=false --latest"
+    (contains "nix/automation/release.sh"
+      "gh release edit \"$RELEASE_TAG\" --draft=false --latest"
       "Release publication must explicitly publish the verified draft")
-    (contains ".github/workflows/release.yml" "./ci/trusted-update.sh"
-      "Release version changes must pass through protected main")
+    (contains ".github/workflows/release.yml" "nix run .#nixoa-ci -- release prepare"
+      "Release version changes must use the protected Nix release state machine")
     (contains ".github/workflows/release.yml" "GH_TOKEN: \${{ github.token }}"
       "Release automation must use the repository-scoped GitHub token")
     (contains ".github/workflows/release.yml" "EXPECTED_AUTHOR: github-actions"
       "Release automation must validate GitHub Actions' GraphQL identity")
-    (contains ".github/workflows/release.yml" "EXPECTED_CHANGE_KIND=version"
+    (contains "nix/automation/release.sh" "EXPECTED_CHANGE_KIND=version"
       "Release automation must allowlist version-only changes")
     (excludes ".github/workflows/release.yml" "MERGE_QUEUE_TOKEN"
       "Release automation must not require an external merge token")
-    (contains ".github/workflows/queue-automation.yml" "EXPECTED_AUTHOR=github-actions"
-      "Scheduled recovery must normalize GitHub Actions' bot identity")
-    (contains ".github/workflows/queue-automation.yml" "EXPECTED_CHANGE_KIND=version"
-      "Scheduled recovery must validate version-only pull requests")
+    (contains ".github/workflows/queue-automation.yml" "nix run .#nixoa-ci -- queue"
+      "Scheduled recovery must use the consolidated trusted-update queue")
     (excludes ".github/workflows/queue-automation.yml" "MERGE_QUEUE_TOKEN"
       "Scheduled recovery must not require an external merge token")
-    (contains "ci/trusted-update.sh" "changed_files[0]} == VERSION"
+    (contains "nix/automation/trusted-update.sh" "changed_files[0]} == VERSION"
       "Trusted version updates must change only VERSION")
     (excludes ".github/workflows/release.yml" "--generate-notes"
       "Release notes must come from the curated changelog")
@@ -84,6 +82,18 @@
       "Dependabot must monitor GitHub Actions")
     (contains ".github/dependabot.yml" "package-ecosystem: cargo"
       "Dependabot must monitor Cargo dependencies")
+    (contains ".github/workflows/ci.yml" "nix run .#nixoa-ci -- classify"
+      "CI change classification must use the consolidated Nix automation app")
+    (contains ".github/workflows/ci.yml" "nix run .#nixoa-ci -- installer resolve-state"
+      "Installer state resolution must use the consolidated Nix automation app")
+    (contains ".github/workflows/ci.yml" "nix run .#nixoa-ci -- installer build-assets"
+      "Installer builds must use the consolidated Nix automation app")
+    (excludes ".github/workflows/ci.yml" "./ci/"
+      "CI must not call unpackaged repository scripts")
+    (excludes ".github/workflows/release.yml" "./ci/"
+      "Release automation must not call unpackaged repository scripts")
+    (excludes ".github/workflows/queue-automation.yml" "./ci/"
+      "Trusted-update recovery must not call unpackaged repository scripts")
     (absent ".github/workflows/cache-nixoa-menu.yml"
       "The superseded package cache workflow must stay removed")
     (absent ".github/workflows/validate.yml"

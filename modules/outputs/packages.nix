@@ -15,6 +15,8 @@ in {
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
+      nixoaCi = pkgs.callPackage ../../nix/automation {};
+      secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
       packerXenserverPlugin = pkgs.callPackage ../../pkgs/packer-xenserver-plugin/package.nix {};
       packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {
         inherit packerXenserverPlugin;
@@ -68,6 +70,7 @@ in {
       {
         xen-orchestra-ce = xenOrchestraCe;
         sbomnix = pkgs.sbomnix;
+        inherit secretspec;
         libvhdi =
           inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi-fuse2
           or inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
@@ -75,6 +78,7 @@ in {
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         deploy-template = deployTemplate;
+        nixoa-ci = nixoaCi;
         nxcli = nxcli;
         nixoa-menu = nixoaMenu;
       }

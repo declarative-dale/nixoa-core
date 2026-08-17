@@ -18,7 +18,7 @@ permissions:
 jobs:
   enqueue:
     name: Validate and enqueue trusted updates
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-24.04
     timeout-minutes: 180
     steps:
       - name: Checkout trusted automation
@@ -26,58 +26,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Install Determinate Nix
+        uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
       - name: Verify, validate, and enqueue updates
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          pull_requests=$(gh api --paginate \
-            "repos/${GITHUB_REPOSITORY}/pulls?state=open&per_page=100" \
-            --slurp)
-          jq -c \
-            --arg branch "${DEFAULT_BRANCH}" \
-            --arg repository "${GITHUB_REPOSITORY}" '
-              add[] |
-              select(.draft == false) |
-              select(.head.repo.full_name == $repository) |
-              select(.base.ref == $branch) |
-              select(.user.login == "dependabot[bot]" or .user.login == "github-actions[bot]") |
-              {rest_author:.user.login,branch:.head.ref,number,title}
-            ' <<<"${pull_requests}" |
-          while IFS= read -r pull_request; do
-            export PR_NUMBER
-            export EXPECTED_BRANCH
-            export EXPECTED_TITLE
-            export EXPECTED_AUTHOR
-            export EXPECTED_CHANGE_KIND=any
-            unset EXPECTED_VERSION
-            PR_NUMBER=$(jq -er .number <<<"${pull_request}")
-            EXPECTED_BRANCH=$(jq -er .branch <<<"${pull_request}")
-            EXPECTED_TITLE=$(jq -er .title <<<"${pull_request}")
-            rest_author=$(jq -er .rest_author <<<"${pull_request}")
-
-            if [[ "${rest_author}" == 'dependabot[bot]' ]]; then
-              EXPECTED_AUTHOR=dependabot
-            elif [[ "${rest_author}" == 'github-actions[bot]' ]]; then
-              EXPECTED_AUTHOR=github-actions
-              if [[ "${EXPECTED_BRANCH}" == automation/weekly-flake-input-refresh &&
-                    "${EXPECTED_TITLE}" == 'flake.lock: refresh all inputs' ]]; then
-                EXPECTED_CHANGE_KIND=flake-lock
-              elif [[ "${EXPECTED_BRANCH}" =~ ^automation/release-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-                EXPECTED_VERSION=${BASH_REMATCH[1]}
-                [[ "${EXPECTED_TITLE}" == "Release NiXOA ${EXPECTED_VERSION}" ]] || continue
-                EXPECTED_CHANGE_KIND=version
-              elif [[ "${EXPECTED_BRANCH}" =~ ^automation/start-([0-9]+\.[0-9]+\.[0-9]+-dev\.0)$ ]]; then
-                EXPECTED_VERSION=${BASH_REMATCH[1]}
-                [[ "${EXPECTED_TITLE}" == "Start NiXOA ${EXPECTED_VERSION}" ]] || continue
-                EXPECTED_CHANGE_KIND=version
-              else
-                continue
-              fi
-            else
-              continue
-            fi
-            ./ci/trusted-update.sh
-          done
+        run: nix run .#nixoa-ci -- queue

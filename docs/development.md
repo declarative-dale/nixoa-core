@@ -15,8 +15,8 @@ nix develop --accept-flake-config --command packer version
 ```
 
 The default shell provides the Rust compiler and tooling, Nix language tools,
-Packer, GitHub CLI, and the workflow and shell linters used by this repository.
-Do not rely on host-installed Cargo or Packer versions.
+Packer, GitHub CLI, Secretspec, and the workflow and shell linters used by this
+repository. Do not rely on host-installed Cargo, Packer, or Secretspec versions.
 
 ## Validate a change
 
@@ -26,6 +26,18 @@ Run the full flake contract before publishing:
 nix flake check --accept-flake-config --no-write-lock-file
 ```
 
+Repository automation has one flake-owned interface:
+
+```bash
+nix run --accept-flake-config .#nixoa-ci -- help
+nix run --accept-flake-config .#nixoa-ci -- classify-paths < changed-paths.txt
+nix run --accept-flake-config .#nixoa-ci -- installer build-input
+```
+
+GitHub workflows call the same interface. Product operations remain under
+`nxcli`; `nixoa-ci` is contributor and delivery tooling and is not installed
+on the appliance.
+
 For a focused Rust edit:
 
 ```bash
@@ -33,12 +45,12 @@ nix develop --accept-flake-config --command bash -lc \
   'cd pkgs/nixoa-menu && cargo fmt --check && cargo check --locked && cargo test --locked'
 ```
 
-The flake exposes separate cached checks for behavioral fixtures, ShellCheck,
-workflow policy (`actionlint` and `zizmor`), and repository invariants such as
-release trust, cache topology, action pins, and removed runners. This keeps a
-failure focused while `nix flake check` remains the single full contract. Use
-`NIXOA_SKIP_EVAL=1 tests/run.sh` only for a quick fixture pass; it is not a
-substitute for the full flake check.
+The flake exposes separate cached checks for automation, installer-input,
+release, operator, and Secretspec contracts, plus ShellCheck, workflow policy
+(`actionlint`, `zizmor`, and YAML-aware assertions), and repository invariants.
+This keeps failures focused while `nix flake check` remains the single full
+contract. Run any ad-hoc shell fixtures through `nix develop`; they are not a
+substitute for the flake check.
 
 ## Work with changes
 

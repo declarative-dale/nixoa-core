@@ -37,6 +37,14 @@ downloads and verifies the ISO at deployment time, and passes its temporary
 path to Packer. The artifact is not a flake input or lock-file entry. An exact
 checkout-local ISO remains available through `INSTALLER_SOURCE=build`.
 
+Repository delivery is also flake-owned. `packages.x86_64-linux.nixoa-ci`
+packages the tools and decision logic used by GitHub Actions behind one app.
+The workflows retain GitHub security boundaries—permissions, OIDC, artifacts,
+attestations, Cachix, and FlakeHub—but do not implement installer or release
+policy inline. A Nix policy declares which source paths affect the immutable
+installer fingerprint, allowing metadata-only commits to reuse a previously
+verified artifact while unknown paths fail safely toward rebuilding.
+
 ## Module layout
 
 ```text

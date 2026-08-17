@@ -11,6 +11,7 @@ in {
       config.allowUnfreePredicate = package:
         lib.getName package == "packer";
     };
+    secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
   in {
     default = pkgs.mkShellNoCC {
       packages = [
@@ -25,8 +26,10 @@ in {
         pkgs.rust-analyzer
         pkgs.rustc
         pkgs.rustfmt
+        secretspec
         pkgs.shellcheck
         pkgs.zizmor
+        pkgs.yq-go
       ];
     };
   });

@@ -24,7 +24,6 @@ packer/*.pkrvars.json
 /sbom.spdx.json
 /sbom.cdx.json
 /nixoa-build-state.json
-/nixoa-reusable-cache/
 /nixoa-installer.iso.sha256
 /nixoa-system.cdx.json
 /nixoa-system.cdx.json.sha256

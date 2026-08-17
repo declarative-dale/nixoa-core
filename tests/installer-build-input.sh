@@ -2,26 +2,24 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
+: "${NIXOA_CI:?NIXOA_CI must point to the packaged automation CLI}"
 
-test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-build-input.XXXXXX")
 trap 'rm -rf -- "${fixture}"' EXIT
 
 mkdir -p \
   "${fixture}/.github/workflows" \
-  "${fixture}/ci" \
   "${fixture}/docs" \
   "${fixture}/modules/outputs" \
+  "${fixture}/nix/automation" \
   "${fixture}/packer" \
   "${fixture}/tests"
-cp "${test_root}/ci/installer-build-input.sh" \
-  "${fixture}/ci/installer-build-input.sh"
-cp "${test_root}/ci/reusable-cache.sh" \
-  "${fixture}/ci/reusable-cache.sh"
 printf '%s\n' '#!/usr/bin/env bash' 'printf build' \
-  >"${fixture}/ci/build-release-assets.sh"
+  >"${fixture}/nix/automation/installer-build-assets.sh"
 printf '%s\n' '#!/usr/bin/env bash' 'printf boot' \
-  >"${fixture}/ci/boot-installer-iso.sh"
+  >"${fixture}/nix/automation/installer-boot.sh"
+printf '%s\n' '# automation fixture' \
+  >"${fixture}/nix/automation/default.nix"
 printf '%s\n' 'workflow: installer' \
   >"${fixture}/.github/workflows/ci.yml"
 printf '%s\n' '{ outputs = {}; }' >"${fixture}/flake.nix"
@@ -35,12 +33,14 @@ printf '%s\n' '{ flake.checks = {}; }' \
   >"${fixture}/modules/outputs/checks.nix"
 printf '%s\n' '# Contributor notes' >"${fixture}/docs/notes.md"
 printf '%s\n' '2.0.1-dev.0' >"${fixture}/VERSION"
+printf '%s\n' '[project]' 'name = "fixture"' 'revision = "1.0"' \
+  >"${fixture}/secretspec.toml"
 printf '%s\n' '#!/usr/bin/env bash' >"${fixture}/tests/example.sh"
 printf '%s\n' 'packer fixture' >"${fixture}/packer/example.pkr.hcl"
 
 git -C "${fixture}" init -q
 git -C "${fixture}" add .
-baseline=$(bash "${fixture}/ci/installer-build-input.sh")
+baseline=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 [[ "${baseline}" =~ ^[0-9a-f]{64}$ ]]
 
 printf '%s\n' '# Updated contributor notes' >"${fixture}/docs/notes.md"
@@ -52,8 +52,10 @@ printf '%s\n' '{ flake.devShells = { updated = true; }; }' \
   >"${fixture}/modules/outputs/dev-shells.nix"
 printf '%s\n' '{ flake.checks = { updated = true; }; }' \
   >"${fixture}/modules/outputs/checks.nix"
+printf '%s\n' '# repository cache contract' \
+  >>"${fixture}/secretspec.toml"
 git -C "${fixture}" add .
-metadata_only=$(bash "${fixture}/ci/installer-build-input.sh")
+metadata_only=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 [[ "${metadata_only}" == "${baseline}" ]] || {
   printf 'Metadata-only fixture unexpectedly changed installer state.\n' >&2
   exit 1
@@ -62,7 +64,7 @@ metadata_only=$(bash "${fixture}/ci/installer-build-input.sh")
 printf '%s\n' 'workflow: updated installer runner' \
   >"${fixture}/.github/workflows/ci.yml"
 git -C "${fixture}" add .github/workflows/ci.yml
-workflow_change=$(bash "${fixture}/ci/installer-build-input.sh")
+workflow_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 [[ "${workflow_change}" != "${baseline}" ]] || {
   printf 'CI workflow fixture did not change installer state.\n' >&2
   exit 1
@@ -71,26 +73,26 @@ workflow_change=$(bash "${fixture}/ci/installer-build-input.sh")
 printf '%s\n' '{ config.system.stateVersion = "26.11"; }' \
   >"${fixture}/modules/appliance.nix"
 git -C "${fixture}" add modules/appliance.nix
-appliance_change=$(bash "${fixture}/ci/installer-build-input.sh")
+appliance_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 [[ "${appliance_change}" != "${baseline}" ]] || {
   printf 'Appliance fixture did not change installer state.\n' >&2
   exit 1
 }
 
 printf '%s\n' '#!/usr/bin/env bash' 'printf updated-build' \
-  >"${fixture}/ci/build-release-assets.sh"
-git -C "${fixture}" add ci/build-release-assets.sh
-recipe_change=$(bash "${fixture}/ci/installer-build-input.sh")
-[[ "${recipe_change}" != "${workflow_change}" ]] || {
+  >"${fixture}/nix/automation/installer-build-assets.sh"
+git -C "${fixture}" add nix/automation/installer-build-assets.sh
+recipe_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+[[ "${recipe_change}" != "${appliance_change}" ]] || {
   printf 'Artifact recipe fixture did not change installer state.\n' >&2
   exit 1
 }
 
-printf '%s\n' '# cache recipe changed' >>"${fixture}/ci/reusable-cache.sh"
-git -C "${fixture}" add ci/reusable-cache.sh
-cache_recipe_change=$(bash "${fixture}/ci/installer-build-input.sh")
-[[ "${cache_recipe_change}" != "${recipe_change}" ]] || {
-  printf 'Reusable cache recipe fixture did not change installer state.\n' >&2
+printf '%s\n' '# automation policy changed' >>"${fixture}/nix/automation/default.nix"
+git -C "${fixture}" add nix/automation/default.nix
+automation_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+[[ "${automation_change}" != "${recipe_change}" ]] || {
+  printf 'Nix automation fixture did not change installer state.\n' >&2
   exit 1
 }
 
