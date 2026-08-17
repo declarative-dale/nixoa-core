@@ -33,9 +33,12 @@ nix develop --accept-flake-config --command bash -lc \
   'cd pkgs/nixoa-menu && cargo fmt --check && cargo check --locked && cargo test --locked'
 ```
 
-The flake check also runs the shell fixtures, ShellCheck, actionlint, and
-`zizmor`. Use `NIXOA_SKIP_EVAL=1 tests/run.sh` only for a quick fixture pass;
-it is not a substitute for the full flake check.
+The flake exposes separate cached checks for behavioral fixtures, ShellCheck,
+workflow policy (`actionlint` and `zizmor`), and repository invariants such as
+release trust, cache topology, action pins, and removed runners. This keeps a
+failure focused while `nix flake check` remains the single full contract. Use
+`NIXOA_SKIP_EVAL=1 tests/run.sh` only for a quick fixture pass; it is not a
+substitute for the full flake check.
 
 ## Work with changes
 

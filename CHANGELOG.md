@@ -9,6 +9,25 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-08-17
+
+Version 1.1.1 corrects the protected post-release handoff and makes CI policy
+failures smaller, clearer, and more reusable through the flake.
+
+### Changed
+
+- Split workflow security, ShellCheck, behavioral fixtures, and repository
+  policy into independent flake checks so Nix can cache and report each
+  contract separately.
+- Evaluate stable versioning, cache topology, release integrity, action pins,
+  dependency automation, and removed-runner invariants from Nix expressions.
+
+### Fixed
+
+- Require an external automation token before creating protected version PRs,
+  validate its configured owner, and fail immediately instead of opening a
+  `GITHUB_TOKEN` PR that cannot trigger the required pull-request CI event.
+
 ## [1.1.0] - 2026-08-17
 
 Version 1.1.0 is a security and delivery overhaul. It strengthens the path
