@@ -50,8 +50,10 @@ core deployment model unchanged.
   documentation and other metadata-only changes avoid unnecessary builds, while
   a forced validation runs every other month.
 - Use Determinate Magic Cache only for validation and installer-build jobs. The
-  publication job sends its reusable closures directly to the retained public
-  Cachix cache and FlakeHub, avoiding a redundant GitHub cache upload.
+  verified build hands its four reusable closures to the publication job as a
+  14-day, file-backed Nix cache selected by immutable run ID. Publication then
+  sends those exact closures to the retained public Cachix cache and FlakeHub,
+  avoiding both a rebuild and a redundant Magic Cache upload.
 - Derive versions from the latest published GitHub release, beginning with the
   `v1.0` baseline, and route release and post-release version changes through
   protected pull requests.

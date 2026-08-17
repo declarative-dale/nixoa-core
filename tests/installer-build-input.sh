@@ -16,6 +16,8 @@ mkdir -p \
   "${fixture}/tests"
 cp "${test_root}/ci/installer-build-input.sh" \
   "${fixture}/ci/installer-build-input.sh"
+cp "${test_root}/ci/reusable-cache.sh" \
+  "${fixture}/ci/reusable-cache.sh"
 printf '%s\n' '#!/usr/bin/env bash' 'printf build' \
   >"${fixture}/ci/build-release-assets.sh"
 printf '%s\n' '#!/usr/bin/env bash' 'printf boot' \
@@ -77,6 +79,14 @@ git -C "${fixture}" add ci/build-release-assets.sh
 recipe_change=$(bash "${fixture}/ci/installer-build-input.sh")
 [[ "${recipe_change}" != "${workflow_change}" ]] || {
   printf 'Artifact recipe fixture did not change installer state.\n' >&2
+  exit 1
+}
+
+printf '%s\n' '# cache recipe changed' >>"${fixture}/ci/reusable-cache.sh"
+git -C "${fixture}" add ci/reusable-cache.sh
+cache_recipe_change=$(bash "${fixture}/ci/installer-build-input.sh")
+[[ "${cache_recipe_change}" != "${recipe_change}" ]] || {
+  printf 'Reusable cache recipe fixture did not change installer state.\n' >&2
   exit 1
 }
 
