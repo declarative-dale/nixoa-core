@@ -43,6 +43,7 @@ in {
           actionlint .github/workflows/*.yml
           zizmor .github/workflows
           shellcheck \
+            ci/*.sh \
             installer/*.sh \
             packer/*.sh \
             packer/scripts/*.sh \

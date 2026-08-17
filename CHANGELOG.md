@@ -1,80 +1,73 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Changelog
 
-## Unreleased
+All notable changes to published NiXOA releases are documented here. This
+project follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html) beginning with
+version 1.1.0. Earlier development records are preserved below and may not
+correspond to published GitHub tags.
 
-### Added
+## [Unreleased]
 
-- Generate SPDX and CycloneDX runtime SBOMs for the complete NiXOA system with
-  `sbomnix`, validate and checksum them, and ship them beside every installer.
-- Add draft-first immutable GitHub releases containing the tested installer,
-  both SBOM formats, checksums, and a release manifest, with automatic semantic
-  version selection and post-release development-version bumps.
-- Add grouped weekly Dependabot updates and a narrowly scoped automation bot
-  that queues only Dependabot and the known flake-lock refresh branch.
-- Monitor the Rust application with grouped weekly Cargo updates and a
-  dedicated security-update group, in addition to GitHub Actions updates.
-- Provide the repository's Rust, Nix, workflow, and Packer maintenance tools
-  through `nix develop` so local work does not depend on host tool versions.
-- Exclude the development-shell-only module from installer classification and
-  immutable build fingerprints, avoiding an unrelated ISO rebuild.
-- Add a fixture-tested installer input fingerprint and immutable artifact state
-  pointer, allowing metadata-only commits to reuse the exact prior ISO and
-  SBOM inventory without starting another Nix build.
-- Add a QEMU installer boot smoke test, a stable required `CI gate`, a tested
-  up-to-date-branch ruleset, and bimonthly forced artifact validation.
-- Bind the sbomnix SPDX inventory to both the built and versioned installer
-  filenames with signed GitHub attestations.
+## [1.1.0] - 2026-08-17
 
-### Changed
-
-- Start automated versioning from the latest GitHub release rather than the
-  newest tag. Normalize the published `v1.0` baseline to `1.0.0` and advance
-  the working version to `1.0.1-dev.0`.
-- Consolidate validation, immutable state planning, installer production,
-  boot testing, and rolling publication into one conditional CI graph. Pull
-  documentation-only requests stay lightweight while relevant pull requests
-  produce the reusable candidate that `main` consumes.
-- Resolve Packer and release inputs through the build-state pointer so skipped
-  builds still select and verify the matching immutable artifact run.
-- Use Determinate Magic Nix Cache for GitHub-native build reuse while retaining
-  explicit publication of the small reusable outputs to the public NiXOA
-  Cachix cache. Select the free native GitHub cache explicitly rather than
-  probing the separate FlakeHub Cache service.
-- Pin every GitHub Action to an immutable commit and let grouped Dependabot
-  updates maintain those pins after a seven-day cooldown. Use FlakeHub push's
-  current Node.js 24 revision while its latest v6 tag still targets Node.js 20.
-- Move rolling FlakeHub publication to the collision-free `0.2` line and keep
-  a verified installer artifact reusable if only that external publication
-  fails after the artifact has already been uploaded.
-- Check FlakeHub-backed Nixpkgs lock health as part of the main validation lane
-  and use Determinate's flake input updater for weekly pull requests.
-- Refresh the Xen Orchestra input to the current cached release and require the
-  installer workflow to verify that exact output in the public XO Cachix cache.
-- Route release and post-release version changes through validated automation
-  pull requests instead of bypassing protected `main`.
+Version 1.1.0 is a security and delivery overhaul. It strengthens the path
+from source commit to immutable installer release while leaving the appliance's
+core deployment model unchanged.
 
 ### Security
 
-- Attest each tested installer build and publish release assets through a
-  verified draft before making the GitHub release immutable.
-- Verify builder workflow identity, source commit, provenance, and SPDX
-  predicate before staging a release. Audit workflows with `zizmor` and grant
-  signing permissions only to the jobs that use them.
+- Verify release candidates against the exact source commit, CI workflow,
+  build provenance, checksums, and SPDX predicate before publication.
+- Publish through a verified draft, attest the final installer filename and
+  its SBOM, then rely on GitHub immutable releases to prevent replacement of
+  the tag or assets.
+- Pin every third-party GitHub Action to a full commit SHA, audit workflows
+  with `zizmor`, and grant signing and write permissions only to the jobs that
+  require them.
+- Restrict automated merges to the expected bot identity, repository, branch,
+  title, and head commit; protected `main` still requires the current `CI gate`.
+
+### Added
+
+- Generate SPDX and CycloneDX runtime inventories with `sbomnix`, validate and
+  checksum both documents, and ship them with the installer and a release
+  manifest.
+- Add signed build attestations, a QEMU boot smoke test, deterministic installer
+  fingerprints, and an immutable state pointer for selecting verified build
+  artifacts.
+- Add grouped GitHub Actions and Cargo dependency updates, including a dedicated
+  Rust security-update group, plus weekly Determinate flake-input updates.
+- Provide the supported Nix, Rust, Packer, workflow, and security toolchain
+  through `nix develop`.
+
+### Changed
+
+- Consolidate source checks, build planning, installer production, boot testing,
+  attestations, and rolling publication into one conditional CI graph with a
+  stable required status.
+- Reuse an existing verified installer when its content fingerprint is unchanged;
+  documentation and other metadata-only changes avoid unnecessary builds, while
+  a forced validation runs every other month.
+- Use Determinate Magic Cache only for validation and installer-build jobs. The
+  publication job sends its reusable closures directly to the retained public
+  Cachix cache and FlakeHub, avoiding a redundant GitHub cache upload.
+- Derive versions from the latest published GitHub release, beginning with the
+  `v1.0` baseline, and route release and post-release version changes through
+  protected pull requests.
+- Publish rolling FlakeHub builds on the `0.2` line, use current Node.js 24
+  action revisions, and keep a verified installer usable if an external rolling
+  publication fails.
+- Refresh the Xen Orchestra closure and verify that the exact installer output
+  is present in its public Cachix cache.
 
 ### Fixed
 
-- Record the Packer seal as the successful apply for its generated Git commit,
-  so a fresh clone no longer reports a rebuild before any configuration has
-  changed.
-- Create NFS status-monitor directories before services start, avoiding the
-  harmless first-boot `sm-notify` missing-directory error.
-- Run `nh clean all` while sealing the template so obsolete build generations
-  are not carried into every clone.
-- Apply XO's fixed four-minute readiness grace period only to the installed
-  system's first boot; the second verification begins retrying immediately.
-- Update the installer artifact upload to the Node.js 24-based GitHub Action,
-  removing the deprecated Node.js 20 runner warning.
+- Record the successful Packer apply at template seal time so a new clone does
+  not report a rebuild before its configuration changes.
+- Create NFS status directories before service startup and remove obsolete Nix
+  generations while sealing templates.
+- Limit the Xen Orchestra first-boot grace period to the initial readiness check.
 - Reduce the native template disk default and minimum from 40 GiB to 20 GiB.
 
 ## v0.9.1 — Cache-Rich Native Template Deployment
@@ -640,3 +633,6 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 **Phase 1 - Package Definitions**
 - Created XOA package with yarn2nix using workspace dependencies
 - Applied upstream patches (SMB handler, TypeScript generics) in preBuild
+
+[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.0...v1.1.0
