@@ -21,6 +21,7 @@ trap 'rm -rf "$temporary"' EXIT
 bash "$TEST_ROOT/tests/installer-build-input.sh"
 bash "$TEST_ROOT/tests/ci-helpers.sh"
 bash "$TEST_ROOT/tests/reusable-cache.sh"
+bash "$TEST_ROOT/tests/release-assets.sh"
 
 bash -n \
   "$TEST_ROOT/ci/installer-build-input.sh" \
@@ -217,8 +218,17 @@ if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
 fi
-grep -Fxq '1.1.0' "$TEST_ROOT/VERSION" \
-  || fail "repository is not prepared for the v1.1.0 release"
+grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
+  || fail "repository version is not a stable or development semantic version"
+grep -Fq 'stage-release-installer.sh' "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow does not split oversized installer assets"
+grep -Fq '2147483648' "$TEST_ROOT/ci/stage-release-installer.sh" \
+  || fail "release staging does not enforce GitHub's per-asset size limit"
+# The variable references must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq 'git merge-base --is-ancestor "${draft_target}" "${SOURCE_SHA}"' \
+  "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow cannot safely refresh a failed draft from newer main"
 grep -Fq -- '--draft' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not stage assets in a draft"
 # The variable reference must remain literal in the workflow source.

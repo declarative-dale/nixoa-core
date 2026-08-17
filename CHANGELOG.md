@@ -65,6 +65,9 @@ core deployment model unchanged.
 
 ### Fixed
 
+- Split installers larger than GitHub's 2 GiB release-asset limit into numbered,
+  checksummed parts while retaining provenance and SBOM attestations for the
+  reconstructed versioned ISO.
 - Record the successful Packer apply at template seal time so a new clone does
   not report a rebuild before its configuration changes.
 - Create NFS status directories before service startup and remove obsolete Nix
