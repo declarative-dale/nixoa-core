@@ -207,6 +207,11 @@ jobs:
       - name: Build installer and sbomnix inventories
         run: ./ci/build-release-assets.sh
 
+      - name: Export the temporary reusable-output cache
+        run: >-
+          ./ci/reusable-cache.sh export
+          "${GITHUB_WORKSPACE}/nixoa-reusable-cache"
+
       - name: Boot the installer ISO
         env:
           BOOT_LOG: ${{ runner.temp }}/qemu-boot.log
@@ -259,6 +264,15 @@ jobs:
           compression-level: 0
           retention-days: 90
 
+      - name: Upload the temporary reusable-output cache
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nixoa-reusable-cache
+          path: nixoa-reusable-cache
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
   publish:
     name: Publish reusable main outputs
     needs:
@@ -277,6 +291,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
+      actions: read
       contents: read
       id-token: write
     steps:
@@ -287,6 +302,26 @@ jobs:
 
       - name: Install Determinate Nix
         uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+
+      - name: Download the exact temporary reusable-output cache
+        id: reusable_cache
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          name: nixoa-reusable-cache
+          path: nixoa-reusable-cache
+          run-id: ${{ needs.plan.outputs.artifact_run_id }}
+
+      - name: Restore verified reusable Nix closures
+        if: steps.reusable_cache.outcome == 'success'
+        run: >-
+          ./ci/reusable-cache.sh restore
+          "${GITHUB_WORKSPACE}/nixoa-reusable-cache"
+
+      - name: Report an expired temporary cache
+        if: steps.reusable_cache.outcome != 'success'
+        run: echo 'The temporary closure cache is unavailable; rebuilding from configured public substituters.'
 
       - name: Install Cachix for retained package publishing
         uses: cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71 # v17

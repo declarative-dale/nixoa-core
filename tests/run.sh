@@ -20,6 +20,7 @@ trap 'rm -rf "$temporary"' EXIT
 
 bash "$TEST_ROOT/tests/installer-build-input.sh"
 bash "$TEST_ROOT/tests/ci-helpers.sh"
+bash "$TEST_ROOT/tests/reusable-cache.sh"
 
 bash -n \
   "$TEST_ROOT/ci/installer-build-input.sh" \
@@ -146,6 +147,20 @@ grep -Fq "if: needs.plan.outputs.should_build == 'true'" \
 grep -Fq 'name: nixoa-build-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
+grep -Fq 'name: nixoa-reusable-cache' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer workflow does not publish its temporary reusable cache"
+grep -Fq 'retention-days: 14' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "temporary reusable cache is not short-lived"
+# The expression must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq 'run-id: ${{ needs.plan.outputs.artifact_run_id }}' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "publisher does not select the immutable cache-producing run"
+grep -Fq './ci/reusable-cache.sh restore' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "publisher does not restore the exact reusable closures"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq '"$sbomnix_out/bin/sbomnix"' \
@@ -463,6 +478,8 @@ grep -Fxq '/http_cache.sqlite' "$TEST_ROOT/.gitignore" \
   || fail "sbomnix HTTP cache is not ignored"
 grep -Fxq '/sbom.spdx.json' "$TEST_ROOT/.gitignore" \
   || fail "local sbomnix SPDX output is not ignored"
+grep -Fxq '/nixoa-reusable-cache/' "$TEST_ROOT/.gitignore" \
+  || fail "local temporary Nix cache output is not ignored"
 
 grep -q './packer.nix' "$TEST_ROOT/host/default.nix" \
   || fail "host does not import the dedicated Packer override"

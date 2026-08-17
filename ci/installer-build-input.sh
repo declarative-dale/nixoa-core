@@ -16,6 +16,7 @@ repo_root=$(git -C "${script_dir}" rev-parse --show-toplevel)
     ci/boot-installer-iso.sh \
     ci/build-release-assets.sh \
     ci/installer-build-input.sh \
+    ci/reusable-cache.sh \
     flake.lock \
     flake.nix \
     host \

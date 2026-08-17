@@ -43,10 +43,12 @@ closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
 artifact from the consolidated `CI` workflow; smaller reusable package
 closures are published to Cachix.
 Determinate Magic Nix Cache reuses results in validation and installer-build
-jobs through GitHub's free native cache. The publication job writes its small
-reusable closures directly to Cachix and FlakeHub, avoiding a second upload of
-the same outputs to GitHub's cache. CI explicitly disables the separate
-FlakeHub Cache service.
+jobs through GitHub's free native cache. The verified build also exports only
+the four reusable output closures as a file-backed Nix cache artifact. The
+publication job restores that exact cache by immutable run ID before writing
+the closures to Cachix and FlakeHub, avoiding both a rebuild and a second Magic
+Cache upload. The handoff artifact expires after 14 days; Cachix remains the
+public cache. CI explicitly disables the separate FlakeHub Cache service.
 
 The build also uses `sbomnix` to create SPDX and CycloneDX runtime SBOMs for
 the complete appliance closure. CI boots the ISO with QEMU, signs its build
