@@ -90,10 +90,20 @@ merge_base_sha=$(gh api \
   "repos/${GITHUB_REPOSITORY}/compare/${default_sha}...${head_sha}" \
   --jq .merge_base_commit.sha)
 if [[ "$merge_base_sha" != "$default_sha" ]]; then
+  previous_head_sha=$head_sha
   gh pr update-branch "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
-  pr=$(read_pr)
-  validate_pr "$pr"
-  validate_changes "$pr"
+  for _ in {1..24}; do
+    pr=$(read_pr)
+    validate_pr "$pr"
+    validate_changes "$pr"
+    head_sha=$(jq -er .headRefOid <<<"$pr")
+    [[ "$head_sha" == "$previous_head_sha" ]] || break
+    sleep "$ci_poll_interval"
+  done
+  [[ "$head_sha" != "$previous_head_sha" ]] || {
+    printf 'Timed out waiting for trusted update %s to refresh its head.\n' "$PR_NUMBER" >&2
+    exit 1
+  }
 fi
 branch=$(jq -er .headRefName <<<"$pr")
 head_sha=$(jq -er .headRefOid <<<"$pr")

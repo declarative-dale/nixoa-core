@@ -99,9 +99,18 @@ cat >"$temporary/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "$1 $2" == 'pr view' ]]; then
+  fake_head=${FAKE_HEAD_SHA:-abc123}
+  if [[ -n ${FAKE_UPDATE_MARKER:-} && -e $FAKE_UPDATE_MARKER ]]; then
+    if [[ -n ${FAKE_UPDATE_DELAY_MARKER:-} && ! -e $FAKE_UPDATE_DELAY_MARKER ]]; then
+      touch "$FAKE_UPDATE_DELAY_MARKER"
+    else
+      fake_head=${FAKE_UPDATED_HEAD_SHA:-$fake_head}
+    fi
+  fi
   jq -n \
     --arg author "${FAKE_AUTHOR:-release-bot}" \
-    '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:"abc123",headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
+    --arg head "$fake_head" \
+    '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:$head,headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
 elif [[ "$1 $2" == 'run list' ]]; then
   run_head=${FAKE_RUN_HEAD_SHA:-abc123}
   run_conclusion=${FAKE_RUN_CONCLUSION:-success}
@@ -194,11 +203,17 @@ env PATH="$temporary/bin:$PATH" \
   "${trusted_env[@]}" "$NIXOA_CI" trusted-update
 [[ ! -e $temporary/dispatched ]]
 rm -f "$temporary/updated"
+rm -f "$temporary/update-delayed"
 env PATH="$temporary/bin:$PATH" \
   FAKE_MERGE_BASE=older123 \
+  FAKE_RUN_HEAD_SHA=def456 \
+  FAKE_UPDATED_HEAD_SHA=def456 \
+  FAKE_UPDATE_DELAY_MARKER="$temporary/update-delayed" \
   FAKE_UPDATE_MARKER="$temporary/updated" \
   "${trusted_env[@]}" "$NIXOA_CI" trusted-update
 [[ -e $temporary/updated ]]
+[[ -e $temporary/update-delayed ]]
+grep -Fq -- '--match-head-commit def456' "$temporary/merge.log"
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong author.\n' >&2
