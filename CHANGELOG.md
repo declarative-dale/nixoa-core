@@ -73,6 +73,8 @@ unchanged appliance after it has passed boot and provenance checks.
 - Capture and verify the run ID returned by workflow dispatch, reuse healthy
   exact-head validation already in progress, and retain list polling as a
   compatibility fallback.
+- Wait for GitHub's refreshed pull-request head to become visible before
+  selecting its exact-head validation and enabling auto-merge.
 - Restrict formatting checks to source-controlled Nix files, excluding
   generated devenv state while retaining a jj-compatible local fallback.
 
