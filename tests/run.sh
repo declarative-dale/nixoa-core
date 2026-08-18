@@ -103,43 +103,34 @@ if grep -Fq 'magic-nix-cache-action' \
   "$TEST_ROOT/.github/actions/setup-nix/action.yml"; then
   fail "installer workflow still uses the superseded Magic Cache"
 fi
-grep -Fq 'cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13' \
-  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
-  || fail "installer workflow does not share Nix outputs through Cachix"
+if grep -Fq 'cachix/cachix-action@' \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml"; then
+  fail "shared setup implicitly publishes runner outputs"
+fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$setup_steps" 6
-grep -Fq '.#nixoa-ci -- gate' \
+assert_eq "$setup_steps" 3
+grep -Fq 'bash nix/automation/gate.sh' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "stable CI gate bypasses the flake-packaged automation"
+  || fail "stable CI gate is not dependency-free"
 grep -Fq "flake.lib.ciPlans.\${system}" \
   "$TEST_ROOT/modules/outputs/lib.nix" \
   || fail "flake does not expose pure CI attribute plans"
-grep -Fq 'flake-attribute-validator' \
+grep -Fq 'flake-plan-runner' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
-  || fail "installer builds bypass the shared attribute-plan validator"
+  || fail "installer builds bypass the shared schema-v2 plan runner"
 grep -Fq -- '--no-build --print-build-logs' \
   "$TEST_ROOT/nix/automation/default.nix" \
   || fail "complete validation does not separate evaluation from planned builds"
-grep -Fq 'cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f' \
-  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
-  || fail "shared CI setup does not resolve Cachix through Secretspec"
-# The GitHub expression must remain literal in the workflow source.
+# GitHub and shell expressions must remain literal in the source contract.
 # shellcheck disable=SC2016
-if grep -Fq 'authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}' \
-  "$TEST_ROOT/.github/actions/setup-nix/action.yml"; then
-  fail "Cachix action bypasses the Secretspec environment"
-fi
-# The GitHub expression must remain literal in the workflow source.
+grep -Fq 'CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "protected publication does not receive the Cachix token"
 # shellcheck disable=SC2016
-grep -Fq 'authToken: ${{ env.CACHIX_AUTH_TOKEN }}' \
-  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
-  || fail "Cachix action does not consume the Secretspec token"
-# The GitHub expression must remain literal in the workflow source.
-# shellcheck disable=SC2016
-grep -Fq 'name: ${{ env.CACHIX_CACHE_NAME }}' \
-  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
-  || fail "Cachix action does not consume the Secretspec cache name"
+grep -Fq 'jq -r '\''.results[].outputs[]'\'' "$manifest"' \
+  "$TEST_ROOT/nix/automation/default.nix" \
+  || fail "Cachix publication does not use the exact publish-plan manifest"
 grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not pin the Node.js 24 artifact uploader"
@@ -148,7 +139,7 @@ grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
 grep -Fq 'build_input=$("$NIXOA_CI_BUILD_INPUT")' \
   "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
   || fail "installer workflow does not calculate deterministic build state"
-grep -Fq "if: needs.plan.outputs.should_build == 'true'" \
+grep -Fq "if: needs.validate.outputs.should_build == 'true'" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer build is not gated by the state planner"
 grep -Fq 'name: nixoa-build-state' \
@@ -196,9 +187,9 @@ grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
 grep -Fq 'cron: "17 9 * * 3"' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh is not scheduled weekly on Wednesday"
-grep -Fq 'DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6' \
+grep -Fq '.#nixoa-ci -- open-update-pr flake.lock devenv.lock' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
-  || fail "flake input refresh does not pin the lock update action"
+  || fail "flake input refresh bypasses the packaged PR publisher"
 grep -Fq '.#nixoa-ci -- check --no-write-lock-file' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "validation bypasses the flake-packaged complete check"

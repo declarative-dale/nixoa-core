@@ -1,5 +1,5 @@
 {
-  attributeValidator,
+  planRunner,
   lib,
   pkgs,
 }: let
@@ -80,7 +80,7 @@
     };
     build-assets = mkCommand {
       name = "build-assets";
-      runtimeInputs = commonInputs ++ [attributeValidator];
+      runtimeInputs = commonInputs ++ [planRunner];
       source = ./installer-build-assets.sh;
     };
     build-input = buildInput;
@@ -100,15 +100,24 @@
       runtimeInputs = commonInputs;
       source = ./lock-validate.sh;
     };
+    open-update-pr = mkCommand {
+      name = "open-update-pr";
+      runtimeInputs = commonInputs;
+      source = ./open-update-pr.sh;
+    };
     publish = pkgs.writeShellApplication {
       name = "nixoa-ci-publish";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [pkgs.cachix planRunner];
       text = ''
         cd "''${NIXOA_SYSTEM_ROOT:-$(git rev-parse --show-toplevel)}"
-        nix build --accept-flake-config .#deploy-template -o result-deploy-template
-        nix build --accept-flake-config .#metadata -o result-metadata
-        nix build --accept-flake-config .#nixoa-menu -o result-nixoa-menu
-        nix build --accept-flake-config .#nxcli -o result-nxcli
+        manifest=$(mktemp)
+        trap 'rm -f "$manifest"' EXIT
+        ${lib.getExe planRunner} \
+          --flake . \
+          --plan lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.publish \
+          --manifest "$manifest"
+        jq -r '.results[].outputs[]' "$manifest" |
+          cachix push "$CACHIX_CACHE_NAME"
       '';
     };
     release-notes = mkCommand {
@@ -186,6 +195,7 @@ in
         installer build-assets          Build the installer, packages, and SBOMs
         installer boot [ISO]            Boot-test an installer ISO
         locks validate [LOCKS...]        Verify shared native and flake input pins
+        open-update-pr PATH...           Publish an allowlisted automation update
         publish                          Build reusable rolling outputs
         release version LAST BUMP        Select a semantic release version from stdin
         release notes VERSION [FILE]     Extract curated notes from CHANGELOG.md
@@ -197,7 +207,7 @@ in
         trusted-update                   Validate and enqueue an allowlisted automation PR
         queue                            Validate and enqueue all trusted automation PRs
         check                            Run the complete flake check
-        attributes PLAN                  Validate and build one pure attribute plan
+        plan [PLAN]                      Validate and execute one pure CI plan
       EOF
       }
 
@@ -234,6 +244,10 @@ in
             *) usage >&2; exit 2 ;;
           esac
           ;;
+        open-update-pr)
+          shift
+          exec ${commandPath "open-update-pr"} "$@"
+          ;;
         publish)
           shift
           exec ${commandPath "publish"} "$@"
@@ -268,17 +282,17 @@ in
           fi
           nix flake check --accept-flake-config --no-build --print-build-logs \
             "$flake_ref" "$@"
-          exec ${lib.getExe attributeValidator} \
+          exec ${lib.getExe planRunner} \
             --flake "$flake_ref" \
             --plan lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.validation
           ;;
-        attributes)
+        plan)
           shift
           plan="''${1:-lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.validation}"
           if (($# > 0)); then
             shift
           fi
-          exec ${lib.getExe attributeValidator} \
+          exec ${lib.getExe planRunner} \
             --flake "$repo_root" \
             --plan "$plan" \
             "$@"

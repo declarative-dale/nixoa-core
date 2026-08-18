@@ -109,15 +109,20 @@ head_sha=$(jq -er .headRefOid <<<"$pr")
 pr_url=$(jq -er .url <<<"$pr")
 
 run_id=
+dispatched=false
 for _ in {1..6}; do
-  pull_runs=$(gh run list \
-    --repo "$GITHUB_REPOSITORY" \
-    --workflow "$ci_workflow" \
-    --event pull_request \
-    --branch "$branch" \
-    --commit "$head_sha" \
-    --limit 5 \
-    --json conclusion,databaseId,headSha)
+  pull_runs=$(
+    for event in pull_request workflow_dispatch; do
+      gh run list \
+        --repo "$GITHUB_REPOSITORY" \
+        --workflow "$ci_workflow" \
+        --event "$event" \
+        --branch "$branch" \
+        --commit "$head_sha" \
+        --limit 5 \
+        --json conclusion,databaseId,headSha
+    done | jq -s add
+  )
   run_id=$(jq -r --arg sha "$head_sha" \
     'first(.[] | select(.headSha == $sha and .conclusion != "action_required") | .databaseId) // empty' \
     <<<"$pull_runs")
@@ -132,6 +137,12 @@ for _ in {1..6}; do
     run_id=$approval_run_id
     break
   fi
+  if [[ $dispatched == false ]]; then
+    gh workflow run "$ci_workflow" \
+      --repo "$GITHUB_REPOSITORY" \
+      --ref "$branch"
+    dispatched=true
+  fi
   sleep "$ci_poll_interval"
 done
 
@@ -139,7 +150,6 @@ done
   printf 'Could not locate pull-request CI for trusted update %s.\n' "$PR_NUMBER" >&2
   exit 1
 }
-gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
 gh pr merge \
   --repo "$GITHUB_REPOSITORY" \
   --auto \

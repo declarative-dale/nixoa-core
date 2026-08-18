@@ -13,10 +13,10 @@ in {
           lib.getName package == "packer";
       };
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
-      attributeValidator = inputs.xen-orchestra-ce.packages.${system}.flake-attribute-validator;
+      planRunner = inputs.xen-orchestra-ce.packages.${system}.flake-plan-runner;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
-      nixoaCi = pkgs.callPackage ../../nix/automation {inherit attributeValidator;};
+      nixoaCi = pkgs.callPackage ../../nix/automation {inherit planRunner;};
       nixoaCiInstallerBoot = pkgs.callPackage ../../nix/automation/installer-boot-package.nix {};
       nixoaCiUpdateLocks = pkgs.callPackage ../../nix/automation/update-locks-package.nix {
         devenvSource = inputs.devenv.outPath;
@@ -74,7 +74,7 @@ in {
     in
       {
         xen-orchestra-ce = xenOrchestraCe;
-        flake-attribute-validator = attributeValidator;
+        flake-plan-runner = planRunner;
         sbomnix = pkgs.sbomnix;
         inherit secretspec;
         libvhdi = inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;

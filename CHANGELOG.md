@@ -17,9 +17,18 @@ correspond to published GitHub tags.
   `nixoa-ci` interface, including QEMU boot validation, publishing, release,
   trusted-update, and synchronized lock maintenance. Devenv remains available
   as a local development facade.
-- Declare validation and installer closure targets as versioned pure flake
-  plans, and execute them through the shared XO-provided validator so isolated
-  attribute failures are collected without coupling publication or signing.
+- Declare validation, installer, and protected-main publication targets as
+  schema-v2 pure flake plans, then execute them through the shared XO-provided
+  runner with atomic result links and exact output manifests.
+- Consolidate repository validation and installer-state planning on one runner,
+  make the stable gate dependency-free, and publish only planned closures to
+  Cachix after protected-main validation succeeds.
+- Replace the third-party lock update action with flake-packaged lock refresh,
+  validation, allowlisted commits, and pull-request publication.
+- Dispatch exact-head CI when a repository-token automation pull request cannot
+  emit a pull-request event, then let the required gate control auto-merge.
+- Treat immutable release retries as verification: published assets and their
+  exact source commit are accepted without attempting a forbidden mutation.
 
 ## [1.1.2] - 2026-08-17
 

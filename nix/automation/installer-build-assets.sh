@@ -12,26 +12,22 @@ runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 
 nix config show substituters
 nix config show trusted-public-keys
-determinate_out=$(nix eval --raw .#nixosConfigurations.nixoa.config.nix.package.upstream.outPath)
+determinate_out=$(nix eval --accept-flake-config --raw .#nixosConfigurations.nixoa.config.nix.package.upstream.outPath)
 nix path-info --store https://install.determinate.systems "$determinate_out"
-xo_out=$(nix eval --raw .#packages.x86_64-linux.xen-orchestra-ce.outPath)
+xo_out=$(nix eval --accept-flake-config --raw .#packages.x86_64-linux.xen-orchestra-ce.outPath)
 nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"
 
-nix flake show --accept-flake-config --all-systems
-nix flake check --accept-flake-config --all-systems --no-build --print-build-logs
-flake-attribute-validator \
+manifest=$(mktemp "${runner_temp}/nixoa-plan.XXXXXX")
+flake-plan-runner \
   --flake "path:$repo_root" \
-  --plan lib.ciPlans.x86_64-linux.installer
+  --plan lib.ciPlans.x86_64-linux.installer \
+  --manifest "$manifest"
 
-nix build .#deploy-template -o result-deploy-template
-nix build .#metadata -o result-metadata
-nix build .#nixoa-menu -o result-nixoa-menu
-nix build .#nxcli -o result-nxcli
-nix build .#installer-iso -o result-installer --print-build-logs
-
-sbomnix_out=$(nix build .#sbomnix --no-link --print-out-paths)
+sbomnix_out=$(jq -er \
+  '.results[] | select(.name == "sbomnix") | .outputs | select(length == 1) | .[0]' \
+  "$manifest")
 sbom_work=$(mktemp -d "${runner_temp}/nixoa-sbom.XXXXXX")
-trap 'rm -rf -- "$sbom_work"' EXIT
+trap 'rm -rf -- "$sbom_work"; rm -f -- "$manifest"' EXIT
 (
   cd "$sbom_work"
   "$sbomnix_out/bin/sbomnix" \

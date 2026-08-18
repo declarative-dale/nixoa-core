@@ -27,13 +27,9 @@
       "DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858"
       "CI must pin Determinate Nix to the reviewed revision")
     (excludes ".github/workflows/ci.yml" "magic-nix-cache-action"
-      "CI must use the shared Cachix cache instead of Magic Cache")
-    (contains ".github/actions/setup-nix/action.yml"
-      "cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13"
-      "CI must share Nix outputs through Cachix")
-    (contains ".github/actions/setup-nix/action.yml"
-      "cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f"
-      "CI must resolve cache configuration through pinned Secretspec automation")
+      "CI must publish only explicitly planned protected-main closures")
+    (excludes ".github/actions/setup-nix/action.yml" "cachix/cachix-action@"
+      "CI setup must not implicitly push every realized closure")
     (excludes ".github/actions/setup-nix/action.yml" "actions/cache@"
       "CI must rely on Nix binary caches instead of mutable runner metadata")
     (contains "secretspec.toml" "CACHIX_AUTH_TOKEN"
@@ -74,15 +70,12 @@
     (contains ".github/workflows/update-flake-lock.yml" "cron: \"17 9 * * 3\""
       "Flake input refresh must remain weekly")
     (contains ".github/workflows/update-flake-lock.yml"
-      "DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6"
-      "Flake input refresh must pin the reviewed action revision")
-    (contains ".github/workflows/update-flake-lock.yml"
       ".#nixoa-ci-update-locks"
       "Input refresh must update the native devenv lock through the flake app")
     (contains ".github/workflows/update-flake-lock.yml"
       ".#nixoa-ci -- locks validate"
       "Input refresh must validate synchronized lockfiles through the flake app")
-    (contains ".github/workflows/update-flake-lock.yml" "token: \${{ github.token }}"
+    (contains ".github/workflows/update-flake-lock.yml" "GH_TOKEN: \${{ github.token }}"
       "Flake input refresh must use the repository-scoped GitHub token")
     (excludes ".github/workflows/update-flake-lock.yml" "MERGE_QUEUE_TOKEN"
       "Flake input refresh must not require an external merge token")
@@ -98,12 +91,12 @@
       "Installer state resolution must use the flake app")
     (contains ".github/workflows/ci.yml" ".#nixoa-ci -- installer build-assets"
       "Installer builds must use the flake app")
-    (contains "nix/automation/installer-build-assets.sh" "flake-attribute-validator"
-      "Installer closure targets must use the shared attribute-plan validator")
-    (contains "modules/outputs/lib.nix" "mkFlakeAttributePlan"
+    (contains "nix/automation/installer-build-assets.sh" "flake-plan-runner"
+      "Installer closure targets must use the shared schema-v2 plan runner")
+    (contains "modules/outputs/lib.nix" "mkCiPlan"
       "CI target lists must be exported as pure flake plans")
-    (contains ".github/workflows/ci.yml" ".#nixoa-ci -- gate"
-      "The stable CI gate must use the same flake-packaged interface")
+    (contains ".github/workflows/ci.yml" "bash nix/automation/gate.sh"
+      "The stable gate must stay lightweight and dependency-free")
     (absent ".github/actions/setup-devenv/action.yml"
       "Hosted CI must not install a second devenv orchestration layer")
     (excludes ".github/workflows/ci.yml" "./ci/"
