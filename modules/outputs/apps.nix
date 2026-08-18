@@ -62,6 +62,7 @@ in {
       nixoaCi = inputs.self.packages.${system}.nixoa-ci;
       nixoaCiInstallerBoot = inputs.self.packages.${system}.nixoa-ci-installer-boot;
       nixoaCiUpdateLocks = inputs.self.packages.${system}.nixoa-ci-update-locks;
+      attributeValidator = inputs.self.packages.${system}.flake-attribute-validator;
       deployTemplate = inputs.self.packages.${system}.deploy-template;
       nxcliApp = mkNxcliApp pkgs nxcli;
     in {
@@ -129,6 +130,12 @@ in {
         type = "app";
         program = lib.getExe nixoaCiUpdateLocks;
         meta.description = "Refresh native devenv inputs with pinned tooling";
+      };
+
+      validate-ci-plan = {
+        type = "app";
+        program = lib.getExe attributeValidator;
+        meta.description = "Validate and build a pure flake attribute plan";
       };
     }
   );

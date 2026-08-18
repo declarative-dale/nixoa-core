@@ -38,10 +38,29 @@ in {
     in {
       inherit
         (packages)
+        flake-attribute-validator
         metadata
         nixoa-ci
         nxcli
         ;
+
+      ci-plan-contract = let
+        plans = inputs.self.lib.ciPlans.${system};
+      in
+        pkgs.runCommandLocal "nixoa-ci-plan-contract" {
+          nativeBuildInputs = [pkgs.jq];
+        } ''
+          printf '%s\n' ${lib.escapeShellArg (builtins.toJSON plans)} > plans.json
+          jq -e '
+            (.validation.schemaVersion == 1) and
+            (.validation.name == "nixoa-validation") and
+            (.validation.targets | length == 16) and
+            (.installer.schemaVersion == 1) and
+            (.installer.name == "nixoa-installer") and
+            (.installer.targets | length == 8)
+          ' plans.json >/dev/null
+          touch "$out"
+        '';
 
       eval-smoke = pkgs.runCommandLocal "nixoa-eval-smoke" {} ''
         mkdir -p "$out"

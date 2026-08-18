@@ -17,6 +17,9 @@ correspond to published GitHub tags.
   `nixoa-ci` interface, including QEMU boot validation, publishing, release,
   trusted-update, and synchronized lock maintenance. Devenv remains available
   as a local development facade.
+- Declare validation and installer closure targets as versioned pure flake
+  plans, and execute them through the shared XO-provided validator so isolated
+  attribute failures are collected without coupling publication or signing.
 
 ## [1.1.2] - 2026-08-17
 

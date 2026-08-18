@@ -98,6 +98,10 @@
       "Installer state resolution must use the flake app")
     (contains ".github/workflows/ci.yml" ".#nixoa-ci -- installer build-assets"
       "Installer builds must use the flake app")
+    (contains "nix/automation/installer-build-assets.sh" "flake-attribute-validator"
+      "Installer closure targets must use the shared attribute-plan validator")
+    (contains "modules/outputs/lib.nix" "mkFlakeAttributePlan"
+      "CI target lists must be exported as pure flake plans")
     (contains ".github/workflows/ci.yml" ".#nixoa-ci -- gate"
       "The stable CI gate must use the same flake-packaged interface")
     (absent ".github/actions/setup-devenv/action.yml"

@@ -112,6 +112,15 @@ assert_eq "$setup_steps" 6
 grep -Fq '.#nixoa-ci -- gate' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "stable CI gate bypasses the flake-packaged automation"
+grep -Fq "flake.lib.ciPlans.\${system}" \
+  "$TEST_ROOT/modules/outputs/lib.nix" \
+  || fail "flake does not expose pure CI attribute plans"
+grep -Fq 'flake-attribute-validator' \
+  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  || fail "installer builds bypass the shared attribute-plan validator"
+grep -Fq -- '--no-build --print-build-logs' \
+  "$TEST_ROOT/nix/automation/default.nix" \
+  || fail "complete validation does not separate evaluation from planned builds"
 grep -Fq 'cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f' \
   "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "shared CI setup does not resolve Cachix through Secretspec"

@@ -38,6 +38,12 @@ repository toolchain module. Use `devenv shell` for interactive work and
 `nix run .#nixoa-ci -- check` for the same direct interface used by CI. Exact
 commands are in the [development guide](development.md).
 
+Pure CI target contracts are exported as
+`lib.ciPlans.x86_64-linux.validation` and
+`lib.ciPlans.x86_64-linux.installer`. Both use the reusable planner and
+Nix-wrapped validator from the locked Xen Orchestra flake; publication,
+attestation, and signing remain separate delivery operations.
+
 ## Installer delivery
 
 GitHub Actions builds the complete system, public packages, and a
