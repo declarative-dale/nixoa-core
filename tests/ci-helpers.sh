@@ -105,21 +105,31 @@ if [[ "$1 $2" == 'pr view' ]]; then
 elif [[ "$1 $2" == 'run list' ]]; then
   run_head=${FAKE_RUN_HEAD_SHA:-abc123}
   run_conclusion=${FAKE_RUN_CONCLUSION:-success}
+  run_status=${FAKE_RUN_STATUS:-completed}
   run_id=42
+  if [[ "$*" == *'--event workflow_dispatch'* ]]; then
+    run_conclusion=${FAKE_DISPATCH_CONCLUSION:-$run_conclusion}
+    run_status=${FAKE_DISPATCH_STATUS:-$run_status}
+  fi
   if [[ -n ${FAKE_DISPATCH_MARKER:-} && -e $FAKE_DISPATCH_MARKER ]]; then
     run_head=abc123
     run_conclusion=success
+    run_status=in_progress
     run_id=43
   fi
   jq -n \
     --arg conclusion "$run_conclusion" \
     --arg head "$run_head" \
+    --arg status "$run_status" \
     --argjson id "$run_id" \
-    '[{conclusion:$conclusion,databaseId:$id,headSha:$head}]'
+    '[{conclusion:$conclusion,databaseId:$id,headSha:$head,status:$status}]'
+elif [[ "$1 $2" == 'run view' ]]; then
+  printf '%s\n' "${FAKE_VIEW_HEAD_SHA:-abc123}"
 elif [[ "$1 $2" == 'run watch' ]]; then
   exit 0
 elif [[ "$1 $2" == 'workflow run' ]]; then
   [[ -z ${FAKE_DISPATCH_MARKER:-} ]] || touch "$FAKE_DISPATCH_MARKER"
+  printf '%s\n' "${FAKE_WORKFLOW_RUN_OUTPUT-https://example.invalid/actions/runs/43}"
 elif [[ "$1 $2" == 'pr update-branch' ]]; then
   [[ -z ${FAKE_UPDATE_MARKER:-} ]] || touch "$FAKE_UPDATE_MARKER"
 elif [[ "$1 $2" == 'pr merge' ]]; then
@@ -169,6 +179,20 @@ env PATH="$temporary/bin:$PATH" \
   FAKE_DISPATCH_MARKER="$temporary/dispatched" \
   "${trusted_env[@]}" "$NIXOA_CI" trusted-update
 [[ -e $temporary/dispatched ]]
+rm -f "$temporary/dispatched"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_RUN_HEAD_SHA=stale \
+  FAKE_WORKFLOW_RUN_OUTPUT= \
+  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ -e $temporary/dispatched ]]
+rm -f "$temporary/dispatched"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_RUN_CONCLUSION=action_required \
+  FAKE_DISPATCH_CONCLUSION=success \
+  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ ! -e $temporary/dispatched ]]
 rm -f "$temporary/updated"
 env PATH="$temporary/bin:$PATH" \
   FAKE_MERGE_BASE=older123 \

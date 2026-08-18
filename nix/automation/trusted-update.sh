@@ -122,6 +122,20 @@ for _ in {1..6}; do
 done
 
 if [[ -z "$run_id" ]]; then
+  dispatch_runs=$(gh run list \
+    --repo "$GITHUB_REPOSITORY" \
+    --workflow "$ci_workflow" \
+    --event workflow_dispatch \
+    --branch "$branch" \
+    --commit "$head_sha" \
+    --limit 5 \
+    --json conclusion,databaseId,headSha,status)
+  run_id=$(jq -r --arg sha "$head_sha" \
+    'first(.[] | select(.headSha == $sha and .conclusion != "action_required" and (.status != "completed" or .conclusion == "success")) | .databaseId) // empty' \
+    <<<"$dispatch_runs")
+fi
+
+if [[ -z "$run_id" ]]; then
   previous_run_id=$(gh run list \
     --repo "$GITHUB_REPOSITORY" \
     --workflow "$ci_workflow" \
@@ -132,10 +146,23 @@ if [[ -z "$run_id" ]]; then
     --json databaseId,headSha |
     jq -r --arg sha "$head_sha" \
       'first(.[] | select(.headSha == $sha) | .databaseId) // empty')
-  gh workflow run "$ci_workflow" \
+  dispatch_output=$(gh workflow run "$ci_workflow" \
     --repo "$GITHUB_REPOSITORY" \
     --ref "$branch" \
-    -f "validate_only=${validate_only}"
+    -f "validate_only=${validate_only}")
+  [[ -z "$dispatch_output" ]] || printf '%s\n' "$dispatch_output"
+  if [[ "$dispatch_output" =~ /actions/runs/([0-9]+) ]]; then
+    candidate_run_id=${BASH_REMATCH[1]}
+    if observed_head=$(gh run view "$candidate_run_id" \
+      --repo "$GITHUB_REPOSITORY" \
+      --json headSha \
+      --jq .headSha 2>/dev/null) && [[ "$observed_head" == "$head_sha" ]]; then
+      run_id=$candidate_run_id
+    fi
+  fi
+fi
+
+if [[ -z "$run_id" ]]; then
   for _ in {1..24}; do
     run_id=$(gh run list \
       --repo "$GITHUB_REPOSITORY" \

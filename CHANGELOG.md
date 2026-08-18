@@ -70,6 +70,9 @@ unchanged appliance after it has passed boot and provenance checks.
 - Dispatch token-free CI when GitHub marks its own pull-request run as
   `action_required`, and compare the trusted branch with the current `main`
   ancestry before deciding whether it needs an update.
+- Capture and verify the run ID returned by workflow dispatch, reuse healthy
+  exact-head validation already in progress, and retain list polling as a
+  compatibility fallback.
 - Restrict formatting checks to source-controlled Nix files, excluding
   generated devenv state while retaining a jj-compatible local fallback.
 
