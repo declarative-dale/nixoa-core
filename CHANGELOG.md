@@ -67,12 +67,11 @@ unchanged appliance after it has passed boot and provenance checks.
   retaining the exact expected-author check.
 - Select trusted-update CI runs by their reported head SHA, preventing a stale
   run for an earlier version-branch commit from entering the merge decision.
-- Dispatch token-free CI when GitHub marks its own pull-request run as
-  `action_required`, and compare the trusted branch with the current `main`
-  ancestry before deciding whether it needs an update.
-- Capture and verify the run ID returned by workflow dispatch, reuse healthy
-  exact-head validation already in progress, and retain list polling as a
-  compatibility fallback.
+- Approve GitHub's gated pull-request CI with the repository-scoped Actions
+  permission, then compare the trusted branch with current `main` before
+  selecting its exact-head validation.
+- Reuse healthy exact-head pull-request validation already in progress and
+  reject stale runs before enabling auto-merge.
 - Wait for GitHub's refreshed pull-request head to become visible before
   selecting its exact-head validation and enabling auto-merge.
 - Restrict formatting checks to source-controlled Nix files, excluding

@@ -13,7 +13,6 @@ set -euo pipefail
 
 ci_workflow=${CI_WORKFLOW:-ci.yml}
 wait_for_merge=${WAIT_FOR_MERGE:-false}
-validate_only=${VALIDATE_ONLY:-false}
 expected_change_kind=${EXPECTED_CHANGE_KIND:-any}
 ci_poll_interval=${CI_POLL_INTERVAL:-5}
 
@@ -123,76 +122,21 @@ for _ in {1..6}; do
     'first(.[] | select(.headSha == $sha and .conclusion != "action_required") | .databaseId) // empty' \
     <<<"$pull_runs")
   [[ -z "$run_id" ]] || break
-  if jq -e --arg sha "$head_sha" \
-    'any(.[]; .headSha == $sha and .conclusion == "action_required")' \
-    <<<"$pull_runs" >/dev/null; then
+  approval_run_id=$(jq -r --arg sha "$head_sha" \
+    'first(.[] | select(.headSha == $sha and .conclusion == "action_required") | .databaseId) // empty' \
+    <<<"$pull_runs")
+  if [[ -n "$approval_run_id" ]]; then
+    gh api --method POST \
+      "repos/${GITHUB_REPOSITORY}/actions/runs/${approval_run_id}/approve" \
+      >/dev/null
+    run_id=$approval_run_id
     break
   fi
   sleep "$ci_poll_interval"
 done
 
-if [[ -z "$run_id" ]]; then
-  dispatch_runs=$(gh run list \
-    --repo "$GITHUB_REPOSITORY" \
-    --workflow "$ci_workflow" \
-    --event workflow_dispatch \
-    --branch "$branch" \
-    --commit "$head_sha" \
-    --limit 5 \
-    --json conclusion,databaseId,headSha,status)
-  run_id=$(jq -r --arg sha "$head_sha" \
-    'first(.[] | select(.headSha == $sha and .conclusion != "action_required" and (.status != "completed" or .conclusion == "success")) | .databaseId) // empty' \
-    <<<"$dispatch_runs")
-fi
-
-if [[ -z "$run_id" ]]; then
-  previous_run_id=$(gh run list \
-    --repo "$GITHUB_REPOSITORY" \
-    --workflow "$ci_workflow" \
-    --event workflow_dispatch \
-    --branch "$branch" \
-    --commit "$head_sha" \
-    --limit 1 \
-    --json databaseId,headSha |
-    jq -r --arg sha "$head_sha" \
-      'first(.[] | select(.headSha == $sha) | .databaseId) // empty')
-  dispatch_output=$(gh workflow run "$ci_workflow" \
-    --repo "$GITHUB_REPOSITORY" \
-    --ref "$branch" \
-    -f "validate_only=${validate_only}")
-  [[ -z "$dispatch_output" ]] || printf '%s\n' "$dispatch_output"
-  if [[ "$dispatch_output" =~ /actions/runs/([0-9]+) ]]; then
-    candidate_run_id=${BASH_REMATCH[1]}
-    if observed_head=$(gh run view "$candidate_run_id" \
-      --repo "$GITHUB_REPOSITORY" \
-      --json headSha \
-      --jq .headSha 2>/dev/null) && [[ "$observed_head" == "$head_sha" ]]; then
-      run_id=$candidate_run_id
-    fi
-  fi
-fi
-
-if [[ -z "$run_id" ]]; then
-  for _ in {1..24}; do
-    run_id=$(gh run list \
-      --repo "$GITHUB_REPOSITORY" \
-      --workflow "$ci_workflow" \
-      --event workflow_dispatch \
-      --branch "$branch" \
-      --commit "$head_sha" \
-      --limit 5 \
-      --json databaseId,headSha |
-      jq -r \
-        --arg sha "$head_sha" \
-        --arg previous "$previous_run_id" \
-        'first(.[] | select(.headSha == $sha) | select((.databaseId | tostring) != $previous) | .databaseId) // empty')
-    [[ -z "$run_id" ]] || break
-    sleep "$ci_poll_interval"
-  done
-fi
-
 [[ -n "$run_id" ]] || {
-  printf 'Could not locate CI for trusted update %s.\n' "$PR_NUMBER" >&2
+  printf 'Could not locate pull-request CI for trusted update %s.\n' "$PR_NUMBER" >&2
   exit 1
 }
 gh run watch "$run_id" --repo "$GITHUB_REPOSITORY" --exit-status
