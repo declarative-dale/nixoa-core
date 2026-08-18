@@ -1,18 +1,21 @@
 {
   description = "NiXOA - a focused Xen Orchestra appliance for XCP-ng";
 
-  # GitHub Actions publishes reusable package outputs to these caches. The
-  # multi-gigabyte, closure-preseeded installer is a workflow artifact instead
-  # so it does not consume the small NiXOA Cachix storage allocation.
+  # GitHub Actions shares Nix build outputs through these public caches while
+  # release artifacts remain immutable GitHub assets.
   nixConfig = {
     extra-substituters = [
       "https://install.determinate.systems"
+      "https://devenv.cachix.org"
+      "https://cachix.cachix.org"
       "https://nixoa.cachix.org"
       "https://xen-orchestra-ce.cachix.org"
       "https://libvhdi-nixpkg.cachix.org"
     ];
     extra-trusted-public-keys = [
       "cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
+      "devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw="
+      "cachix.cachix.org-1:eWNHQldwUO7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM="
       "nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g="
       "xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
       "libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
@@ -29,6 +32,7 @@
 
   inputs = {
     den.url = "github:denful/den/v0.16.0";
+    devenv.url = "github:cachix/devenv/v2.2.2";
     determinate.url = "https://flakehub.com/f/DeterminateSystems/determinate/*";
     home-manager = {
       inputs.nixpkgs.follows = "nixpkgs";

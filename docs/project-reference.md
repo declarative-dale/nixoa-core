@@ -23,6 +23,7 @@ Public packages include:
 - `nxcli`
 - `nixoa-menu`
 - `deploy-template`
+- `devenv`
 - `installer-iso`
 - `metadata`
 - `sbomnix`
@@ -32,29 +33,38 @@ The flake also exposes operator apps for `nxcli`, `apply`, `bootstrap`,
 
 Run `nix flake show` for the complete evaluated output tree.
 
-The default `devShells.x86_64-linux` output supplies the repository toolchain.
-Use `nix develop` for Rust, Packer, and validation work; the exact commands are
-in the [development guide](development.md).
+Native devenv and the default `devShells.x86_64-linux` output share the
+repository toolchain module. Use `devenv shell` and `devenv tasks run ci:check`
+for normal work; `nix develop` remains the flake-only fallback. Exact commands
+are in the [development guide](development.md).
 
 ## Installer delivery
 
 GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
-artifact from the consolidated `CI` workflow; smaller reusable package
-closures are published to Cachix.
-Determinate Magic Nix Cache reuses results in validation and installer-build
-jobs through GitHub's free native cache. The verified build also exports only
-the four reusable output closures as a file-backed Nix cache artifact. The
-publication job restores that exact cache by immutable run ID before writing
-the closures to Cachix and FlakeHub, avoiding both a rebuild and a second Magic
-Cache upload. The handoff artifact expires after 14 days; Cachix remains the
-public cache. CI explicitly disables the separate FlakeHub Cache service.
+artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
+from the public NiXOA Cachix cache and, on trusted repository events, streams
+new outputs back through Cachix's daemon. GitHub's cache separately restores
+only devenv evaluation and task metadata; it never transports Nix store paths,
+runtime state, garbage-collection roots, or secrets. Later jobs therefore
+reuse the same store paths without a temporary NAR artifact.
+Fork pull requests remain read-only when the publishing token is unavailable.
 
-The build also uses `sbomnix` to create SPDX and CycloneDX runtime SBOMs for
-the complete appliance closure. CI boots the ISO with QEMU, signs its build
-provenance, and binds the SPDX document to the installer. GitHub release assets
-carry the tested installer in numbered parts below GitHub's 2 GiB per-asset
-limit, plus its whole-file checksum, both SBOMs, and a checksummed manifest.
+The Cachix token and cache name are declared in `secretspec.toml`. GitHub
+Actions maps the repository secret and variable into the official Secretspec
+action once per job; subsequent actions consume only the masked, exported
+environment. The flake packages Secretspec and validates both the token-free
+and publishing profiles without resolving values into the Nix store.
+
+The build uses the flake-provided `sbomnix` to create validated, checksummed
+SPDX and CycloneDX runtime inventories for the complete appliance closure.
+Cachix substitutes the system closure and SBOM tooling. The finished SBOMs are
+cached with the ISO and immutable state in the same 90-day GitHub artifact, so
+later runs and releases retrieve the exact tested bundle without regenerating
+it. CI boots the ISO with QEMU, signs its build provenance, and binds the SPDX
+document to the installer. GitHub release assets carry the tested installer in
+numbered parts below GitHub's 2 GiB per-asset limit, plus its whole-file
+checksum, both SBOMs, and a checksummed manifest.
 Reassemble a directly downloaded installer with `cat nixoa-v*.iso.part-* >
 nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
 `deploy-template` path performs artifact retrieval and verification itself.
@@ -78,7 +88,8 @@ running. Use `INSTALLER_SOURCE=build` for the current checkout or
 `INSTALLER_ISO=/path/to/image.iso` for an exact image.
 
 The Determinate, NiXOA, Xen Orchestra, and libvhdi binary caches and their
-public keys are declared in `flake.nix`.
+public keys are declared in `flake.nix`; credential-bearing configuration is
+kept in the runtime Secretspec contract.
 
 ## Automation
 
@@ -90,8 +101,9 @@ public keys are declared in `flake.nix`.
   artifact while metadata-only changes skip planning.
 - A forced build and boot runs every other month so runtime and cache drift are
   detected before the 90-day artifact expires.
-- A scheduled workflow refreshes all locked inputs every Wednesday at 09:17
-  UTC and opens or updates a pull request.
+- A scheduled workflow refreshes `devenv.lock` and `flake.lock` every Wednesday
+  at 09:17 UTC, verifies their shared pins, and opens or updates one pull
+  request.
 - Weekly grouped Dependabot updates carry a seven-day cooldown. A narrow bot
   verifies the exact trusted author, repository, branch, title, and head SHA,
   waits for that SHA's CI, and only then enables protected-branch auto-merge.

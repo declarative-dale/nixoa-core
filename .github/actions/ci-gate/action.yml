@@ -1,0 +1,34 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Enforce the NiXOA CI graph
+description: Evaluate the stable required status without installing the Nix toolchain
+
+inputs:
+  build_result:
+    description: Result of the conditional installer build job
+    required: true
+  check_result:
+    description: Result of the repository validation job
+    required: true
+  installer_required:
+    description: Whether this change requires installer validation
+    required: true
+  plan_result:
+    description: Result of the immutable installer planning job
+    required: true
+  should_build:
+    description: Whether the immutable installer state required a new build
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check required and conditional results
+      shell: bash
+      env:
+        BUILD_RESULT: ${{ inputs.build_result }}
+        CHECK_RESULT: ${{ inputs.check_result }}
+        INSTALLER_REQUIRED: ${{ inputs.installer_required }}
+        PLAN_RESULT: ${{ inputs.plan_result }}
+        SHOULD_BUILD: ${{ inputs.should_build }}
+      run: bash "$GITHUB_ACTION_PATH/../../../nix/automation/gate.sh"

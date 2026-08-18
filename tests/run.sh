@@ -18,20 +18,8 @@ assert_eq() {
 temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 
-bash "$TEST_ROOT/tests/installer-build-input.sh"
-bash "$TEST_ROOT/tests/ci-helpers.sh"
-bash "$TEST_ROOT/tests/reusable-cache.sh"
-bash "$TEST_ROOT/tests/release-assets.sh"
-
 bash -n \
-  "$TEST_ROOT/ci/installer-build-input.sh" \
-  "$TEST_ROOT/ci/installer-changes.sh" \
-  "$TEST_ROOT/ci/build-release-assets.sh" \
-  "$TEST_ROOT/ci/boot-installer-iso.sh" \
-  "$TEST_ROOT/ci/find-installer-state.sh" \
-  "$TEST_ROOT/ci/release-notes.sh" \
-  "$TEST_ROOT/ci/release-version.sh" \
-  "$TEST_ROOT/ci/trusted-update.sh" \
+  "$TEST_ROOT"/nix/automation/*.sh \
   "$TEST_ROOT/scripts/lib/common.sh" \
   "$TEST_ROOT/scripts/nxcli.sh" \
   "$TEST_ROOT/scripts/bootstrap.sh" \
@@ -100,47 +88,56 @@ grep -Fq 'nixoaMenu' "$TEST_ROOT/installer/default.nix" \
 grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits Xen Orchestra"
 grep -Fq '.#packages.x86_64-linux.xen-orchestra-ce' \
-  "$TEST_ROOT/ci/build-release-assets.sh" \
+  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer workflow does not build Xen Orchestra explicitly"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"' \
-  "$TEST_ROOT/ci/build-release-assets.sh" \
+  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer workflow does not verify that its Xen Orchestra output is cached"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
   || fail "installer workflow does not pin Determinate Nix to an immutable revision"
-grep -Fq 'DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d' \
+if grep -Fq 'magic-nix-cache-action' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer workflow does not use the GitHub-backed Magic Nix Cache"
-magic_cache_steps=$(grep -Fc \
-  'DeterminateSystems/magic-nix-cache-action@908b263ff629f4cc17666315b7fd3ec127c6244d' \
-  "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$magic_cache_steps" 2
-publish_job=$(awk '
-  /^  publish:/ { copying = 1 }
-  copying && /^  gate:/ { exit }
-  copying { print }
-' "$TEST_ROOT/.github/workflows/ci.yml")
-if grep -Fq 'magic-nix-cache-action' <<<"$publish_job"; then
-  fail "publisher redundantly uploads its outputs to Magic Cache"
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml"; then
+  fail "installer workflow still uses the superseded Magic Cache"
 fi
-grep -Fq 'use-gha-cache: enabled' \
+grep -Fq 'cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  || fail "installer workflow does not share Nix outputs through Cachix"
+setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-devenv' \
+  "$TEST_ROOT/.github/workflows/ci.yml")
+assert_eq "$setup_steps" 5
+grep -Fq 'uses: ./.github/actions/ci-gate' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer workflow does not explicitly use the free GitHub cache"
-grep -Fq 'use-flakehub: disabled' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer workflow unexpectedly probes the paid FlakeHub cache"
-grep -Fq 'cachix/cachix-action@5f2d7c5294214f71b873db4b969586b980625e71' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer workflow no longer retains Cachix publishing support"
+  || fail "stable CI gate still provisions the full Nix toolchain"
+grep -Fq 'cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  || fail "shared CI setup does not resolve Cachix through Secretspec"
+# The GitHub expression must remain literal in the workflow source.
+# shellcheck disable=SC2016
+if grep -Fq 'authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml"; then
+  fail "Cachix action bypasses the Secretspec environment"
+fi
+# The GitHub expression must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq 'authToken: ${{ env.CACHIX_AUTH_TOKEN }}' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  || fail "Cachix action does not consume the Secretspec token"
+# The GitHub expression must remain literal in the workflow source.
+# shellcheck disable=SC2016
+grep -Fq 'name: ${{ env.CACHIX_CACHE_NAME }}' \
+  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  || fail "Cachix action does not consume the Secretspec cache name"
 grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not pin the Node.js 24 artifact uploader"
 # The command substitution must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'build_input=$(./ci/installer-build-input.sh)' \
-  "$TEST_ROOT/ci/find-installer-state.sh" \
+grep -Fq 'build_input=$("$NIXOA_CI_BUILD_INPUT")' \
+  "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
   || fail "installer workflow does not calculate deterministic build state"
 grep -Fq "if: needs.plan.outputs.should_build == 'true'" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
@@ -148,25 +145,14 @@ grep -Fq "if: needs.plan.outputs.should_build == 'true'" \
 grep -Fq 'name: nixoa-build-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
-grep -Fq 'name: nixoa-reusable-cache' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer workflow does not publish its temporary reusable cache"
-grep -Fq 'retention-days: 14' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "temporary reusable cache is not short-lived"
-# The expression must remain literal in the workflow source.
-# shellcheck disable=SC2016
-grep -Fq 'run-id: ${{ needs.plan.outputs.artifact_run_id }}' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "publisher does not select the immutable cache-producing run"
-grep -Fq './ci/reusable-cache.sh restore' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "publisher does not restore the exact reusable closures"
+if grep -Fq 'nixoa-reusable-cache' "$TEST_ROOT/.github/workflows/ci.yml"; then
+  fail "installer workflow still transports a redundant closure cache artifact"
+fi
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq '"$sbomnix_out/bin/sbomnix"' \
-  "$TEST_ROOT/ci/build-release-assets.sh" \
-  || fail "installer workflow does not generate SBOMs with sbomnix"
+  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  || fail "installer workflow does not use the flake-provided sbomnix"
 grep -Fq 'nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish an SPDX SBOM"
@@ -180,13 +166,13 @@ grep -Fq 'rolling-minor: 2' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "rolling FlakeHub publication does not avoid the legacy version line"
 grep -Fq -- '--status completed' \
-  "$TEST_ROOT/ci/find-installer-state.sh" \
+  "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
   || fail "installer state cannot recover verified artifacts from late failures"
 grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable gate"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq './ci/boot-installer-iso.sh' "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq 'tasks run ci:installer:boot' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
@@ -198,10 +184,6 @@ grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "superseded validation workflow still exists"
 [[ ! -e "$TEST_ROOT/.github/workflows/flakehub-publish-tagged.yml" ]] \
   || fail "obsolete standalone FlakeHub runner still exists"
-if grep -q 'result-installer)' \
-  "$TEST_ROOT/.github/workflows/ci.yml"; then
-  fail "installer workflow still pushes the full ISO closure to Cachix"
-fi
 grep -Fq 'cron: "17 9 * * 3"' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh is not scheduled weekly on Wednesday"
@@ -220,47 +202,47 @@ if grep -Fq 'inputs:' \
 fi
 grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
   || fail "repository version is not a stable or development semantic version"
-grep -Fq 'stage-release-installer.sh' "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq 'tasks run release:stage' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not split oversized installer assets"
-grep -Fq '2147483648' "$TEST_ROOT/ci/stage-release-installer.sh" \
+grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
 # The variable references must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'git merge-base --is-ancestor "${draft_target}" "${SOURCE_SHA}"' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq 'git merge-base --is-ancestor "$draft_target" "$SOURCE_SHA"' \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow cannot safely refresh a failed draft from newer main"
-grep -Fq -- '--draft' "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq -- '--draft' "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not stage assets in a draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq './ci/release-notes.sh "${RELEASE_VERSION}" CHANGELOG.md' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq '"$NIXOA_CI_RELEASE_NOTES" "$RELEASE_VERSION" CHANGELOG.md' \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not use the curated changelog entry"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq -- '--notes-file "${notes_file}"' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq -- '--notes-file "$notes_file"' \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not publish curated release notes"
-if grep -Fq -- '--generate-notes' "$TEST_ROOT/.github/workflows/release.yml"; then
+if grep -Fq -- '--generate-notes' "$TEST_ROOT/nix/automation/release.sh"; then
   fail "release workflow still substitutes generated notes for the changelog"
 fi
 grep -Fq 'candidate-state/nixoa-build-state.json' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not resolve the immutable build state"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'gh attestation verify "${installer}"' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq 'gh attestation verify "$installer"' \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not verify builder attestations"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq -- '--signer-workflow "${signer_workflow}"' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq -- '--signer-workflow "$signer_workflow"' \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release verification does not constrain the signer workflow"
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
-grep -Fq './ci/trusted-update.sh' \
+grep -Fq 'tasks run release:prepare' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
@@ -268,13 +250,13 @@ grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
   || fail "release workflow does not use the latest immutable artifact downloader"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'gh release edit "${RELEASE_TAG}" --draft=false --latest' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq 'gh release edit "$RELEASE_TAG" --draft=false --latest' \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not publish the verified immutable draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'Start NiXOA ${next_version}' \
-  "$TEST_ROOT/.github/workflows/release.yml" \
+  "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not advance the development version"
 grep -Fq 'package-ecosystem: github-actions' \
   "$TEST_ROOT/.github/dependabot.yml" \
@@ -292,13 +274,13 @@ grep -Fq 'flake.devShells = lib.genAttrs systems' \
   "$TEST_ROOT/modules/outputs/dev-shells.nix" \
   || fail "flake does not expose its development toolchain"
 grep -Fq 'pkgs.cargo' \
-  "$TEST_ROOT/modules/outputs/dev-shells.nix" \
+  "$TEST_ROOT/nix/devenv-packages.nix" \
   || fail "development shell does not provide Cargo"
-grep -Fq 'nix develop --accept-flake-config --command cargo test' \
+grep -Fq 'devenv shell -- cargo test' \
   "$TEST_ROOT/AGENTS.md" \
   || fail "repository guidance bypasses the flake-provided Rust toolchain"
 grep -Fq 'automation/weekly-flake-input-refresh' \
-  "$TEST_ROOT/.github/workflows/queue-automation.yml" \
+  "$TEST_ROOT/nix/automation/queue.sh" \
   || fail "trusted flake updates are not eligible for the automation queue"
 grep -Fq 'actions: write' \
   "$TEST_ROOT/.github/workflows/queue-automation.yml" \
@@ -488,8 +470,6 @@ grep -Fxq '/http_cache.sqlite' "$TEST_ROOT/.gitignore" \
   || fail "sbomnix HTTP cache is not ignored"
 grep -Fxq '/sbom.spdx.json' "$TEST_ROOT/.gitignore" \
   || fail "local sbomnix SPDX output is not ignored"
-grep -Fxq '/nixoa-reusable-cache/' "$TEST_ROOT/.gitignore" \
-  || fail "local temporary Nix cache output is not ignored"
 
 grep -q './packer.nix' "$TEST_ROOT/host/default.nix" \
   || fail "host does not import the dedicated Packer override"

@@ -10,10 +10,36 @@ in {
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       packages = inputs.self.packages.${system};
       appliance = inputs.self.nixosConfigurations.nixoa.config;
+      fixtureInputs = [
+        pkgs.bash
+        pkgs.coreutils
+        pkgs.findutils
+        pkgs.git
+        pkgs.gnugrep
+        pkgs.gnused
+        pkgs.jq
+      ];
+      mkSourceCheck = {
+        name,
+        command,
+        nativeBuildInputs ? fixtureInputs,
+      }:
+        pkgs.runCommandLocal "nixoa-${name}" {inherit nativeBuildInputs;} ''
+          cp -R ${inputs.self} source
+          chmod -R u+w source
+          cd source
+          export HOME="$TMPDIR/home"
+          export NIXOA_CI=${lib.getExe packages.nixoa-ci}
+          export NIXOA_SYSTEM_ROOT="$PWD"
+          mkdir -p "$HOME"
+          ${command}
+          touch "$out"
+        '';
     in {
       inherit
         (packages)
         metadata
+        nixoa-ci
         nxcli
         ;
 
@@ -26,6 +52,8 @@ in {
         pkgs.runCommandLocal "nixoa-workflow-policy" {
           nativeBuildInputs = [
             pkgs.actionlint
+            pkgs.bash
+            pkgs.yq-go
             pkgs.zizmor
           ];
         } ''
@@ -33,6 +61,59 @@ in {
           cd source
           actionlint .github/workflows/*.yml
           zizmor .github/workflows
+          while IFS= read -r action; do
+            case "$action" in
+              ./*) ;;
+              *@????????????????????????????????????????) ;;
+              *)
+                printf 'Action is not pinned to a full commit: %s\n' "$action" >&2
+                exit 1
+                ;;
+            esac
+          done < <(
+            yq -r '.. | .uses? | select(. != null)' \
+              .github/workflows/*.yml \
+              .github/actions/*/action.yml |
+              grep -v '^---$'
+          )
+          if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
+            grep -v '^---$' |
+            grep -Ev '^$|^devenv --no-tui '; then
+            printf 'Workflow command bypasses the devenv task graph.\n' >&2
+            exit 1
+          fi
+          touch "$out"
+        '';
+
+      devenv-contract =
+        pkgs.runCommandLocal "nixoa-devenv-contract" {
+          nativeBuildInputs = [
+            pkgs.coreutils
+            pkgs.gnugrep
+            pkgs.jq
+          ];
+        } ''
+          cd ${inputs.self}
+          for task in \
+            ci:classify ci:check ci:installer:plan ci:installer:build \
+            ci:installer:boot ci:publish ci:gate automation:queue \
+            automation:update-locks automation:validate-locks \
+            release:prepare release:dispatch release:inventory release:verify \
+            release:stage release:draft release:publish release:advance; do
+            grep -Fq "\"$task\"" nix/devenv.nix
+          done
+          test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
+          grep -Fq "git ls-files -z -- '*.nix'" nix/devenv.nix
+          grep -Fq -- "-path './.devenv'" nix/devenv.nix
+          grep -Fq '.devenv/nix-eval-cache.db*' .github/actions/setup-devenv/action.yml
+          grep -Fq '.devenv/tasks.db*' .github/actions/setup-devenv/action.yml
+          if grep -Eq '\.devenv/(profile|gc|state)|CACHIX_AUTH_TOKEN.*actions/cache' \
+            .github/actions/setup-devenv/action.yml; then
+            printf 'The GitHub cache includes runtime state, roots, or secrets.\n' >&2
+            exit 1
+          fi
+          ${lib.getExe packages.nixoa-ci} locks validate \
+            ${inputs.self}/flake.lock ${inputs.self}/devenv.lock
           touch "$out"
         '';
 
@@ -44,35 +125,60 @@ in {
         } ''
           cd ${inputs.self}
           shellcheck \
-            ci/*.sh \
             installer/*.sh \
             packer/*.sh \
             packer/scripts/*.sh \
             scripts/*.sh \
             scripts/lib/*.sh \
             scripts/tui/*.sh \
+            nix/automation/*.sh \
             tests/*.sh
           touch "$out"
         '';
 
-      fixture-tests =
-        pkgs.runCommandLocal "nixoa-fixture-tests" {
+      automation-fixtures = mkSourceCheck {
+        name = "automation-fixtures";
+        command = "bash ./tests/ci-helpers.sh";
+      };
+
+      installer-input-fixtures = mkSourceCheck {
+        name = "installer-input-fixtures";
+        command = "bash ./tests/installer-build-input.sh";
+      };
+
+      release-fixtures = mkSourceCheck {
+        name = "release-fixtures";
+        command = "bash ./tests/release-assets.sh";
+      };
+
+      secretspec-contract =
+        pkgs.runCommandLocal "nixoa-secretspec-contract" {
           nativeBuildInputs = [
-            pkgs.bash
-            pkgs.coreutils
-            pkgs.findutils
-            pkgs.git
-            pkgs.gnugrep
-            pkgs.gnused
             pkgs.jq
+            packages.secretspec
           ];
         } ''
-          cp -R ${inputs.self} source
-          chmod -R u+w source
-          cd source
-          NIXOA_SKIP_EVAL=1 bash ./tests/run.sh
+          export HOME="$TMPDIR/home"
+          mkdir -p "$HOME"
+          secretspec schema \
+            --file ${inputs.self}/secretspec.toml \
+            --profile github \
+            --output github-schema.json
+          jq -e '.required == ["CACHIX_CACHE_NAME"]' github-schema.json >/dev/null
+          secretspec schema \
+            --file ${inputs.self}/secretspec.toml \
+            --profile github-publish \
+            --output publish-schema.json
+          jq -e \
+            '.required == ["CACHIX_AUTH_TOKEN", "CACHIX_CACHE_NAME"]' \
+            publish-schema.json >/dev/null
           touch "$out"
         '';
+
+      operator-fixtures = mkSourceCheck {
+        name = "operator-fixtures";
+        command = "NIXOA_SKIP_EVAL=1 bash ./tests/run.sh";
+      };
 
       repository-policy = import ../../nix/checks/repository-policy.nix {
         inherit lib pkgs;

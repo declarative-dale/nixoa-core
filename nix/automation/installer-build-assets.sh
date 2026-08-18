@@ -3,7 +3,10 @@
 
 set -euo pipefail
 
-repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+repo_root=${NIXOA_SYSTEM_ROOT:-}
+if [[ -z "$repo_root" ]]; then
+  repo_root=$(git rev-parse --show-toplevel)
+fi
 cd "$repo_root"
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 

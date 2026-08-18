@@ -59,6 +59,7 @@ in {
       };
       nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
+      nixoaCi = inputs.self.packages.${system}.nixoa-ci;
       deployTemplate = inputs.self.packages.${system}.deploy-template;
       nxcliApp = mkNxcliApp pkgs nxcli;
     in {
@@ -108,6 +109,12 @@ in {
         type = "app";
         program = "${nixoaMenu}/bin/nixoa-menu";
         meta.description = "Launch the NiXOA SSH administration TUI";
+      };
+
+      nixoa-ci = {
+        type = "app";
+        program = lib.getExe nixoaCi;
+        meta.description = "Run NiXOA repository CI and release automation";
       };
     }
   );

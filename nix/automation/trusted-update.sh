@@ -54,13 +54,19 @@ validate_changes() {
       ;;
   esac
 
-  [[ ${#changed_files[@]} -eq 1 ]]
   if [[ "$expected_change_kind" == flake-lock ]]; then
-    [[ ${changed_files[0]} == flake.lock ]]
+    [[ ${#changed_files[@]} -ge 1 && ${#changed_files[@]} -le 2 ]]
+    for changed_file in "${changed_files[@]}"; do
+      case "$changed_file" in
+        devenv.lock | flake.lock) ;;
+        *) return 1 ;;
+      esac
+    done
     return
   fi
 
   : "${EXPECTED_VERSION:?EXPECTED_VERSION must be set for version changes}"
+  [[ ${#changed_files[@]} -eq 1 ]]
   [[ ${changed_files[0]} == VERSION ]]
   head_sha=$(jq -er .headRefOid <<<"$candidate")
   [[ $(gh api \

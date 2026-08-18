@@ -9,11 +9,51 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Added
+
+- Add a native devenv 2.2 task graph for local checks, CI, releases, and input
+  maintenance. It shares one package definition with the lightweight,
+  compatible `nix develop` shell.
+- Persist only devenv's evaluation and task metadata between GitHub runs, with
+  an explicit dispatch control for invalidating both caches.
+- Add the flake-packaged `nixoa-ci` interface for local and GitHub automation,
+  including installer classification and state, trusted updates, and the
+  immutable release state machine.
+- Add a flake-validated Secretspec contract for Cachix's GitHub repository
+  secret and variable, with token-free pull-request and required publishing
+  profiles.
+
+### Changed
+
+- Route every GitHub workflow command through named devenv tasks while keeping
+  permissions, SecretSpec resolution, Cachix streaming, artifacts, and
+  attestations at the GitHub boundary.
+- Refresh and validate `devenv.lock` and `flake.lock` in one Determinate update
+  pull request, with trusted automation restricted to those two files.
+- Reduce GitHub workflows to permissions, runner setup, artifact transport,
+  attestations, and calls into `nixoa-ci`; repository-specific decisions are
+  now reproducible through the flake.
+- Declare installer-impact and build-input paths in one Nix policy, and split
+  automation, installer-state, release, operator, Secretspec, workflow, and
+  shell fixtures into independently cached checks.
+- Replace Magic Cache and the temporary closure artifact bridge with Cachix
+  daemon sharing for every Nix-producing CI job. Trusted events publish all new
+  build outputs; fork pull requests consume the same public cache read-only.
+- Cache the tested ISO, SPDX and CycloneDX inventories, checksums, and immutable
+  state together in one 90-day GitHub artifact used by later runs and releases;
+  Cachix separately shares the system closure and SBOM tooling between jobs.
+- Validate workflow structure with Actionlint, Zizmor, and YAML-aware action
+  pin and direct-script policies.
+- Keep the stable required-status gate independent of Nix, Cachix, devenv, and
+  secrets so cancellations and metadata-only pull requests finish promptly.
+
 ### Fixed
 
 - Remove the external release-token assumption from protected version and
   flake-input updates. Repository-scoped automation now dispatches CI for the
   exact bot-authored head SHA and validates version-only changes before merge.
+- Restrict formatting checks to source-controlled Nix files, excluding
+  generated devenv state while retaining a jj-compatible local fallback.
 
 ## [1.1.1] - 2026-08-17
 

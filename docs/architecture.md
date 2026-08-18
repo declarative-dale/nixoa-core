@@ -37,6 +37,16 @@ downloads and verifies the ISO at deployment time, and passes its temporary
 path to Packer. The artifact is not a flake input or lock-file entry. An exact
 checkout-local ISO remains available through `INSTALLER_SOURCE=build`.
 
+Repository delivery is Nix-defined and devenv-orchestrated. A shared devenv
+module supplies both the native shell/task graph and the compatible flake
+development shell. Its tasks call `packages.x86_64-linux.nixoa-ci`, which owns
+the tested installer and release decisions. Workflows retain GitHub security
+boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub—but
+do not implement repository policy inline. A Nix policy declares which source
+paths affect the immutable installer fingerprint, allowing metadata-only
+commits to reuse a previously verified artifact while unknown paths fail
+safely toward rebuilding.
+
 ## Module layout
 
 ```text
