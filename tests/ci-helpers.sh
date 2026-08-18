@@ -116,16 +116,6 @@ elif [[ "$1 $2" == 'run list' ]]; then
   run_conclusion=${FAKE_RUN_CONCLUSION:-success}
   run_status=${FAKE_RUN_STATUS:-completed}
   run_id=42
-  if [[ "$*" == *'--event workflow_dispatch'* ]]; then
-    run_conclusion=${FAKE_DISPATCH_CONCLUSION:-$run_conclusion}
-    run_status=${FAKE_DISPATCH_STATUS:-$run_status}
-  fi
-  if [[ -n ${FAKE_DISPATCH_MARKER:-} && -e $FAKE_DISPATCH_MARKER ]]; then
-    run_head=abc123
-    run_conclusion=success
-    run_status=in_progress
-    run_id=43
-  fi
   jq -n \
     --arg conclusion "$run_conclusion" \
     --arg head "$run_head" \
@@ -136,13 +126,12 @@ elif [[ "$1 $2" == 'run view' ]]; then
   printf '%s\n' "${FAKE_VIEW_HEAD_SHA:-abc123}"
 elif [[ "$1 $2" == 'run watch' ]]; then
   exit 0
-elif [[ "$1 $2" == 'workflow run' ]]; then
-  [[ -z ${FAKE_DISPATCH_MARKER:-} ]] || touch "$FAKE_DISPATCH_MARKER"
-  printf '%s\n' "${FAKE_WORKFLOW_RUN_OUTPUT-https://example.invalid/actions/runs/43}"
 elif [[ "$1 $2" == 'pr update-branch' ]]; then
   [[ -z ${FAKE_UPDATE_MARKER:-} ]] || touch "$FAKE_UPDATE_MARKER"
 elif [[ "$1 $2" == 'pr merge' ]]; then
   printf '%s\n' "$*" >"$FAKE_MERGE_LOG"
+elif [[ "$1" == api && "$*" == *'/actions/runs/42/approve'* ]]; then
+  [[ -z ${FAKE_APPROVAL_MARKER:-} ]] || touch "$FAKE_APPROVAL_MARKER"
 elif [[ "$1" == api && "$*" == *'/pulls/1/files?'* ]]; then
   printf '%s\n' "${FAKE_FILES:-VERSION}"
 elif [[ "$1" == api && "$*" == *'/contents/VERSION?'* ]]; then
@@ -176,32 +165,17 @@ grep -Fq -- '--merge' "$temporary/merge.log"
 grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
 env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=app/release-bot "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update
-rm -f "$temporary/dispatched"
-env PATH="$temporary/bin:$PATH" \
-  FAKE_RUN_HEAD_SHA=stale \
-  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
-  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
-[[ -e $temporary/dispatched ]]
-rm -f "$temporary/dispatched"
-env PATH="$temporary/bin:$PATH" \
-  FAKE_RUN_CONCLUSION=action_required \
-  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
-  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
-[[ -e $temporary/dispatched ]]
-rm -f "$temporary/dispatched"
-env PATH="$temporary/bin:$PATH" \
-  FAKE_RUN_HEAD_SHA=stale \
-  FAKE_WORKFLOW_RUN_OUTPUT= \
-  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
-  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
-[[ -e $temporary/dispatched ]]
-rm -f "$temporary/dispatched"
+if env PATH="$temporary/bin:$PATH" FAKE_RUN_HEAD_SHA=stale \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
+  printf 'Trusted update accepted CI for a stale head.\n' >&2
+  exit 1
+fi
+rm -f "$temporary/approved"
 env PATH="$temporary/bin:$PATH" \
   FAKE_RUN_CONCLUSION=action_required \
-  FAKE_DISPATCH_CONCLUSION=success \
-  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  FAKE_APPROVAL_MARKER="$temporary/approved" \
   "${trusted_env[@]}" "$NIXOA_CI" trusted-update
-[[ ! -e $temporary/dispatched ]]
+[[ -e $temporary/approved ]]
 rm -f "$temporary/updated"
 rm -f "$temporary/update-delayed"
 env PATH="$temporary/bin:$PATH" \
