@@ -26,8 +26,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up devenv and shared Nix caching
-        uses: ./.github/actions/setup-devenv
+      - name: Set up Nix and shared caching
+        uses: ./.github/actions/setup-nix
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
@@ -37,4 +37,4 @@ jobs:
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
           GH_TOKEN: ${{ github.token }}
-        run: devenv --no-tui tasks run automation:queue
+        run: nix run --accept-flake-config .#nixoa-ci -- queue

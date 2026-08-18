@@ -10,7 +10,6 @@
       "https://cachix.cachix.org"
       "https://nixoa.cachix.org"
       "https://xen-orchestra-ce.cachix.org"
-      "https://libvhdi-nixpkg.cachix.org"
     ];
     extra-trusted-public-keys = [
       "cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="
@@ -18,7 +17,6 @@
       "cachix.cachix.org-1:eWNHQldwUO7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM="
       "nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g="
       "xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E="
-      "libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4="
     ];
   };
 

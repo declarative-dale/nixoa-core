@@ -30,18 +30,19 @@ The native XCP-ng template builder runs on the operator workstation.
 XenServer plugin in the caller's Nix store. The installed system is
 `nixosConfigurations.nixoa`.
 
-The flake directly declares the Determinate, NiXOA, Xen Orchestra, and libvhdi
-binary caches. The multi-gigabyte installer is instead a GitHub Actions
+The flake directly declares the Determinate, NiXOA, and Xen Orchestra binary
+caches. Integrated libvhdi comes from the Xen Orchestra flake. The
+multi-gigabyte installer is instead a GitHub Actions
 artifact: the `deploy-template` app selects the newest successful `main` run,
 downloads and verifies the ISO at deployment time, and passes its temporary
 path to Packer. The source flake and runtime installer selection stay
 independently pinned. An exact checkout-local ISO is available through
 `INSTALLER_SOURCE=build`.
 
-Repository delivery is Nix-defined and devenv-orchestrated. A shared devenv
-module supplies both the native shell/task graph and the compatible flake
-development shell. Its tasks call `packages.x86_64-linux.nixoa-ci`, which owns
-the tested installer and release decisions. Workflows retain GitHub security
+Repository delivery is Nix-defined and directly flake-orchestrated. The
+`packages.x86_64-linux.nixoa-ci` package owns tested installer and release
+decisions and is the sole hosted-workflow command boundary. A shared devenv
+module remains a local shell and task facade over that package. Workflows retain GitHub security
 boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
 A Nix policy declares which source
 paths affect the immutable installer fingerprint, allowing metadata-only

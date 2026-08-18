@@ -60,7 +60,7 @@ in {
           cp -R ${inputs.self} source
           cd source
           actionlint .github/workflows/*.yml
-          zizmor .github/workflows
+          zizmor .github
           while IFS= read -r action; do
             case "$action" in
               ./*) ;;
@@ -78,8 +78,8 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev '^$|^devenv --no-tui '; then
-            printf 'Workflow command bypasses the devenv task graph.\n' >&2
+            grep -Ev '^$|^nix run --accept-flake-config \.#nixoa-ci([ -]|$)'; then
+            printf 'Workflow command bypasses the flake-packaged nixoa-ci interface.\n' >&2
             exit 1
           fi
           touch "$out"
@@ -105,11 +105,10 @@ in {
           test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
           grep -Fq "git ls-files -z -- '*.nix'" nix/devenv.nix
           grep -Fq -- "-path './.devenv'" nix/devenv.nix
-          grep -Fq '.devenv/nix-eval-cache.db*' .github/actions/setup-devenv/action.yml
-          grep -Fq '.devenv/tasks.db*' .github/actions/setup-devenv/action.yml
-          if grep -Eq '\.devenv/(profile|gc|state)|CACHIX_AUTH_TOKEN.*actions/cache' \
-            .github/actions/setup-devenv/action.yml; then
-            printf 'The GitHub cache includes runtime state, roots, or secrets.\n' >&2
+          grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
+            .github/actions/setup-nix/action.yml
+          if grep -RqE 'devenv --no-tui|tasks run' .github/workflows; then
+            printf 'A hosted workflow still routes through devenv.\n' >&2
             exit 1
           fi
           ${lib.getExe packages.nixoa-ci} locks validate \
@@ -187,6 +186,9 @@ in {
 
       configuration = assert appliance.nixoa.xo.enable;
       assert appliance.nixoa.xo.package == inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
+      assert appliance.nixoa.xo.storage.libvhdiPackage == inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
+      assert appliance.programs.fuse.userAllowOther;
+      assert builtins.elem "fuse" appliance.users.users.${appliance.nixoa.xo.user}.extraGroups;
       assert appliance.services.redis.servers.xo.enable;
       assert appliance.systemd.services ? xo-autocert;
       assert appliance.nixoa.xo.internal.sudoWrapper != null;

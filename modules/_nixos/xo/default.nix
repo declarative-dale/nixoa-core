@@ -121,9 +121,7 @@ in {
       };
       libvhdiPackage = mkOption {
         type = types.package;
-        default =
-          inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi-fuse2
-          or inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
+        default = inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
         description = "libvhdi implementation used by XO.";
       };
     };

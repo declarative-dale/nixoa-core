@@ -34,8 +34,8 @@ The flake also exposes operator apps for `nxcli`, `apply`, `bootstrap`,
 Run `nix flake show` for the complete evaluated output tree.
 
 Native devenv and the default `devShells.x86_64-linux` output share the
-repository toolchain module. Use `devenv shell` and `devenv tasks run ci:check`
-for normal work; `nix develop` provides the compatible flake interface. Exact
+repository toolchain module. Use `devenv shell` for interactive work and
+`nix run .#nixoa-ci -- check` for the same direct interface used by CI. Exact
 commands are in the [development guide](development.md).
 
 ## Installer delivery
@@ -44,9 +44,8 @@ GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
 artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
 from the public NiXOA Cachix cache and, on trusted repository events, streams
-new outputs back through Cachix's daemon. GitHub's cache restores devenv
-evaluation and task metadata, while Cachix carries Nix store paths between
-jobs and runs. Fork pull requests consume the public cache read-only.
+new outputs back through Cachix's daemon. Cachix carries Nix store paths
+between jobs and runs; fork pull requests consume the public cache read-only.
 
 The Cachix token and cache name are declared in `secretspec.toml`. GitHub
 Actions maps the repository secret and variable through Secretspec once per
@@ -84,9 +83,9 @@ This means the default installer may briefly lag a newer checkout while CI is
 running. Use `INSTALLER_SOURCE=build` for the current checkout or
 `INSTALLER_ISO=/path/to/image.iso` for an exact image.
 
-The Determinate, NiXOA, Xen Orchestra, and libvhdi binary caches and their
-public keys are declared in `flake.nix`; credential-bearing configuration is
-kept in the runtime Secretspec contract.
+The Determinate, NiXOA, and Xen Orchestra binary caches and their public keys
+are declared in `flake.nix`; libvhdi is supplied by the Xen Orchestra closure.
+Credential-bearing configuration is kept in the runtime Secretspec contract.
 
 ## Automation
 
