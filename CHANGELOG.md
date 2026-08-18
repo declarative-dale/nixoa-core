@@ -67,6 +67,9 @@ unchanged appliance after it has passed boot and provenance checks.
   retaining the exact expected-author check.
 - Select trusted-update CI runs by their reported head SHA, preventing a stale
   run for an earlier version-branch commit from entering the merge decision.
+- Dispatch token-free CI when GitHub marks its own pull-request run as
+  `action_required`, and compare the trusted branch with the current `main`
+  ancestry before deciding whether it needs an update.
 - Restrict formatting checks to source-controlled Nix files, excluding
   generated devenv state while retaining a jj-compatible local fallback.
 
