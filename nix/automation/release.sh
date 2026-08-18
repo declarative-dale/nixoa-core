@@ -193,11 +193,14 @@ draft() {
   mapfile -t installer_parts < <(find release -maxdepth 1 -type f -name "nixoa-${RELEASE_TAG}.iso.part-*" -print | sort)
   [[ ${#assets[@]} -eq $((${#installer_parts[@]} + 7)) ]]
   if release_state=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish 2>/dev/null); then
-    [[ $(jq -r .isDraft <<<"$release_state") == true ]]
     draft_target=$(jq -r .targetCommitish <<<"$release_state")
-    git merge-base --is-ancestor "$draft_target" "$SOURCE_SHA"
-    gh release edit "$RELEASE_TAG" --notes-file "$notes_file" --target "$SOURCE_SHA"
-    gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+    if [[ $(jq -r .isDraft <<<"$release_state") == true ]]; then
+      git merge-base --is-ancestor "$draft_target" "$SOURCE_SHA"
+      gh release edit "$RELEASE_TAG" --notes-file "$notes_file" --target "$SOURCE_SHA"
+      gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+    else
+      [[ $(git rev-parse "$draft_target^{commit}") == "$SOURCE_SHA" ]]
+    fi
   else
     gh release create "$RELEASE_TAG" "${assets[@]}" --draft --notes-file "$notes_file" \
       --target "$SOURCE_SHA" --title "NiXOA ${RELEASE_VERSION}"
@@ -208,8 +211,15 @@ draft() {
 }
 
 publish() {
-  : "${RELEASE_TAG:?}"
-  gh release edit "$RELEASE_TAG" --draft=false --latest
+  : "${RELEASE_TAG:?}" "${SOURCE_SHA:?}"
+  release_state=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish)
+  target=$(jq -er .targetCommitish <<<"$release_state")
+  [[ $(git rev-parse "$target^{commit}") == "$SOURCE_SHA" ]]
+  if [[ $(jq -r .isDraft <<<"$release_state") == true ]]; then
+    gh release edit "$RELEASE_TAG" --draft=false --latest
+  else
+    printf 'Release %s is already published and immutable.\n' "$RELEASE_TAG"
+  fi
 }
 
 advance() {

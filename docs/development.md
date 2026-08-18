@@ -41,7 +41,7 @@ nix run --accept-flake-config .#nixoa-ci -- help
 nix run --accept-flake-config .#nixoa-ci -- classify-paths < changed-paths.txt
 nix run --accept-flake-config .#nixoa-ci -- installer build-input
 nix eval --json .#lib.ciPlans.x86_64-linux.validation
-nix run --accept-flake-config .#validate-ci-plan -- \
+nix run --accept-flake-config .#run-ci-plan -- \
   --plan lib.ciPlans.x86_64-linux.validation
 ```
 
@@ -49,10 +49,10 @@ GitHub workflows call `nixoa-ci` directly through the flake for build and
 release commands. Devenv remains a local convenience facade over the same
 package. Product operations use `nxcli`; delivery automation uses `nixoa-ci`.
 
-The `validation` and `installer` target sets are versioned pure values under
+The `validation`, `installer`, and `publish` target sets are versioned pure values under
 `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
-locked Xen Orchestra input. The validator rejects malformed or duplicate
-attributes before building, runs each target in a fresh child process against
+locked Xen Orchestra input. The schema-v2 runner rejects malformed or duplicate
+targets before building, runs each target in a fresh child process against
 the shared Nix store, and collects every failure before it exits.
 
 For a focused Rust edit:

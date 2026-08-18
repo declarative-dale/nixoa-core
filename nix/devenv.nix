@@ -65,12 +65,7 @@ in {
           installer boot "''${INSTALLER_ISO:-result-installer/iso/nixoa-installer.iso}"
       ''}
     '';
-    "ci:publish".exec = withFlake ''
-      nix build --accept-flake-config "$flake_ref#deploy-template" -o result-deploy-template
-      nix build --accept-flake-config "$flake_ref#metadata" -o result-metadata
-      nix build --accept-flake-config "$flake_ref#nixoa-menu" -o result-nixoa-menu
-      nix build --accept-flake-config "$flake_ref#nxcli" -o result-nxcli
-    '';
+    "ci:publish".exec = nixoaCi "publish";
     "ci:gate".exec = nixoaCi "gate";
 
     "automation:queue".exec = nixoaCi "queue";

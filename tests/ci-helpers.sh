@@ -15,13 +15,13 @@ trap 'rm -rf -- "$temporary"' EXIT
 [[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI" classify-paths) == false ]]
 [[ $(printf '%s\n' future/unknown-output | "$NIXOA_CI" classify-paths) == true ]]
 
-env CHECK_RESULT=success INSTALLER_REQUIRED=false PLAN_RESULT=skipped \
+env VALIDATE_RESULT=success INSTALLER_REQUIRED=false \
   BUILD_RESULT=skipped "$NIXOA_CI" gate
-env CHECK_RESULT=success INSTALLER_REQUIRED=true PLAN_RESULT=success \
+env VALIDATE_RESULT=success INSTALLER_REQUIRED=true \
   SHOULD_BUILD=false BUILD_RESULT=skipped "$NIXOA_CI" gate
-env CHECK_RESULT=success INSTALLER_REQUIRED=true PLAN_RESULT=success \
+env VALIDATE_RESULT=success INSTALLER_REQUIRED=true \
   SHOULD_BUILD=true BUILD_RESULT=success "$NIXOA_CI" gate
-if env CHECK_RESULT=failure INSTALLER_REQUIRED=false PLAN_RESULT=skipped \
+if env VALIDATE_RESULT=failure INSTALLER_REQUIRED=false \
   BUILD_RESULT=skipped "$NIXOA_CI" gate; then
   printf 'CI gate accepted a failed repository check.\n' >&2
   exit 1
@@ -113,6 +113,10 @@ if [[ "$1 $2" == 'pr view' ]]; then
     --arg head "$fake_head" \
     '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:$head,headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
 elif [[ "$1 $2" == 'run list' ]]; then
+  if [[ -n ${FAKE_DISPATCH_MARKER:-} && ! -e $FAKE_DISPATCH_MARKER ]]; then
+    printf '[]\n'
+    exit 0
+  fi
   run_head=${FAKE_RUN_HEAD_SHA:-abc123}
   run_conclusion=${FAKE_RUN_CONCLUSION:-success}
   run_status=${FAKE_RUN_STATUS:-completed}
@@ -125,12 +129,12 @@ elif [[ "$1 $2" == 'run list' ]]; then
     '[{conclusion:$conclusion,databaseId:$id,headSha:$head,status:$status}]'
 elif [[ "$1 $2" == 'run view' ]]; then
   printf '%s\n' "${FAKE_VIEW_HEAD_SHA:-abc123}"
-elif [[ "$1 $2" == 'run watch' ]]; then
-  exit 0
 elif [[ "$1 $2" == 'pr update-branch' ]]; then
   [[ -z ${FAKE_UPDATE_MARKER:-} ]] || touch "$FAKE_UPDATE_MARKER"
 elif [[ "$1 $2" == 'pr merge' ]]; then
   printf '%s\n' "$*" >"$FAKE_MERGE_LOG"
+elif [[ "$1 $2" == 'workflow run' ]]; then
+  [[ -z ${FAKE_DISPATCH_MARKER:-} ]] || touch "$FAKE_DISPATCH_MARKER"
 elif [[ "$1" == api && "$*" == *'/actions/runs/42/approve'* ]]; then
   [[ -z ${FAKE_APPROVAL_MARKER:-} ]] || touch "$FAKE_APPROVAL_MARKER"
 elif [[ "$1" == api && "$*" == *'/pulls/1/files?'* ]]; then
@@ -177,6 +181,11 @@ env PATH="$temporary/bin:$PATH" \
   FAKE_APPROVAL_MARKER="$temporary/approved" \
   "${trusted_env[@]}" "$NIXOA_CI" trusted-update
 [[ -e $temporary/approved ]]
+rm -f "$temporary/dispatched"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ -e $temporary/dispatched ]]
 rm -f "$temporary/updated"
 rm -f "$temporary/update-delayed"
 env PATH="$temporary/bin:$PATH" \

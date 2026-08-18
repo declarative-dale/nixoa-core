@@ -38,7 +38,7 @@ in {
     in {
       inherit
         (packages)
-        flake-attribute-validator
+        flake-plan-runner
         metadata
         nixoa-ci
         nxcli
@@ -52,12 +52,15 @@ in {
         } ''
           printf '%s\n' ${lib.escapeShellArg (builtins.toJSON plans)} > plans.json
           jq -e '
-            (.validation.schemaVersion == 1) and
+            (.validation.schemaVersion == 2) and
             (.validation.name == "nixoa-validation") and
             (.validation.targets | length == 16) and
-            (.installer.schemaVersion == 1) and
+            (.installer.schemaVersion == 2) and
             (.installer.name == "nixoa-installer") and
-            (.installer.targets | length == 8)
+            (.installer.targets | length == 9) and
+            (.publish.schemaVersion == 2) and
+            (.publish.name == "nixoa-publish") and
+            (.publish.targets | length == 5)
           ' plans.json >/dev/null
           touch "$out"
         '';
@@ -97,7 +100,7 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev '^$|^nix run --accept-flake-config \.#nixoa-ci([ -]|$)'; then
+            grep -Ev '^$|^nix run --accept-flake-config \.#nixoa-ci([ -]|$)|^bash nix/automation/gate\.sh$|^nix flake update --accept-flake-config$'; then
             printf 'Workflow command bypasses the flake-packaged nixoa-ci interface.\n' >&2
             exit 1
           fi
