@@ -21,28 +21,29 @@ nixoa
 └── operator   nixoa account, SSH, Home Manager, nxcli, and menu
 ```
 
-There is no exported namespace, downstream template, physical-host variant,
-synthetic VM configuration, or compatibility alias.
+The flake exports one concrete appliance configuration and one operator-side
+template builder.
 
-The native XCP-ng template builder is an operator-side tool, not another NixOS
-configuration. `packages.x86_64-linux.installer-iso` evaluates a small live
-installer, while `nix run --accept-flake-config .#deploy-template` realizes
-Packer and its XenServer plugin only in the caller's Nix store. The sole
-installed system remains `nixosConfigurations.nixoa`.
+The native XCP-ng template builder runs on the operator workstation.
+`packages.x86_64-linux.installer-iso` evaluates a small live installer, while
+`nix run --accept-flake-config .#deploy-template` realizes Packer and its
+XenServer plugin in the caller's Nix store. The installed system is
+`nixosConfigurations.nixoa`.
 
 The flake directly declares the Determinate, NiXOA, Xen Orchestra, and libvhdi
 binary caches. The multi-gigabyte installer is instead a GitHub Actions
 artifact: the `deploy-template` app selects the newest successful `main` run,
 downloads and verifies the ISO at deployment time, and passes its temporary
-path to Packer. The artifact is not a flake input or lock-file entry. An exact
-checkout-local ISO remains available through `INSTALLER_SOURCE=build`.
+path to Packer. The source flake and runtime installer selection stay
+independently pinned. An exact checkout-local ISO is available through
+`INSTALLER_SOURCE=build`.
 
 Repository delivery is Nix-defined and devenv-orchestrated. A shared devenv
 module supplies both the native shell/task graph and the compatible flake
 development shell. Its tasks call `packages.x86_64-linux.nixoa-ci`, which owns
 the tested installer and release decisions. Workflows retain GitHub security
-boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub—but
-do not implement repository policy inline. A Nix policy declares which source
+boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
+A Nix policy declares which source
 paths affect the immutable installer fingerprint, allowing metadata-only
 commits to reuse a previously verified artifact while unknown paths fail
 safely toward rebuilding.
@@ -71,8 +72,8 @@ modules/
 └── _homeManager/
 ```
 
-The underscore directories contain class modules and are not loaded as
-flake-level modules by `import-tree`.
+The underscore directories contain class modules composed through the aspect
+tree.
 
 ## Host ownership
 
@@ -94,14 +95,12 @@ Its scope is deliberately narrow: select `NoCloud` with a `None` fallback,
 target the existing `nixoa` operator, install datasource SSH keys, and create
 per-instance SSH identity. Declarative NixOS configuration remains authoritative
 for accounts, sudo, network configuration, filesystem declarations, packages,
-and services. Cloud-init may install NoCloud SSH keys and grow only the existing
-root partition and filesystem. Network rendering, package installation, and
-arbitrary user scripts are not enabled; systemd-networkd may apply a
-DHCP-provided transient hostname through the narrowly authorized hostnamed
-action.
+and services. Cloud-init installs NoCloud SSH keys and can grow the existing
+root partition and filesystem. systemd-networkd applies a DHCP-provided
+transient hostname through the narrowly authorized hostnamed action.
 
-SSH starts after `cloud-config.service`, so a clone cannot expose the operator
-login before NoCloud keys have been processed.
+SSH starts after `cloud-config.service`, ensuring NoCloud keys are processed
+before the operator connects.
 
 ## XO runtime
 
@@ -112,10 +111,9 @@ generated TOML, filesystem layout, and hardened `xo-server` unit.
 are absent or expired.
 
 `storage.nix` provides NFS/CIFS/VHD support. XO remains unprivileged; mount and
-libvhdi operations cross privilege boundaries only through a validated root
-helper and a narrow sudo rule. CIFS credentials travel over standard input and
-are written to a short-lived root-only credential file, never to process
-arguments.
+libvhdi operations cross privilege boundaries through a validated root helper
+and a narrow sudo rule. CIFS credentials travel over standard input and use a
+short-lived, root-readable credential file.
 
 ## Operational invariants
 

@@ -12,11 +12,11 @@ configuration files.
 
 ## Configuration files
 
-| File | Purpose | Edit by hand? |
+| File | Purpose | Maintained by |
 |---|---|---|
-| `host/settings.nix` | Durable appliance policy | Yes |
-| `host/hardware-configuration.nix` | Generated disks, filesystems, and detected hardware | Only when hardware changes |
-| `host/menu.nix` | Overrides written by `nixoa-menu` | No |
+| `host/settings.nix` | Durable appliance policy | Operator |
+| `host/hardware-configuration.nix` | Generated disks, filesystems, and detected hardware | Hardware workflow |
+| `host/menu.nix` | Console-generated overrides | `nixoa-menu` |
 
 The menu rewrites `host/menu.nix` as a complete file. Put lasting manual
 changes in `host/settings.nix`.
@@ -48,8 +48,8 @@ The main NiXOA options are grouped by purpose:
 | `nixoa.xo.tls` | HTTPS certificates |
 | `nixoa.xo.storage` | NFS, CIFS, and VHD support |
 
-The operator name, flake target, platform, and appliance role are fixed. They
-do not need configuration.
+NiXOA supplies the operator name, `.#nixoa` flake target, platform, and
+appliance role as stable appliance defaults.
 
 See [Common tasks](common-tasks.md) for copyable examples.
 
@@ -58,8 +58,8 @@ See [Common tasks](common-tasks.md) for copyable examples.
 `host/settings.nix` can also set normal NixOS options. The checked-in defaults
 include the host name, time zone, bootloader, firewall ports, and state version.
 
-Do not raise `system.stateVersion` just because NixOS was updated. It records
-the compatibility version used when the appliance was first installed.
+Keep `system.stateVersion` at the compatibility version used when the
+appliance was first installed.
 
 ## Hardware changes
 
@@ -72,8 +72,7 @@ sudo nixos-generate-config --show-hardware-config \
   > /tmp/hardware-configuration.nix
 ```
 
-NoCloud may grow the existing root partition and filesystem when a cloned disk
-is larger. It does not create filesystems, install packages, or replace the
-declarative network and hardware configuration.
+NoCloud can install clone-specific SSH keys, adopt a DHCP hostname, and grow
+the existing root partition and filesystem when a cloned disk is larger.
 
 [Back to documentation](index.md)

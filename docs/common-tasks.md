@@ -60,9 +60,8 @@ nixoa.xo.tls = {
 };
 ```
 
-The `xo` service user must be able to read both files. Never place a private
-key directly in a Nix file; that would copy it into the world-readable Nix
-store.
+Grant the `xo` service user read access to both runtime files. Keep the private
+key in a runtime credential path so it stays outside the Nix store.
 
 ## Change storage support
 
@@ -74,7 +73,8 @@ nixoa.xo.storage = {
 };
 ```
 
-The privileged storage helper rejects disabled protocols.
+The privileged storage helper permits the protocols enabled here and validates
+their mount paths.
 
 ## Queue a rebuild for next boot
 

@@ -1,16 +1,17 @@
-# Installation
+# Installation and Launch
 
-NiXOA supports two installation paths:
+Choose the path that matches your starting point:
 
 | Starting point | Use |
 |---|---|
-| A new appliance | [Create an XCP-ng template](#create-an-xcp-ng-template) |
-| An existing NixOS VM on XCP-ng | [Bootstrap the VM](#use-an-existing-nixos-vm) |
+| A new appliance from the verified installer | [Launch an XCP-ng template](#launch-an-xcp-ng-template) |
+| A new appliance from this checkout | [Build locally](#build-locally) |
+| An existing NixOS VM on XCP-ng | [Bootstrap the VM](#bootstrap-an-existing-nixos-vm) |
 
 Creating a template is the recommended path. It gives you a clean appliance
 that can be cloned whenever you need it.
 
-## Create an XCP-ng template
+## Launch an XCP-ng template
 
 ### Before you begin
 
@@ -25,8 +26,8 @@ You need:
 ### Deploy
 
 ```bash
-git clone https://codeberg.org/NiXOA/core.git
-cd core
+git clone https://github.com/declarative-dale/nixoa-core.git
+cd nixoa-core
 
 nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
@@ -38,9 +39,9 @@ nix run --accept-flake-config .#deploy-template -- \
   --operator-key ~/.ssh/id_ed25519.pub
 ```
 
-The deployer prompts for missing XCP-ng details and the password. It stores
-non-secret answers in `packer/local.pkrvars.json`; it never stores the
-password.
+The deployer prompts for XCP-ng details and the password. It stores reusable
+non-secret answers in `packer/local.pkrvars.json` and accepts the password at
+execution time.
 
 > The installer erases the one virtual disk created for the temporary build
 > VM. Check the selected storage and VM details before confirming.
@@ -56,16 +57,34 @@ When the build completes:
 
 Each clone creates fresh machine and SSH host identities.
 
-## Use an existing NixOS VM
+## Build locally
 
-Use this path only for a normally installed `x86_64` NixOS guest on XCP-ng.
-The VM must boot, have working networking, and contain
-`/etc/nixos/hardware-configuration.nix`.
+Build the current checkout's installer:
+
+```bash
+nix build --accept-flake-config .#installer-iso
+```
+
+The ISO is available at `result/iso/nixoa-installer.iso`. To build that ISO and
+send it directly through the template workflow, use the launch command above
+with `INSTALLER_SOURCE=build`:
+
+```bash
+INSTALLER_SOURCE=build \
+  nix run --accept-flake-config .#deploy-template -- ...
+```
+
+Set `INSTALLER_ISO=/path/to/nixoa-installer.iso` to launch an exact image.
+
+## Bootstrap an existing NixOS VM
+
+This path starts with a bootable `x86_64` NixOS guest on XCP-ng with working
+networking and `/etc/nixos/hardware-configuration.nix`.
 
 From the VM:
 
 ```bash
-git clone https://codeberg.org/NiXOA/core.git /tmp/nixoa-bootstrap
+git clone https://github.com/declarative-dale/nixoa-core.git /tmp/nixoa-bootstrap
 cd /tmp/nixoa-bootstrap
 
 sudo ./scripts/bootstrap.sh \
@@ -77,24 +96,18 @@ Replace the example with your complete public key. Repeat `--ssh-key` to add
 more than one key.
 
 Bootstrap keeps the VM's generated disk and filesystem configuration, checks
-the flake, and activates `.#nixoa`. After activation, SSH access is available
-only as `nixoa`, so verify the key before you continue.
+the flake, activates `.#nixoa`, and hands SSH access to the `nixoa` operator.
+Verify the key in a second session before closing the console.
 
 Run `./scripts/bootstrap.sh --help` for optional settings such as the time
 zone, Git identity, branch, or a validation-only install.
 
-## Advanced deployment details
+## Artifact selection
 
 The default template deployment downloads and verifies the latest successful
-installer artifact. To build the installer from the current checkout instead:
-
-```bash
-INSTALLER_SOURCE=build \
-  nix run --accept-flake-config .#deploy-template -- ...
-```
-
-To deploy a specific installer image, set `INSTALLER_ISO=/path/to/image.iso`.
-For the complete build, validation, cache, and sealing contract, see the
-[Packer reference](../packer/README.md).
+installer artifact. The [project reference](project-reference.md) explains its
+checksums, SBOMs, attestations, immutable state, and cache reuse. The
+[Packer reference](../packer/README.md) covers template construction,
+validation, and sealing.
 
 [Back to documentation](index.md)

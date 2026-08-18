@@ -1,7 +1,6 @@
 # Operations
 
-NiXOA commands always operate on the single `.#nixoa` appliance. You never
-need to select a host.
+NiXOA commands operate directly on the single `.#nixoa` appliance.
 
 ## Everyday commands
 
@@ -29,8 +28,7 @@ nxcli apply --dry-run
 nxcli apply
 ```
 
-Use `nxcli boot` instead of `nxcli apply` when you want the new generation to
-take effect only after reboot.
+Use `nxcli boot` to make the new generation active after the next reboot.
 
 ## Roll back
 
@@ -38,8 +36,8 @@ take effect only after reboot.
 nxcli rollback --ask
 ```
 
-If the appliance cannot boot, select an older generation from the boot menu.
-NiXOA keeps up to ten boot entries.
+The boot menu provides older generations for recovery. NiXOA keeps up to ten
+boot entries.
 
 ## Update
 
@@ -57,8 +55,8 @@ nxcli update flake
 nxcli update xoa
 ```
 
-An update changes `flake.lock`; it does not rebuild or commit automatically.
-Review the diff, apply it, and commit it intentionally.
+An update changes `flake.lock`. Review the diff, apply the new generation, and
+record the lock-file update with `nxcli commit`.
 
 ## Inspect logs
 
