@@ -59,7 +59,8 @@ before the appliance's declarative Nix configuration is active.
 Orchestra. Add `--preview` to view the lock-file change without modifying the
 checkout.
 
-Updates do not rebuild or commit automatically.
+After an update, review the lock-file diff, apply the generation, and record it
+with `nxcli commit`.
 
 ## Machine-readable output
 

@@ -12,7 +12,7 @@ used during installation:
 ssh nixoa@<vm-address>
 ```
 
-The operator name is always `nixoa`. Password login and root login are disabled.
+The appliance uses SSH-key authentication for the `nixoa` operator.
 
 ## 2. Open Xen Orchestra
 
@@ -64,6 +64,6 @@ nxcli rollback --ask
 
 - [Common tasks](common-tasks.md) for SSH keys, packages, TLS, and storage
 - [Operations](operations.md) for updates, boot generations, and logs
-- [Troubleshooting](troubleshooting.md) when something is not working
+- [Troubleshooting](troubleshooting.md) for symptom-based checks and recovery
 
 [Back to documentation](index.md)

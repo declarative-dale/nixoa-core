@@ -32,6 +32,9 @@ unchanged appliance after it has passed boot and provenance checks.
 
 ### Changed
 
+- Rework the README around immediate launch and local-build paths, with
+  operations, customization, troubleshooting, architecture, and contributor
+  details organized behind a task-oriented documentation index.
 - Route every GitHub workflow command through named devenv tasks while keeping
   permissions, SecretSpec resolution, Cachix streaming, artifacts, and
   attestations at the GitHub boundary.

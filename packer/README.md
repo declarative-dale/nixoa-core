@@ -5,8 +5,8 @@ The repository can build and deploy NiXOA without installing Packer into a
 profile or into the appliance:
 
 ```bash
-git clone https://codeberg.org/NiXOA/core.git
-cd core
+git clone https://github.com/declarative-dale/nixoa-core.git
+cd nixoa-core
 nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
   --iso-sr "ISO library" \
