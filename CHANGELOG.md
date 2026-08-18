@@ -32,6 +32,9 @@ unchanged appliance after it has passed boot and provenance checks.
 
 ### Changed
 
+- Rework the README around immediate launch and local-build paths, with
+  operations, customization, troubleshooting, architecture, and contributor
+  details organized behind a task-oriented documentation index.
 - Route every GitHub workflow command through named devenv tasks while keeping
   permissions, SecretSpec resolution, Cachix streaming, artifacts, and
   attestations at the GitHub boundary.
@@ -59,6 +62,9 @@ unchanged appliance after it has passed boot and provenance checks.
 - Remove the external release-token assumption from protected version and
   flake-input updates. Repository-scoped automation now dispatches CI for the
   exact bot-authored head SHA and validates version-only changes before merge.
+- Canonicalize GitHub's `app/` author prefix before validating trusted bot
+  identities, allowing token-free version pull requests to enter CI while
+  retaining the exact expected-author check.
 - Restrict formatting checks to source-controlled Nix files, excluding
   generated devenv state while retaining a jj-compatible local fallback.
 

@@ -21,8 +21,8 @@ Then use the section that matches the symptom.
 
 ## SSH access fails
 
-SSH allows only key-based login as `nixoa`. Root and the installer account are
-not allowed.
+Connect as `nixoa` with a public key registered during installation or in the
+host configuration.
 
 From the VM console, check the account and effective SSH policy:
 
@@ -76,8 +76,8 @@ nix flake show
 nix eval .#nixosConfigurations.nixoa.config.networking.hostName
 ```
 
-Flakes do not see new, untracked files. Stage a new file before evaluating the
-flake, or use an explicit `path:` flake reference while developing.
+Stage new files before evaluating the flake, or use an explicit `path:` flake
+reference so the evaluator includes the working tree.
 
 If `nxcli apply` reports a dirty checkout, inspect it with:
 
@@ -85,8 +85,8 @@ If `nxcli apply` reports a dirty checkout, inspect it with:
 nxcli diff
 ```
 
-A dirty checkout is allowed, but NiXOA reports it so changes are not applied by
-accident.
+NiXOA reports a dirty checkout so you can review the exact changes before
+activation.
 
 ## A menu change disappeared
 
@@ -105,8 +105,8 @@ Mount targets must be below the configured `nixoa.xo.storage.mountsDir`. VHD
 paths must be below the XO mounts, data, or temporary directories. Confirm that
 the required protocol is enabled in `nixoa.xo.storage`.
 
-The privileged helper intentionally rejects arbitrary commands, disabled
-filesystems, unsafe paths, and CIFS secrets passed as command-line options.
+The privileged helper validates operations, enabled filesystems, safe path
+roots, and credential-file usage.
 
 ## Hardware or boot fails
 
@@ -114,8 +114,8 @@ Compare `host/hardware-configuration.nix` with the VM's generated hardware
 configuration. Check that its filesystem declarations and firmware-specific
 bootloader settings still match the VM.
 
-If a new generation cannot boot, select an older generation from the
-systemd-boot menu.
+Select a known-good generation from the systemd-boot menu to recover the
+appliance.
 
 ## Template deployment fails
 
@@ -125,7 +125,7 @@ Always run the flake-provided deployer; it includes the pinned Packer plugin:
 nix run --accept-flake-config .#deploy-template -- --help
 ```
 
-If the installer artifact cannot be downloaded, authenticate GitHub CLI:
+Authenticate GitHub CLI for installer artifact access:
 
 ```bash
 gh auth login

@@ -8,8 +8,8 @@ Enter it interactively with:
 devenv shell
 ```
 
-The flake imports the same package definition, so tools remain available when
-only the Nix interface is installed without evaluating devenv's task engine:
+The flake imports the same package definition, so the compatible Nix interface
+provides the toolchain directly:
 
 ```bash
 nix develop --accept-flake-config
@@ -22,9 +22,9 @@ devenv shell -- cargo --version
 devenv shell -- packer version
 ```
 
-The default shell provides the Rust compiler and tooling, Nix language tools,
-Packer, GitHub CLI, Secretspec, and the workflow and shell linters used by this
-repository. Do not rely on host-installed Cargo, Packer, or Secretspec versions.
+The default shell provides the repository's pinned Rust compiler and tooling,
+Nix language tools, Packer, GitHub CLI, Secretspec, and workflow and shell
+linters.
 
 ## Validate a change
 
@@ -42,9 +42,8 @@ nix run --accept-flake-config .#nixoa-ci -- classify-paths < changed-paths.txt
 nix run --accept-flake-config .#nixoa-ci -- installer build-input
 ```
 
-GitHub workflows call devenv tasks rather than embedding build or release
-commands. Product operations remain under `nxcli`; `nixoa-ci` is contributor
-and delivery tooling and is not installed on the appliance.
+GitHub workflows call devenv tasks for build and release commands. Product
+operations use `nxcli`; contributors and delivery automation use `nixoa-ci`.
 
 For a focused Rust edit:
 
@@ -56,9 +55,9 @@ devenv shell -- bash -lc \
 The flake exposes separate cached checks for automation, installer-input,
 release, operator, and Secretspec contracts, plus ShellCheck, workflow policy
 (`actionlint`, `zizmor`, and YAML-aware assertions), and repository invariants.
-This keeps failures focused while `ci:check` runs the full flake and formatting
-contracts. Run ad-hoc fixtures through devenv; they are not a substitute for
-the task graph.
+This keeps failures focused while `ci:check` runs the complete flake and
+formatting contracts. Run focused fixtures through devenv, then finish with
+the full task graph.
 
 ## Cache behavior
 

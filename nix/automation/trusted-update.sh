@@ -24,9 +24,13 @@ read_pr() {
 
 validate_pr() {
   local candidate=$1
+  local author
+
+  author=$(jq -er .author.login <<<"$candidate")
+  author=${author#app/}
   [[ $(jq -er .state <<<"$candidate") == OPEN ]]
   [[ $(jq -er .title <<<"$candidate") == "$EXPECTED_TITLE" ]]
-  [[ $(jq -er .author.login <<<"$candidate") == "$EXPECTED_AUTHOR" ]]
+  [[ "$author" == "$EXPECTED_AUTHOR" ]]
   [[ $(jq -er .baseRefName <<<"$candidate") == "$DEFAULT_BRANCH" ]]
   [[ $(jq -er .headRepository.nameWithOwner <<<"$candidate") == "$GITHUB_REPOSITORY" ]]
   [[ $(jq -er .headRefName <<<"$candidate") == "$EXPECTED_BRANCH" ]]

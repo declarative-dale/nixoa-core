@@ -35,8 +35,8 @@ Run `nix flake show` for the complete evaluated output tree.
 
 Native devenv and the default `devShells.x86_64-linux` output share the
 repository toolchain module. Use `devenv shell` and `devenv tasks run ci:check`
-for normal work; `nix develop` remains the flake-only fallback. Exact commands
-are in the [development guide](development.md).
+for normal work; `nix develop` provides the compatible flake interface. Exact
+commands are in the [development guide](development.md).
 
 ## Installer delivery
 
@@ -44,17 +44,14 @@ GitHub Actions builds the complete system, public packages, and a
 closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
 artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
 from the public NiXOA Cachix cache and, on trusted repository events, streams
-new outputs back through Cachix's daemon. GitHub's cache separately restores
-only devenv evaluation and task metadata; it never transports Nix store paths,
-runtime state, garbage-collection roots, or secrets. Later jobs therefore
-reuse the same store paths without a temporary NAR artifact.
-Fork pull requests remain read-only when the publishing token is unavailable.
+new outputs back through Cachix's daemon. GitHub's cache restores devenv
+evaluation and task metadata, while Cachix carries Nix store paths between
+jobs and runs. Fork pull requests consume the public cache read-only.
 
 The Cachix token and cache name are declared in `secretspec.toml`. GitHub
-Actions maps the repository secret and variable into the official Secretspec
-action once per job; subsequent actions consume only the masked, exported
-environment. The flake packages Secretspec and validates both the token-free
-and publishing profiles without resolving values into the Nix store.
+Actions maps the repository secret and variable through Secretspec once per
+job, then shares the masked environment with later actions. The flake packages
+Secretspec and validates both the public-read and publishing profiles.
 
 The build uses the flake-provided `sbomnix` to create validated, checksummed
 SPDX and CycloneDX runtime inventories for the complete appliance closure.
@@ -78,10 +75,10 @@ while version, docs, tests, workflow maintenance, and Packer-only changes do
 not. A relevant up-to-date pull-request candidate is built and booted once;
 the resulting state can then be reused by the identical `main` tree.
 
-The installer artifact is not a flake input and does not appear in
-`flake.lock`. At deployment time, `deploy-template` downloads the newest
-successful `main` artifact to a temporary directory, verifies its SHA-256
-checksum and state pointer, and gives it to Packer.
+At deployment time, `deploy-template` downloads the newest successful `main`
+artifact to a temporary directory, verifies its SHA-256 checksum and state
+pointer, and gives it to Packer. The source flake remains pinned independently
+through `flake.lock`.
 
 This means the default installer may briefly lag a newer checkout while CI is
 running. Use `INSTALLER_SOURCE=build` for the current checkout or
@@ -93,9 +90,9 @@ kept in the runtime Secretspec contract.
 
 ## Automation
 
-- Pull requests run the flake, source, workflow, lock-health, ShellCheck,
-  actionlint, and `zizmor` checks. The stable `CI gate` is the only required
-  status context.
+- Pull requests run flake, source, workflow, lock-health, ShellCheck,
+  actionlint, and `zizmor` checks. The stable `CI gate` summarizes the
+  conditional graph for branch protection.
 - Relevant pull requests build and boot the installer. The protected branch
   must be current before auto-merge, then `main` reuses the identical immutable
   artifact while metadata-only changes skip planning.
@@ -107,18 +104,16 @@ kept in the runtime Secretspec contract.
 - Weekly grouped Dependabot updates carry a seven-day cooldown. A narrow bot
   verifies the exact trusted author, repository, branch, title, and head SHA,
   waits for that SHA's CI, and only then enables protected-branch auto-merge.
-- Successful installer builds publish the `0.2` rolling FlakeHub release; a
-  late publication failure does not invalidate an already verified artifact. The
+- Successful installer builds publish the `0.2` rolling FlakeHub release. The
   dedicated release workflow selects a semantic version through a protected
   pull request, verifies both builder attestations, fills a draft GitHub
-  release, publishes the versioned flake, and only then makes the release
-  immutable. The next development version also passes through the queue.
-- Release, development-version, and flake-input pull requests use only the
-  repository-scoped `GITHUB_TOKEN`. Because its pull requests do not emit a new
-  pull-request workflow event, trusted automation dispatches CI for the exact
-  head SHA, waits for the protected `CI gate`, and then enables auto-merge.
-  Scheduled recovery accepts only exact bot identities, branch/title shapes,
-  and allowlisted file changes; version pull requests may change only `VERSION`.
+  release, publishes the versioned flake, and makes the GitHub release
+  immutable. The next development version passes through the same protection.
+- Release, development-version, and flake-input pull requests use the
+  repository-scoped `GITHUB_TOKEN`. Trusted automation dispatches CI for the
+  exact head SHA, waits for the protected `CI gate`, and enables auto-merge
+  after validating the bot identity, branch, title, repository, and allowlisted
+  files. Version pull requests carry exactly the `VERSION` change.
 - `VERSION` records the current development release. The release workflow
   changes it to the selected stable version and advances it to the next patch
   development version after publication.

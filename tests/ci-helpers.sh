@@ -134,6 +134,8 @@ env PATH="$temporary/bin:$PATH" "${trusted_env[@]}" \
 grep -Fq -- '--auto' "$temporary/merge.log"
 grep -Fq -- '--merge' "$temporary/merge.log"
 grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
+env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=app/release-bot "${trusted_env[@]}" \
+  "$NIXOA_CI" trusted-update
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong author.\n' >&2
