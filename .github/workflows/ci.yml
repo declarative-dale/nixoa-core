@@ -20,11 +20,6 @@ on:
         required: false
         type: boolean
         default: false
-      refresh_devenv_cache:
-        description: Discard restored devenv evaluation and task metadata
-        required: false
-        type: boolean
-        default: false
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -47,8 +42,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Set up devenv and shared Nix caching
-        uses: ./.github/actions/setup-devenv
+      - name: Set up Nix and shared caching
+        uses: ./.github/actions/setup-nix
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
@@ -65,7 +60,7 @@ jobs:
           VALIDATE_ONLY: ${{ inputs.validate_only || false }}
           FORCE_ARTIFACT: ${{ inputs.force_artifact || false }}
         shell: bash
-        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:classify
+        run: nix run --accept-flake-config .#nixoa-ci -- classify
 
   check:
     name: Flake, source, workflow, and security checks
@@ -81,22 +76,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up devenv and shared Nix caching
-        uses: ./.github/actions/setup-devenv
+      - name: Set up Nix and shared caching
+        uses: ./.github/actions/setup-nix
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: ${{ github.event_name == 'pull_request' && 'github' || 'github-publish' }}
 
-      - name: Check flake inputs
-        uses: DeterminateSystems/flake-checker-action@de924abd783455e8429c858962b9e43062d19da1 # v13
-        with:
-          ignore-missing-flake-lock: false
-          fail-mode: true
-          send-statistics: false
-
       - name: Validate repository
-        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:check
+        run: nix run --accept-flake-config .#nixoa-ci -- check --no-write-lock-file
 
   plan:
     name: Plan immutable installer state
@@ -119,8 +107,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up devenv and shared Nix caching
-        uses: ./.github/actions/setup-devenv
+      - name: Set up Nix and shared caching
+        uses: ./.github/actions/setup-nix
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
@@ -132,7 +120,7 @@ jobs:
           ALLOW_REUSE: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.force_artifact != true)) && 'true' || 'false' }}
           FORCE_BUILD: ${{ (github.event_name == 'schedule' || inputs.force_artifact == true) && 'true' || 'false' }}
           GH_TOKEN: ${{ github.token }}
-        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:installer:plan
+        run: nix run --accept-flake-config .#nixoa-ci -- installer resolve-state
 
       - name: Upload installer state pointer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -160,20 +148,20 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up devenv and shared Nix caching
-        uses: ./.github/actions/setup-devenv
+      - name: Set up Nix and shared caching
+        uses: ./.github/actions/setup-nix
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: ${{ github.event_name == 'pull_request' && 'github' || 'github-publish' }}
 
       - name: Build installer and sbomnix inventories
-        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:installer:build
+        run: nix run --accept-flake-config .#nixoa-ci -- installer build-assets
 
       - name: Boot the installer ISO
         env:
           BOOT_LOG: ${{ runner.temp }}/qemu-boot.log
-        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:installer:boot
+        run: nix run --accept-flake-config .#nixoa-ci-installer-boot -- result-installer/iso/nixoa-installer.iso
 
       - name: Upload boot log after failure
         if: failure()
@@ -246,15 +234,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Set up devenv and shared Nix caching
-        uses: ./.github/actions/setup-devenv
+      - name: Set up Nix and shared caching
+        uses: ./.github/actions/setup-nix
         with:
           cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
           cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
           profile: github-publish
 
       - name: Build reusable outputs
-        run: devenv --no-tui ${{ inputs.refresh_devenv_cache && '--refresh-eval-cache' || '' }} ${{ inputs.refresh_devenv_cache && '--refresh-task-cache' || '' }} tasks run ci:publish
+        run: nix run --accept-flake-config .#nixoa-ci -- publish
 
       - name: Publish the rolling flake to FlakeHub
         continue-on-error: true
@@ -282,11 +270,17 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Enforce the conditional CI graph
-        uses: ./.github/actions/ci-gate
+      - name: Set up Nix
+        uses: ./.github/actions/setup-nix
         with:
-          build_result: ${{ needs.build.result }}
-          check_result: ${{ needs.check.result }}
-          installer_required: ${{ needs.changes.outputs.installer }}
-          plan_result: ${{ needs.plan.result }}
-          should_build: ${{ needs.plan.outputs.should_build }}
+          cachix-cache-name: ${{ vars.CACHIX_CACHE_NAME }}
+          profile: github
+
+      - name: Enforce the conditional CI graph
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          CHECK_RESULT: ${{ needs.check.result }}
+          INSTALLER_REQUIRED: ${{ needs.changes.outputs.installer }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SHOULD_BUILD: ${{ needs.plan.outputs.should_build }}
+        run: nix run --accept-flake-config .#nixoa-ci -- gate

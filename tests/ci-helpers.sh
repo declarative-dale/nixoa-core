@@ -74,6 +74,7 @@ if grep -Fq "git tag --list 'v[0-9]*.[0-9]*.[0-9]*'" \
 fi
 
 mkdir -p "$temporary/bin"
+export NIXOA_CI_PATH_PREFIX="$temporary/bin"
 printf 'fixture iso\n' >"$temporary/installer.iso"
 cat >"$temporary/bin/qemu-img" <<'EOF'
 #!/usr/bin/env bash

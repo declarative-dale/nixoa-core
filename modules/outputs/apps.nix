@@ -60,6 +60,8 @@ in {
       nxcli = inputs.self.packages.${system}.nxcli;
       nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
       nixoaCi = inputs.self.packages.${system}.nixoa-ci;
+      nixoaCiInstallerBoot = inputs.self.packages.${system}.nixoa-ci-installer-boot;
+      nixoaCiUpdateLocks = inputs.self.packages.${system}.nixoa-ci-update-locks;
       deployTemplate = inputs.self.packages.${system}.deploy-template;
       nxcliApp = mkNxcliApp pkgs nxcli;
     in {
@@ -115,6 +117,18 @@ in {
         type = "app";
         program = lib.getExe nixoaCi;
         meta.description = "Run NiXOA repository CI and release automation";
+      };
+
+      nixoa-ci-installer-boot = {
+        type = "app";
+        program = lib.getExe nixoaCiInstallerBoot;
+        meta.description = "Boot-test the installer with flake-provided QEMU";
+      };
+
+      nixoa-ci-update-locks = {
+        type = "app";
+        program = lib.getExe nixoaCiUpdateLocks;
+        meta.description = "Refresh native devenv inputs with pinned tooling";
       };
     }
   );

@@ -57,10 +57,10 @@ actual="$(
     printf "%s\n" "${command[@]}"
   '
 )"
-grep -Fxq 'https://install.determinate.systems https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org https://libvhdi-nixpkg.cachix.org' \
+grep -Fxq 'https://install.determinate.systems https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org' \
   <<<"$actual" \
   || fail "first-install command omits a required binary cache"
-grep -Fxq 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E= libvhdi-nixpkg.cachix.org-1:HvYHKZcfczn2nGfCmd7F21E/MDZrlaXtN3p9mWAZT/4=' \
+grep -Fxq 'cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=' \
   <<<"$actual" \
   || fail "first-install command omits a required cache signing key"
 if grep -Fxq 'https://cache.flakehub.com' <<<"$actual"; then
@@ -96,40 +96,40 @@ grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer workflow does not verify that its Xen Orchestra output is cached"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "installer workflow does not pin Determinate Nix to an immutable revision"
 if grep -Fq 'magic-nix-cache-action' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml"; then
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml"; then
   fail "installer workflow still uses the superseded Magic Cache"
 fi
 grep -Fq 'cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13' \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "installer workflow does not share Nix outputs through Cachix"
-setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-devenv' \
+setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$setup_steps" 5
-grep -Fq 'uses: ./.github/actions/ci-gate' \
+assert_eq "$setup_steps" 6
+grep -Fq '.#nixoa-ci -- gate' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "stable CI gate still provisions the full Nix toolchain"
+  || fail "stable CI gate bypasses the flake-packaged automation"
 grep -Fq 'cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f' \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "shared CI setup does not resolve Cachix through Secretspec"
 # The GitHub expression must remain literal in the workflow source.
 # shellcheck disable=SC2016
 if grep -Fq 'authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}' \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml"; then
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml"; then
   fail "Cachix action bypasses the Secretspec environment"
 fi
 # The GitHub expression must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'authToken: ${{ env.CACHIX_AUTH_TOKEN }}' \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "Cachix action does not consume the Secretspec token"
 # The GitHub expression must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'name: ${{ env.CACHIX_CACHE_NAME }}' \
-  "$TEST_ROOT/.github/actions/setup-devenv/action.yml" \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "Cachix action does not consume the Secretspec cache name"
 grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
@@ -172,7 +172,7 @@ grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable gate"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq 'tasks run ci:installer:boot' "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq '.#nixoa-ci-installer-boot' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
@@ -190,19 +190,16 @@ grep -Fq 'cron: "17 9 * * 3"' \
 grep -Fq 'DeterminateSystems/update-flake-lock@834c491b2ece4de0bbd00d85214bb5e83b4da5c6' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh does not pin the lock update action"
-grep -Fq 'DeterminateSystems/flake-checker-action@de924abd783455e8429c858962b9e43062d19da1' \
+grep -Fq '.#nixoa-ci -- check --no-write-lock-file' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "validation does not pin the flake checker action"
-grep -Fq 'fail-mode: true' \
-  "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "validation does not enforce flake input findings"
+  || fail "validation bypasses the flake-packaged complete check"
 if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
 fi
 grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
   || fail "repository version is not a stable or development semantic version"
-grep -Fq 'tasks run release:stage' "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq '.#nixoa-ci -- release stage' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not split oversized installer assets"
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
@@ -242,7 +239,7 @@ grep -Fq -- '--signer-workflow "$signer_workflow"' \
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
-grep -Fq 'tasks run release:prepare' \
+grep -Fq '.#nixoa-ci -- release prepare' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \

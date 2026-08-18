@@ -28,10 +28,10 @@ linters.
 
 ## Validate a change
 
-Run the full task graph before publishing:
+Run the complete flake-packaged CI contract before publishing:
 
 ```bash
-devenv tasks run ci:check
+nix run --accept-flake-config .#nixoa-ci -- check --no-write-lock-file
 ```
 
 The task graph delegates domain logic to one flake-owned interface:
@@ -42,8 +42,9 @@ nix run --accept-flake-config .#nixoa-ci -- classify-paths < changed-paths.txt
 nix run --accept-flake-config .#nixoa-ci -- installer build-input
 ```
 
-GitHub workflows call devenv tasks for build and release commands. Product
-operations use `nxcli`; contributors and delivery automation use `nixoa-ci`.
+GitHub workflows call `nixoa-ci` directly through the flake for build and
+release commands. Devenv remains a local convenience facade over the same
+package. Product operations use `nxcli`; delivery automation uses `nixoa-ci`.
 
 For a focused Rust edit:
 
@@ -64,17 +65,14 @@ the full task graph.
 The cache layers have separate responsibilities:
 
 - Cachix stores Nix derivation outputs and shares them between jobs and runs.
-- GitHub's cache stores only devenv's evaluation and task SQLite metadata.
 - The immutable `nixoa-installer` artifact stores the tested ISO, SPDX and
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
 
-Only pure validation tasks use `execIfModified`. Installer asset creation,
-release tasks, lock updates, and other operations with external effects always
-run. Use the CI `refresh_devenv_cache` dispatch input, or locally pass
-`--refresh-eval-cache --refresh-task-cache`, when metadata needs to be rebuilt.
+Only local pure validation tasks use devenv's `execIfModified`. Hosted CI,
+installer creation, releases, and lock updates always execute the flake app.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
-the scheduled updater; `devenv tasks run automation:validate-locks` verifies
+the scheduled updater; `nix run .#nixoa-ci -- locks validate` verifies
 that their shared nixpkgs and devenv pins match.
 
 ## Work with changes

@@ -9,6 +9,15 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Changed
+
+- Consume the sole FUSE 3 `libvhdi` package integrated into the Xen Orchestra
+  flake and remove the obsolete standalone libvhdi cache.
+- Run every hosted workflow command directly through the flake-packaged
+  `nixoa-ci` interface, including QEMU boot validation, publishing, release,
+  trusted-update, and synchronized lock maintenance. Devenv remains available
+  as a local development facade.
+
 ## [1.1.2] - 2026-08-17
 
 Version 1.1.2 consolidates NiXOA's build and delivery contract behind the core

@@ -16,6 +16,10 @@ in {
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
       nixoaCi = pkgs.callPackage ../../nix/automation {};
+      nixoaCiInstallerBoot = pkgs.callPackage ../../nix/automation/installer-boot-package.nix {};
+      nixoaCiUpdateLocks = pkgs.callPackage ../../nix/automation/update-locks-package.nix {
+        devenvSource = inputs.devenv.outPath;
+      };
       secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
       packerXenserverPlugin = pkgs.callPackage ../../pkgs/packer-xenserver-plugin/package.nix {};
       packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {
@@ -71,14 +75,14 @@ in {
         xen-orchestra-ce = xenOrchestraCe;
         sbomnix = pkgs.sbomnix;
         inherit secretspec;
-        libvhdi =
-          inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi-fuse2
-          or inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
+        libvhdi = inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
         default = xenOrchestraCe;
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
         deploy-template = deployTemplate;
         nixoa-ci = nixoaCi;
+        nixoa-ci-installer-boot = nixoaCiInstallerBoot;
+        nixoa-ci-update-locks = nixoaCiUpdateLocks;
         nxcli = nxcli;
         nixoa-menu = nixoaMenu;
       }

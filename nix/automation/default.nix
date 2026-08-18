@@ -10,7 +10,12 @@
     pkgs.writeShellApplication {
       inherit runtimeInputs;
       name = "nixoa-ci-${name}";
-      text = builtins.readFile source;
+      text = ''
+        if [ -n "''${NIXOA_CI_PATH_PREFIX:-}" ]; then
+          export PATH="$NIXOA_CI_PATH_PREFIX:$PATH"
+        fi
+        ${builtins.readFile source}
+      '';
     };
 
   commonInputs = with pkgs; [
@@ -18,9 +23,11 @@
     coreutils
     findutils
     git
+    gh
     gnugrep
     gnused
     jq
+    nix
   ];
   installerPolicy = import ./installer-policy.nix;
 
@@ -67,9 +74,6 @@
   commands = {
     boot = mkCommand {
       name = "boot";
-      # GitHub's installer runner provides KVM/QEMU. Keeping QEMU outside this
-      # small control package avoids pulling a multi-gigabyte closure into
-      # classification, state, and release jobs that never boot an ISO.
       runtimeInputs = commonInputs;
       source = ./installer-boot.sh;
     };
@@ -94,6 +98,17 @@
       name = "lock-validate";
       runtimeInputs = commonInputs;
       source = ./lock-validate.sh;
+    };
+    publish = pkgs.writeShellApplication {
+      name = "nixoa-ci-publish";
+      runtimeInputs = commonInputs;
+      text = ''
+        cd "''${NIXOA_SYSTEM_ROOT:-$(git rev-parse --show-toplevel)}"
+        nix build --accept-flake-config .#deploy-template -o result-deploy-template
+        nix build --accept-flake-config .#metadata -o result-metadata
+        nix build --accept-flake-config .#nixoa-menu -o result-nixoa-menu
+        nix build --accept-flake-config .#nxcli -o result-nxcli
+      '';
     };
     release-notes = mkCommand {
       name = "release-notes";
@@ -170,6 +185,7 @@ in
         installer build-assets          Build the installer, packages, and SBOMs
         installer boot [ISO]            Boot-test an installer ISO
         locks validate [LOCKS...]        Verify shared native and flake input pins
+        publish                          Build reusable rolling outputs
         release version LAST BUMP        Select a semantic release version from stdin
         release notes VERSION [FILE]     Extract curated notes from CHANGELOG.md
         release split SOURCE TARGET DIR  Split a release installer for GitHub assets
@@ -215,6 +231,10 @@ in
             validate) exec ${commandPath "lock-validate"} "$@" ;;
             *) usage >&2; exit 2 ;;
           esac
+          ;;
+        publish)
+          shift
+          exec ${commandPath "publish"} "$@"
           ;;
         release)
           subcommand="''${2:-}"

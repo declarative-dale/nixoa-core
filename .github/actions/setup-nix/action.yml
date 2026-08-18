@@ -1,0 +1,43 @@
+# SPDX-License-Identifier: Apache-2.0
+name: Set up NiXOA Nix
+description: Install Nix and stream flake outputs to the shared Cachix cache
+
+inputs:
+  cachix-auth-token:
+    description: Cachix token passed only to the SecretSpec provider boundary
+    required: false
+  cachix-cache-name:
+    description: Cachix cache name passed only to the SecretSpec provider boundary
+    required: false
+    default: nixoa
+  profile:
+    description: SecretSpec profile to resolve
+    required: false
+    default: github
+runs:
+  using: composite
+  steps:
+    - name: Resolve shared cache configuration
+      uses: cachix/secretspec-action@9a02088c2a41efaf75c0e10e574f0275964bbe7f # main, 2026-07-27
+      with:
+        profile: ${{ inputs.profile }}
+        scope: cachix
+        provider: env
+        version: 0.19.1
+      env:
+        CACHIX_AUTH_TOKEN: ${{ inputs.cachix-auth-token }}
+        CACHIX_CACHE_NAME: ${{ inputs.cachix-cache-name }}
+
+    - name: Install Determinate Nix
+      uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+      with:
+        extra-conf: |
+          extra-substituters = https://install.determinate.systems https://devenv.cachix.org https://cachix.cachix.org https://nixoa.cachix.org https://xen-orchestra-ce.cachix.org
+          extra-trusted-public-keys = cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM= devenv.cachix.org-1:w1cLUi8dv3hnoSPGAuibQv+f9TZLr6cv/Hm9XgU50cw= cachix.cachix.org-1:eWNHQldwUO7G2VkjpnjDbWwy4KQ/HNxht7H4SSoMckM= nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g= xen-orchestra-ce.cachix.org-1:WAOajkFLXWTaFiwMbLidlGa5kWB7Icu29eJnYbeMG7E=
+
+    - name: Share Nix outputs through Cachix
+      uses: cachix/cachix-action@02b16339eddcf6ea27126a830c7f1992855cae13 # v17
+      with:
+        name: ${{ env.CACHIX_CACHE_NAME }}
+        authToken: ${{ env.CACHIX_AUTH_TOKEN }}
+        skipPush: ${{ env.CACHIX_AUTH_TOKEN == '' }}
