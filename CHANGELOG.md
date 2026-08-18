@@ -9,6 +9,13 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-08-17
+
+Version 1.1.2 consolidates NiXOA's build and delivery contract behind the core
+flake and devenv. It makes Cachix the shared Nix cache, preserves verified
+installer and SBOM outputs as immutable artifacts, and avoids rebuilding an
+unchanged appliance after it has passed boot and provenance checks.
+
 ### Added
 
 - Add a native devenv 2.2 task graph for local checks, CI, releases, and input
