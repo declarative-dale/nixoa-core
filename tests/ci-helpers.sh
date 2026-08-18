@@ -103,9 +103,15 @@ if [[ "$1 $2" == 'pr view' ]]; then
     --arg author "${FAKE_AUTHOR:-release-bot}" \
     '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:"abc123",headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
 elif [[ "$1 $2" == 'run list' ]]; then
-  printf '42\n'
+  run_head=${FAKE_RUN_HEAD_SHA:-abc123}
+  if [[ -n ${FAKE_DISPATCH_MARKER:-} && -e $FAKE_DISPATCH_MARKER ]]; then
+    run_head=abc123
+  fi
+  jq -n --arg head "$run_head" '[{databaseId:42,headSha:$head}]'
 elif [[ "$1 $2" == 'run watch' ]]; then
   exit 0
+elif [[ "$1 $2" == 'workflow run' ]]; then
+  [[ -z ${FAKE_DISPATCH_MARKER:-} ]] || touch "$FAKE_DISPATCH_MARKER"
 elif [[ "$1 $2" == 'pr merge' ]]; then
   printf '%s\n' "$*" >"$FAKE_MERGE_LOG"
 elif [[ "$1" == api && "$*" == *'/pulls/1/files?'* ]]; then
@@ -136,6 +142,12 @@ grep -Fq -- '--merge' "$temporary/merge.log"
 grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
 env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=app/release-bot "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update
+rm -f "$temporary/dispatched"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_RUN_HEAD_SHA=stale \
+  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ -e $temporary/dispatched ]]
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong author.\n' >&2
