@@ -19,17 +19,9 @@ nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"
 
 nix flake show --accept-flake-config --all-systems
 nix flake check --accept-flake-config --all-systems --no-build --print-build-logs
-nix build \
-  .#nixosConfigurations.nixoa.config.system.build.toplevel \
-  .#packages.x86_64-linux.deploy-template \
-  .#packages.x86_64-linux.libvhdi \
-  .#packages.x86_64-linux.metadata \
-  .#packages.x86_64-linux.nixoa-menu \
-  .#packages.x86_64-linux.nxcli \
-  .#packages.x86_64-linux.sbomnix \
-  .#packages.x86_64-linux.xen-orchestra-ce \
-  --no-link \
-  --print-build-logs
+flake-attribute-validator \
+  --flake "path:$repo_root" \
+  --plan lib.ciPlans.x86_64-linux.installer
 
 nix build .#deploy-template -o result-deploy-template
 nix build .#metadata -o result-metadata

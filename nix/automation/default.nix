@@ -1,4 +1,5 @@
 {
+  attributeValidator,
   lib,
   pkgs,
 }: let
@@ -79,7 +80,7 @@
     };
     build-assets = mkCommand {
       name = "build-assets";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [attributeValidator];
       source = ./installer-build-assets.sh;
     };
     build-input = buildInput;
@@ -196,6 +197,7 @@ in
         trusted-update                   Validate and enqueue an allowlisted automation PR
         queue                            Validate and enqueue all trusted automation PRs
         check                            Run the complete flake check
+        attributes PLAN                  Validate and build one pure attribute plan
       EOF
       }
 
@@ -264,8 +266,22 @@ in
           if git -C "$repo_root" rev-parse --show-toplevel >/dev/null 2>&1; then
             flake_ref="git+file:$repo_root"
           fi
-          exec nix flake check --accept-flake-config --print-build-logs \
+          nix flake check --accept-flake-config --no-build --print-build-logs \
             "$flake_ref" "$@"
+          exec ${lib.getExe attributeValidator} \
+            --flake "$flake_ref" \
+            --plan lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.validation
+          ;;
+        attributes)
+          shift
+          plan="''${1:-lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.validation}"
+          if (($# > 0)); then
+            shift
+          fi
+          exec ${lib.getExe attributeValidator} \
+            --flake "$repo_root" \
+            --plan "$plan" \
+            "$@"
           ;;
         help|-h|--help)
           usage
