@@ -103,15 +103,35 @@ if [[ "$1 $2" == 'pr view' ]]; then
     --arg author "${FAKE_AUTHOR:-release-bot}" \
     '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:"abc123",headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
 elif [[ "$1 $2" == 'run list' ]]; then
-  printf '42\n'
+  run_head=${FAKE_RUN_HEAD_SHA:-abc123}
+  run_conclusion=${FAKE_RUN_CONCLUSION:-success}
+  run_id=42
+  if [[ -n ${FAKE_DISPATCH_MARKER:-} && -e $FAKE_DISPATCH_MARKER ]]; then
+    run_head=abc123
+    run_conclusion=success
+    run_id=43
+  fi
+  jq -n \
+    --arg conclusion "$run_conclusion" \
+    --arg head "$run_head" \
+    --argjson id "$run_id" \
+    '[{conclusion:$conclusion,databaseId:$id,headSha:$head}]'
 elif [[ "$1 $2" == 'run watch' ]]; then
   exit 0
+elif [[ "$1 $2" == 'workflow run' ]]; then
+  [[ -z ${FAKE_DISPATCH_MARKER:-} ]] || touch "$FAKE_DISPATCH_MARKER"
+elif [[ "$1 $2" == 'pr update-branch' ]]; then
+  [[ -z ${FAKE_UPDATE_MARKER:-} ]] || touch "$FAKE_UPDATE_MARKER"
 elif [[ "$1 $2" == 'pr merge' ]]; then
   printf '%s\n' "$*" >"$FAKE_MERGE_LOG"
 elif [[ "$1" == api && "$*" == *'/pulls/1/files?'* ]]; then
   printf '%s\n' "${FAKE_FILES:-VERSION}"
 elif [[ "$1" == api && "$*" == *'/contents/VERSION?'* ]]; then
   printf '%s\n' "${FAKE_VERSION:-1.2.3}"
+elif [[ "$1" == api && "$*" == *'/commits/main'* ]]; then
+  printf 'base123\n'
+elif [[ "$1" == api && "$*" == *'/compare/base123...abc123'* ]]; then
+  printf '%s\n' "${FAKE_MERGE_BASE:-base123}"
 else
   printf 'unexpected gh call: %s\n' "$*" >&2
   exit 1
@@ -120,6 +140,7 @@ EOF
 sed -i "1c#!${BASH}" "$temporary/bin/gh"
 chmod +x "$temporary/bin/gh"
 trusted_env=(
+  CI_POLL_INTERVAL=0
   GH_TOKEN=fixture
   GITHUB_REPOSITORY=example/core
   PR_NUMBER=1
@@ -136,6 +157,24 @@ grep -Fq -- '--merge' "$temporary/merge.log"
 grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
 env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=app/release-bot "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update
+rm -f "$temporary/dispatched"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_RUN_HEAD_SHA=stale \
+  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ -e $temporary/dispatched ]]
+rm -f "$temporary/dispatched"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_RUN_CONCLUSION=action_required \
+  FAKE_DISPATCH_MARKER="$temporary/dispatched" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ -e $temporary/dispatched ]]
+rm -f "$temporary/updated"
+env PATH="$temporary/bin:$PATH" \
+  FAKE_MERGE_BASE=older123 \
+  FAKE_UPDATE_MARKER="$temporary/updated" \
+  "${trusted_env[@]}" "$NIXOA_CI" trusted-update
+[[ -e $temporary/updated ]]
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
   "$NIXOA_CI" trusted-update >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong author.\n' >&2
