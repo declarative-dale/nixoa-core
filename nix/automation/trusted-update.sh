@@ -15,6 +15,7 @@ ci_workflow=${CI_WORKFLOW:-ci.yml}
 wait_for_merge=${WAIT_FOR_MERGE:-false}
 validate_only=${VALIDATE_ONLY:-false}
 expected_change_kind=${EXPECTED_CHANGE_KIND:-any}
+ci_poll_interval=${CI_POLL_INTERVAL:-5}
 
 read_pr() {
   gh pr view "$PR_NUMBER" \
@@ -81,7 +82,14 @@ validate_changes() {
 pr=$(read_pr)
 validate_pr "$pr"
 validate_changes "$pr"
-if [[ $(jq -er .mergeStateStatus <<<"$pr") == BEHIND ]]; then
+head_sha=$(jq -er .headRefOid <<<"$pr")
+default_sha=$(gh api \
+  "repos/${GITHUB_REPOSITORY}/commits/${DEFAULT_BRANCH}" \
+  --jq .sha)
+merge_base_sha=$(gh api \
+  "repos/${GITHUB_REPOSITORY}/compare/${default_sha}...${head_sha}" \
+  --jq .merge_base_commit.sha)
+if [[ "$merge_base_sha" != "$default_sha" ]]; then
   gh pr update-branch "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
   pr=$(read_pr)
   validate_pr "$pr"
@@ -93,18 +101,24 @@ pr_url=$(jq -er .url <<<"$pr")
 
 run_id=
 for _ in {1..6}; do
-  run_id=$(gh run list \
+  pull_runs=$(gh run list \
     --repo "$GITHUB_REPOSITORY" \
     --workflow "$ci_workflow" \
     --event pull_request \
     --branch "$branch" \
     --commit "$head_sha" \
-    --limit 1 \
-    --json databaseId,headSha |
-    jq -r --arg sha "$head_sha" \
-      'first(.[] | select(.headSha == $sha) | .databaseId) // empty')
+    --limit 5 \
+    --json conclusion,databaseId,headSha)
+  run_id=$(jq -r --arg sha "$head_sha" \
+    'first(.[] | select(.headSha == $sha and .conclusion != "action_required") | .databaseId) // empty' \
+    <<<"$pull_runs")
   [[ -z "$run_id" ]] || break
-  sleep 5
+  if jq -e --arg sha "$head_sha" \
+    'any(.[]; .headSha == $sha and .conclusion == "action_required")' \
+    <<<"$pull_runs" >/dev/null; then
+    break
+  fi
+  sleep "$ci_poll_interval"
 done
 
 if [[ -z "$run_id" ]]; then
@@ -136,7 +150,7 @@ if [[ -z "$run_id" ]]; then
         --arg previous "$previous_run_id" \
         'first(.[] | select(.headSha == $sha) | select((.databaseId | tostring) != $previous) | .databaseId) // empty')
     [[ -z "$run_id" ]] || break
-    sleep 5
+    sleep "$ci_poll_interval"
   done
 fi
 
