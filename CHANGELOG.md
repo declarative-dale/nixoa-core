@@ -65,6 +65,8 @@ unchanged appliance after it has passed boot and provenance checks.
 - Canonicalize GitHub's `app/` author prefix before validating trusted bot
   identities, allowing token-free version pull requests to enter CI while
   retaining the exact expected-author check.
+- Select trusted-update CI runs by their reported head SHA, preventing a stale
+  run for an earlier version-branch commit from entering the merge decision.
 - Restrict formatting checks to source-controlled Nix files, excluding
   generated devenv state while retaining a jj-compatible local fallback.
 

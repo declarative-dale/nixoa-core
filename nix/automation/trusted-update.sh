@@ -100,8 +100,9 @@ for _ in {1..6}; do
     --branch "$branch" \
     --commit "$head_sha" \
     --limit 1 \
-    --json databaseId \
-    --jq '.[0].databaseId // empty')
+    --json databaseId,headSha |
+    jq -r --arg sha "$head_sha" \
+      'first(.[] | select(.headSha == $sha) | .databaseId) // empty')
   [[ -z "$run_id" ]] || break
   sleep 5
 done
@@ -114,8 +115,9 @@ if [[ -z "$run_id" ]]; then
     --branch "$branch" \
     --commit "$head_sha" \
     --limit 1 \
-    --json databaseId \
-    --jq '.[0].databaseId // empty')
+    --json databaseId,headSha |
+    jq -r --arg sha "$head_sha" \
+      'first(.[] | select(.headSha == $sha) | .databaseId) // empty')
   gh workflow run "$ci_workflow" \
     --repo "$GITHUB_REPOSITORY" \
     --ref "$branch" \
@@ -128,9 +130,11 @@ if [[ -z "$run_id" ]]; then
       --branch "$branch" \
       --commit "$head_sha" \
       --limit 5 \
-      --json databaseId \
-      --jq ".[] | select((.databaseId | tostring) != \"${previous_run_id}\") | .databaseId" |
-      head -n 1)
+      --json databaseId,headSha |
+      jq -r \
+        --arg sha "$head_sha" \
+        --arg previous "$previous_run_id" \
+        'first(.[] | select(.headSha == $sha) | select((.databaseId | tostring) != $previous) | .databaseId) // empty')
     [[ -z "$run_id" ]] || break
     sleep 5
   done
