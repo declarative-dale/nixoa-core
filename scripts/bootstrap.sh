@@ -182,7 +182,8 @@ else
 fi
 
 export NIXOA_SYSTEM_ROOT="$repo_dir"
-# shellcheck source=scripts/lib/common.sh
+# This path belongs to the validated target checkout.
+# shellcheck disable=SC1091
 . "$repo_dir/scripts/lib/common.sh"
 
 if [ "${#ssh_keys[@]}" -eq 0 ]; then

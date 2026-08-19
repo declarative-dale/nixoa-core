@@ -4,7 +4,23 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-config_file=${PACKER_CONFIG_FILE:-$SCRIPT_DIR/local.pkrvars.json}
+REPO_ROOT=${NIXOA_SYSTEM_ROOT:-}
+if [[ -z "$REPO_ROOT" ]]; then
+  if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    REPO_ROOT=$git_root
+  elif [[ -f "$SCRIPT_DIR/../flake.nix" ]]; then
+    REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+  else
+    printf 'Run this command from a NiXOA checkout or set NIXOA_SYSTEM_ROOT.\n' >&2
+    exit 1
+  fi
+fi
+PACKER_ROOT=${NIXOA_PACKER_ROOT:-$REPO_ROOT/packer}
+[[ -f "$PACKER_ROOT/builds.pkr.hcl" ]] || {
+  printf 'NiXOA Packer sources were not found at %s.\n' "$PACKER_ROOT" >&2
+  exit 1
+}
+config_file=${PACKER_CONFIG_FILE:-$PACKER_ROOT/local.pkrvars.json}
 configure_only=0
 
 remote_host=
@@ -243,6 +259,16 @@ fi
 }
 
 printf 'Deploying native XCP-ng template %s\n' "$template_name"
+build_template=${NIXOA_BUILD_TEMPLATE_BIN:-}
+if [[ -z "$build_template" ]]; then
+  if command -v nixoa-build-template >/dev/null 2>&1; then
+    build_template=nixoa-build-template
+  else
+    build_template=$SCRIPT_DIR/build.sh
+  fi
+fi
 PKR_VAR_remote_password="$remote_password" \
 OPERATOR_PUBLIC_KEY_FILE="$operator_key" \
-  "$SCRIPT_DIR/build.sh" -var-file="$config_file"
+NIXOA_SYSTEM_ROOT="$REPO_ROOT" \
+NIXOA_PACKER_ROOT="$PACKER_ROOT" \
+  "$build_template" -var-file="$config_file"

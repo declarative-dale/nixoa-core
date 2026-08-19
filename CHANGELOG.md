@@ -37,6 +37,9 @@ non-overlapping NixOS configuration fragments.
 - Restrict hosted Actions to pinned GitHub-platform boundaries for checkout,
   Nix bootstrap, artifact transfer, attestations, and FlakeHub OIDC publication;
   keep ordinary tools and repository logic in the Nix-packaged task graph.
+- Package bootstrap and both Packer template entrypoints as first-class flake
+  packages and apps, with Nix-owned runtime dependencies and no checkout-file
+  trampoline between `deploy-template` and `build-template`.
 - Split installer qualification into Nix-identified media and evidence graphs:
   reuse exact artifacts, refresh supply evidence against matching tested media,
   and realize and boot an ISO only when its media identity changes. Limit the

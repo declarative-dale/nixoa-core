@@ -28,38 +28,9 @@ in {
       packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {
         inherit packerXenserverPlugin;
       };
-      deployTemplate = pkgs.writeShellApplication {
-        name = "nixoa-deploy-template";
-        runtimeInputs = [
-          pkgs.coreutils
-          pkgs.git
-          pkgs.gh
-          pkgs.jq
-          pkgs.nix
-          packerXenserver
-        ];
-        text = ''
-          repo_root="''${NIXOA_SYSTEM_ROOT:-}"
-          if [ -z "$repo_root" ]; then
-            if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-              repo_root="$git_root"
-            else
-              repo_root="$PWD"
-            fi
-          fi
-
-          deploy_script="$repo_root/packer/deploy-template.sh"
-          if [ ! -x "$deploy_script" ]; then
-            echo "Could not find $deploy_script" >&2
-            echo "Run this app from a NiXOA checkout or set NIXOA_SYSTEM_ROOT." >&2
-            exit 1
-          fi
-
-          export PACKER_BIN=${packerXenserver}/bin/packer-xenserver
-          export NIX_BIN=${pkgs.nix}/bin/nix
-          exec "$deploy_script" "$@"
-        '';
-        meta.description = "Deploy a native NiXOA XCP-ng template";
+      bootstrap = pkgs.callPackage ../../pkgs/nixoa-bootstrap/package.nix {};
+      templateTools = pkgs.callPackage ../../pkgs/nixoa-template-tools/package.nix {
+        inherit packerXenserver;
       };
       applianceToplevel = inputs.self.nixosConfigurations.nixoa.config.system.build.toplevel;
       installerSystem = inputs.nixpkgs.lib.nixosSystem {
@@ -85,7 +56,9 @@ in {
       }
       // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (
         {
-          deploy-template = deployTemplate;
+          inherit bootstrap;
+          build-template = templateTools.build;
+          deploy-template = templateTools.deploy;
           nxcli = nxcli;
           nixoa-menu = nixoaMenu;
         }
