@@ -22,16 +22,16 @@ printf '%s\n' '# automation fixture' \
   >"${fixture}/nix/automation/default.nix"
 printf '%s\n' \
   '{' \
-  '  "ignoredChangePatterns": [],' \
-  '  "buildInputPaths": [' \
-  '    ".github/workflows/ci.yml",' \
-  '    "flake.lock",' \
-  '    "flake.nix",' \
-  '    "modules",' \
-  '    ":(exclude)modules/outputs/checks.nix",' \
-  '    ":(exclude)modules/outputs/dev-shells.nix",' \
-  '    "nix/automation",' \
-  '    "nix/ci-plans.json"' \
+  '  "alwaysRelevantPatterns": [".github/workflows/ci.yml"],' \
+  '  "ignoredChangePatterns": [' \
+  '    "VERSION",' \
+  '    "docs/*",' \
+  '    "packer/*",' \
+  '    "tests/*",' \
+  '    "secretspec.toml",' \
+  '    "modules/outputs/checks.nix",' \
+  '    "modules/outputs/dev-shells.nix",' \
+  '    ".github/*"' \
   '  ]' \
   '}' \
   >"${fixture}/nix/automation/installer-policy.json"
@@ -119,6 +119,14 @@ git -C "${fixture}" add nix/ci-plans.json
 plan_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 [[ "${plan_change}" != "${automation_change}" ]] || {
   printf 'CI plan fixture did not change installer state.\n' >&2
+  exit 1
+}
+
+printf '%s\n' 'future installer input' >"${fixture}/future-target"
+git -C "${fixture}" add future-target
+unknown_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+[[ "${unknown_change}" != "${plan_change}" ]] || {
+  printf 'Unknown tracked path did not fail safely into installer state.\n' >&2
   exit 1
 }
 

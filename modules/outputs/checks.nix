@@ -101,7 +101,7 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev '^$|^nix run --accept-flake-config \.#devenv -- tasks run [a-z0-9:_-]+$'; then
+            grep -Ev '^$|^nix run --accept-flake-config \.#devenv -- tasks run ci:check$|^nix run --accept-flake-config \.#devenv -- tasks run --mode single [a-z0-9:_-]+$'; then
             printf 'Workflow command bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
@@ -125,7 +125,10 @@ in {
             release:stage release:draft release:publish release:advance; do
             grep -Fq "\"$task\"" nix/devenv.nix
           done
+          grep -Fq 'validate-plan PLAN.json' nix/automation/cli.sh
+          grep -Fq 'pkgs.check-jsonschema' nix/automation/default.nix
           test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
+          ! grep -Fq 'exec = "true";' nix/devenv.nix
           grep -Fq "git ls-files -z -- '*.nix'" nix/devenv.nix
           grep -Fq -- "-path './.devenv'" nix/devenv.nix
           grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
@@ -201,6 +204,7 @@ in {
       operator-fixtures = mkSourceCheck {
         name = "operator-fixtures";
         command = "NIXOA_SKIP_EVAL=1 bash ./tests/run.sh";
+        nativeBuildInputs = fixtureInputs ++ [pkgs.yq-go];
       };
 
       repository-policy = import ../../nix/checks/repository-policy.nix {
