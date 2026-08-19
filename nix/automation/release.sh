@@ -46,11 +46,18 @@ prepare() {
   fi
 
   tag=v${version}
+  release_exists=false
   if release_state=$(gh release view "$tag" --json isDraft 2>/dev/null); then
+    release_exists=true
     [[ $(jq -r .isDraft <<<"$release_state") == true ]] || {
       printf 'Release %s is already published.\n' "$tag" >&2
       return 1
     }
+  fi
+  if [[ $release_exists == false ]] \
+    && git rev-parse --verify "refs/tags/${tag}" >/dev/null 2>&1; then
+    printf 'Release tag %s already exists without a GitHub release.\n' "$tag" >&2
+    return 1
   fi
 
   if [[ "$source_version" == "$version" ]]; then
