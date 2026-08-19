@@ -16,6 +16,40 @@ trap 'rm -rf -- "$temporary"' EXIT
 [[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI" classify-paths) == false ]]
 [[ $(printf '%s\n' future/unknown-output | "$NIXOA_CI" classify-paths) == true ]]
 
+merge_fixture="$temporary/merge-group"
+mkdir -p "$merge_fixture/docs" "$merge_fixture/modules/_nixos"
+git -C "$merge_fixture" init -q
+git -C "$merge_fixture" config user.email fixture@example.invalid
+git -C "$merge_fixture" config user.name Fixture
+printf 'fixture\n' >"$merge_fixture/README.md"
+git -C "$merge_fixture" add README.md
+git -C "$merge_fixture" commit -qm root
+merge_base=$(git -C "$merge_fixture" rev-parse HEAD)
+printf 'irrelevant\n' >"$merge_fixture/docs/irrelevant.md"
+git -C "$merge_fixture" add docs/irrelevant.md
+git -C "$merge_fixture" commit -qm irrelevant
+irrelevant_head=$(git -C "$merge_fixture" rev-parse HEAD)
+printf '{}\n' >"$merge_fixture/modules/_nixos/merge-group-fixture.nix"
+git -C "$merge_fixture" add modules/_nixos/merge-group-fixture.nix
+git -C "$merge_fixture" commit -qm relevant
+relevant_head=$(git -C "$merge_fixture" rev-parse HEAD)
+git -C "$merge_fixture" switch -q --detach "$merge_base"
+mkdir -p "$merge_fixture/docs"
+printf 'divergent\n' >"$merge_fixture/docs/divergent.md"
+git -C "$merge_fixture" add docs/divergent.md
+git -C "$merge_fixture" commit -qm divergent
+divergent_head=$(git -C "$merge_fixture" rev-parse HEAD)
+
+classifier_env=(
+  EVENT_NAME=merge_group
+  NIXOA_INSTALLER_POLICY="$test_root/nix/automation/installer-policy.json"
+  NIXOA_SYSTEM_ROOT="$merge_fixture"
+)
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$merge_base" MERGE_HEAD_SHA="$irrelevant_head" "$NIXOA_CI" classify) == false ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$merge_base" MERGE_HEAD_SHA="$relevant_head" "$NIXOA_CI" classify) == true ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA= MERGE_HEAD_SHA= "$NIXOA_CI" classify 2>/dev/null) == true ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$irrelevant_head" MERGE_HEAD_SHA="$divergent_head" "$NIXOA_CI" classify 2>/dev/null) == true ]]
+
 skip_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":false}'
 reuse_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":true}'
 build_plan='{"schema_version":1,"installer":{"required":true,"build_required":true,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":false}'
@@ -25,6 +59,18 @@ env PREPARE_RESULT=success CI_PLAN="$reuse_plan" \
   BUILD_RESULT=skipped "$NIXOA_CI" gate
 env PREPARE_RESULT=success CI_PLAN="$build_plan" \
   BUILD_RESULT=success "$NIXOA_CI" gate
+invalid_publish_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":true}'
+if env PREPARE_RESULT=success CI_PLAN="$invalid_publish_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI" gate >/dev/null 2>&1; then
+  printf 'CI gate accepted publication without an installer lifecycle.\n' >&2
+  exit 1
+fi
+invalid_build_input_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"not-a-digest"},"publish_required":false}'
+if env PREPARE_RESULT=success CI_PLAN="$invalid_build_input_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI" gate >/dev/null 2>&1; then
+  printf 'CI gate accepted an invalid installer build input.\n' >&2
+  exit 1
+fi
 if env PREPARE_RESULT=failure CI_PLAN="$skip_plan" \
   BUILD_RESULT=skipped "$NIXOA_CI" gate; then
   printf 'CI gate accepted a failed repository check.\n' >&2

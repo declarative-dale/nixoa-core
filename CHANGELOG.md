@@ -22,6 +22,12 @@ correspond to published GitHub tags.
   planning contract for installer builds, protected-main publication, and the
   stable gate; route hosted commands through declared devenv tasks backed by
   repository-native automation programs and thin flake apps.
+- Limit full-history CI checkouts to path-classifying events, fail safely when
+  future merge-group SHAs are incomplete or non-ancestral, run hosted leaf
+  tasks in isolated Devenv mode, and serialize rolling and versioned FlakeHub
+  publication through one non-canceling queue. Validate both lifecycle-plan
+  production and consumption against one strict schema-v1 JSON contract, and
+  use one path policy for classification and installer-state fingerprinting.
 
 ### Fixed
 

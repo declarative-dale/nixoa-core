@@ -53,10 +53,23 @@ environment, artifact, and attestation boundaries. Product operations use
 security-sensitive XO helpers remain native shell sources, while Nix provides
 their runtime dependencies and executable app boundaries.
 
+Hosted leaf tasks use Devenv's `--mode single` so they execute only the named
+boundary. The aggregate `ci:check` task remains dependency-aware and has no
+command of its own after its declared flake and formatting checks finish.
+
 The CI `prepare` command emits one versioned JSON plan. Installer allocation,
 protected-main publication, and the stable gate all consume that exact output,
 so downstream jobs cannot independently reinterpret classification or reuse
-state.
+state. Both the producer and gate validate
+`nix/automation/ci-plan.schema.json`; schema-v1 rejects undeclared fields,
+invalid build-input digests, and publication without installer validation.
+The installer policy applies the same relevant/ignored path rules to event
+classification and the immutable tracked-file fingerprint; unrecognized paths
+therefore invalidate reusable state instead of merely scheduling resolution.
+Pull requests and pushes fetch full history for path classification;
+scheduled and manual validation use the default shallow checkout. Dormant
+merge-group support accepts a diff only when both event SHAs exist and the base
+is an ancestor of the head, otherwise it requires installer validation.
 
 The `validation`, `installer`, and `publish` target sets are versioned pure values under
 `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
@@ -87,7 +100,8 @@ The cache layers have separate responsibilities:
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
 
 Only local pure validation tasks use devenv's `execIfModified`. Hosted tasks
-always execute and delegate their implementation to flake-packaged programs.
+always execute and delegate their implementation to flake-packaged programs;
+dependency-free tasks run in isolated single-task mode.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
 the scheduled updater; `nix run .#nixoa-ci -- locks validate` verifies
