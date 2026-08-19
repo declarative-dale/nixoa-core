@@ -4,6 +4,9 @@
 set -euo pipefail
 : "${NIXOA_CI:?NIXOA_CI must point to the packaged automation CLI}"
 
+test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+export NIXOA_INSTALLER_POLICY="$test_root/nix/automation/installer-policy.json"
+
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-release-assets.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
 

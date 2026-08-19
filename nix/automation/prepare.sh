@@ -50,7 +50,9 @@ else
     '{schema_version:1,installer:{required:$installer_required,build_required:$build_required,artifact_run_id:null,build_input:null},publish_required:$publish_required}')
 fi
 
-printf '%s\n' "$plan" >"${NIXOA_CI_PLAN_FILE:-nixoa-ci-plan.json}"
+plan_file=${NIXOA_CI_PLAN_FILE:-nixoa-ci-plan.json}
+printf '%s\n' "$plan" >"$plan_file"
+nixoa-ci-validate-plan "$plan_file"
 if [[ -n ${GITHUB_OUTPUT:-} ]]; then
   printf 'plan=%s\n' "$plan" >>"$GITHUB_OUTPUT"
 else

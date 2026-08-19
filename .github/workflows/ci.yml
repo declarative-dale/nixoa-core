@@ -42,7 +42,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
+          fetch-depth: ${{ contains(fromJSON('["pull_request","push","merge_group"]'), github.event_name) && '0' || '1' }}
           persist-credentials: false
 
       - name: Set up Nix
@@ -56,12 +56,14 @@ jobs:
           FORCE_BUILD: ${{ (github.event_name == 'schedule' || inputs.force_artifact == true) && 'true' || 'false' }}
           FORCE_ARTIFACT: ${{ inputs.force_artifact || false }}
           GH_TOKEN: ${{ github.token }}
+          MERGE_BASE_SHA: ${{ github.event.merge_group.base_sha }}
+          MERGE_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BASE_SHA: ${{ github.event.before }}
           PUSH_HEAD_SHA: ${{ github.sha }}
           VALIDATE_ONLY: ${{ inputs.validate_only || false }}
-        run: nix run --accept-flake-config .#devenv -- tasks run ci:prepare
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single ci:prepare
 
       - name: Validate repository
         run: nix run --accept-flake-config .#devenv -- tasks run ci:check
@@ -97,13 +99,13 @@ jobs:
         uses: ./.github/actions/setup-nix
 
       - name: Build installer and sbomnix inventories
-        run: nix run --accept-flake-config .#devenv -- tasks run ci:installer:build
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single ci:installer:build
 
       - name: Boot the installer ISO
         env:
           BOOT_LOG: ${{ runner.temp }}/qemu-boot.log
           INSTALLER_ISO: result-installer/iso/nixoa-installer.iso
-        run: nix run --accept-flake-config .#devenv -- tasks run ci:installer:boot
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single ci:installer:boot
 
       - name: Upload boot log after failure
         if: failure()
@@ -161,6 +163,9 @@ jobs:
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    concurrency:
+      group: nixoa-publication
+      cancel-in-progress: false
     permissions:
       contents: read
       id-token: write
@@ -177,7 +182,7 @@ jobs:
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
           CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-        run: nix run --accept-flake-config .#devenv -- tasks run ci:publish
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single ci:publish
 
       - name: Publish the rolling flake to FlakeHub
         uses: DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4 # main, Node.js 24 (post-v6)
@@ -210,4 +215,4 @@ jobs:
           BUILD_RESULT: ${{ needs.build.result }}
           CI_PLAN: ${{ needs.prepare.outputs.plan }}
           PREPARE_RESULT: ${{ needs.prepare.result }}
-        run: nix run --accept-flake-config .#devenv -- tasks run ci:gate
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single ci:gate

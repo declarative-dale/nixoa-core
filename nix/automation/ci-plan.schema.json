@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/declarative-dale/nixoa-core/blob/main/nix/automation/ci-plan.schema.json",
+  "title": "NiXOA CI lifecycle plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "installer",
+    "publish_required"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "installer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "build_required",
+        "artifact_run_id",
+        "build_input"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "build_required": {
+          "type": "boolean"
+        },
+        "artifact_run_id": {},
+        "build_input": {}
+      }
+    },
+    "publish_required": {
+      "type": "boolean"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "installer": {
+            "properties": {
+              "required": {
+                "const": true
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "installer": {
+            "properties": {
+              "artifact_run_id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "build_input": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "installer": {
+            "properties": {
+              "build_required": {
+                "const": false
+              },
+              "artifact_run_id": {
+                "type": "null"
+              },
+              "build_input": {
+                "type": "null"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "publish_required": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "installer": {
+            "properties": {
+              "required": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

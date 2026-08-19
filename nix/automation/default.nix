@@ -5,13 +5,14 @@
 }: let
   mkCommand = {
     name,
+    prefix ? "",
     runtimeInputs ? [],
     source,
   }:
     pkgs.writeShellApplication {
       inherit runtimeInputs;
       name = "nixoa-ci-${name}";
-      text = builtins.readFile ./command-preamble.sh + builtins.readFile source;
+      text = builtins.readFile ./command-preamble.sh + prefix + builtins.readFile source;
     };
 
   commonInputs = with pkgs; [
@@ -26,6 +27,22 @@
     nix
   ];
 
+  validatePlan = mkCommand {
+    name = "validate-plan";
+    prefix = ''
+      NIXOA_CI_PLAN_SCHEMA="''${NIXOA_CI_PLAN_SCHEMA:-${./ci-plan.schema.json}}"
+      export NIXOA_CI_PLAN_SCHEMA
+    '';
+    runtimeInputs = commonInputs ++ [pkgs.check-jsonschema];
+    source = ./validate-plan.sh;
+  };
+
+  classifyPaths = mkCommand {
+    name = "classify-paths";
+    runtimeInputs = commonInputs;
+    source = ./classify-paths.sh;
+  };
+
   commands = {
     boot = mkCommand {
       name = "boot";
@@ -39,7 +56,7 @@
     };
     build-input = mkCommand {
       name = "build-input";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [classifyPaths];
       source = ./build-input.sh;
     };
     classify = mkCommand {
@@ -47,14 +64,10 @@
       runtimeInputs = commonInputs;
       source = ./classify.sh;
     };
-    classify-paths = mkCommand {
-      name = "classify-paths";
-      runtimeInputs = commonInputs;
-      source = ./classify-paths.sh;
-    };
+    classify-paths = classifyPaths;
     gate = mkCommand {
       name = "gate";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [validatePlan];
       source = ./gate.sh;
     };
     lock-validate = mkCommand {
@@ -69,7 +82,7 @@
     };
     prepare = mkCommand {
       name = "prepare";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [validatePlan];
       source = ./prepare.sh;
     };
     publish = mkCommand {
@@ -117,6 +130,7 @@
       runtimeInputs = commonInputs;
       source = ./update-locks.sh;
     };
+    validate-plan = validatePlan;
   };
 in
   pkgs.writeShellApplication {

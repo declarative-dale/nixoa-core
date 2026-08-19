@@ -9,6 +9,7 @@ Usage: nixoa-ci COMMAND [ARGS...]
 
 Commands:
   prepare                         Emit the authoritative downstream CI plan
+  validate-plan PLAN.json         Validate a prepared lifecycle plan
   classify                        Classify the current GitHub event
   classify-paths                  Classify newline-delimited changed paths
   gate                            Enforce the conditional GitHub CI graph
@@ -55,6 +56,10 @@ case "$command" in
   prepare)
     shift
     exec nixoa-ci-prepare "$@"
+    ;;
+  validate-plan)
+    shift
+    exec nixoa-ci-validate-plan "$@"
     ;;
   classify)
     shift
