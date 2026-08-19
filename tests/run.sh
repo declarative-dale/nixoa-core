@@ -123,9 +123,23 @@ fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
 assert_eq "$setup_steps" 4
-grep -Fq '.#devenv -- tasks run ci:gate' \
+grep -Fq '.#devenv -- tasks run --mode single ci:gate' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "stable CI gate bypasses its declared devenv task"
+grep -Fq "fetch-depth: \${{ contains(fromJSON('[\"pull_request\",\"push\",\"merge_group\"]'), github.event_name) && '0' || '1' }}" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "prepare checkout does not limit full history to path-classifying events"
+prepare_outputs=$(yq -r '.jobs.prepare.outputs | keys | join(",")' \
+  "$TEST_ROOT/.github/workflows/ci.yml")
+assert_eq "$prepare_outputs" plan
+yq -e \
+  '.jobs.publish.concurrency.group == "nixoa-publication" and .jobs.publish.concurrency.cancel-in-progress == false' \
+  "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
+  || fail "rolling publication does not wait in the shared non-canceling queue"
+yq -e \
+  '.concurrency.group == "nixoa-publication" and .concurrency.cancel-in-progress == false' \
+  "$TEST_ROOT/.github/workflows/release.yml" >/dev/null \
+  || fail "versioned publication does not wait in the shared non-canceling queue"
 if grep -Fq 'run: nix flake update' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh bypasses its packaged updater"
@@ -162,6 +176,12 @@ grep -Fq 'build_input=$(nixoa-ci-build-input)' \
 grep -Fq 'if: fromJSON(needs.prepare.outputs.plan).installer.build_required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer build is not gated by the authoritative prepare plan"
+grep -Fq 'if: fromJSON(steps.plan.outputs.plan).installer.required' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer state upload is not gated by the authoritative prepare plan"
+grep -Fq 'fromJSON(needs.prepare.outputs.plan).publish_required' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "publication is not gated by the authoritative prepare plan"
 grep -Fq 'name: nixoa-build-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
@@ -192,7 +212,7 @@ grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable gate"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq '.#devenv -- tasks run ci:installer:boot' "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq '.#devenv -- tasks run --mode single ci:installer:boot' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO through its declared task"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
@@ -207,7 +227,7 @@ grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
 grep -Fq 'cron: "17 9 * * 3"' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh is not scheduled weekly on Wednesday"
-grep -Fq '.#devenv -- tasks run automation:open-lock-update-pr' \
+grep -Fq '.#devenv -- tasks run --mode single automation:open-lock-update-pr' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh bypasses the declared PR publisher task"
 grep -Fq '.#devenv -- tasks run ci:check' \
@@ -219,7 +239,7 @@ if grep -Fq 'inputs:' \
 fi
 grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
   || fail "repository version is not a stable or development semantic version"
-grep -Fq '.#devenv -- tasks run release:stage' "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq '.#devenv -- tasks run --mode single release:stage' "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not split oversized installer assets through its declared task"
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
@@ -267,7 +287,7 @@ grep -Fq -- '--signer-workflow "$signer_workflow"' \
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
-grep -Fq '.#devenv -- tasks run release:prepare' \
+grep -Fq '.#devenv -- tasks run --mode single release:prepare' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \

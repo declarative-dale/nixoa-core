@@ -54,7 +54,6 @@ in {
         "ci:check:flake"
         "ci:check:format"
       ];
-      exec = "true";
     };
 
     "ci:installer:plan".exec = nixoaCi "installer resolve-state";
