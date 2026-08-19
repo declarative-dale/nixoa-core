@@ -10,6 +10,7 @@ trap 'rm -rf -- "$temporary"' EXIT
 
 [[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/checks.nix modules/outputs/dev-shells.nix nix/checks/repository-policy.nix | "$NIXOA_CI" classify-paths) == false ]]
 [[ $(printf '%s\n' modules/_nixos/platform.nix | "$NIXOA_CI" classify-paths) == true ]]
+[[ $(printf '%s\n' nix/ci-plans.json | "$NIXOA_CI" classify-paths) == true ]]
 [[ $(printf '%s\n' nix/automation/installer-build-assets.sh | "$NIXOA_CI" classify-paths) == true ]]
 [[ $(printf '%s\n' .github/workflows/ci.yml | "$NIXOA_CI" classify-paths) == true ]]
 [[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI" classify-paths) == false ]]

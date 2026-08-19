@@ -50,7 +50,8 @@ before the appliance's declarative Nix configuration is active.
 ## Host commands
 
 - `host show` reports the fixed target and its policy files.
-- `host edit` opens the durable settings and generated menu overrides.
+- `host edit` opens the durable settings, native XO configuration, and
+  generated menu overrides.
 - `host development-mode` changes the development-tools override.
 
 ## Updates

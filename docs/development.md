@@ -48,6 +48,9 @@ nix run --accept-flake-config .#run-ci-plan -- \
 GitHub workflows call `nixoa-ci` directly through the flake for build and
 release commands. Devenv remains a local convenience facade over the same
 package. Product operations use `nxcli`; delivery automation uses `nixoa-ci`.
+The command dispatcher and security-sensitive XO helpers remain native shell
+sources, while their Nix package definitions provide evaluated executable
+paths and feature flags.
 
 The `validation`, `installer`, and `publish` target sets are versioned pure values under
 `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its

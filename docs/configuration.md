@@ -1,6 +1,6 @@
 # Configuration
 
-Most users only need one file:
+Most appliance policy changes begin in one file:
 
 ```text
 host/settings.nix
@@ -15,6 +15,7 @@ configuration files.
 | File | Purpose | Maintained by |
 |---|---|---|
 | `host/settings.nix` | Durable appliance policy | Operator |
+| `host/config.nixoa.toml` | NiXOA system override for Xen Orchestra | Operator |
 | `host/hardware-configuration.nix` | Generated disks, filesystems, and detected hardware | Hardware workflow |
 | `host/menu.nix` | Console-generated overrides | `nixoa-menu` |
 
@@ -47,9 +48,17 @@ The main NiXOA options are grouped by purpose:
 | `nixoa.operator.menuAutoStart` | Whether the console opens at SSH login |
 | `nixoa.xo.tls` | HTTPS certificates |
 | `nixoa.xo.storage` | NFS, CIFS, and VHD support |
+| `nixoa.xo.config.file` | Native Xen Orchestra TOML system override |
 
 NiXOA supplies the operator name, `.#nixoa` flake target, platform, and
 appliance role as stable appliance defaults.
+
+Xen Orchestra first loads its immutable vendor `config.toml` from the
+`xo-nixpkg` package. The checked-in `host/config.nixoa.toml` is linked to
+`/etc/xo-server/config.nixoa.toml` and merged over those defaults as NiXOA's
+system override. Keep its Redis socket, runtime directories, web mounts,
+listeners, TLS paths, and remote-storage directory aligned with the typed
+`nixoa.xo` settings; evaluation rejects mismatches before deployment.
 
 See [Common tasks](common-tasks.md) for copyable examples.
 

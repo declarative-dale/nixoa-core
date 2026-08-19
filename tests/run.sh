@@ -20,6 +20,7 @@ trap 'rm -rf "$temporary"' EXIT
 
 bash -n \
   "$TEST_ROOT"/nix/automation/*.sh \
+  "$TEST_ROOT"/modules/_nixos/xo/*.sh \
   "$TEST_ROOT/scripts/lib/common.sh" \
   "$TEST_ROOT/scripts/nxcli.sh" \
   "$TEST_ROOT/scripts/bootstrap.sh" \
@@ -31,7 +32,10 @@ bash -n \
   "$TEST_ROOT/packer/deploy-template.sh" \
   "$TEST_ROOT/tests/installer-build-input.sh" \
   "$TEST_ROOT/tests/ci-helpers.sh" \
+  "$TEST_ROOT/tests/xo-storage-helper.sh" \
   "$TEST_ROOT"/packer/scripts/*.sh
+
+bash "$TEST_ROOT/tests/xo-storage-helper.sh"
 
 # Fixed target resolution.
 actual="$(
@@ -120,14 +124,14 @@ fi
 grep -Fq 'nix flake update --accept-flake-config' \
   "$TEST_ROOT/nix/automation/update-locks-package.nix" \
   || fail "packaged updater does not refresh flake inputs"
-grep -Fq "flake.lib.ciPlans.\${system}" \
-  "$TEST_ROOT/modules/outputs/lib.nix" \
+grep -Fq '"name": "nixoa-validation"' \
+  "$TEST_ROOT/nix/ci-plans.json" \
   || fail "flake does not expose pure CI attribute plans"
 grep -Fq 'flake-plan-runner' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer builds bypass the shared schema-v2 plan runner"
 grep -Fq -- '--no-build --print-build-logs' \
-  "$TEST_ROOT/nix/automation/default.nix" \
+  "$TEST_ROOT/nix/automation/cli.sh" \
   || fail "complete validation does not separate evaluation from planned builds"
 # GitHub and shell expressions must remain literal in the source contract.
 # shellcheck disable=SC2016
@@ -554,6 +558,8 @@ grep -q 'ssh-ed25519 AAAATEST operator@example' "$temporary/generated/host/setti
   || fail "generated settings omitted the SSH key"
 grep -q 'nixoa.xo = {' "$temporary/generated/host/settings.nix" \
   || fail "generated settings omitted XO"
+grep -q 'config.file = ./config.nixoa.toml;' "$temporary/generated/host/settings.nix" \
+  || fail "generated settings omitted the native XO configuration"
 
 # TUI writes only the dedicated native-option override module.
 cp "$TEST_ROOT/host/settings.nix" "$temporary/generated/host/settings.nix"

@@ -7,37 +7,20 @@
 }: let
   cfg = config.nixoa.xo;
   enabled = cfg.enable && cfg.tls.enable && cfg.tls.autoCert;
-  generateCertificate = pkgs.writeShellScript "xo-generate-certificate" ''
-    set -euo pipefail
-    umask 077
-
-    cert=${lib.escapeShellArg cfg.tls.cert}
-    key=${lib.escapeShellArg cfg.tls.key}
-    host=${lib.escapeShellArg config.networking.hostName}
-
-    mkdir -p ${lib.escapeShellArg cfg.tls.dir}
-    chmod 0755 ${lib.escapeShellArg cfg.tls.dir}
-
-    if [ -s "$key" ] \
-      && [ -s "$cert" ] \
-      && ${pkgs.openssl}/bin/openssl x509 -checkend 0 -noout -in "$cert" 2>/dev/null
-    then
-      exit 0
-    fi
-
-    ${pkgs.openssl}/bin/openssl req \
-      -x509 \
-      -newkey rsa:4096 \
-      -nodes \
-      -days 3650 \
-      -keyout "$key" \
-      -out "$cert" \
-      -subj "/CN=$host" \
-      -addext ${lib.escapeShellArg "subjectAltName=DNS:${config.networking.hostName},DNS:localhost,IP:${cfg.httpHost}"}
-
-    chown ${cfg.user}:${cfg.group} "$key" "$cert"
-    chmod 0640 "$key" "$cert"
-  '';
+  generateCertificate = pkgs.writeShellApplication {
+    name = "xo-generate-certificate";
+    runtimeInputs = [pkgs.coreutils pkgs.openssl];
+    text = ''
+      export NIXOA_XO_TLS_CERT=${lib.escapeShellArg cfg.tls.cert}
+      export NIXOA_XO_TLS_KEY=${lib.escapeShellArg cfg.tls.key}
+      export NIXOA_XO_TLS_DIR=${lib.escapeShellArg cfg.tls.dir}
+      export NIXOA_XO_HOSTNAME=${lib.escapeShellArg config.networking.hostName}
+      export NIXOA_XO_HTTP_HOST=${lib.escapeShellArg cfg.httpHost}
+      export NIXOA_XO_USER=${lib.escapeShellArg cfg.user}
+      export NIXOA_XO_GROUP=${lib.escapeShellArg cfg.group}
+      ${builtins.readFile ./autocert.sh}
+    '';
+  };
 in {
   config = lib.mkIf enabled {
     systemd.tmpfiles.rules = [
@@ -54,7 +37,7 @@ in {
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        ExecStart = generateCertificate;
+        ExecStart = lib.getExe generateCertificate;
         User = "root";
         Group = "root";
       };
