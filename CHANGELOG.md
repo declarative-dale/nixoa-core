@@ -9,22 +9,48 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-18
+
+NiXOA 1.2.0 makes the flake the reusable source of truth for validation,
+installer construction, and publication. Core now consumes Xen Orchestra's
+integrated FUSE 3 libvhdi package and shared schema-v2 plan runner, while
+protected CI builds, verifies, and publishes only the outputs declared by
+those plans.
+
+### Added
+
+- Add `validation`, `installer`, and `publish` schema-v2 plans as pure flake
+  attributes, including deterministic target names, result links, and output
+  manifests.
+- Add the `flake-plan-runner` package, `run-ci-plan` app, and `nixoa-ci plan`
+  command as the supported interface for validating and executing CI plans.
+- Add flake-packaged lock refresh and allowlisted update-PR publication,
+  replacing repository-specific workflow scripting.
+
 ### Changed
 
 - Consume the sole FUSE 3 `libvhdi` package integrated into the Xen Orchestra
-  flake and remove the obsolete standalone libvhdi cache.
+  flake and use the consolidated Xen Orchestra input graph and cache contract.
 - Run every hosted workflow command directly through the flake-packaged
   `nixoa-ci` interface, including QEMU boot validation, publishing, release,
   trusted-update, and synchronized lock maintenance. Devenv remains available
   as a local development facade.
-- Declare validation, installer, and protected-main publication targets as
-  schema-v2 pure flake plans, then execute them through the shared XO-provided
-  runner with atomic result links and exact output manifests.
 - Consolidate repository validation and installer-state planning on one runner,
   make the stable gate dependency-free, and publish only planned closures to
   Cachix after protected-main validation succeeds.
-- Replace the third-party lock update action with flake-packaged lock refresh,
-  validation, allowlisted commits, and pull-request publication.
+- Reuse an exact, attested pull-request installer result on protected `main`
+  instead of rebuilding an unchanged ISO before publication.
+- Refresh the locked Nix, devenv, Home Manager, and Xen Orchestra dependency
+  graph through the repository's native update path.
+
+### Removed
+
+- Remove the standalone libvhdi flake/cache dependency and the legacy CI-plan
+  compatibility aliases. Consumers must use `packages.flake-plan-runner`,
+  `apps.run-ci-plan`, or `nixoa-ci plan`.
+
+### Fixed
+
 - Dispatch exact-head CI when a repository-token automation pull request cannot
   emit a pull-request event, then let the required gate control auto-merge.
 - Treat immutable release retries as verification: published assets and their
@@ -747,5 +773,8 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 - Created XOA package with yarn2nix using workspace dependencies
 - Applied upstream patches (SMB handler, TypeScript generics) in preBuild
 
-[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.2...v1.2.0
+[1.1.2]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.0...v1.1.0
