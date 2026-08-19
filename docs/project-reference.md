@@ -22,6 +22,8 @@ Public packages include:
 - `libvhdi`
 - `nxcli`
 - `nixoa-menu`
+- `bootstrap`
+- `build-template`
 - `deploy-template`
 - `devenv`
 - `installer-iso`
@@ -29,7 +31,7 @@ Public packages include:
 - `sbomnix`
 
 The flake also exposes operator apps for `nxcli`, `apply`, `bootstrap`,
-`deploy-template`, `commit`, `diff`, `history`, and `menu`.
+`build-template`, `deploy-template`, `commit`, `diff`, `history`, and `menu`.
 
 Run `nix flake show` for the complete evaluated output tree.
 

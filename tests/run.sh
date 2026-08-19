@@ -384,6 +384,30 @@ jq -e '
 ' "$temporary/packer.pkrvars.json" >/dev/null \
   || fail "Packer configuration generation is incorrect"
 
+# The deployer delegates the imperative build to the Nix-packaged builder when
+# that executable is supplied, while preserving the checkout and Packer roots.
+mkdir -p "$temporary/bin"
+# The variable references belong in the generated fake, not this test shell.
+# shellcheck disable=SC2016
+printf '%s\n' \
+  "#!$(command -v bash)" \
+  'printf "%s\n" "$@" >"$FAKE_BUILD_ARGS"' \
+  'printf "%s\n%s\n" "$NIXOA_SYSTEM_ROOT" "$NIXOA_PACKER_ROOT" >"$FAKE_BUILD_ROOTS"' \
+  >"$temporary/bin/build-template"
+chmod +x "$temporary/bin/build-template"
+FAKE_BUILD_ARGS="$temporary/build-template.args" \
+FAKE_BUILD_ROOTS="$temporary/build-template.roots" \
+NIXOA_BUILD_TEMPLATE_BIN="$temporary/bin/build-template" \
+PKR_VAR_remote_password=fixture-password \
+  bash "$TEST_ROOT/packer/deploy-template.sh" \
+    --operator-key "$temporary/operator.pub" \
+    --config "$temporary/packer.pkrvars.json"
+grep -Fxq -- "-var-file=$temporary/packer.pkrvars.json" \
+  "$temporary/build-template.args" \
+  || fail "Packer deployer bypassed the packaged template builder"
+expected_roots="$(printf '%s\n%s' "$TEST_ROOT" "$TEST_ROOT/packer")"
+assert_eq "$(cat "$temporary/build-template.roots")" "$expected_roots"
+
 # The default Packer build downloads the newest successful, checksum-verified
 # GitHub artifact and does not duplicate the large ISO into the checkout.
 mkdir -p \

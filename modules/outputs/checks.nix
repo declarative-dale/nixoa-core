@@ -38,6 +38,9 @@ in {
     in {
       inherit
         (packages)
+        bootstrap
+        build-template
+        deploy-template
         flake-plan-runner
         metadata
         nixoa-ci

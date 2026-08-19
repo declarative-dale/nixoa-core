@@ -3,6 +3,11 @@
 
 set -euo pipefail
 : "${NIXOA_CI:?NIXOA_CI must point to the packaged automation CLI}"
+: "${NIXOA_SYSTEM_ROOT:?NIXOA_SYSTEM_ROOT must point to the source checkout}"
+
+# The isolated release repository exercises the production installer-input
+# policy without copying repository automation into the fixture.
+export NIXOA_INSTALLER_POLICY="$NIXOA_SYSTEM_ROOT/nix/automation/installer-policy.json"
 
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-release-assets.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT

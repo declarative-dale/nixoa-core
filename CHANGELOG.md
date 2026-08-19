@@ -22,6 +22,9 @@ correspond to published GitHub tags.
   planning contract for installer builds, protected-main publication, and the
   stable gate; route hosted commands through declared devenv tasks backed by
   repository-native automation programs and thin flake apps.
+- Package bootstrap and both Packer template entrypoints as first-class flake
+  packages and apps, with Nix-owned runtime dependencies and no checkout-file
+  trampoline between `deploy-template` and `build-template`.
 
 ### Fixed
 
