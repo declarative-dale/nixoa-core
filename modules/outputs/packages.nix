@@ -18,9 +18,7 @@ in {
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
       nixoaCi = pkgs.callPackage ../../nix/automation {inherit planRunner;};
       nixoaCiInstallerBoot = pkgs.callPackage ../../nix/automation/installer-boot-package.nix {};
-      nixoaCiUpdateLocks = pkgs.callPackage ../../nix/automation/update-locks-package.nix {
-        devenvSource = inputs.devenv.outPath;
-      };
+      nixoaCiUpdateLocks = nixoaCi.commands.update-locks;
       secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
       packerXenserverPlugin = pkgs.callPackage ../../pkgs/packer-xenserver-plugin/package.nix {};
       packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {

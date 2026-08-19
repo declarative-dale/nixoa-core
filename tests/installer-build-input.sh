@@ -20,6 +20,21 @@ printf '%s\n' '#!/usr/bin/env bash' 'printf boot' \
   >"${fixture}/nix/automation/installer-boot.sh"
 printf '%s\n' '# automation fixture' \
   >"${fixture}/nix/automation/default.nix"
+printf '%s\n' \
+  '{' \
+  '  "ignoredChangePatterns": [],' \
+  '  "buildInputPaths": [' \
+  '    ".github/workflows/ci.yml",' \
+  '    "flake.lock",' \
+  '    "flake.nix",' \
+  '    "modules",' \
+  '    ":(exclude)modules/outputs/checks.nix",' \
+  '    ":(exclude)modules/outputs/dev-shells.nix",' \
+  '    "nix/automation",' \
+  '    "nix/ci-plans.json"' \
+  '  ]' \
+  '}' \
+  >"${fixture}/nix/automation/installer-policy.json"
 printf '%s\n' '{ "installer": { "targets": [] } }' \
   >"${fixture}/nix/ci-plans.json"
 printf '%s\n' 'workflow: installer' \

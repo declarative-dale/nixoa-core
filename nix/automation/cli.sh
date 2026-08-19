@@ -8,6 +8,7 @@ usage() {
 Usage: nixoa-ci COMMAND [ARGS...]
 
 Commands:
+  prepare                         Emit the authoritative downstream CI plan
   classify                        Classify the current GitHub event
   classify-paths                  Classify newline-delimited changed paths
   gate                            Enforce the conditional GitHub CI graph
@@ -15,6 +16,7 @@ Commands:
   installer resolve-state         Resolve reusable GitHub installer state
   installer build-assets          Build the installer, packages, and SBOMs
   installer boot [ISO]            Boot-test an installer ISO
+  locks update                     Refresh native and flake input pins
   locks validate [LOCKS...]        Verify shared native and flake input pins
   open-update-pr PATH...           Publish an allowlisted automation update
   publish                          Build reusable rolling outputs
@@ -41,29 +43,39 @@ if [ -z "$repo_root" ]; then
   fi
 fi
 export NIXOA_SYSTEM_ROOT="$repo_root"
+if [[ -n ${NIXOA_CI_PATH_PREFIX:-} ]]; then
+  export PATH="$NIXOA_CI_PATH_PREFIX:$PATH"
+fi
+
+plan_runner=${NIXOA_CI_PLAN_RUNNER:-flake-plan-runner}
+validation_plan=${NIXOA_CI_VALIDATION_PLAN:-lib.ciPlans.x86_64-linux.validation}
 
 command="${1:-help}"
 case "$command" in
+  prepare)
+    shift
+    exec nixoa-ci-prepare "$@"
+    ;;
   classify)
     shift
-    exec "$NIXOA_CI_CLASSIFY" "$@"
+    exec nixoa-ci-classify "$@"
     ;;
   classify-paths)
     shift
-    exec "$NIXOA_CI_CLASSIFY_PATHS" "$@"
+    exec nixoa-ci-classify-paths "$@"
     ;;
   gate)
     shift
-    exec "$NIXOA_CI_GATE" "$@"
+    exec nixoa-ci-gate "$@"
     ;;
   installer)
     subcommand="${2:-}"
     shift 2 || true
     case "$subcommand" in
-      build-input) exec "$NIXOA_CI_BUILD_INPUT" "$@" ;;
-      resolve-state) exec "$NIXOA_CI_RESOLVE_STATE" "$@" ;;
-      build-assets) exec "$NIXOA_CI_BUILD_ASSETS" "$@" ;;
-      boot) exec "$NIXOA_CI_BOOT" "$@" ;;
+      build-input) exec nixoa-ci-build-input "$@" ;;
+      resolve-state) exec nixoa-ci-resolve-state "$@" ;;
+      build-assets) exec nixoa-ci-build-assets "$@" ;;
+      boot) exec nixoa-ci-boot "$@" ;;
       *) usage >&2; exit 2 ;;
     esac
     ;;
@@ -71,38 +83,39 @@ case "$command" in
     subcommand="${2:-}"
     shift 2 || true
     case "$subcommand" in
-      validate) exec "$NIXOA_CI_LOCK_VALIDATE" "$@" ;;
+      update) exec nixoa-ci-update-locks "$@" ;;
+      validate) exec nixoa-ci-lock-validate "$@" ;;
       *) usage >&2; exit 2 ;;
     esac
     ;;
   open-update-pr)
     shift
-    exec "$NIXOA_CI_OPEN_UPDATE_PR" "$@"
+    exec nixoa-ci-open-update-pr "$@"
     ;;
   publish)
     shift
-    exec "$NIXOA_CI_PUBLISH" "$@"
+    exec nixoa-ci-publish "$@"
     ;;
   release)
     subcommand="${2:-}"
     shift 2 || true
     case "$subcommand" in
-      version) exec "$NIXOA_CI_RELEASE_VERSION" "$@" ;;
-      notes) exec "$NIXOA_CI_RELEASE_NOTES" "$@" ;;
-      split) exec "$NIXOA_CI_RELEASE_STAGE" "$@" ;;
+      version) exec nixoa-ci-release-version "$@" ;;
+      notes) exec nixoa-ci-release-notes "$@" ;;
+      split) exec nixoa-ci-release-stage "$@" ;;
       prepare|dispatch|inventory|verify|stage|draft|publish|advance)
-        exec "$NIXOA_CI_RELEASE" "$subcommand" "$@"
+        exec nixoa-ci-release "$subcommand" "$@"
         ;;
       *) usage >&2; exit 2 ;;
     esac
     ;;
   trusted-update)
     shift
-    exec "$NIXOA_CI_TRUSTED_UPDATE" "$@"
+    exec nixoa-ci-trusted-update "$@"
     ;;
   queue)
     shift
-    exec "$NIXOA_CI_QUEUE" "$@"
+    exec nixoa-ci-queue "$@"
     ;;
   check)
     shift
@@ -113,17 +126,17 @@ case "$command" in
     fi
     nix flake check --accept-flake-config --no-build --print-build-logs \
       "$flake_ref" "$@"
-    exec "$NIXOA_CI_PLAN_RUNNER" \
+    exec "$plan_runner" \
       --flake "$flake_ref" \
-      --plan "$NIXOA_CI_VALIDATION_PLAN"
+      --plan "$validation_plan"
     ;;
   plan)
     shift
-    plan="${1:-$NIXOA_CI_VALIDATION_PLAN}"
+    plan="${1:-$validation_plan}"
     if (($# > 0)); then
       shift
     fi
-    exec "$NIXOA_CI_PLAN_RUNNER" \
+    exec "$plan_runner" \
       --flake "$repo_root" \
       --plan "$plan" \
       "$@"

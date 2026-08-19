@@ -63,11 +63,11 @@
         builtins.all
         (line:
           builtins.match
-          "[[:space:]]*run: nix run --accept-flake-config .*"
+          "[[:space:]]*run: nix run --accept-flake-config \\.#devenv -- tasks run [a-z0-9:_-]+[[:space:]]*"
           line
           != null)
         runLines;
-      message = ".github/workflows/${workflow} must route every run step through a flake app";
+      message = ".github/workflows/${workflow} must route every run step through a declared devenv task";
     })
     workflowFiles;
 

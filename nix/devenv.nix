@@ -18,6 +18,7 @@ in {
   packages = import ./devenv-packages.nix {inherit pkgs;};
 
   tasks = {
+    "ci:prepare".exec = nixoaCi "prepare";
     "ci:classify".exec = nixoaCi "classify";
 
     "ci:check:format" = {
@@ -69,8 +70,9 @@ in {
     "ci:gate".exec = nixoaCi "gate";
 
     "automation:queue".exec = nixoaCi "queue";
-    "automation:update-locks".exec = "devenv update";
+    "automation:update-locks".exec = nixoaCi "locks update";
     "automation:validate-locks".exec = nixoaCi "locks validate";
+    "automation:open-lock-update-pr".exec = nixoaCi "open-update-pr flake.lock devenv.lock";
 
     "release:prepare".exec = nixoaCi "release prepare";
     "release:dispatch".exec = nixoaCi "release dispatch";

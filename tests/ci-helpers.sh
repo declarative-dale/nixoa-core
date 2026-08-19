@@ -16,17 +16,36 @@ trap 'rm -rf -- "$temporary"' EXIT
 [[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI" classify-paths) == false ]]
 [[ $(printf '%s\n' future/unknown-output | "$NIXOA_CI" classify-paths) == true ]]
 
-env VALIDATE_RESULT=success INSTALLER_REQUIRED=false \
+skip_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":false}'
+reuse_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":true}'
+build_plan='{"schema_version":1,"installer":{"required":true,"build_required":true,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":false}'
+env PREPARE_RESULT=success CI_PLAN="$skip_plan" \
   BUILD_RESULT=skipped "$NIXOA_CI" gate
-env VALIDATE_RESULT=success INSTALLER_REQUIRED=true \
-  SHOULD_BUILD=false BUILD_RESULT=skipped "$NIXOA_CI" gate
-env VALIDATE_RESULT=success INSTALLER_REQUIRED=true \
-  SHOULD_BUILD=true BUILD_RESULT=success "$NIXOA_CI" gate
-if env VALIDATE_RESULT=failure INSTALLER_REQUIRED=false \
+env PREPARE_RESULT=success CI_PLAN="$reuse_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI" gate
+env PREPARE_RESULT=success CI_PLAN="$build_plan" \
+  BUILD_RESULT=success "$NIXOA_CI" gate
+if env PREPARE_RESULT=failure CI_PLAN="$skip_plan" \
   BUILD_RESULT=skipped "$NIXOA_CI" gate; then
   printf 'CI gate accepted a failed repository check.\n' >&2
   exit 1
 fi
+
+prepare_output="$temporary/prepare-output"
+env \
+  EVENT_NAME=workflow_dispatch \
+  GITHUB_EVENT_NAME=workflow_dispatch \
+  GITHUB_OUTPUT="$prepare_output" \
+  GITHUB_REF=refs/heads/main \
+  VALIDATE_ONLY=true \
+  "$NIXOA_CI" prepare
+prepared_plan=$(sed -n 's/^plan=//p' "$prepare_output")
+jq -e '
+  .schema_version == 1 and
+  (.installer.required | not) and
+  (.installer.build_required | not) and
+  (.publish_required | not)
+' <<<"$prepared_plan" >/dev/null
 
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI" release version 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]

@@ -51,5 +51,5 @@ while IFS= read -r pull_request; do
   else
     continue
   fi
-  "$NIXOA_CI_TRUSTED_UPDATE"
+  nixoa-ci-trusted-update
 done

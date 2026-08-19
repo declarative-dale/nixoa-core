@@ -100,8 +100,8 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev '^$|^nix run --accept-flake-config \.#nixoa-ci([ -]|$)|^bash nix/automation/gate\.sh$|^nix flake update --accept-flake-config$'; then
-            printf 'Workflow command bypasses the flake-packaged nixoa-ci interface.\n' >&2
+            grep -Ev '^$|^nix run --accept-flake-config \.#devenv -- tasks run [a-z0-9:_-]+$'; then
+            printf 'Workflow command bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
           touch "$out"
@@ -117,9 +117,9 @@ in {
         } ''
           cd ${inputs.self}
           for task in \
-            ci:classify ci:check ci:installer:plan ci:installer:build \
+            ci:prepare ci:classify ci:check ci:installer:plan ci:installer:build \
             ci:installer:boot ci:publish ci:gate automation:queue \
-            automation:update-locks automation:validate-locks \
+            automation:update-locks automation:validate-locks automation:open-lock-update-pr \
             release:prepare release:dispatch release:inventory release:verify \
             release:stage release:draft release:publish release:advance; do
             grep -Fq "\"$task\"" nix/devenv.nix
@@ -129,8 +129,8 @@ in {
           grep -Fq -- "-path './.devenv'" nix/devenv.nix
           grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
             .github/actions/setup-nix/action.yml
-          if grep -RqE 'devenv --no-tui|tasks run' .github/workflows; then
-            printf 'A hosted workflow still routes through devenv.\n' >&2
+          if grep -RqE '\.#nixoa-ci([ -]|$)|\.#nixoa-ci-installer-boot|\.#nixoa-ci-update-locks' .github/workflows; then
+            printf 'A hosted workflow bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
           ${lib.getExe packages.nixoa-ci} locks validate \

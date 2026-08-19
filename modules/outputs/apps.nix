@@ -64,8 +64,15 @@ in {
       nixoaCiUpdateLocks = inputs.self.packages.${system}.nixoa-ci-update-locks;
       planRunner = inputs.self.packages.${system}.flake-plan-runner;
       deployTemplate = inputs.self.packages.${system}.deploy-template;
+      devenv = inputs.devenv.packages.${system}.devenv;
       nxcliApp = mkNxcliApp pkgs nxcli;
     in {
+      devenv = {
+        type = "app";
+        program = lib.getExe devenv;
+        meta.description = "Run the pinned native devenv task and shell interface";
+      };
+
       nxcli = {
         type = "app";
         program = "${nxcli}/bin/nxcli";

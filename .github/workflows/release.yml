@@ -54,14 +54,14 @@ jobs:
           EXPECTED_AUTHOR: github-actions
           GH_TOKEN: ${{ github.token }}
           REQUESTED_BUMP: ${{ inputs.bump }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release prepare
+        run: nix run --accept-flake-config .#devenv -- tasks run release:prepare
 
       - name: Dispatch immutable artifact resolution
         id: candidate
         env:
           SOURCE_SHA: ${{ steps.version.outputs.source_sha }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release dispatch
+        run: nix run --accept-flake-config .#devenv -- tasks run release:dispatch
 
   release:
     name: Verify and publish immutable release assets
@@ -99,7 +99,7 @@ jobs:
         env:
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release inventory
+        run: nix run --accept-flake-config .#devenv -- tasks run release:inventory
 
       - name: Download tested installer inventory
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
@@ -115,7 +115,7 @@ jobs:
           ARTIFACT_SOURCE_COMMIT: ${{ steps.inventory.outputs.artifact_source_commit }}
           BUILD_INPUT: ${{ steps.inventory.outputs.build_input }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release verify
+        run: nix run --accept-flake-config .#devenv -- tasks run release:verify
 
       - name: Stage versioned release assets
         env:
@@ -126,7 +126,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release stage
+        run: nix run --accept-flake-config .#devenv -- tasks run release:stage
 
       - name: Create or refresh verified draft
         env:
@@ -134,7 +134,7 @@ jobs:
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release draft
+        run: nix run --accept-flake-config .#devenv -- tasks run release:draft
 
       - name: Attest final release filename
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
@@ -162,7 +162,7 @@ jobs:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
           SOURCE_SHA: ${{ needs.prepare.outputs.source_sha }}
           GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release publish
+        run: nix run --accept-flake-config .#devenv -- tasks run release:publish
 
   advance:
     name: Merge the next development version
@@ -192,4 +192,4 @@ jobs:
           EXPECTED_AUTHOR: github-actions
           GH_TOKEN: ${{ github.token }}
           RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
-        run: nix run --accept-flake-config .#nixoa-ci -- release advance
+        run: nix run --accept-flake-config .#devenv -- tasks run release:advance

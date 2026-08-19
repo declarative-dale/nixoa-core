@@ -36,7 +36,7 @@ if [[ -n "$base_sha" && -n "$head_sha" ]]; then
   changed_paths=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/nixoa-changes.XXXXXX")
   trap 'rm -f -- "$changed_paths"' EXIT
   if git -C "$NIXOA_SYSTEM_ROOT" diff --name-only "$base_sha" "$head_sha" >"$changed_paths"; then
-    installer=$($NIXOA_CI_CLASSIFY_PATHS <"$changed_paths")
+    installer=$(nixoa-ci-classify-paths <"$changed_paths")
   else
     printf 'Could not determine changed paths; requiring installer validation.\n' >&2
     installer=true

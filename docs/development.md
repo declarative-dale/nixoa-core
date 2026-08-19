@@ -45,12 +45,18 @@ nix run --accept-flake-config .#run-ci-plan -- \
   --plan lib.ciPlans.x86_64-linux.validation
 ```
 
-GitHub workflows call `nixoa-ci` directly through the flake for build and
-release commands. Devenv remains a local convenience facade over the same
-package. Product operations use `nxcli`; delivery automation uses `nixoa-ci`.
-The command dispatcher and security-sensitive XO helpers remain native shell
-sources, while their Nix package definitions provide evaluated executable
-paths and feature flags.
+GitHub workflow command bodies invoke declared tasks through the thin pinned
+`devenv` flake app. Those tasks delegate repository policy to the packaged
+`nixoa-ci` interface; workflow YAML retains only GitHub runner, permission,
+environment, artifact, and attestation boundaries. Product operations use
+`nxcli`; delivery automation uses `nixoa-ci`. Automation programs and
+security-sensitive XO helpers remain native shell sources, while Nix provides
+their runtime dependencies and executable app boundaries.
+
+The CI `prepare` command emits one versioned JSON plan. Installer allocation,
+protected-main publication, and the stable gate all consume that exact output,
+so downstream jobs cannot independently reinterpret classification or reuse
+state.
 
 The `validation`, `installer`, and `publish` target sets are versioned pure values under
 `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
@@ -80,8 +86,8 @@ The cache layers have separate responsibilities:
 - The immutable `nixoa-installer` artifact stores the tested ISO, SPDX and
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
 
-Only local pure validation tasks use devenv's `execIfModified`. Hosted CI,
-installer creation, releases, and lock updates always execute the flake app.
+Only local pure validation tasks use devenv's `execIfModified`. Hosted tasks
+always execute and delegate their implementation to flake-packaged programs.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
 the scheduled updater; `nix run .#nixoa-ci -- locks validate` verifies
