@@ -11,8 +11,7 @@ workflow=${CI_WORKFLOW:-ci.yml}
 allow_reuse=${ALLOW_REUSE:-true}
 force_build=${FORCE_BUILD:-false}
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
-: "${NIXOA_CI_BUILD_INPUT:?NIXOA_CI_BUILD_INPUT must point to the packaged build-input command}"
-build_input=$("$NIXOA_CI_BUILD_INPUT")
+build_input=$(nixoa-ci-build-input)
 artifact_run_id=$GITHUB_RUN_ID
 artifact_source_commit=$GITHUB_SHA
 producer_event=${GITHUB_EVENT_NAME:-workflow_dispatch}

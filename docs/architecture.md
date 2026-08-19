@@ -39,15 +39,15 @@ path to Packer. The source flake and runtime installer selection stay
 independently pinned. An exact checkout-local ISO is available through
 `INSTALLER_SOURCE=build`.
 
-Repository delivery is Nix-defined and directly flake-orchestrated. The
-`packages.x86_64-linux.nixoa-ci` package owns tested installer and release
-decisions and is the sole hosted-workflow command boundary. A shared devenv
-module remains a local shell and task facade over that package. Workflows retain GitHub security
-boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
-A Nix policy declares which source
-paths affect the immutable installer fingerprint, allowing metadata-only
-commits to reuse a previously verified artifact while unknown paths fail
-safely toward rebuilding.
+Repository delivery is Nix-defined and flake-packaged. Hosted workflow command
+bodies call declared devenv tasks through a thin flake app, and those tasks
+delegate implementation to `packages.x86_64-linux.nixoa-ci`. Workflows retain
+GitHub security boundaries—permissions, OIDC, artifacts, attestations, Cachix,
+and FlakeHub. The prepare program combines source classification and immutable
+artifact reuse into one versioned JSON plan consumed by later jobs and the
+stable gate. A Nix policy declares which source paths affect the immutable
+installer fingerprint, allowing metadata-only commits to reuse a previously
+verified artifact while unknown paths fail safely toward rebuilding.
 
 ## Module layout
 

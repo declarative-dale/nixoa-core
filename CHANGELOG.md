@@ -26,6 +26,10 @@ appliance's native configuration and automation contracts.
 - Keep CI plans, installer classification, and repository rules as native JSON,
   and keep the `nixoa-ci` dispatcher and XO storage/TLS helpers as lintable
   shell sources instead of dense embedded Nix strings.
+- Make the versioned JSON emitted by `nixoa-ci prepare` the sole downstream CI
+  planning contract for installer builds, protected-main publication, and the
+  stable gate; route hosted commands through declared devenv tasks backed by
+  repository-native automation programs and thin flake apps.
 
 ### Fixed
 

@@ -29,18 +29,15 @@ permissions:
   contents: read
 
 jobs:
-  validate:
-    name: Validate repository and plan installer state
+  prepare:
+    name: Validate repository and prepare CI plan
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
       actions: read
       contents: read
     outputs:
-      artifact_run_id: ${{ steps.state.outputs.artifact_run_id }}
-      build_input: ${{ steps.state.outputs.build_input }}
-      installer: ${{ steps.classify.outputs.installer }}
-      should_build: ${{ steps.state.outputs.should_build }}
+      plan: ${{ steps.plan.outputs.plan }}
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -51,32 +48,26 @@ jobs:
       - name: Set up Nix
         uses: ./.github/actions/setup-nix
 
-      - name: Decide whether installer validation is required
-        id: classify
+      - name: Prepare authoritative downstream CI plan
+        id: plan
         env:
+          ALLOW_REUSE: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.force_artifact != true)) && 'true' || 'false' }}
           EVENT_NAME: ${{ github.event_name }}
+          FORCE_BUILD: ${{ (github.event_name == 'schedule' || inputs.force_artifact == true) && 'true' || 'false' }}
+          FORCE_ARTIFACT: ${{ inputs.force_artifact || false }}
+          GH_TOKEN: ${{ github.token }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PUSH_BASE_SHA: ${{ github.event.before }}
           PUSH_HEAD_SHA: ${{ github.sha }}
           VALIDATE_ONLY: ${{ inputs.validate_only || false }}
-          FORCE_ARTIFACT: ${{ inputs.force_artifact || false }}
-        run: nix run --accept-flake-config .#nixoa-ci -- classify
+        run: nix run --accept-flake-config .#devenv -- tasks run ci:prepare
 
       - name: Validate repository
-        run: nix run --accept-flake-config .#nixoa-ci -- check --no-write-lock-file
-
-      - name: Resolve immutable installer state
-        id: state
-        if: steps.classify.outputs.installer == 'true'
-        env:
-          ALLOW_REUSE: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.force_artifact != true)) && 'true' || 'false' }}
-          FORCE_BUILD: ${{ (github.event_name == 'schedule' || inputs.force_artifact == true) && 'true' || 'false' }}
-          GH_TOKEN: ${{ github.token }}
-        run: nix run --accept-flake-config .#nixoa-ci -- installer resolve-state
+        run: nix run --accept-flake-config .#devenv -- tasks run ci:check
 
       - name: Upload installer state pointer
-        if: steps.classify.outputs.installer == 'true'
+        if: fromJSON(steps.plan.outputs.plan).installer.required
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: nixoa-build-state
@@ -86,8 +77,8 @@ jobs:
 
   build:
     name: Build, attest, and boot installer
-    needs: validate
-    if: needs.validate.outputs.should_build == 'true'
+    needs: prepare
+    if: fromJSON(needs.prepare.outputs.plan).installer.build_required
     runs-on: ubuntu-24.04
     timeout-minutes: 165
     permissions:
@@ -106,12 +97,13 @@ jobs:
         uses: ./.github/actions/setup-nix
 
       - name: Build installer and sbomnix inventories
-        run: nix run --accept-flake-config .#nixoa-ci -- installer build-assets
+        run: nix run --accept-flake-config .#devenv -- tasks run ci:installer:build
 
       - name: Boot the installer ISO
         env:
           BOOT_LOG: ${{ runner.temp }}/qemu-boot.log
-        run: nix run --accept-flake-config .#nixoa-ci-installer-boot -- result-installer/iso/nixoa-installer.iso
+          INSTALLER_ISO: result-installer/iso/nixoa-installer.iso
+        run: nix run --accept-flake-config .#devenv -- tasks run ci:installer:boot
 
       - name: Upload boot log after failure
         if: failure()
@@ -160,14 +152,12 @@ jobs:
   publish:
     name: Publish reusable main outputs
     needs:
-      - validate
+      - prepare
       - build
     if: >-
       always() &&
-      github.event_name == 'push' &&
-      github.ref == 'refs/heads/main' &&
-      needs.validate.result == 'success' &&
-      needs.validate.outputs.installer == 'true' &&
+      needs.prepare.result == 'success' &&
+      fromJSON(needs.prepare.outputs.plan).publish_required &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -187,7 +177,7 @@ jobs:
         env:
           CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
           CACHIX_CACHE_NAME: ${{ vars.CACHIX_CACHE_NAME }}
-        run: nix run --accept-flake-config .#nixoa-ci -- publish
+        run: nix run --accept-flake-config .#devenv -- tasks run ci:publish
 
       - name: Publish the rolling flake to FlakeHub
         uses: DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4 # main, Node.js 24 (post-v6)
@@ -202,7 +192,7 @@ jobs:
     name: CI gate
     if: always()
     needs:
-      - validate
+      - prepare
       - build
     runs-on: ubuntu-slim
     timeout-minutes: 5
@@ -218,7 +208,6 @@ jobs:
       - name: Enforce the conditional CI graph
         env:
           BUILD_RESULT: ${{ needs.build.result }}
-          INSTALLER_REQUIRED: ${{ needs.validate.outputs.installer }}
-          SHOULD_BUILD: ${{ needs.validate.outputs.should_build }}
-          VALIDATE_RESULT: ${{ needs.validate.result }}
-        run: nix run --accept-flake-config .#nixoa-ci -- gate
+          CI_PLAN: ${{ needs.prepare.outputs.plan }}
+          PREPARE_RESULT: ${{ needs.prepare.result }}
+        run: nix run --accept-flake-config .#devenv -- tasks run ci:gate
