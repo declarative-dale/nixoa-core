@@ -212,10 +212,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Nix
+        uses: ./.github/actions/setup-nix
+
       - name: Enforce the conditional CI graph
         env:
           BUILD_RESULT: ${{ needs.build.result }}
           INSTALLER_REQUIRED: ${{ needs.validate.outputs.installer }}
           SHOULD_BUILD: ${{ needs.validate.outputs.should_build }}
           VALIDATE_RESULT: ${{ needs.validate.result }}
-        run: bash nix/automation/gate.sh
+        run: nix run --accept-flake-config .#nixoa-ci -- gate

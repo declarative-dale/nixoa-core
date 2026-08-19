@@ -28,11 +28,8 @@ jobs:
       - name: Set up Nix
         uses: ./.github/actions/setup-nix
 
-      - name: Refresh native devenv inputs
+      - name: Refresh native and flake inputs
         run: nix run --accept-flake-config .#nixoa-ci-update-locks
-
-      - name: Refresh flake inputs
-        run: nix flake update --accept-flake-config
 
       - name: Validate the synchronized lockfiles
         run: nix run --accept-flake-config .#nixoa-ci -- locks validate

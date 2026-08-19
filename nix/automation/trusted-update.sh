@@ -110,7 +110,7 @@ pr_url=$(jq -er .url <<<"$pr")
 
 run_id=
 dispatched=false
-for _ in {1..6}; do
+for attempt in {1..6}; do
   pull_runs=$(
     for event in pull_request workflow_dispatch; do
       gh run list \
@@ -137,7 +137,7 @@ for _ in {1..6}; do
     run_id=$approval_run_id
     break
   fi
-  if [[ $dispatched == false ]]; then
+  if [[ $dispatched == false && $attempt -ge 2 ]]; then
     gh workflow run "$ci_workflow" \
       --repo "$GITHUB_REPOSITORY" \
       --ref "$branch"

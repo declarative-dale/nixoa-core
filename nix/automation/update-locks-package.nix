@@ -11,6 +11,7 @@ pkgs.writeShellApplication {
   text = ''
     cd "''${NIXOA_SYSTEM_ROOT:-$(git rev-parse --show-toplevel)}"
     nix run --accept-flake-config ${devenvSource}#devenv -- update
+    nix flake update --accept-flake-config
   '';
-  meta.description = "Refresh NiXOA's native devenv lock with pinned tooling";
+  meta.description = "Refresh every NiXOA native and flake input with pinned tooling";
 }

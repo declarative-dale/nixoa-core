@@ -17,6 +17,41 @@
     inherit message;
   };
 
+  automationDirectory = builtins.readDir "${source}/nix/automation";
+  automationScripts = lib.sort builtins.lessThan (
+    builtins.filter
+    (name: lib.hasSuffix ".sh" name && automationDirectory.${name} == "regular")
+    (builtins.attrNames automationDirectory)
+  );
+  automationDefinition = read "nix/automation/default.nix";
+  automationWrapperRules = map (script: {
+    ok = lib.hasInfix "source = ./${script};" automationDefinition;
+    message = "nix/automation/${script} must be wrapped by the nixoa-ci package";
+  }) automationScripts;
+
+  workflowDirectory = builtins.readDir "${source}/.github/workflows";
+  workflowFiles = lib.sort builtins.lessThan (
+    builtins.filter
+    (name:
+      (lib.hasSuffix ".yml" name || lib.hasSuffix ".yaml" name)
+      && workflowDirectory.${name} == "regular")
+    (builtins.attrNames workflowDirectory)
+  );
+  workflowRunRules = map (workflow: let
+    runLines = builtins.filter
+      (line: builtins.match "[[:space:]]*run:.*" line != null)
+      (lib.splitString "\n" (read ".github/workflows/${workflow}"));
+  in {
+    ok = builtins.all
+      (line:
+        builtins.match
+        "[[:space:]]*run: nix run --accept-flake-config .*"
+        line
+        != null)
+      runLines;
+    message = ".github/workflows/${workflow} must route every run step through a flake app";
+  }) workflowFiles;
+
   version = lib.removeSuffix "\n" (read "VERSION");
   rules = [
     {
@@ -95,8 +130,8 @@
       "Installer closure targets must use the shared schema-v2 plan runner")
     (contains "modules/outputs/lib.nix" "mkCiPlan"
       "CI target lists must be exported as pure flake plans")
-    (contains ".github/workflows/ci.yml" "bash nix/automation/gate.sh"
-      "The stable gate must stay lightweight and dependency-free")
+    (contains ".github/workflows/ci.yml" ".#nixoa-ci -- gate"
+      "The stable gate must use the flake-packaged automation")
     (absent ".github/actions/setup-devenv/action.yml"
       "Hosted CI must not install a second devenv orchestration layer")
     (excludes ".github/workflows/ci.yml" "./ci/"
@@ -111,7 +146,7 @@
       "The superseded validation workflow must stay removed")
     (absent ".github/workflows/flakehub-publish-tagged.yml"
       "The obsolete tagged FlakeHub workflow must stay removed")
-  ];
+  ] ++ automationWrapperRules ++ workflowRunRules;
   failures = map (rule: rule.message) (builtins.filter (rule: !rule.ok) rules);
 in
   assert lib.assertMsg (failures == [])

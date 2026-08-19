@@ -9,6 +9,33 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-18
+
+NiXOA 1.2.1 is a corrective release of the 1.2.0 feature set on a unique,
+verified Git tag. It preserves the tested installer and curated notes while
+strengthening release preparation against historical tag collisions and
+redundant trusted-CI dispatches.
+
+### Changed
+
+- Route the final `CI gate` and synchronized native/flake lock refresh through
+  flake-packaged commands, leaving workflow YAML responsible only for GitHub
+  runner, permission, environment, artifact, and attestation boundaries.
+- Inventory every automation shell source and every workflow `run` step from a
+  pure Nix repository policy, rejecting unwrapped scripts and direct workflow
+  orchestration before CI can drift.
+
+### Fixed
+
+- Reject a release candidate when its semantic-version tag already exists
+  without a matching GitHub release, preventing immutable assets from being
+  associated with an unrelated historical Git ref.
+- Wait one discovery interval for a bot-authored pull-request workflow before
+  dispatching exact-head fallback CI, avoiding duplicate validation when
+  GitHub delivers the pull-request event shortly after PR creation.
+- Publish the current 1.2 release line as `v1.2.1`, whose tag and immutable
+  release both identify the protected source commit.
+
 ## [1.2.0] - 2026-08-18
 
 NiXOA 1.2.0 makes the flake the reusable source of truth for validation,
@@ -773,8 +800,9 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 - Created XOA package with yarn2nix using workspace dependencies
 - Applied upstream patches (SMB handler, TypeScript generics) in preBuild
 
-[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.2...v1.2.0
+[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/declarative-dale/nixoa-core/compare/540e49a397229cb12301a230c25fe123a42b0eab...v1.2.1
+[1.2.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.2...540e49a397229cb12301a230c25fe123a42b0eab
 [1.1.2]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.0...v1.1.0

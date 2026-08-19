@@ -109,10 +109,17 @@ if grep -Fq 'cachix/cachix-action@' \
 fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$setup_steps" 3
-grep -Fq 'bash nix/automation/gate.sh' \
+assert_eq "$setup_steps" 4
+grep -Fq '.#nixoa-ci -- gate' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "stable CI gate is not dependency-free"
+  || fail "stable CI gate bypasses the flake-packaged command"
+if grep -Fq 'run: nix flake update' \
+  "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
+  fail "flake input refresh bypasses its packaged updater"
+fi
+grep -Fq 'nix flake update --accept-flake-config' \
+  "$TEST_ROOT/nix/automation/update-locks-package.nix" \
+  || fail "packaged updater does not refresh flake inputs"
 grep -Fq "flake.lib.ciPlans.\${system}" \
   "$TEST_ROOT/modules/outputs/lib.nix" \
   || fail "flake does not expose pure CI attribute plans"
@@ -203,6 +210,14 @@ grep -Fq '.#nixoa-ci -- release stage' "$TEST_ROOT/.github/workflows/release.yml
   || fail "release workflow does not split oversized installer assets"
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
+grep -Fq 'Release tag %s already exists without a GitHub release.' \
+  "$TEST_ROOT/nix/automation/release.sh" \
+  || fail "release preparation does not reject pre-existing unpublished tags"
+# The variable references must remain literal in the trusted-update source.
+# shellcheck disable=SC2016
+grep -Fq 'if [[ $dispatched == false && $attempt -ge 2 ]]' \
+  "$TEST_ROOT/nix/automation/trusted-update.sh" \
+  || fail "trusted updates do not wait for pull-request CI before fallback dispatch"
 # The variable references must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'git merge-base --is-ancestor "$draft_target" "$SOURCE_SHA"' \
