@@ -147,6 +147,7 @@ in {
           cd ${inputs.self}
           shellcheck \
             installer/*.sh \
+            modules/_nixos/xo/*.sh \
             packer/*.sh \
             packer/scripts/*.sh \
             scripts/*.sh \
@@ -208,6 +209,9 @@ in {
 
       configuration = assert appliance.nixoa.xo.enable;
       assert appliance.nixoa.xo.package == inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
+      assert appliance.nixoa.xo.config.file != null;
+      assert appliance.environment.etc."xo-server/config.nixoa.toml".source == appliance.nixoa.xo.config.file;
+      assert (builtins.fromTOML (builtins.readFile appliance.nixoa.xo.config.file)).remoteOptions.mountsDir == appliance.nixoa.xo.storage.mountsDir;
       assert appliance.nixoa.xo.storage.libvhdiPackage == inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
       assert appliance.programs.fuse.userAllowOther;
       assert builtins.elem "fuse" appliance.users.users.${appliance.nixoa.xo.user}.extraGroups;

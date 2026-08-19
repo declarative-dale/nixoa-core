@@ -1,0 +1,37 @@
+{
+  "ignoredChangePatterns": [
+    "AGENTS.md",
+    "LICENSE",
+    "VERSION",
+    "README*",
+    "CHANGELOG*",
+    "devenv.lock",
+    "devenv.nix",
+    "devenv.yaml",
+    "secretspec.toml",
+    "docs/*",
+    "packer/*",
+    "tests/*",
+    "modules/outputs/checks.nix",
+    "modules/outputs/dev-shells.nix",
+    "nix/checks/*",
+    "nix/devenv.nix",
+    "nix/automation/github/*",
+    ".github/*"
+  ],
+  "buildInputPaths": [
+    ".github/workflows/ci.yml",
+    "flake.lock",
+    "flake.nix",
+    "host",
+    "installer",
+    "modules",
+    ":(exclude)modules/outputs/checks.nix",
+    ":(exclude)modules/outputs/dev-shells.nix",
+    "nix/automation",
+    ":(exclude)nix/automation/github",
+    "nix/ci-plans.json",
+    "pkgs",
+    "scripts"
+  ]
+}

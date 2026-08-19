@@ -6,7 +6,7 @@
   ...
 }: let
   cfg = config.nixoa.xo;
-  inherit (lib) mkIf optionalAttrs optionals;
+  inherit (lib) attrByPath mkIf optionalAttrs optionals;
   valkeyCompat =
     if pkgs ? valkey-compat-redis
     then pkgs.valkey-compat-redis
@@ -14,49 +14,25 @@
     then pkgs.valkey-compat
     else pkgs.valkey;
   storageEnabled = cfg.storage.enableNFS || cfg.storage.enableCIFS || cfg.storage.enableVHD;
-  configuredToml = cfg.config.toml;
-  defaultConfig = {
-    redis.socket = "/run/redis-xo/redis.sock";
-    dataStore.path = cfg.dataDir;
-    tempDir.path = cfg.tempDir;
-    http = {
-      redirectToHttps = cfg.tls.enable;
-      listen =
-        [{port = 80;}]
-        ++ optionals cfg.tls.enable [
-          {
-            port = 443;
-            cert = cfg.tls.cert;
-            key = cfg.tls.key;
-          }
-        ];
-      mounts = {
-        "/" = "${cfg.home}/xen-orchestra/@xen-orchestra/web/dist";
-        "/v5" = "${cfg.home}/xen-orchestra/packages/xo-web/dist";
-        "/v6" = "${cfg.home}/xen-orchestra/@xen-orchestra/web/dist";
-      };
-    };
-    remoteOptions = {
-      useSudo = true;
-      mountsDir = cfg.storage.mountsDir;
-    };
+  xoConfig =
+    if cfg.config.file == null
+    then {}
+    else builtins.fromTOML (builtins.readFile cfg.config.file);
+  configValue = path: attrByPath path null xoConfig;
+  expectedListeners =
+    [{port = 80;}]
+    ++ optionals cfg.tls.enable [
+      {
+        port = 443;
+        cert = cfg.tls.cert;
+        key = cfg.tls.key;
+      }
+    ];
+  expectedMounts = {
+    "/" = "${cfg.home}/xen-orchestra/@xen-orchestra/web/dist";
+    "/v5" = "${cfg.home}/xen-orchestra/packages/xo-web/dist";
+    "/v6" = "${cfg.home}/xen-orchestra/@xen-orchestra/web/dist";
   };
-  renderedConfig =
-    if configuredToml != ""
-    then
-      pkgs.runCommand "config.nixoa.toml" {} ''
-        cp ${pkgs.writeText "config.nixoa.toml" configuredToml} "$out"
-        ${pkgs.remarshal}/bin/remarshal -if toml -of json "$out" >/dev/null
-      ''
-    else
-      pkgs.runCommand "config.nixoa.toml" {} ''
-        ${pkgs.remarshal}/bin/remarshal \
-          -if json \
-          -of toml \
-          ${pkgs.writeText "config.nixoa.json" (builtins.toJSON defaultConfig)} \
-          > "$out"
-        ${pkgs.remarshal}/bin/remarshal -if toml -of json "$out" >/dev/null
-      '';
   startXO = pkgs.writeShellScript "xo-start" ''
     set -euo pipefail
     export HOME=${lib.escapeShellArg cfg.home}
@@ -96,9 +72,11 @@ in {
       };
     };
 
-    environment.etc."xo-server/config.nixoa.toml" = {
-      source = renderedConfig;
-      mode = "0644";
+    environment.etc = mkIf (cfg.config.file != null) {
+      "xo-server/config.nixoa.toml" = {
+        source = cfg.config.file;
+        mode = "0644";
+      };
     };
 
     environment.systemPackages =
@@ -236,6 +214,42 @@ in {
       {
         assertion = cfg.package != null;
         message = "nixoa.xo.package must be configured.";
+      }
+      {
+        assertion = cfg.config.file != null;
+        message = "nixoa.xo.config.file must provide the NiXOA xo-server TOML system override.";
+      }
+      {
+        assertion = configValue ["redis" "socket"] == "/run/redis-xo/redis.sock";
+        message = "nixoa.xo.config.file must use the managed Redis socket.";
+      }
+      {
+        assertion = configValue ["dataStore" "path"] == cfg.dataDir;
+        message = "nixoa.xo.config.file dataStore.path must match nixoa.xo.dataDir.";
+      }
+      {
+        assertion = configValue ["tempDir" "path"] == cfg.tempDir;
+        message = "nixoa.xo.config.file tempDir.path must match nixoa.xo.tempDir.";
+      }
+      {
+        assertion = configValue ["http" "redirectToHttps"] == cfg.tls.enable;
+        message = "nixoa.xo.config.file http.redirectToHttps must match nixoa.xo.tls.enable.";
+      }
+      {
+        assertion = configValue ["http" "listen"] == expectedListeners;
+        message = "nixoa.xo.config.file HTTP listeners must match the managed TLS policy.";
+      }
+      {
+        assertion = configValue ["http" "mounts"] == expectedMounts;
+        message = "nixoa.xo.config.file HTTP mounts must match nixoa.xo.home.";
+      }
+      {
+        assertion = configValue ["remoteOptions" "useSudo"] == true;
+        message = "nixoa.xo.config.file remoteOptions.useSudo must remain enabled.";
+      }
+      {
+        assertion = configValue ["remoteOptions" "mountsDir"] == cfg.storage.mountsDir;
+        message = "nixoa.xo.config.file remoteOptions.mountsDir must match nixoa.xo.storage.mountsDir.";
       }
     ];
   };

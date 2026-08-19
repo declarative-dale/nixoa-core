@@ -9,6 +9,21 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Changed
+
+- Replace the generated Xen Orchestra system override with the checked-in
+  `host/config.nixoa.toml` source selected by `nixoa.xo.config.file`, layered
+  over the package's immutable vendor defaults; remove the former inline
+  `nixoa.xo.config.toml` interface.
+- Keep CI plans, installer classification, and repository rules as native JSON,
+  and keep the `nixoa-ci` dispatcher and XO storage/TLS helpers as lintable
+  shell sources instead of dense embedded Nix strings.
+
+### Fixed
+
+- Remove each temporary CIFS credential file after its mount attempt instead
+  of losing the function-local cleanup path before the process exit trap ran.
+
 ## [1.2.1] - 2026-08-18
 
 NiXOA 1.2.1 is a corrective release of the 1.2.0 feature set on a unique,

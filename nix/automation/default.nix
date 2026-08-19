@@ -30,7 +30,7 @@
     jq
     nix
   ];
-  installerPolicy = import ./installer-policy.nix;
+  installerPolicy = builtins.fromJSON (builtins.readFile ./installer-policy.json);
 
   buildInput = pkgs.writeShellApplication {
     name = "nixoa-ci-build-input";
@@ -160,151 +160,31 @@
   };
 
   commandPath = command: lib.getExe commands.${command};
+  system = pkgs.stdenv.hostPlatform.system;
 in
   pkgs.writeShellApplication {
     name = "nixoa-ci";
     runtimeInputs = commonInputs;
     text = ''
-      repo_root="''${NIXOA_SYSTEM_ROOT:-}"
-      if [ -z "$repo_root" ]; then
-        if git_root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
-          repo_root="$git_root"
-        else
-          repo_root="$PWD"
-        fi
-      fi
-      export NIXOA_SYSTEM_ROOT="$repo_root"
+      export NIXOA_CI_BOOT=${commandPath "boot"}
+      export NIXOA_CI_BUILD_ASSETS=${commandPath "build-assets"}
       export NIXOA_CI_BUILD_INPUT=${commandPath "build-input"}
+      export NIXOA_CI_CLASSIFY=${commandPath "classify"}
       export NIXOA_CI_CLASSIFY_PATHS=${commandPath "classify-paths"}
+      export NIXOA_CI_GATE=${commandPath "gate"}
       export NIXOA_CI_LOCK_VALIDATE=${commandPath "lock-validate"}
+      export NIXOA_CI_OPEN_UPDATE_PR=${commandPath "open-update-pr"}
+      export NIXOA_CI_PLAN_RUNNER=${lib.getExe planRunner}
+      export NIXOA_CI_PUBLISH=${commandPath "publish"}
+      export NIXOA_CI_QUEUE=${commandPath "queue"}
+      export NIXOA_CI_RELEASE=${commandPath "release"}
       export NIXOA_CI_RELEASE_NOTES=${commandPath "release-notes"}
       export NIXOA_CI_RELEASE_STAGE=${commandPath "release-stage"}
       export NIXOA_CI_RELEASE_VERSION=${commandPath "release-version"}
+      export NIXOA_CI_RESOLVE_STATE=${commandPath "resolve-state"}
       export NIXOA_CI_TRUSTED_UPDATE=${commandPath "trusted-update"}
-
-      usage() {
-        cat <<'EOF'
-      Usage: nixoa-ci COMMAND [ARGS...]
-
-      Commands:
-        classify                        Classify the current GitHub event
-        classify-paths                  Classify newline-delimited changed paths
-        gate                            Enforce the conditional GitHub CI graph
-        installer build-input           Print the immutable installer input digest
-        installer resolve-state         Resolve reusable GitHub installer state
-        installer build-assets          Build the installer, packages, and SBOMs
-        installer boot [ISO]            Boot-test an installer ISO
-        locks validate [LOCKS...]        Verify shared native and flake input pins
-        open-update-pr PATH...           Publish an allowlisted automation update
-        publish                          Build reusable rolling outputs
-        release version LAST BUMP        Select a semantic release version from stdin
-        release notes VERSION [FILE]     Extract curated notes from CHANGELOG.md
-        release split SOURCE TARGET DIR  Split a release installer for GitHub assets
-        release prepare|dispatch         Prepare a protected release and its tested artifacts
-        release inventory|verify         Validate immutable release inputs and attestations
-        release stage|draft|publish      Stage and publish the verified release
-        release advance                  Start the next protected development version
-        trusted-update                   Validate and enqueue an allowlisted automation PR
-        queue                            Validate and enqueue all trusted automation PRs
-        check                            Run the complete flake check
-        plan [PLAN]                      Validate and execute one pure CI plan
-      EOF
-      }
-
-      command="''${1:-help}"
-      case "$command" in
-        classify)
-          shift
-          exec ${commandPath "classify"} "$@"
-          ;;
-        classify-paths)
-          shift
-          exec ${commandPath "classify-paths"} "$@"
-          ;;
-        gate)
-          shift
-          exec ${commandPath "gate"} "$@"
-          ;;
-        installer)
-          subcommand="''${2:-}"
-          shift 2 || true
-          case "$subcommand" in
-            build-input) exec ${commandPath "build-input"} "$@" ;;
-            resolve-state) exec ${commandPath "resolve-state"} "$@" ;;
-            build-assets) exec ${commandPath "build-assets"} "$@" ;;
-            boot) exec ${commandPath "boot"} "$@" ;;
-            *) usage >&2; exit 2 ;;
-          esac
-          ;;
-        locks)
-          subcommand="''${2:-}"
-          shift 2 || true
-          case "$subcommand" in
-            validate) exec ${commandPath "lock-validate"} "$@" ;;
-            *) usage >&2; exit 2 ;;
-          esac
-          ;;
-        open-update-pr)
-          shift
-          exec ${commandPath "open-update-pr"} "$@"
-          ;;
-        publish)
-          shift
-          exec ${commandPath "publish"} "$@"
-          ;;
-        release)
-          subcommand="''${2:-}"
-          shift 2 || true
-          case "$subcommand" in
-            version) exec ${commandPath "release-version"} "$@" ;;
-            notes) exec ${commandPath "release-notes"} "$@" ;;
-            split) exec ${commandPath "release-stage"} "$@" ;;
-            prepare|dispatch|inventory|verify|stage|draft|publish|advance)
-              exec ${commandPath "release"} "$subcommand" "$@"
-              ;;
-            *) usage >&2; exit 2 ;;
-          esac
-          ;;
-        trusted-update)
-          shift
-          exec ${commandPath "trusted-update"} "$@"
-          ;;
-        queue)
-          shift
-          exec ${commandPath "queue"} "$@"
-          ;;
-        check)
-          shift
-          cd "$repo_root"
-          flake_ref="path:$repo_root"
-          if git -C "$repo_root" rev-parse --show-toplevel >/dev/null 2>&1; then
-            flake_ref="git+file:$repo_root"
-          fi
-          nix flake check --accept-flake-config --no-build --print-build-logs \
-            "$flake_ref" "$@"
-          exec ${lib.getExe planRunner} \
-            --flake "$flake_ref" \
-            --plan lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.validation
-          ;;
-        plan)
-          shift
-          plan="''${1:-lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.validation}"
-          if (($# > 0)); then
-            shift
-          fi
-          exec ${lib.getExe planRunner} \
-            --flake "$repo_root" \
-            --plan "$plan" \
-            "$@"
-          ;;
-        help|-h|--help)
-          usage
-          ;;
-        *)
-          usage >&2
-          exit 2
-          ;;
-      esac
+      export NIXOA_CI_VALIDATION_PLAN=lib.ciPlans.${system}.validation
+      ${builtins.readFile ./cli.sh}
     '';
     meta = {
       description = "NiXOA repository CI and release automation";

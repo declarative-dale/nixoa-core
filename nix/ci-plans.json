@@ -1,0 +1,47 @@
+{
+  "validation": {
+    "name": "nixoa-validation",
+    "targets": [
+      { "name": "metadata", "attribute": "checks.x86_64-linux.metadata" },
+      { "name": "nixoa-ci", "attribute": "checks.x86_64-linux.nixoa-ci" },
+      { "name": "nxcli", "attribute": "checks.x86_64-linux.nxcli" },
+      { "name": "flake-plan-runner", "attribute": "checks.x86_64-linux.flake-plan-runner" },
+      { "name": "eval-smoke", "attribute": "checks.x86_64-linux.eval-smoke" },
+      { "name": "workflow-policy", "attribute": "checks.x86_64-linux.workflow-policy" },
+      { "name": "devenv-contract", "attribute": "checks.x86_64-linux.devenv-contract" },
+      { "name": "shell-lint", "attribute": "checks.x86_64-linux.shell-lint" },
+      { "name": "automation-fixtures", "attribute": "checks.x86_64-linux.automation-fixtures" },
+      { "name": "installer-input-fixtures", "attribute": "checks.x86_64-linux.installer-input-fixtures" },
+      { "name": "release-fixtures", "attribute": "checks.x86_64-linux.release-fixtures" },
+      { "name": "secretspec-contract", "attribute": "checks.x86_64-linux.secretspec-contract" },
+      { "name": "operator-fixtures", "attribute": "checks.x86_64-linux.operator-fixtures" },
+      { "name": "repository-policy", "attribute": "checks.x86_64-linux.repository-policy" },
+      { "name": "configuration", "attribute": "checks.x86_64-linux.configuration" },
+      { "name": "ci-plan-contract", "attribute": "checks.x86_64-linux.ci-plan-contract" }
+    ]
+  },
+  "installer": {
+    "name": "nixoa-installer",
+    "targets": [
+      { "name": "toplevel", "attribute": "nixosConfigurations.nixoa.config.system.build.toplevel" },
+      { "name": "deploy-template", "attribute": "packages.x86_64-linux.deploy-template", "link": "result-deploy-template" },
+      { "name": "libvhdi", "attribute": "packages.x86_64-linux.libvhdi" },
+      { "name": "metadata", "attribute": "packages.x86_64-linux.metadata", "link": "result-metadata" },
+      { "name": "nixoa-menu", "attribute": "packages.x86_64-linux.nixoa-menu", "link": "result-nixoa-menu" },
+      { "name": "nxcli", "attribute": "packages.x86_64-linux.nxcli", "link": "result-nxcli" },
+      { "name": "sbomnix", "attribute": "packages.x86_64-linux.sbomnix" },
+      { "name": "xen-orchestra-ce", "attribute": "packages.x86_64-linux.xen-orchestra-ce" },
+      { "name": "installer-iso", "attribute": "packages.x86_64-linux.installer-iso", "link": "result-installer" }
+    ]
+  },
+  "publish": {
+    "name": "nixoa-publish",
+    "targets": [
+      { "name": "toplevel", "attribute": "nixosConfigurations.nixoa.config.system.build.toplevel" },
+      { "name": "deploy-template", "attribute": "packages.x86_64-linux.deploy-template" },
+      { "name": "metadata", "attribute": "packages.x86_64-linux.metadata" },
+      { "name": "nixoa-menu", "attribute": "packages.x86_64-linux.nixoa-menu" },
+      { "name": "nxcli", "attribute": "packages.x86_64-linux.nxcli" }
+    ]
+  }
+}

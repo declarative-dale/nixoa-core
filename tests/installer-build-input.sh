@@ -20,6 +20,8 @@ printf '%s\n' '#!/usr/bin/env bash' 'printf boot' \
   >"${fixture}/nix/automation/installer-boot.sh"
 printf '%s\n' '# automation fixture' \
   >"${fixture}/nix/automation/default.nix"
+printf '%s\n' '{ "installer": { "targets": [] } }' \
+  >"${fixture}/nix/ci-plans.json"
 printf '%s\n' 'workflow: installer' \
   >"${fixture}/.github/workflows/ci.yml"
 printf '%s\n' '{ outputs = {}; }' >"${fixture}/flake.nix"
@@ -93,6 +95,15 @@ git -C "${fixture}" add nix/automation/default.nix
 automation_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 [[ "${automation_change}" != "${recipe_change}" ]] || {
   printf 'Nix automation fixture did not change installer state.\n' >&2
+  exit 1
+}
+
+printf '%s\n' '{ "installer": { "targets": ["changed"] } }' \
+  >"${fixture}/nix/ci-plans.json"
+git -C "${fixture}" add nix/ci-plans.json
+plan_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+[[ "${plan_change}" != "${automation_change}" ]] || {
+  printf 'CI plan fixture did not change installer state.\n' >&2
   exit 1
 }
 

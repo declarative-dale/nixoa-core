@@ -7,6 +7,9 @@ readonly NIXOA_HOST_ROOT="$NIXOA_SYSTEM_ROOT/host"
 readonly NIXOA_SETTINGS_FILE="$NIXOA_HOST_ROOT/settings.nix"
 readonly NIXOA_MENU_FILE="$NIXOA_HOST_ROOT/menu.nix"
 readonly NIXOA_HARDWARE_FILE="$NIXOA_HOST_ROOT/hardware-configuration.nix"
+# Used by scripts that source this shared library.
+# shellcheck disable=SC2034
+readonly NIXOA_XO_CONFIG_FILE="$NIXOA_HOST_ROOT/config.nixoa.toml"
 readonly NIXOA_DEFAULT_HOSTNAME="nixoa"
 readonly NIXOA_DEFAULT_USERNAME="nixoa"
 # Used by scripts that source this shared library.
@@ -520,6 +523,7 @@ nixoa_write_host_settings() {
     printf '  nixoa.xo = {\n'
     printf '    enable = true;\n'
     printf '    httpHost = "0.0.0.0";\n'
+    printf '    config.file = ./config.nixoa.toml;\n'
     printf '    tls = { enable = true; autoCert = true; };\n'
     printf '    storage = {\n'
     printf '      enableNFS = true;\n'

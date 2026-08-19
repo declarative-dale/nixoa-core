@@ -56,10 +56,11 @@ in {
       default = "0.0.0.0";
       description = "Address used in automatically generated certificates.";
     };
-    config.toml = mkOption {
-      type = types.lines;
-      default = "";
-      description = "Optional complete xo-server TOML configuration.";
+    config.file = mkOption {
+      type = types.nullOr types.path;
+      default = null;
+      example = lib.literalExpression "./config.nixoa.toml";
+      description = "Native xo-server TOML system override layered over vendor defaults.";
     };
     extraServerEnv = mkOption {
       type = types.attrsOf types.str;
