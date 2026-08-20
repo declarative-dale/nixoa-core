@@ -64,7 +64,7 @@
         (line:
           lib.hasInfix "--option 'packages:pkgs!' ''" line
           && (builtins.match
-            "[[:space:]]*run: nix run --accept-flake-config \\.#devenv -- tasks run .*ci:check[[:space:]]*"
+            "[[:space:]]*run: nix run --accept-flake-config \\.#devenv -- tasks run .*ci:repository-audit[[:space:]]*"
             line
             != null
             || builtins.match

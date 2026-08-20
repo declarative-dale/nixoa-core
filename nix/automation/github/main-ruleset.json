@@ -1,5 +1,5 @@
 {
-  "name": "Protect main with an up-to-date CI gate",
+  "name": "Protect main with an up-to-date CI verdict",
   "target": "branch",
   "enforcement": "active",
   "bypass_actors": [],
@@ -38,7 +38,7 @@
         "do_not_enforce_on_create": false,
         "required_status_checks": [
           {
-            "context": "CI gate",
+            "context": "Required CI verdict",
             "integration_id": 15368
           }
         ],

@@ -58,10 +58,10 @@
       runtimeInputs = commonInputs ++ [classifyPaths];
       source = ./build-input.sh;
     };
-    check = mkCommand {
-      name = "check";
+    repository-audit = mkCommand {
+      name = "repository-audit";
       runtimeInputs = commonInputs ++ [planRunner];
-      source = ./check.sh;
+      source = ./repository-audit.sh;
     };
     classify = mkCommand {
       name = "classify";
@@ -69,10 +69,10 @@
       source = ./classify.sh;
     };
     classify-paths = classifyPaths;
-    gate = mkCommand {
-      name = "gate";
+    verdict = mkCommand {
+      name = "verdict";
       runtimeInputs = commonInputs ++ [validatePlan];
-      source = ./gate.sh;
+      source = ./verdict.sh;
     };
     lock-validate = mkCommand {
       name = "lock-validate";
@@ -84,8 +84,8 @@
       runtimeInputs = commonInputs;
       source = ./open-update-pr.sh;
     };
-    prepare = mkCommand {
-      name = "prepare";
+    route = mkCommand {
+      name = "route";
       runtimeInputs =
         commonInputs
         ++ [
@@ -93,7 +93,7 @@
           commands.resolve-state
           validatePlan
         ];
-      source = ./prepare.sh;
+      source = ./route.sh;
     };
     publish = mkCommand {
       name = "publish";
@@ -105,8 +105,8 @@
       runtimeInputs = commonInputs ++ [commands.trusted-update];
       source = ./queue.sh;
     };
-    release = mkCommand {
-      name = "release";
+    release-manager = mkCommand {
+      name = "release-manager";
       runtimeInputs =
         commonInputs
         ++ [
@@ -117,7 +117,7 @@
           commands.release-version
           commands.trusted-update
         ];
-      source = ./release.sh;
+      source = ./release-manager.sh;
     };
     release-notes = mkCommand {
       name = "release-notes";

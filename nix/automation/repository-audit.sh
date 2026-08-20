@@ -3,6 +3,8 @@
 
 set -euo pipefail
 
+# Audit every repository contract declared by the flake's validation plan.
+
 repo_root="${NIXOA_SYSTEM_ROOT:-}"
 if [[ -z $repo_root ]]; then
   if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then

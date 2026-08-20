@@ -3,10 +3,10 @@
 
 set -euo pipefail
 
-test "${PREPARE_RESULT:?}" = success
-: "${CI_PLAN:?CI_PLAN must contain the prepare job JSON output}"
+test "${ROUTE_RESULT:?}" = success
+: "${CI_PLAN:?CI_PLAN must contain the route decision JSON output}"
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
-plan_file=$(mktemp "${runner_temp}/nixoa-ci-plan.XXXXXX")
+plan_file=$(mktemp "${runner_temp}/nixoa-route-plan.XXXXXX")
 trap 'rm -f -- "$plan_file"' EXIT
 printf '%s\n' "$CI_PLAN" >"$plan_file"
 nixoa-ci-validate-plan "$plan_file"

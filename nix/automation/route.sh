@@ -5,10 +5,10 @@ set -euo pipefail
 
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 state_outputs=$(mktemp "${runner_temp}/nixoa-state-outputs.XXXXXX")
-plan_file=${NIXOA_CI_PLAN_FILE:-}
+plan_file=${NIXOA_CI_ROUTE_OUTPUT:-}
 remove_plan=false
 if [[ -z "$plan_file" ]]; then
-  plan_file=$(mktemp "${runner_temp}/nixoa-ci-plan.XXXXXX")
+  plan_file=$(mktemp "${runner_temp}/nixoa-route-plan.XXXXXX")
   remove_plan=true
 fi
 cleanup() {

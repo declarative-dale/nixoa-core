@@ -15,6 +15,14 @@ correspond to published GitHub tags.
   packages instead of routing hosted execution through the monolithic
   `nixoa-ci` dispatcher, disable the unrelated development package set on
   hosted task runners, and remove that umbrella CLI entirely.
+- Give CI responsibilities distinct interfaces: `ci:route` decides downstream
+  work, `ci:repository-audit` validates source, `ci:verdict` enforces required
+  outcomes, and `nixoa-ci-release-manager` operates releases. Remove the former
+  prepare, plan, check, gate, and generic release names instead of retaining
+  aliases.
+- Restrict hosted Actions to pinned GitHub-platform boundaries for checkout,
+  Nix bootstrap, artifact transfer, attestations, and FlakeHub OIDC publication;
+  keep ordinary tools and repository logic in the Nix-packaged task graph.
 
 ## [1.3.0] - 2026-08-20
 

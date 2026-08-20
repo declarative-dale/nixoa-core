@@ -3,7 +3,7 @@
 
 set -euo pipefail
 : "${NIXOA_CI_BUILD_INPUT:?NIXOA_CI_BUILD_INPUT must point to the packaged build-input command}"
-: "${NIXOA_CI_RELEASE:?NIXOA_CI_RELEASE must point to the packaged release lifecycle command}"
+: "${NIXOA_CI_RELEASE_MANAGER:?NIXOA_CI_RELEASE_MANAGER must point to the packaged release manager}"
 : "${NIXOA_CI_RELEASE_SPLIT:?NIXOA_CI_RELEASE_SPLIT must point to the packaged release splitter}"
 
 test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -56,7 +56,7 @@ inventory_output="$temporary/inventory-output"
   GITHUB_OUTPUT="$inventory_output" \
     NIXOA_SYSTEM_ROOT="$fixture" \
     SOURCE_SHA="$source_sha" \
-    "$NIXOA_CI_RELEASE" inventory
+    "$NIXOA_CI_RELEASE_MANAGER" inventory
 )
 grep -Fxq 'artifact_run_id=42' "$inventory_output"
 grep -Fxq "build_input=${build_input}" "$inventory_output"
@@ -75,7 +75,7 @@ grep -Fxq "build_input=${build_input}" "$inventory_output"
     RELEASE_VERSION=1.1.2 \
     RUNNER_TEMP="$temporary" \
     SOURCE_SHA="$source_sha" \
-    "$NIXOA_CI_RELEASE" stage
+    "$NIXOA_CI_RELEASE_MANAGER" stage
 )
 jq -e \
   --arg build_input "$build_input" \
