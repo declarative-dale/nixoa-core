@@ -3,7 +3,7 @@
     "name": "nixoa-validation",
     "targets": [
       { "name": "metadata", "attribute": "checks.x86_64-linux.metadata" },
-      { "name": "nixoa-ci", "attribute": "checks.x86_64-linux.nixoa-ci" },
+      { "name": "nixoa-ci-check", "attribute": "checks.x86_64-linux.nixoa-ci-check" },
       { "name": "nxcli", "attribute": "checks.x86_64-linux.nxcli" },
       { "name": "flake-plan-runner", "attribute": "checks.x86_64-linux.flake-plan-runner" },
       { "name": "eval-smoke", "attribute": "checks.x86_64-linux.eval-smoke" },
@@ -25,7 +25,6 @@
     "targets": [
       { "name": "toplevel", "attribute": "nixosConfigurations.nixoa.config.system.build.toplevel" },
       { "name": "deploy-template", "attribute": "packages.x86_64-linux.deploy-template", "link": "result-deploy-template" },
-      { "name": "libvhdi", "attribute": "packages.x86_64-linux.libvhdi" },
       { "name": "metadata", "attribute": "packages.x86_64-linux.metadata", "link": "result-metadata" },
       { "name": "nixoa-menu", "attribute": "packages.x86_64-linux.nixoa-menu", "link": "result-nixoa-menu" },
       { "name": "nxcli", "attribute": "packages.x86_64-linux.nxcli", "link": "result-nxcli" },

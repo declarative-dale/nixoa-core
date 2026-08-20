@@ -123,15 +123,32 @@ fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
 assert_eq "$setup_steps" 4
-grep -Fq '.#nixoa-ci -- gate' \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:gate" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "stable CI gate bypasses the flake-packaged command"
+  || fail "stable CI gate bypasses its declared devenv task"
+yq -e '.jobs.gate.timeout-minutes >= 15' \
+  "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
+  || fail "stable CI gate cannot cold-start its declared devenv task"
+grep -Fq "fetch-depth: \${{ contains(fromJSON('[\"pull_request\",\"push\",\"merge_group\"]'), github.event_name) && '0' || '1' }}" \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "prepare checkout does not limit full history to path-classifying events"
+prepare_outputs=$(yq -r '.jobs.prepare.outputs | keys | join(",")' \
+  "$TEST_ROOT/.github/workflows/ci.yml")
+assert_eq "$prepare_outputs" plan
+yq -e \
+  '.jobs.publish.concurrency.group == "nixoa-publication" and .jobs.publish.concurrency.cancel-in-progress == false' \
+  "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
+  || fail "rolling publication does not wait in the shared non-canceling queue"
+yq -e \
+  '.concurrency.group == "nixoa-publication" and .concurrency.cancel-in-progress == false' \
+  "$TEST_ROOT/.github/workflows/release.yml" >/dev/null \
+  || fail "versioned publication does not wait in the shared non-canceling queue"
 if grep -Fq 'run: nix flake update' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh bypasses its packaged updater"
 fi
 grep -Fq 'nix flake update --accept-flake-config' \
-  "$TEST_ROOT/nix/automation/update-locks-package.nix" \
+  "$TEST_ROOT/nix/automation/update-locks.sh" \
   || fail "packaged updater does not refresh flake inputs"
 grep -Fq '"name": "nixoa-validation"' \
   "$TEST_ROOT/nix/ci-plans.json" \
@@ -140,7 +157,7 @@ grep -Fq 'flake-plan-runner' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer builds bypass the shared schema-v2 plan runner"
 grep -Fq -- '--no-build --print-build-logs' \
-  "$TEST_ROOT/nix/automation/cli.sh" \
+  "$TEST_ROOT/nix/automation/check.sh" \
   || fail "complete validation does not separate evaluation from planned builds"
 # GitHub and shell expressions must remain literal in the source contract.
 # shellcheck disable=SC2016
@@ -149,19 +166,25 @@ grep -Fq 'CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}' \
   || fail "protected publication does not receive the Cachix token"
 # shellcheck disable=SC2016
 grep -Fq 'jq -r '\''.results[].outputs[]'\'' "$manifest"' \
-  "$TEST_ROOT/nix/automation/default.nix" \
+  "$TEST_ROOT/nix/automation/publish.sh" \
   || fail "Cachix publication does not use the exact publish-plan manifest"
 grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not pin the Node.js 24 artifact uploader"
 # The command substitution must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'build_input=$("$NIXOA_CI_BUILD_INPUT")' \
+grep -Fq 'build_input=$(nixoa-ci-build-input)' \
   "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
   || fail "installer workflow does not calculate deterministic build state"
-grep -Fq "if: needs.validate.outputs.should_build == 'true'" \
+grep -Fq 'if: fromJSON(needs.prepare.outputs.plan).installer.build_required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer build is not gated by the state planner"
+  || fail "installer build is not gated by the authoritative prepare plan"
+grep -Fq 'if: fromJSON(steps.plan.outputs.plan).installer.required' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer state upload is not gated by the authoritative prepare plan"
+grep -Fq 'fromJSON(needs.prepare.outputs.plan).publish_required' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "publication is not gated by the authoritative prepare plan"
 grep -Fq 'name: nixoa-build-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
@@ -192,8 +215,8 @@ grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable gate"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq '.#nixoa-ci-installer-boot' "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer workflow does not boot the ISO"
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:installer:boot" "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer workflow does not boot the ISO through its declared task"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
 grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
@@ -207,20 +230,20 @@ grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
 grep -Fq 'cron: "17 9 * * 3"' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh is not scheduled weekly on Wednesday"
-grep -Fq '.#nixoa-ci -- open-update-pr flake.lock devenv.lock' \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' automation:open-lock-update-pr" \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
-  || fail "flake input refresh bypasses the packaged PR publisher"
-grep -Fq '.#nixoa-ci -- check --no-write-lock-file' \
+  || fail "flake input refresh bypasses the declared PR publisher task"
+grep -Fq ".#devenv -- tasks run --option 'packages:pkgs!' '' ci:check" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "validation bypasses the flake-packaged complete check"
+  || fail "validation bypasses the declared complete-check task"
 if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
 fi
 grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
   || fail "repository version is not a stable or development semantic version"
-grep -Fq '.#nixoa-ci -- release stage' "$TEST_ROOT/.github/workflows/release.yml" \
-  || fail "release workflow does not split oversized installer assets"
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' release:stage" "$TEST_ROOT/.github/workflows/release.yml" \
+  || fail "release workflow does not split oversized installer assets through its declared task"
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
 grep -Fq 'Release tag %s already exists without a GitHub release.' \
@@ -240,7 +263,7 @@ grep -Fq -- '--draft' "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not stage assets in a draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq '"$NIXOA_CI_RELEASE_NOTES" "$RELEASE_VERSION" CHANGELOG.md' \
+grep -Fq 'nixoa-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md' \
   "$TEST_ROOT/nix/automation/release.sh" \
   || fail "release workflow does not use the curated changelog entry"
 # The variable reference must remain literal in the workflow source.
@@ -267,7 +290,7 @@ grep -Fq -- '--signer-workflow "$signer_workflow"' \
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
-grep -Fq '.#nixoa-ci -- release prepare' \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' release:prepare" \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \

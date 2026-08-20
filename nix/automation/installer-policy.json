@@ -1,4 +1,7 @@
 {
+  "alwaysRelevantPatterns": [
+    ".github/workflows/ci.yml"
+  ],
   "ignoredChangePatterns": [
     "AGENTS.md",
     "LICENSE",
@@ -18,20 +21,5 @@
     "nix/devenv.nix",
     "nix/automation/github/*",
     ".github/*"
-  ],
-  "buildInputPaths": [
-    ".github/workflows/ci.yml",
-    "flake.lock",
-    "flake.nix",
-    "host",
-    "installer",
-    "modules",
-    ":(exclude)modules/outputs/checks.nix",
-    ":(exclude)modules/outputs/dev-shells.nix",
-    "nix/automation",
-    ":(exclude)nix/automation/github",
-    "nix/ci-plans.json",
-    "pkgs",
-    "scripts"
   ]
 }

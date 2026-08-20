@@ -30,7 +30,18 @@ in {
           chmod -R u+w source
           cd source
           export HOME="$TMPDIR/home"
-          export NIXOA_CI=${lib.getExe packages.nixoa-ci}
+          export NIXOA_CI_BOOT=${lib.getExe packages.nixoa-ci-boot}
+          export NIXOA_CI_BUILD_INPUT=${lib.getExe packages.nixoa-ci-build-input}
+          export NIXOA_CI_CLASSIFY=${lib.getExe packages.nixoa-ci-classify}
+          export NIXOA_CI_CLASSIFY_PATHS=${lib.getExe packages.nixoa-ci-classify-paths}
+          export NIXOA_CI_GATE=${lib.getExe packages.nixoa-ci-gate}
+          export NIXOA_CI_LOCK_VALIDATE=${lib.getExe packages.nixoa-ci-lock-validate}
+          export NIXOA_CI_PREPARE=${lib.getExe packages.nixoa-ci-prepare}
+          export NIXOA_CI_RELEASE=${lib.getExe packages.nixoa-ci-release}
+          export NIXOA_CI_RELEASE_NOTES=${lib.getExe packages.nixoa-ci-release-notes}
+          export NIXOA_CI_RELEASE_SPLIT=${lib.getExe packages.nixoa-ci-release-stage}
+          export NIXOA_CI_RELEASE_VERSION=${lib.getExe packages.nixoa-ci-release-version}
+          export NIXOA_CI_TRUSTED_UPDATE=${lib.getExe packages.nixoa-ci-trusted-update}
           export NIXOA_SYSTEM_ROOT="$PWD"
           mkdir -p "$HOME"
           ${command}
@@ -41,7 +52,7 @@ in {
         (packages)
         flake-plan-runner
         metadata
-        nixoa-ci
+        nixoa-ci-check
         nxcli
         ;
 
@@ -58,7 +69,7 @@ in {
             (.validation.targets | length == 16) and
             (.installer.schemaVersion == 2) and
             (.installer.name == "nixoa-installer") and
-            (.installer.targets | length == 9) and
+            (.installer.targets | length == 8) and
             (.publish.schemaVersion == 2) and
             (.publish.name == "nixoa-publish") and
             (.publish.targets | length == 5)
@@ -101,8 +112,8 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev '^$|^nix run --accept-flake-config \.#nixoa-ci([ -]|$)|^bash nix/automation/gate\.sh$|^nix flake update --accept-flake-config$'; then
-            printf 'Workflow command bypasses the flake-packaged nixoa-ci interface.\n' >&2
+            grep -Ev "^$|^nix run --accept-flake-config \.#devenv -- tasks run --option 'packages:pkgs!' [']['] ci:check$|^nix run --accept-flake-config \.#devenv -- tasks run --mode single --option 'packages:pkgs!' [']['] [a-z0-9:_-]+$"; then
+            printf 'Workflow command bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
           touch "$out"
@@ -118,23 +129,28 @@ in {
         } ''
           cd ${inputs.self}
           for task in \
-            ci:classify ci:check ci:installer:plan ci:installer:build \
+            ci:prepare ci:classify ci:check ci:installer:plan ci:installer:build \
             ci:installer:boot ci:publish ci:gate automation:queue \
-            automation:update-locks automation:validate-locks \
+            automation:update-locks automation:validate-locks automation:open-lock-update-pr \
             release:prepare release:dispatch release:inventory release:verify \
             release:stage release:draft release:publish release:advance; do
             grep -Fq "\"$task\"" nix/devenv.nix
           done
+          grep -Fq 'pkgs.check-jsonschema' nix/automation/default.nix
+          ! test -e nix/automation/cli.sh
+          ! grep -Fq 'nixoaCiCommand' nix/devenv.nix
+          grep -Fq 'runFlakePackage "nixoa-ci-prepare"' nix/devenv.nix
           test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
+          ! grep -Fq 'exec = "true";' nix/devenv.nix
           grep -Fq "git ls-files -z -- '*.nix'" nix/devenv.nix
           grep -Fq -- "-path './.devenv'" nix/devenv.nix
           grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
             .github/actions/setup-nix/action.yml
-          if grep -RqE 'devenv --no-tui|tasks run' .github/workflows; then
-            printf 'A hosted workflow still routes through devenv.\n' >&2
+          if grep -RqE '\.#nixoa-ci([ -]|$)|\.#nixoa-ci-installer-boot|\.#nixoa-ci-update-locks' .github/workflows; then
+            printf 'A hosted workflow bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
-          ${lib.getExe packages.nixoa-ci} locks validate \
+          ${lib.getExe packages.nixoa-ci-lock-validate} \
             ${inputs.self}/flake.lock ${inputs.self}/devenv.lock
           touch "$out"
         '';
@@ -201,6 +217,7 @@ in {
       operator-fixtures = mkSourceCheck {
         name = "operator-fixtures";
         command = "NIXOA_SKIP_EVAL=1 bash ./tests/run.sh";
+        nativeBuildInputs = fixtureInputs ++ [pkgs.yq-go];
       };
 
       repository-policy = import ../../nix/checks/repository-policy.nix {

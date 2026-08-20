@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+
+: "${CACHIX_CACHE_NAME:?CACHIX_CACHE_NAME must be set}"
+repo_root=${NIXOA_SYSTEM_ROOT:-}
+if [[ -z "$repo_root" ]]; then
+  repo_root=$(git rev-parse --show-toplevel)
+fi
+cd "$repo_root"
+
+manifest=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/nixoa-publish-plan.XXXXXX")
+trap 'rm -f -- "$manifest"' EXIT
+flake-plan-runner \
+  --flake . \
+  --plan lib.ciPlans.x86_64-linux.publish \
+  --manifest "$manifest"
+jq -r '.results[].outputs[]' "$manifest" |
+  cachix push "$CACHIX_CACHE_NAME"

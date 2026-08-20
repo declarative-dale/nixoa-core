@@ -31,26 +31,47 @@ linters.
 Run the complete flake-packaged CI contract before publishing:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci -- check --no-write-lock-file
+nix run --accept-flake-config .#nixoa-ci-check -- --no-write-lock-file
 ```
 
-The task graph delegates domain logic to one flake-owned interface:
+Use the leaf packages directly for individual automation operations:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci -- help
-nix run --accept-flake-config .#nixoa-ci -- classify-paths < changed-paths.txt
-nix run --accept-flake-config .#nixoa-ci -- installer build-input
+EVENT_NAME=workflow_dispatch VALIDATE_ONLY=true \
+  nix run --accept-flake-config .#nixoa-ci-prepare
+nix run --accept-flake-config .#nixoa-ci-classify-paths < changed-paths.txt
+nix run --accept-flake-config .#nixoa-ci-build-input
 nix eval --json .#lib.ciPlans.x86_64-linux.validation
 nix run --accept-flake-config .#run-ci-plan -- \
   --plan lib.ciPlans.x86_64-linux.validation
 ```
 
-GitHub workflows call `nixoa-ci` directly through the flake for build and
-release commands. Devenv remains a local convenience facade over the same
-package. Product operations use `nxcli`; delivery automation uses `nixoa-ci`.
-The command dispatcher and security-sensitive XO helpers remain native shell
-sources, while their Nix package definitions provide evaluated executable
-paths and feature flags.
+GitHub workflow command bodies invoke declared tasks through the thin pinned
+`devenv` flake app. Each task resolves an explicit `nixoa-ci-*` leaf package;
+there is no umbrella automation dispatcher. Workflow YAML retains only GitHub
+runner, permission, environment, artifact, and attestation boundaries. Product
+operations use `nxcli`; delivery automation uses Nix-packaged leaf programs.
+Automation programs and security-sensitive XO helpers remain native shell
+sources, while Nix provides their runtime dependencies and executable app
+boundaries.
+
+Hosted leaf tasks use Devenv's `--mode single` so they execute only the named
+boundary. The aggregate `ci:check` task remains dependency-aware and has no
+command of its own after its declared flake and formatting checks finish.
+
+The CI `prepare` command emits one versioned JSON plan. Installer allocation,
+protected-main publication, and the stable gate all consume that exact output,
+so downstream jobs cannot independently reinterpret classification or reuse
+state. Both the producer and gate validate
+`nix/automation/ci-plan.schema.json`; schema-v1 rejects undeclared fields,
+invalid build-input digests, and publication without installer validation.
+The installer policy applies the same relevant/ignored path rules to event
+classification and the immutable tracked-file fingerprint; unrecognized paths
+therefore invalidate reusable state instead of merely scheduling resolution.
+Pull requests and pushes fetch full history for path classification;
+scheduled and manual validation use the default shallow checkout. Dormant
+merge-group support accepts a diff only when both event SHAs exist and the base
+is an ancestor of the head, otherwise it requires installer validation.
 
 The `validation`, `installer`, and `publish` target sets are versioned pure values under
 `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
@@ -80,11 +101,12 @@ The cache layers have separate responsibilities:
 - The immutable `nixoa-installer` artifact stores the tested ISO, SPDX and
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
 
-Only local pure validation tasks use devenv's `execIfModified`. Hosted CI,
-installer creation, releases, and lock updates always execute the flake app.
+Only local pure validation tasks use devenv's `execIfModified`. Hosted tasks
+always execute and delegate their implementation to flake-packaged programs;
+dependency-free tasks run in isolated single-task mode.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
-the scheduled updater; `nix run .#nixoa-ci -- locks validate` verifies
+the scheduled updater; `nix run .#nixoa-ci-lock-validate` verifies
 that their shared nixpkgs and devenv pins match.
 
 ## Work with changes

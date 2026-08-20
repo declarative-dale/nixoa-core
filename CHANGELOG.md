@@ -9,6 +9,13 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Changed
+
+- Run declared CI, release, and automation tasks through their leaf Nix
+  packages instead of routing hosted execution through the monolithic
+  `nixoa-ci` dispatcher, disable the unrelated development package set on
+  hosted task runners, and remove that umbrella CLI entirely.
+
 ## [1.3.0] - 2026-08-20
 
 NiXOA 1.3.0 adds explicit Xen Orchestra package channels and consolidates the
@@ -26,6 +33,16 @@ appliance's native configuration and automation contracts.
 - Keep CI plans, installer classification, and repository rules as native JSON,
   and keep the `nixoa-ci` dispatcher and XO storage/TLS helpers as lintable
   shell sources instead of dense embedded Nix strings.
+- Make the versioned JSON emitted by `nixoa-ci prepare` the sole downstream CI
+  planning contract for installer builds, protected-main publication, and the
+  stable gate; route hosted commands through declared devenv tasks backed by
+  repository-native automation programs and thin flake apps.
+- Limit full-history CI checkouts to path-classifying events, fail safely when
+  future merge-group SHAs are incomplete or non-ancestral, run hosted leaf
+  tasks in isolated Devenv mode, and serialize rolling and versioned FlakeHub
+  publication through one non-canceling queue. Validate both lifecycle-plan
+  production and consumption against one strict schema-v1 JSON contract, and
+  use one path policy for classification and installer-state fingerprinting.
 
 ### Fixed
 

@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+
+repo_root="${NIXOA_SYSTEM_ROOT:-}"
+if [[ -z $repo_root ]]; then
+  if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    repo_root=$git_root
+  else
+    repo_root=$PWD
+  fi
+fi
+
+flake_ref="path:$repo_root"
+if git -C "$repo_root" rev-parse --show-toplevel >/dev/null 2>&1; then
+  flake_ref="git+file:$repo_root"
+fi
+
+nix flake check --accept-flake-config --no-build --print-build-logs \
+  "$flake_ref" "$@"
+exec flake-plan-runner \
+  --flake "$flake_ref" \
+  --plan "${NIXOA_CI_VALIDATION_PLAN:-lib.ciPlans.x86_64-linux.validation}"

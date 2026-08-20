@@ -39,15 +39,25 @@ path to Packer. The source flake and runtime installer selection stay
 independently pinned. An exact checkout-local ISO is available through
 `INSTALLER_SOURCE=build`.
 
-Repository delivery is Nix-defined and directly flake-orchestrated. The
-`packages.x86_64-linux.nixoa-ci` package owns tested installer and release
-decisions and is the sole hosted-workflow command boundary. A shared devenv
-module remains a local shell and task facade over that package. Workflows retain GitHub security
+Repository delivery is Nix-defined and flake-packaged. Hosted workflow command
+bodies call declared devenv tasks through a thin flake app, and those tasks
+execute explicit `nixoa-ci-*` leaf packages. No umbrella automation app or
+dispatcher sits between the task graph and those Nix derivations. Workflows
+retain GitHub security
 boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
-A Nix policy declares which source
-paths affect the immutable installer fingerprint, allowing metadata-only
-commits to reuse a previously verified artifact while unknown paths fail
-safely toward rebuilding.
+The prepare program combines source classification and immutable artifact
+reuse into one versioned JSON plan consumed by later jobs and the stable gate.
+A Nix policy declares which source paths affect the immutable installer
+fingerprint, allowing metadata-only commits to reuse a previously verified
+artifact while unknown paths fail safely toward rebuilding. The same policy
+filters both changed paths and the tracked-file fingerprint, preventing
+classification and reuse from disagreeing. Only
+path-classifying events fetch full Git history, and future merge-group
+classification also fails toward rebuilding unless its base is a known
+ancestor of its head. Hosted leaf tasks run in isolated Devenv mode, while
+rolling and versioned publication share one non-canceling concurrency queue.
+The plan producer and stable gate validate the same strict JSON Schema, so
+field, type, digest, and lifecycle invariants cannot drift between them.
 
 ## Module layout
 

@@ -35,8 +35,9 @@ Run `nix flake show` for the complete evaluated output tree.
 
 Native devenv and the default `devShells.x86_64-linux` output share the
 repository toolchain module. Use `devenv shell` for interactive work and
-`nix run .#nixoa-ci -- check` for the same direct interface used by CI. Exact
-commands are in the [development guide](development.md).
+`devenv tasks run ci:check` for the complete repository contract. Exact
+commands and the compatible flake interfaces are in the
+[development guide](development.md).
 
 Pure CI target contracts are exported as
 `lib.ciPlans.x86_64-linux.validation` and
@@ -71,14 +72,24 @@ Reassemble a directly downloaded installer with `cat nixoa-v*.iso.part-* >
 nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
 `deploy-template` path performs artifact retrieval and verification itself.
 
-Before allocating the installer runner, a small planning job fingerprints only the
-tracked files that affect the appliance, installer, and SBOM outputs. If that
-input state matches a successful unexpired build, CI publishes a tiny state
-pointer to the original immutable artifact instead of rebuilding it. A fixture
-test proves that appliance and artifact-recipe changes alter the fingerprint
-while version, docs, tests, workflow maintenance, and Packer-only changes do
-not. A relevant up-to-date pull-request candidate is built and booted once;
-the resulting state can then be reused by the identical `main` tree.
+Before allocating the installer runner, the prepare job fingerprints only the
+tracked files that affect the appliance, installer, and SBOM outputs. It emits
+one versioned JSON plan containing classification, reuse, build, and
+protected-main publication decisions. Every downstream job and the stable gate
+consume that exact plan. If the input state matches a successful unexpired
+build, CI publishes a tiny state pointer to the original immutable artifact
+instead of rebuilding it. A fixture test proves that appliance and
+artifact-recipe changes alter the fingerprint while version, docs, tests,
+non-CI workflow maintenance, and Packer-only changes do not. Unknown tracked
+paths are included by default, and the CI workflow is an explicit override to
+the ignored GitHub metadata pattern. A relevant up-to-date
+pull-request candidate is built and booted once; the resulting state can then
+be reused by the identical `main` tree. Pull requests and pushes fetch full
+history for this comparison, while schedules and manual runs keep the shallow
+checkout. Merge-group inputs are supported defensively for a future repository
+transfer but are not triggered in this personal repository; missing,
+unavailable, or non-ancestral SHAs require installer validation. The prepare
+command and stable gate share a strict schema-v1 JSON lifecycle contract.
 
 At deployment time, `deploy-template` downloads the newest successful `main`
 artifact to a temporary directory, verifies its SHA-256 checksum and state
@@ -113,7 +124,9 @@ Credential-bearing configuration is kept in the runtime Secretspec contract.
   dedicated release workflow selects a semantic version through a protected
   pull request, verifies both builder attestations, fills a draft GitHub
   release, publishes the versioned flake, and makes the GitHub release
-  immutable. The next development version passes through the same protection.
+  immutable. Rolling and versioned publication wait in the same non-canceling
+  queue so they do not build identical outputs concurrently. The next
+  development version passes through the same protection.
 - Release, development-version, and flake-input pull requests use the
   repository-scoped `GITHUB_TOKEN`. Trusted automation dispatches CI for the
   exact head SHA, waits for the protected `CI gate`, and enables auto-merge

@@ -1,22 +1,17 @@
 {
   planRunner,
-  lib,
   pkgs,
 }: let
   mkCommand = {
     name,
+    prefix ? "",
     runtimeInputs ? [],
     source,
   }:
     pkgs.writeShellApplication {
       inherit runtimeInputs;
       name = "nixoa-ci-${name}";
-      text = ''
-        if [ -n "''${NIXOA_CI_PATH_PREFIX:-}" ]; then
-          export PATH="$NIXOA_CI_PATH_PREFIX:$PATH"
-        fi
-        ${builtins.readFile source}
-      '';
+      text = builtins.readFile ./command-preamble.sh + prefix + builtins.readFile source;
     };
 
   commonInputs = with pkgs; [
@@ -30,52 +25,27 @@
     jq
     nix
   ];
-  installerPolicy = builtins.fromJSON (builtins.readFile ./installer-policy.json);
 
-  buildInput = pkgs.writeShellApplication {
-    name = "nixoa-ci-build-input";
-    runtimeInputs = commonInputs;
-    text = ''
-      repo_root="''${NIXOA_SYSTEM_ROOT:-}"
-      if [ -z "$repo_root" ]; then
-        repo_root=$(git rev-parse --show-toplevel)
-      fi
-      {
-        printf '%s\0' 'nixoa-installer-state-v3'
-        git -C "$repo_root" ls-files -s -z -- \
-          ${lib.escapeShellArgs installerPolicy.buildInputPaths}
-      } | sha256sum | cut -d' ' -f1
+  validatePlan = mkCommand {
+    name = "validate-plan";
+    prefix = ''
+      NIXOA_CI_PLAN_SCHEMA="''${NIXOA_CI_PLAN_SCHEMA:-${./ci-plan.schema.json}}"
+      export NIXOA_CI_PLAN_SCHEMA
     '';
+    runtimeInputs = commonInputs ++ [pkgs.check-jsonschema];
+    source = ./validate-plan.sh;
   };
 
-  classifyPaths = pkgs.writeShellApplication {
-    name = "nixoa-ci-classify-paths";
+  classifyPaths = mkCommand {
+    name = "classify-paths";
     runtimeInputs = commonInputs;
-    text = ''
-      required=false
-      while IFS= read -r path; do
-        [ -n "$path" ] || continue
-        case "$path" in
-          .github/workflows/ci.yml)
-            required=true
-            break
-            ;;
-          ${lib.concatStringsSep "|" installerPolicy.ignoredChangePatterns})
-            ;;
-          *)
-            required=true
-            break
-            ;;
-        esac
-      done
-      printf '%s\n' "$required"
-    '';
+    source = ./classify-paths.sh;
   };
 
   commands = {
     boot = mkCommand {
       name = "boot";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [pkgs.qemu_kvm];
       source = ./installer-boot.sh;
     };
     build-assets = mkCommand {
@@ -83,16 +53,25 @@
       runtimeInputs = commonInputs ++ [planRunner];
       source = ./installer-build-assets.sh;
     };
-    build-input = buildInput;
+    build-input = mkCommand {
+      name = "build-input";
+      runtimeInputs = commonInputs ++ [classifyPaths];
+      source = ./build-input.sh;
+    };
+    check = mkCommand {
+      name = "check";
+      runtimeInputs = commonInputs ++ [planRunner];
+      source = ./check.sh;
+    };
     classify = mkCommand {
       name = "classify";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [classifyPaths];
       source = ./classify.sh;
     };
     classify-paths = classifyPaths;
     gate = mkCommand {
       name = "gate";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [validatePlan];
       source = ./gate.sh;
     };
     lock-validate = mkCommand {
@@ -105,30 +84,45 @@
       runtimeInputs = commonInputs;
       source = ./open-update-pr.sh;
     };
-    publish = pkgs.writeShellApplication {
-      name = "nixoa-ci-publish";
+    prepare = mkCommand {
+      name = "prepare";
+      runtimeInputs =
+        commonInputs
+        ++ [
+          commands.classify
+          commands.resolve-state
+          validatePlan
+        ];
+      source = ./prepare.sh;
+    };
+    publish = mkCommand {
+      name = "publish";
       runtimeInputs = commonInputs ++ [pkgs.cachix planRunner];
-      text = ''
-        cd "''${NIXOA_SYSTEM_ROOT:-$(git rev-parse --show-toplevel)}"
-        manifest=$(mktemp)
-        trap 'rm -f "$manifest"' EXIT
-        ${lib.getExe planRunner} \
-          --flake . \
-          --plan lib.ciPlans.${pkgs.stdenv.hostPlatform.system}.publish \
-          --manifest "$manifest"
-        jq -r '.results[].outputs[]' "$manifest" |
-          cachix push "$CACHIX_CACHE_NAME"
-      '';
+      source = ./publish.sh;
+    };
+    queue = mkCommand {
+      name = "queue";
+      runtimeInputs = commonInputs ++ [commands.trusted-update];
+      source = ./queue.sh;
+    };
+    release = mkCommand {
+      name = "release";
+      runtimeInputs =
+        commonInputs
+        ++ [
+          pkgs.gzip
+          commands.build-input
+          commands.release-notes
+          commands.release-stage
+          commands.release-version
+          commands.trusted-update
+        ];
+      source = ./release.sh;
     };
     release-notes = mkCommand {
       name = "release-notes";
       runtimeInputs = commonInputs;
       source = ./release-notes.sh;
-    };
-    release = mkCommand {
-      name = "release";
-      runtimeInputs = commonInputs ++ [pkgs.gzip];
-      source = ./release.sh;
     };
     release-stage = mkCommand {
       name = "release-stage";
@@ -140,16 +134,9 @@
       runtimeInputs = commonInputs;
       source = ./release-version.sh;
     };
-    queue = mkCommand {
-      name = "queue";
-      # GitHub-hosted runners provide gh; leaving it injectable keeps the
-      # network-facing behavior fixture-testable with a fake executable.
-      runtimeInputs = commonInputs;
-      source = ./queue.sh;
-    };
     resolve-state = mkCommand {
       name = "resolve-state";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [commands.build-input];
       source = ./installer-resolve-state.sh;
     };
     trusted-update = mkCommand {
@@ -157,40 +144,12 @@
       runtimeInputs = commonInputs;
       source = ./trusted-update.sh;
     };
-  };
-
-  commandPath = command: lib.getExe commands.${command};
-  system = pkgs.stdenv.hostPlatform.system;
-in
-  pkgs.writeShellApplication {
-    name = "nixoa-ci";
-    runtimeInputs = commonInputs;
-    text = ''
-      export NIXOA_CI_BOOT=${commandPath "boot"}
-      export NIXOA_CI_BUILD_ASSETS=${commandPath "build-assets"}
-      export NIXOA_CI_BUILD_INPUT=${commandPath "build-input"}
-      export NIXOA_CI_CLASSIFY=${commandPath "classify"}
-      export NIXOA_CI_CLASSIFY_PATHS=${commandPath "classify-paths"}
-      export NIXOA_CI_GATE=${commandPath "gate"}
-      export NIXOA_CI_LOCK_VALIDATE=${commandPath "lock-validate"}
-      export NIXOA_CI_OPEN_UPDATE_PR=${commandPath "open-update-pr"}
-      export NIXOA_CI_PLAN_RUNNER=${lib.getExe planRunner}
-      export NIXOA_CI_PUBLISH=${commandPath "publish"}
-      export NIXOA_CI_QUEUE=${commandPath "queue"}
-      export NIXOA_CI_RELEASE=${commandPath "release"}
-      export NIXOA_CI_RELEASE_NOTES=${commandPath "release-notes"}
-      export NIXOA_CI_RELEASE_STAGE=${commandPath "release-stage"}
-      export NIXOA_CI_RELEASE_VERSION=${commandPath "release-version"}
-      export NIXOA_CI_RESOLVE_STATE=${commandPath "resolve-state"}
-      export NIXOA_CI_TRUSTED_UPDATE=${commandPath "trusted-update"}
-      export NIXOA_CI_VALIDATION_PLAN=lib.ciPlans.${system}.validation
-      ${builtins.readFile ./cli.sh}
-    '';
-    meta = {
-      description = "NiXOA repository CI and release automation";
-      license = lib.licenses.asl20;
-      mainProgram = "nixoa-ci";
-      platforms = ["x86_64-linux"];
+    update-locks = mkCommand {
+      name = "update-locks";
+      runtimeInputs = commonInputs;
+      source = ./update-locks.sh;
     };
-    passthru = {inherit commands;};
-  }
+    validate-plan = validatePlan;
+  };
+in
+  commands

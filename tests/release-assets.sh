@@ -2,7 +2,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-: "${NIXOA_CI:?NIXOA_CI must point to the packaged automation CLI}"
+: "${NIXOA_CI_BUILD_INPUT:?NIXOA_CI_BUILD_INPUT must point to the packaged build-input command}"
+: "${NIXOA_CI_RELEASE:?NIXOA_CI_RELEASE must point to the packaged release lifecycle command}"
+: "${NIXOA_CI_RELEASE_SPLIT:?NIXOA_CI_RELEASE_SPLIT must point to the packaged release splitter}"
+
+test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+export NIXOA_INSTALLER_POLICY="$test_root/nix/automation/installer-policy.json"
 
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-release-assets.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
@@ -10,7 +15,7 @@ trap 'rm -rf -- "$temporary"' EXIT
 printf '0123456789abcdefghijklmno' >"$temporary/installer.iso"
 NIXOA_RELEASE_PART_SIZE=10 \
 NIXOA_RELEASE_ASSET_LIMIT=12 \
-  "$NIXOA_CI" release split \
+  "$NIXOA_CI_RELEASE_SPLIT" \
     "$temporary/installer.iso" \
     "$temporary/versioned/nixoa-v1.1.1.iso" \
     "$temporary/release"
@@ -37,7 +42,7 @@ git -C "$fixture" add .
 git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
   commit -qm fixture
 source_sha=$(git -C "$fixture" rev-parse HEAD)
-build_input=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+build_input=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 jq -n \
   --arg build_input "$build_input" \
   --arg source_commit "$source_sha" \
@@ -51,7 +56,7 @@ inventory_output="$temporary/inventory-output"
   GITHUB_OUTPUT="$inventory_output" \
     NIXOA_SYSTEM_ROOT="$fixture" \
     SOURCE_SHA="$source_sha" \
-    "$NIXOA_CI" release inventory
+    "$NIXOA_CI_RELEASE" inventory
 )
 grep -Fxq 'artifact_run_id=42' "$inventory_output"
 grep -Fxq "build_input=${build_input}" "$inventory_output"
@@ -70,7 +75,7 @@ grep -Fxq "build_input=${build_input}" "$inventory_output"
     RELEASE_VERSION=1.1.2 \
     RUNNER_TEMP="$temporary" \
     SOURCE_SHA="$source_sha" \
-    "$NIXOA_CI" release stage
+    "$NIXOA_CI_RELEASE" stage
 )
 jq -e \
   --arg build_input "$build_input" \

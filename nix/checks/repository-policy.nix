@@ -40,7 +40,7 @@
       ok =
         lib.hasInfix "source = ./${script};" automationDefinition
         || lib.hasInfix "builtins.readFile ./${script}" automationDefinition;
-      message = "nix/automation/${script} must be wrapped by the nixoa-ci package";
+      message = "nix/automation/${script} must be wrapped by the Nix automation package set";
     })
     automationScripts;
 
@@ -62,12 +62,17 @@
       ok =
         builtins.all
         (line:
-          builtins.match
-          "[[:space:]]*run: nix run --accept-flake-config .*"
-          line
-          != null)
+          lib.hasInfix "--option 'packages:pkgs!' ''" line
+          && (builtins.match
+            "[[:space:]]*run: nix run --accept-flake-config \\.#devenv -- tasks run .*ci:check[[:space:]]*"
+            line
+            != null
+            || builtins.match
+            "[[:space:]]*run: nix run --accept-flake-config \\.#devenv -- tasks run --mode single .* [a-z0-9:_-]+[[:space:]]*"
+            line
+            != null))
         runLines;
-      message = ".github/workflows/${workflow} must route every run step through a flake app";
+      message = ".github/workflows/${workflow} must run declared devenv tasks with the development package set disabled";
     })
     workflowFiles;
 

@@ -41,7 +41,7 @@ prepare() {
       --grep='^Release NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+$' \
       --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
     read -r version selected_bump < <(
-      "$NIXOA_CI_RELEASE_VERSION" "${last_tag#v}" "$REQUESTED_BUMP" <<<"$release_log"
+      nixoa-ci-release-version "${last_tag#v}" "$REQUESTED_BUMP" <<<"$release_log"
     )
   fi
 
@@ -88,7 +88,7 @@ prepare() {
     fi
     export PR_NUMBER=$pr_number EXPECTED_BRANCH=$branch EXPECTED_TITLE=$title
     export EXPECTED_CHANGE_KIND=version EXPECTED_VERSION=$version VALIDATE_ONLY=true WAIT_FOR_MERGE=true
-    "$NIXOA_CI_TRUSTED_UPDATE"
+    nixoa-ci-trusted-update
     source_sha=$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" \
       --json mergeCommit --jq .mergeCommit.oid)
   fi
@@ -128,7 +128,7 @@ dispatch() {
 
 inventory() {
   : "${SOURCE_SHA:?}"
-  expected_build_input=$("$NIXOA_CI_BUILD_INPUT")
+  expected_build_input=$(nixoa-ci-build-input)
   jq -e --arg build_input "$expected_build_input" --arg source_commit "$SOURCE_SHA" \
     '.schema_version == 2 and .build_input == $build_input and .source_commit == $source_commit and (.artifact_run_id | type == "number")' \
     candidate-state/nixoa-build-state.json >/dev/null
@@ -165,7 +165,7 @@ stage() {
   [[ $(<VERSION) == "$RELEASE_VERSION" ]]
   install -d -m 0755 release
   versioned_installer="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/nixoa-${RELEASE_TAG}.iso"
-  "$NIXOA_CI_RELEASE_STAGE" candidate/result-installer/iso/nixoa-installer.iso "$versioned_installer" release
+  nixoa-ci-release-stage candidate/result-installer/iso/nixoa-installer.iso "$versioned_installer" release
   gzip -9c candidate/nixoa-system.spdx.json >"release/nixoa-${RELEASE_TAG}.spdx.json.gz"
   gzip -9c candidate/nixoa-system.cdx.json >"release/nixoa-${RELEASE_TAG}.cdx.json.gz"
   (cd release && sha256sum "nixoa-${RELEASE_TAG}.spdx.json.gz" >"nixoa-${RELEASE_TAG}.spdx.json.gz.sha256" \
@@ -195,7 +195,7 @@ stage() {
 draft() {
   : "${RELEASE_TAG:?}" "${RELEASE_VERSION:?}" "${SOURCE_SHA:?}"
   notes_file="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/release-notes.md"
-  "$NIXOA_CI_RELEASE_NOTES" "$RELEASE_VERSION" CHANGELOG.md >"$notes_file"
+  nixoa-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md >"$notes_file"
   mapfile -t assets < <(find release -maxdepth 1 -type f -print | sort)
   mapfile -t installer_parts < <(find release -maxdepth 1 -type f -name "nixoa-${RELEASE_TAG}.iso.part-*" -print | sort)
   [[ ${#assets[@]} -eq $((${#installer_parts[@]} + 7)) ]]
@@ -259,7 +259,7 @@ advance() {
   fi
   export PR_NUMBER=$pr_number EXPECTED_BRANCH=$branch EXPECTED_TITLE=$title
   export EXPECTED_CHANGE_KIND=version EXPECTED_VERSION=$next_version VALIDATE_ONLY=true WAIT_FOR_MERGE=true
-  "$NIXOA_CI_TRUSTED_UPDATE"
+  nixoa-ci-trusted-update
 }
 
 case "${1:-}" in
@@ -269,7 +269,7 @@ case "${1:-}" in
     "$operation" "$@"
     ;;
   *)
-    printf 'usage: nixoa-ci release prepare|dispatch|inventory|verify|stage|draft|publish|advance\n' >&2
+    printf 'usage: nixoa-ci-release prepare|dispatch|inventory|verify|stage|draft|publish|advance\n' >&2
     exit 2
     ;;
 esac
