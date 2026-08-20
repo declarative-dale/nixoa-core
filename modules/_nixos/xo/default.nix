@@ -15,10 +15,19 @@ in {
 
   options.nixoa.xo = {
     enable = lib.mkEnableOption "Xen Orchestra";
+    channel = mkOption {
+      type = types.enum [
+        "latest"
+        "stable"
+        "rolling"
+      ];
+      default = "latest";
+      description = "xo-nixpkg release channel used by the default Xen Orchestra package.";
+    };
     package = mkOption {
       type = types.package;
-      default = inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
-      defaultText = lib.literalExpression "inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce";
+      default = inputs.xen-orchestra-ce.packages.x86_64-linux.${config.nixoa.xo.channel};
+      defaultText = lib.literalExpression "inputs.xen-orchestra-ce.packages.x86_64-linux.\${config.nixoa.xo.channel}";
       description = "Xen Orchestra package to run.";
     };
     user = mkOption {

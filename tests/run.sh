@@ -91,6 +91,15 @@ grep -Fq 'nixoaMenu' "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits nixoa-menu"
 grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits Xen Orchestra"
+grep -Fq 'default = "latest";' "$TEST_ROOT/modules/_nixos/xo/default.nix" \
+  || fail "Xen Orchestra does not select the latest package channel by default"
+# The interpolation must remain literal in the Nix module source.
+# shellcheck disable=SC2016
+grep -Fq 'packages.x86_64-linux.${config.nixoa.xo.channel}' "$TEST_ROOT/modules/_nixos/xo/default.nix" \
+  || fail "Xen Orchestra package does not follow the configured channel"
+if grep -Fq 'git ls-remote --tags' "$TEST_ROOT/scripts/tui/action.sh"; then
+  fail "XOA update still depends on removed moving channel tags"
+fi
 grep -Fq '.#packages.x86_64-linux.xen-orchestra-ce' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer workflow does not build Xen Orchestra explicitly"

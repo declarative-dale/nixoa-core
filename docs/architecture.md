@@ -124,6 +124,6 @@ short-lived, root-readable credential file.
 - operator: `nixoa`
 - initial state version: `26.05`
 - direct XO package:
-  `inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce`
+  `inputs.xen-orchestra-ce.packages.x86_64-linux.latest`
 
 [Back to documentation](index.md)

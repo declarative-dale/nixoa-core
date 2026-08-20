@@ -133,52 +133,6 @@ lock_rev_for() {
   ' "$NIXOA_SYSTEM_ROOT/flake.lock"
 }
 
-lock_url_for() {
-  local node_name="$1"
-
-  awk -v node_name="$node_name" '
-    BEGIN {
-      in_node = 0
-      in_original = 0
-    }
-    $0 ~ "^[[:space:]]*\"" node_name "\"[[:space:]]*:[[:space:]]*\\{" {
-      in_node = 1
-      next
-    }
-    in_node && $0 ~ /^[[:space:]]*"original"[[:space:]]*:[[:space:]]*\{/ {
-      in_original = 1
-      next
-    }
-    in_node && in_original && $0 ~ /^[[:space:]]*"url"[[:space:]]*:/ {
-      line = $0
-      sub(/^[[:space:]]*"url"[[:space:]]*:[[:space:]]*"/, "", line)
-      sub(/",?[[:space:]]*$/, "", line)
-      print line
-      exit
-    }
-    in_node && in_original && $0 ~ /^[[:space:]]*}[,]?[[:space:]]*$/ {
-      in_original = 0
-    }
-  ' "$NIXOA_SYSTEM_ROOT/flake.lock"
-}
-
-normalize_git_remote() {
-  local url="$1"
-
-  url="${url#git+}"
-  url="${url%%\?*}"
-  printf '%s\n' "$url"
-}
-
-latest_xoa_tag() {
-  local remote_url="$1"
-
-  git ls-remote --tags --refs "$remote_url" \
-    | awk '{ sub("refs/tags/", "", $2); print $2, $1 }' \
-    | sort -V \
-    | tail -n 1
-}
-
 cleanup_unmanaged_users() {
   local managed_user="$1"
   local username=""
@@ -444,24 +398,8 @@ case "$command_name" in
     ;;
   update-xoa)
     current_xoa_rev="$(lock_rev_for xen-orchestra-ce)"
-    current_xoa_url="$(lock_url_for xen-orchestra-ce)"
-    if [ -z "$current_xoa_url" ]; then
-      echo "Could not determine the xen-orchestra-ce source URL from core's flake input." >&2
-      exit 1
-    fi
-    latest_tag_line="$(latest_xoa_tag "$(normalize_git_remote "$current_xoa_url")")"
-    if [ -z "$latest_tag_line" ]; then
-      echo "Could not determine the latest xen-orchestra-ce tag." >&2
-      exit 1
-    fi
-    read -r latest_tag_name latest_tag_rev <<EOF
-$latest_tag_line
-EOF
     echo "Current locked xen-orchestra-ce revision: ${current_xoa_rev:-unknown}"
-    echo "Latest upstream tag: ${latest_tag_name} @ ${latest_tag_rev}"
-    if [ -n "$current_xoa_rev" ] && [ "$current_xoa_rev" = "$latest_tag_rev" ]; then
-      echo "The locked xen-orchestra-ce input already matches the latest tagged commit."
-    fi
+    echo "Refreshing the xo-nixpkg main input; the appliance selects its configured package channel."
     update_input_and_prompt \
       "Update xen-orchestra-ce input from nixoa-menu" \
       nix flake update xen-orchestra-ce

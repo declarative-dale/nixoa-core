@@ -46,12 +46,19 @@ The main NiXOA options are grouped by purpose:
 | `nixoa.operator.enableExtras` | Extra shell tools and zsh |
 | `nixoa.operator.developmentMode` | Rust, Node.js, and development tools |
 | `nixoa.operator.menuAutoStart` | Whether the console opens at SSH login |
+| `nixoa.xo.channel` | `latest`, `stable`, or `rolling` xo-nixpkg output; defaults to `latest` |
 | `nixoa.xo.tls` | HTTPS certificates |
 | `nixoa.xo.storage` | NFS, CIFS, and VHD support |
 | `nixoa.xo.config.file` | Native Xen Orchestra TOML system override |
 
 NiXOA supplies the operator name, `.#nixoa` flake target, platform, and
 appliance role as stable appliance defaults.
+
+The appliance selects xo-nixpkg's `latest` official-release output by default.
+Set `nixoa.xo.channel = "stable"` to retain the preceding official release, or
+use `"rolling"` temporarily when troubleshooting against an admitted upstream
+commit. An explicit `nixoa.xo.package` still overrides the channel-derived
+package.
 
 Xen Orchestra first loads its immutable vendor `config.toml` from the
 `xo-nixpkg` package. The checked-in `host/config.nixoa.toml` is linked to

@@ -10,6 +10,7 @@ in {
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       packages = inputs.self.packages.${system};
       appliance = inputs.self.nixosConfigurations.nixoa.config;
+      xoPackages = inputs.xen-orchestra-ce.packages.${system};
       fixtureInputs = [
         pkgs.bash
         pkgs.coreutils
@@ -208,7 +209,9 @@ in {
       };
 
       configuration = assert appliance.nixoa.xo.enable;
-      assert appliance.nixoa.xo.package == inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
+      assert appliance.nixoa.xo.channel == "latest";
+      assert lib.all (channel: builtins.hasAttr channel xoPackages) ["latest" "stable" "rolling"];
+      assert appliance.nixoa.xo.package == xoPackages.latest;
       assert appliance.nixoa.xo.config.file != null;
       assert appliance.environment.etc."xo-server/config.nixoa.toml".source == appliance.nixoa.xo.config.file;
       assert (builtins.fromTOML (builtins.readFile appliance.nixoa.xo.config.file)).remoteOptions.mountsDir == appliance.nixoa.xo.storage.mountsDir;

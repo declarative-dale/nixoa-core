@@ -12,7 +12,7 @@ in {
         config.allowUnfreePredicate = package:
           lib.getName package == "packer";
       };
-      xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.xen-orchestra-ce;
+      xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.latest;
       planRunner = inputs.xen-orchestra-ce.packages.${system}.flake-plan-runner;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
