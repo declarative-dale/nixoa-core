@@ -608,14 +608,17 @@
     },
     "xen-orchestra-ce": {
       "inputs": {
-        "nixpkgs": "nixpkgs_6"
+        "nixpkgs": "nixpkgs_6",
+        "xo-latest": "xo-latest",
+        "xo-rolling": "xo-rolling",
+        "xo-stable": "xo-stable"
       },
       "locked": {
-        "lastModified": 1787095927,
-        "narHash": "sha256-tP0oB5HE6zuWk3LPP+HZpet7H6ulWIgYi7WnfLj8dE4=",
+        "lastModified": 1787218792,
+        "narHash": "sha256-DB+ybax/22/2iO0XLqnBA+aToegSA1qHRetVGrNht/k=",
         "ref": "refs/heads/main",
-        "rev": "e8f8bddfd53a3fb581b01391d7fa9eb398bd4cf5",
-        "revCount": 102,
+        "rev": "e93efbd5d44d2788cddb985d31ba29ee72779485",
+        "revCount": 113,
         "type": "git",
         "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       },
@@ -623,6 +626,57 @@
         "ref": "refs/heads/main",
         "type": "git",
         "url": "https://github.com/declarative-dale/xo-nixpkg.git"
+      }
+    },
+    "xo-latest": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785850960,
+        "narHash": "sha256-hVQvMFLeBWrxQNQwjEVuvmO5sMIMCIgSq/BxVmAz2gI=",
+        "owner": "vatesfr",
+        "repo": "xen-orchestra",
+        "rev": "40dede9e11c90562df5cb46c6a83a9d91efedae1",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vatesfr",
+        "repo": "xen-orchestra",
+        "rev": "40dede9e11c90562df5cb46c6a83a9d91efedae1",
+        "type": "github"
+      }
+    },
+    "xo-rolling": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1786952440,
+        "narHash": "sha256-6xz2eskDpIwI+8mJsNZ+39tY/bT/ILbDtz9DEfjz+sQ=",
+        "owner": "vatesfr",
+        "repo": "xen-orchestra",
+        "rev": "4235644950555ed5637f2352b684aaba398e61de",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vatesfr",
+        "repo": "xen-orchestra",
+        "rev": "4235644950555ed5637f2352b684aaba398e61de",
+        "type": "github"
+      }
+    },
+    "xo-stable": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785425211,
+        "narHash": "sha256-myMFRgZeZCXcyQHYcoucEFSOuCNzHXiWua3ciuH5jds=",
+        "owner": "vatesfr",
+        "repo": "xen-orchestra",
+        "rev": "1a795970f9c60396967d9510e3d2a29b56f2da1d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "vatesfr",
+        "repo": "xen-orchestra",
+        "rev": "1a795970f9c60396967d9510e3d2a29b56f2da1d",
+        "type": "github"
       }
     }
   },

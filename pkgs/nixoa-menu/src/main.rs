@@ -421,7 +421,7 @@ const UPDATE_ACTIONS: [UpdateItem; 5] = [
     },
     UpdateItem {
         title: "Update XOA",
-        detail: "Check the latest xen-orchestra-ce tag, refresh that input lock, and then choose whether to rebuild now or on reboot.",
+        detail: "Refresh the xo-nixpkg input and selected package channel, then choose whether to rebuild now or on reboot.",
         backend: "update-xoa",
     },
     UpdateItem {

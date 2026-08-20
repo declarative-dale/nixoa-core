@@ -11,6 +11,9 @@ correspond to published GitHub tags.
 
 ### Changed
 
+- Select xo-nixpkg's `latest` package output by default, expose typed
+  `latest`/`stable`/`rolling` XO channel policy, and refresh the input branch
+  without relying on deprecated moving Git tags.
 - Replace the generated Xen Orchestra system override with the checked-in
   `host/config.nixoa.toml` source selected by `nixoa.xo.config.file`, layered
   over the package's immutable vendor defaults; remove the former inline
