@@ -9,6 +9,12 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Changed
+
+- Run declared CI, release, and automation tasks through their leaf Nix
+  packages instead of routing hosted execution through the monolithic
+  `nixoa-ci` dispatcher, and remove that umbrella CLI entirely.
+
 ## [1.3.0] - 2026-08-20
 
 NiXOA 1.3.0 adds explicit Xen Orchestra package channels and consolidates the

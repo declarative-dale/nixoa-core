@@ -16,9 +16,12 @@ in {
       planRunner = inputs.xen-orchestra-ce.packages.${system}.flake-plan-runner;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
-      nixoaCi = pkgs.callPackage ../../nix/automation {inherit planRunner;};
-      nixoaCiInstallerBoot = pkgs.callPackage ../../nix/automation/installer-boot-package.nix {};
-      nixoaCiUpdateLocks = nixoaCi.commands.update-locks;
+      automationCommands = import ../../nix/automation {inherit pkgs planRunner;};
+      automationPackages =
+        lib.mapAttrs' (
+          name: package: lib.nameValuePair "nixoa-ci-${name}" package
+        )
+        automationCommands;
       secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
       packerXenserverPlugin = pkgs.callPackage ../../pkgs/packer-xenserver-plugin/package.nix {};
       packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {
@@ -78,14 +81,14 @@ in {
         libvhdi = inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
         default = xenOrchestraCe;
       }
-      // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux {
-        deploy-template = deployTemplate;
-        nixoa-ci = nixoaCi;
-        nixoa-ci-installer-boot = nixoaCiInstallerBoot;
-        nixoa-ci-update-locks = nixoaCiUpdateLocks;
-        nxcli = nxcli;
-        nixoa-menu = nixoaMenu;
-      }
+      // lib.optionalAttrs pkgs.stdenv.hostPlatform.isLinux (
+        {
+          deploy-template = deployTemplate;
+          nxcli = nxcli;
+          nixoa-menu = nixoaMenu;
+        }
+        // automationPackages
+      )
       // {
         installer-iso = installerIso;
         metadata = pkgs.stdenv.mkDerivation {

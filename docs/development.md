@@ -31,27 +31,28 @@ linters.
 Run the complete flake-packaged CI contract before publishing:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci -- check --no-write-lock-file
+nix run --accept-flake-config .#nixoa-ci-check -- --no-write-lock-file
 ```
 
-The task graph delegates domain logic to one flake-owned interface:
+Use the leaf packages directly for individual automation operations:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci -- help
-nix run --accept-flake-config .#nixoa-ci -- classify-paths < changed-paths.txt
-nix run --accept-flake-config .#nixoa-ci -- installer build-input
+nix run --accept-flake-config .#nixoa-ci-prepare
+nix run --accept-flake-config .#nixoa-ci-classify-paths < changed-paths.txt
+nix run --accept-flake-config .#nixoa-ci-build-input
 nix eval --json .#lib.ciPlans.x86_64-linux.validation
 nix run --accept-flake-config .#run-ci-plan -- \
   --plan lib.ciPlans.x86_64-linux.validation
 ```
 
 GitHub workflow command bodies invoke declared tasks through the thin pinned
-`devenv` flake app. Those tasks delegate repository policy to the packaged
-`nixoa-ci` interface; workflow YAML retains only GitHub runner, permission,
-environment, artifact, and attestation boundaries. Product operations use
-`nxcli`; delivery automation uses `nixoa-ci`. Automation programs and
-security-sensitive XO helpers remain native shell sources, while Nix provides
-their runtime dependencies and executable app boundaries.
+`devenv` flake app. Each task resolves an explicit `nixoa-ci-*` leaf package;
+there is no umbrella automation dispatcher. Workflow YAML retains only GitHub
+runner, permission, environment, artifact, and attestation boundaries. Product
+operations use `nxcli`; delivery automation uses Nix-packaged leaf programs.
+Automation programs and security-sensitive XO helpers remain native shell
+sources, while Nix provides their runtime dependencies and executable app
+boundaries.
 
 Hosted leaf tasks use Devenv's `--mode single` so they execute only the named
 boundary. The aggregate `ci:check` task remains dependency-aware and has no
@@ -104,7 +105,7 @@ always execute and delegate their implementation to flake-packaged programs;
 dependency-free tasks run in isolated single-task mode.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
-the scheduled updater; `nix run .#nixoa-ci -- locks validate` verifies
+the scheduled updater; `nix run .#nixoa-ci-lock-validate` verifies
 that their shared nixpkgs and devenv pins match.
 
 ## Work with changes

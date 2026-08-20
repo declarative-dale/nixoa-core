@@ -157,7 +157,7 @@ grep -Fq 'flake-plan-runner' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer builds bypass the shared schema-v2 plan runner"
 grep -Fq -- '--no-build --print-build-logs' \
-  "$TEST_ROOT/nix/automation/cli.sh" \
+  "$TEST_ROOT/nix/automation/check.sh" \
   || fail "complete validation does not separate evaluation from planned builds"
 # GitHub and shell expressions must remain literal in the source contract.
 # shellcheck disable=SC2016

@@ -1,6 +1,5 @@
 {
   planRunner,
-  lib,
   pkgs,
 }: let
   mkCommand = {
@@ -46,7 +45,7 @@
   commands = {
     boot = mkCommand {
       name = "boot";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [pkgs.qemu_kvm];
       source = ./installer-boot.sh;
     };
     build-assets = mkCommand {
@@ -59,9 +58,14 @@
       runtimeInputs = commonInputs ++ [classifyPaths];
       source = ./build-input.sh;
     };
+    check = mkCommand {
+      name = "check";
+      runtimeInputs = commonInputs ++ [planRunner];
+      source = ./check.sh;
+    };
     classify = mkCommand {
       name = "classify";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [classifyPaths];
       source = ./classify.sh;
     };
     classify-paths = classifyPaths;
@@ -82,7 +86,13 @@
     };
     prepare = mkCommand {
       name = "prepare";
-      runtimeInputs = commonInputs ++ [validatePlan];
+      runtimeInputs =
+        commonInputs
+        ++ [
+          commands.classify
+          commands.resolve-state
+          validatePlan
+        ];
       source = ./prepare.sh;
     };
     publish = mkCommand {
@@ -92,12 +102,21 @@
     };
     queue = mkCommand {
       name = "queue";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [commands.trusted-update];
       source = ./queue.sh;
     };
     release = mkCommand {
       name = "release";
-      runtimeInputs = commonInputs ++ [pkgs.gzip];
+      runtimeInputs =
+        commonInputs
+        ++ [
+          pkgs.gzip
+          commands.build-input
+          commands.release-notes
+          commands.release-stage
+          commands.release-version
+          commands.trusted-update
+        ];
       source = ./release.sh;
     };
     release-notes = mkCommand {
@@ -117,7 +136,7 @@
     };
     resolve-state = mkCommand {
       name = "resolve-state";
-      runtimeInputs = commonInputs;
+      runtimeInputs = commonInputs ++ [commands.build-input];
       source = ./installer-resolve-state.sh;
     };
     trusted-update = mkCommand {
@@ -133,15 +152,4 @@
     validate-plan = validatePlan;
   };
 in
-  pkgs.writeShellApplication {
-    name = "nixoa-ci";
-    runtimeInputs = commonInputs ++ builtins.attrValues commands ++ [planRunner];
-    text = builtins.readFile ./cli.sh;
-    meta = {
-      description = "NiXOA repository CI and release automation";
-      license = lib.licenses.asl20;
-      mainProgram = "nixoa-ci";
-      platforms = ["x86_64-linux"];
-    };
-    passthru = {inherit commands;};
-  }
+  commands

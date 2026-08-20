@@ -269,7 +269,7 @@ case "${1:-}" in
     "$operation" "$@"
     ;;
   *)
-    printf 'usage: nixoa-ci release prepare|dispatch|inventory|verify|stage|draft|publish|advance\n' >&2
+    printf 'usage: nixoa-ci-release prepare|dispatch|inventory|verify|stage|draft|publish|advance\n' >&2
     exit 2
     ;;
 esac

@@ -40,7 +40,7 @@
       ok =
         lib.hasInfix "source = ./${script};" automationDefinition
         || lib.hasInfix "builtins.readFile ./${script}" automationDefinition;
-      message = "nix/automation/${script} must be wrapped by the nixoa-ci package";
+      message = "nix/automation/${script} must be wrapped by the Nix automation package set";
     })
     automationScripts;
 

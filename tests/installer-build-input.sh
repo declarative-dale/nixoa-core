@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-: "${NIXOA_CI:?NIXOA_CI must point to the packaged automation CLI}"
+: "${NIXOA_CI_BUILD_INPUT:?NIXOA_CI_BUILD_INPUT must point to the packaged build-input command}"
 
 fixture=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-build-input.XXXXXX")
 trap 'rm -rf -- "${fixture}"' EXIT
@@ -57,7 +57,7 @@ printf '%s\n' 'packer fixture' >"${fixture}/packer/example.pkr.hcl"
 
 git -C "${fixture}" init -q
 git -C "${fixture}" add .
-baseline=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+baseline=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${baseline}" =~ ^[0-9a-f]{64}$ ]]
 
 printf '%s\n' '# Updated contributor notes' >"${fixture}/docs/notes.md"
@@ -72,7 +72,7 @@ printf '%s\n' '{ flake.checks = { updated = true; }; }' \
 printf '%s\n' '# repository cache contract' \
   >>"${fixture}/secretspec.toml"
 git -C "${fixture}" add .
-metadata_only=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+metadata_only=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${metadata_only}" == "${baseline}" ]] || {
   printf 'Metadata-only fixture unexpectedly changed installer state.\n' >&2
   exit 1
@@ -81,7 +81,7 @@ metadata_only=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 printf '%s\n' 'workflow: updated installer runner' \
   >"${fixture}/.github/workflows/ci.yml"
 git -C "${fixture}" add .github/workflows/ci.yml
-workflow_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+workflow_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${workflow_change}" != "${baseline}" ]] || {
   printf 'CI workflow fixture did not change installer state.\n' >&2
   exit 1
@@ -90,7 +90,7 @@ workflow_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input
 printf '%s\n' '{ config.system.stateVersion = "26.11"; }' \
   >"${fixture}/modules/appliance.nix"
 git -C "${fixture}" add modules/appliance.nix
-appliance_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+appliance_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${appliance_change}" != "${baseline}" ]] || {
   printf 'Appliance fixture did not change installer state.\n' >&2
   exit 1
@@ -99,7 +99,7 @@ appliance_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-inpu
 printf '%s\n' '#!/usr/bin/env bash' 'printf updated-build' \
   >"${fixture}/nix/automation/installer-build-assets.sh"
 git -C "${fixture}" add nix/automation/installer-build-assets.sh
-recipe_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+recipe_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${recipe_change}" != "${appliance_change}" ]] || {
   printf 'Artifact recipe fixture did not change installer state.\n' >&2
   exit 1
@@ -107,7 +107,7 @@ recipe_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 
 printf '%s\n' '# automation policy changed' >>"${fixture}/nix/automation/default.nix"
 git -C "${fixture}" add nix/automation/default.nix
-automation_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+automation_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${automation_change}" != "${recipe_change}" ]] || {
   printf 'Nix automation fixture did not change installer state.\n' >&2
   exit 1
@@ -116,7 +116,7 @@ automation_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-inp
 printf '%s\n' '{ "installer": { "targets": ["changed"] } }' \
   >"${fixture}/nix/ci-plans.json"
 git -C "${fixture}" add nix/ci-plans.json
-plan_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+plan_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${plan_change}" != "${automation_change}" ]] || {
   printf 'CI plan fixture did not change installer state.\n' >&2
   exit 1
@@ -124,7 +124,7 @@ plan_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
 
 printf '%s\n' 'future installer input' >"${fixture}/future-target"
 git -C "${fixture}" add future-target
-unknown_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI" installer build-input)
+unknown_change=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
 [[ "${unknown_change}" != "${plan_change}" ]] || {
   printf 'Unknown tracked path did not fail safely into installer state.\n' >&2
   exit 1

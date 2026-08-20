@@ -41,14 +41,16 @@ independently pinned. An exact checkout-local ISO is available through
 
 Repository delivery is Nix-defined and flake-packaged. Hosted workflow command
 bodies call declared devenv tasks through a thin flake app, and those tasks
-delegate implementation to `packages.x86_64-linux.nixoa-ci`. Workflows retain
-GitHub security boundaries—permissions, OIDC, artifacts, attestations, Cachix,
-and FlakeHub. The prepare program combines source classification and immutable
-artifact reuse into one versioned JSON plan consumed by later jobs and the
-stable gate. A Nix policy declares which source paths affect the immutable
-installer fingerprint, allowing metadata-only commits to reuse a previously
-verified artifact while unknown paths fail safely toward rebuilding. The same
-policy filters both changed paths and the tracked-file fingerprint, preventing
+execute explicit `nixoa-ci-*` leaf packages. No umbrella automation app or
+dispatcher sits between the task graph and those Nix derivations. Workflows
+retain GitHub security
+boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
+The prepare program combines source classification and immutable artifact
+reuse into one versioned JSON plan consumed by later jobs and the stable gate.
+A Nix policy declares which source paths affect the immutable installer
+fingerprint, allowing metadata-only commits to reuse a previously verified
+artifact while unknown paths fail safely toward rebuilding. The same policy
+filters both changed paths and the tracked-file fingerprint, preventing
 classification and reuse from disagreeing. Only
 path-classifying events fetch full Git history, and future merge-group
 classification also fails toward rebuilding unless its base is a known
