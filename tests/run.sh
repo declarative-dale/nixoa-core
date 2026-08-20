@@ -126,6 +126,9 @@ assert_eq "$setup_steps" 4
 grep -Fq '.#devenv -- tasks run --mode single ci:gate' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "stable CI gate bypasses its declared devenv task"
+yq -e '.jobs.gate.timeout-minutes >= 15' \
+  "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
+  || fail "stable CI gate cannot cold-start its declared devenv task"
 grep -Fq "fetch-depth: \${{ contains(fromJSON('[\"pull_request\",\"push\",\"merge_group\"]'), github.event_name) && '0' || '1' }}" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "prepare checkout does not limit full history to path-classifying events"
