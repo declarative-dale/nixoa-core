@@ -123,7 +123,7 @@ fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
 assert_eq "$setup_steps" 4
-grep -Fq '.#devenv -- tasks run --mode single ci:gate' \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:gate" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "stable CI gate bypasses its declared devenv task"
 yq -e '.jobs.gate.timeout-minutes >= 15' \
@@ -215,7 +215,7 @@ grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable gate"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq '.#devenv -- tasks run --mode single ci:installer:boot' "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:installer:boot" "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO through its declared task"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
@@ -230,10 +230,10 @@ grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
 grep -Fq 'cron: "17 9 * * 3"' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh is not scheduled weekly on Wednesday"
-grep -Fq '.#devenv -- tasks run --mode single automation:open-lock-update-pr' \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' automation:open-lock-update-pr" \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh bypasses the declared PR publisher task"
-grep -Fq '.#devenv -- tasks run ci:check' \
+grep -Fq ".#devenv -- tasks run --option 'packages:pkgs!' '' ci:check" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "validation bypasses the declared complete-check task"
 if grep -Fq 'inputs:' \
@@ -242,7 +242,7 @@ if grep -Fq 'inputs:' \
 fi
 grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-dev\.[0-9]+)?$' "$TEST_ROOT/VERSION" \
   || fail "repository version is not a stable or development semantic version"
-grep -Fq '.#devenv -- tasks run --mode single release:stage' "$TEST_ROOT/.github/workflows/release.yml" \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' release:stage" "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release workflow does not split oversized installer assets through its declared task"
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
@@ -290,7 +290,7 @@ grep -Fq -- '--signer-workflow "$signer_workflow"' \
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
-grep -Fq '.#devenv -- tasks run --mode single release:prepare' \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' release:prepare" \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "release version changes bypass protected main"
 grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \

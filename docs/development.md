@@ -37,7 +37,8 @@ nix run --accept-flake-config .#nixoa-ci-check -- --no-write-lock-file
 Use the leaf packages directly for individual automation operations:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci-prepare
+EVENT_NAME=workflow_dispatch VALIDATE_ONLY=true \
+  nix run --accept-flake-config .#nixoa-ci-prepare
 nix run --accept-flake-config .#nixoa-ci-classify-paths < changed-paths.txt
 nix run --accept-flake-config .#nixoa-ci-build-input
 nix eval --json .#lib.ciPlans.x86_64-linux.validation

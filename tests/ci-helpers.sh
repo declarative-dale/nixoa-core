@@ -101,6 +101,20 @@ jq -e '
   (.publish_required | not)
 ' <<<"$prepared_plan" >/dev/null
 
+local_plan=$(
+  env \
+    EVENT_NAME=workflow_dispatch \
+    VALIDATE_ONLY=true \
+    "$NIXOA_CI_PREPARE"
+)
+jq -e '
+  .schema_version == 1 and
+  (.installer.required | not) and
+  (.installer.build_required | not) and
+  (.publish_required | not)
+' <<<"$local_plan" >/dev/null
+[[ ! -e nixoa-ci-plan.json ]]
+
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 1.0 auto)

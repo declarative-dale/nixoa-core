@@ -29,10 +29,10 @@ jobs:
         uses: ./.github/actions/setup-nix
 
       - name: Refresh native and flake inputs
-        run: nix run --accept-flake-config .#devenv -- tasks run --mode single automation:update-locks
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' automation:update-locks
 
       - name: Validate the synchronized lockfiles
-        run: nix run --accept-flake-config .#devenv -- tasks run --mode single automation:validate-locks
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' automation:validate-locks
 
       - name: Open one allowlisted lock-file pull request
         env:
@@ -43,4 +43,4 @@ jobs:
             Required validation and protected-branch policy still apply.
           UPDATE_BRANCH: automation/weekly-flake-input-refresh
           UPDATE_TITLE: "locks: refresh Nix and devenv inputs"
-        run: nix run --accept-flake-config .#devenv -- tasks run --mode single automation:open-lock-update-pr
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' automation:open-lock-update-pr

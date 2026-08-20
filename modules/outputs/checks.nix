@@ -69,7 +69,7 @@ in {
             (.validation.targets | length == 16) and
             (.installer.schemaVersion == 2) and
             (.installer.name == "nixoa-installer") and
-            (.installer.targets | length == 9) and
+            (.installer.targets | length == 8) and
             (.publish.schemaVersion == 2) and
             (.publish.name == "nixoa-publish") and
             (.publish.targets | length == 5)
@@ -112,7 +112,7 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev '^$|^nix run --accept-flake-config \.#devenv -- tasks run ci:check$|^nix run --accept-flake-config \.#devenv -- tasks run --mode single [a-z0-9:_-]+$'; then
+            grep -Ev "^$|^nix run --accept-flake-config \.#devenv -- tasks run --option 'packages:pkgs!' [']['] ci:check$|^nix run --accept-flake-config \.#devenv -- tasks run --mode single --option 'packages:pkgs!' [']['] [a-z0-9:_-]+$"; then
             printf 'Workflow command bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi

@@ -13,7 +13,8 @@ correspond to published GitHub tags.
 
 - Run declared CI, release, and automation tasks through their leaf Nix
   packages instead of routing hosted execution through the monolithic
-  `nixoa-ci` dispatcher, and remove that umbrella CLI entirely.
+  `nixoa-ci` dispatcher, disable the unrelated development package set on
+  hosted task runners, and remove that umbrella CLI entirely.
 
 ## [1.3.0] - 2026-08-20
 

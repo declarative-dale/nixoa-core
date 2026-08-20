@@ -5,7 +5,19 @@ set -euo pipefail
 
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
 state_outputs=$(mktemp "${runner_temp}/nixoa-state-outputs.XXXXXX")
-trap 'rm -f -- "$state_outputs"' EXIT
+plan_file=${NIXOA_CI_PLAN_FILE:-}
+remove_plan=false
+if [[ -z "$plan_file" ]]; then
+  plan_file=$(mktemp "${runner_temp}/nixoa-ci-plan.XXXXXX")
+  remove_plan=true
+fi
+cleanup() {
+  rm -f -- "$state_outputs"
+  if [[ "$remove_plan" == true ]]; then
+    rm -f -- "$plan_file"
+  fi
+}
+trap cleanup EXIT
 
 installer_required=$(GITHUB_OUTPUT='' nixoa-ci-classify)
 case "$installer_required" in
@@ -50,7 +62,6 @@ else
     '{schema_version:1,installer:{required:$installer_required,build_required:$build_required,artifact_run_id:null,build_input:null},publish_required:$publish_required}')
 fi
 
-plan_file=${NIXOA_CI_PLAN_FILE:-nixoa-ci-plan.json}
 printf '%s\n' "$plan" >"$plan_file"
 nixoa-ci-validate-plan "$plan_file"
 if [[ -n ${GITHUB_OUTPUT:-} ]]; then
