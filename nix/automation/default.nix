@@ -80,7 +80,11 @@
     classify-paths = classifyPaths;
     verdict = mkCommand {
       name = "verdict";
-      runtimeInputs = commonInputs ++ [validatePlan];
+      runtimeInputs = with pkgs; [
+        bash
+        coreutils
+        jq
+      ];
       source = ./verdict.sh;
     };
     lock-validate = mkCommand {

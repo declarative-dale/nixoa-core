@@ -136,13 +136,34 @@ if grep -Fq 'cachix/cachix-action@' \
 fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$setup_steps" 4
-grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:verdict" \
+assert_eq "$setup_steps" 3
+grep -Fq 'substituters = https://cache.nixos.org/' \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
+  || fail "shared CI setup does not reset the public substituter baseline"
+grep -Fq 'determinate-nixd auth logout' \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
+  || fail "shared CI setup does not disable Determinate's authenticated cache injection"
+grep -Fq 'sudo tee -a /etc/nix/nix.conf' \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
+  || fail "shared CI setup does not override Determinate cache injection"
+grep -Fq 'sudo systemctl restart nix-daemon.service' \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
+  || fail "shared CI setup does not reload the daemon after overriding its cache configuration"
+# The variable reference must remain literal in the composite action source.
+# shellcheck disable=SC2016
+grep -Fq '[[ $substituters != *cache.flakehub.com* ]]' \
+  "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
+  || fail "shared CI setup does not reject the authenticated FlakeHub cache"
+grep -Fq 'bash nix/automation/verdict.sh' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "required CI verdict bypasses its declared devenv task"
-yq -e '.jobs.verdict.timeout-minutes >= 15' \
+  || fail "required CI verdict does not use its repository-owned shell gate"
+if yq -e '.jobs.verdict.steps[] | select(.uses == "./.github/actions/setup-nix")' \
+  "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null; then
+  fail "required CI verdict still installs Nix"
+fi
+yq -e '.jobs.verdict.timeout-minutes <= 5' \
   "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
-  || fail "required CI verdict cannot cold-start its declared devenv task"
+  || fail "required CI verdict is not bounded as a lightweight job"
 grep -Fq "fetch-depth: \${{ contains(fromJSON('[\"pull_request\",\"push\",\"merge_group\"]'), github.event_name) && '0' || '1' }}" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "route checkout does not limit full history to path-classifying events"
@@ -220,6 +241,9 @@ grep -Fq 'name: nixoa-evidence' \
 grep -Fq 'qualify-media-reuse-evidence' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not route media builds through reusable evidence"
+grep -Fq 'NIXOA_INSTALLER_ARTIFACT_BUDGET_BYTES:-3000000000' \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
+  || fail "installer qualification does not enforce the 3.0 GB artifact budget"
 if grep -Fq 'nixoa-reusable-cache' "$TEST_ROOT/.github/workflows/ci.yml"; then
   fail "installer workflow still transports a redundant closure cache artifact"
 fi

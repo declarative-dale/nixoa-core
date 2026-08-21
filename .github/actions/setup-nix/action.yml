@@ -1,9 +1,24 @@
 # SPDX-License-Identifier: Apache-2.0
 name: Set up NiXOA Nix
-description: Install Determinate Nix; flake nixConfig declares every substituter
+description: Install Determinate Nix with a CI-only public substituter baseline
 
 runs:
   using: composite
   steps:
     - name: Install Determinate Nix
       uses: DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858 # v3.21.9
+      with:
+        extra-conf: |
+          substituters = https://cache.nixos.org/
+
+    - name: Enforce the public CI substituter baseline
+      shell: bash
+      run: |
+        determinate-nixd auth logout
+        printf 'substituters = https://cache.nixos.org/\n' |
+          sudo tee -a /etc/nix/nix.conf >/dev/null
+        sudo systemctl restart nix-daemon.service
+        substituters=$(nix config show substituters)
+        printf 'CI substituters: %s\n' "$substituters"
+        [[ " $substituters " == *" https://cache.nixos.org/ "* ]]
+        [[ $substituters != *cache.flakehub.com* ]]
