@@ -66,30 +66,31 @@ in {
         plans = inputs.self.lib.ciPlans.${system};
         qualificationInputs = inputs.self.lib.ciQualificationInputs.${system};
       in
-        pkgs.runCommandLocal "nixoa-ci-plan-contract" {
-          nativeBuildInputs = [pkgs.jq];
-        } ''
-          printf '%s\n' ${lib.escapeShellArg (builtins.toJSON plans)} > plans.json
-          jq -e '
-            (.validation.schemaVersion == 2) and
-            (.validation.name == "nixoa-validation") and
-            (.validation.targets | length == 16) and
-            (.media.schemaVersion == 2) and
-            (.media.name == "nixoa-media-qualification") and
-            (.media.targets | length == 1) and
-            (.evidence.schemaVersion == 2) and
-            (.evidence.name == "nixoa-evidence-qualification") and
-            (.evidence.targets | length == 4) and
-            (.publish.schemaVersion == 2) and
-            (.publish.name == "nixoa-publish") and
-            (.publish.targets | length == 5)
-          ' plans.json >/dev/null
-          test -e ${qualificationInputs.media.source}/installer/default.nix
-          test -e ${qualificationInputs.media.source}/modules/outputs/packages.nix
-          ! test -e ${qualificationInputs.media.source}/docs
-          ! test -e ${qualificationInputs.media.source}/.github
-          touch "$out"
-        '';
+        assert qualificationInputs.evidence.toplevel == inputs.self.nixosConfigurations.nixoa.config.system.build.toplevel.outPath;
+          pkgs.runCommandLocal "nixoa-ci-plan-contract" {
+            nativeBuildInputs = [pkgs.jq];
+          } ''
+            printf '%s\n' ${lib.escapeShellArg (builtins.toJSON plans)} > plans.json
+            jq -e '
+              (.validation.schemaVersion == 2) and
+              (.validation.name == "nixoa-validation") and
+              (.validation.targets | length == 16) and
+              (.media.schemaVersion == 2) and
+              (.media.name == "nixoa-media-qualification") and
+              (.media.targets | length == 1) and
+              (.evidence.schemaVersion == 2) and
+              (.evidence.name == "nixoa-evidence-qualification") and
+              (.evidence.targets | length == 4) and
+              (.publish.schemaVersion == 2) and
+              (.publish.name == "nixoa-publish") and
+              (.publish.targets | length == 5)
+            ' plans.json >/dev/null
+            test -e ${qualificationInputs.media.source}/installer/default.nix
+            test -e ${qualificationInputs.media.source}/modules/outputs/packages.nix
+            ! test -e ${qualificationInputs.media.source}/docs
+            ! test -e ${qualificationInputs.media.source}/.github
+            touch "$out"
+          '';
 
       eval-smoke = pkgs.runCommandLocal "nixoa-eval-smoke" {} ''
         mkdir -p "$out"

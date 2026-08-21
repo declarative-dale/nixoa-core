@@ -106,7 +106,7 @@ case "$INSTALLER_SOURCE" in
           exit 1
         }
         if ! "$JQ_BIN" -e \
-          '.schema_version == 3 and (.artifact_run_id | type == "number") and (.media_input | type == "string")' \
+          '.schema_version == 4 and (.artifact_run_id | type == "number") and (.media_input | type == "string") and (.evidence_run_id | type == "number")' \
           "$state_dir/nixoa-qualification-state.json" >/dev/null; then
           rm -rf -- "$state_dir"
           continue
@@ -133,7 +133,7 @@ case "$INSTALLER_SOURCE" in
           ! "$JQ_BIN" -e \
             --arg media_input "$expected_media_input" \
             --argjson artifact_run_id "$artifact_run_id" \
-            '.schema_version == 3 and .media_input == $media_input and .artifact_run_id == $artifact_run_id' \
+            '.schema_version == 4 and .media_input == $media_input and .artifact_run_id == $artifact_run_id and (.evidence_run_id | type == "number")' \
             "$candidate_dir/nixoa-qualification-state.json" >/dev/null; then
           rm -rf -- "$candidate_dir"
           continue

@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "qualification", "publish_required"],
   "properties": {
-    "schema_version": { "const": 2 },
+    "schema_version": { "const": 3 },
     "qualification": {
       "type": "object",
       "additionalProperties": false,
@@ -15,16 +15,18 @@
         "mode",
         "artifact_run_id",
         "media_run_id",
+        "evidence_run_id",
         "media_input",
         "evidence_input"
       ],
       "properties": {
         "required": { "type": "boolean" },
         "mode": {
-          "enum": ["skip", "reuse", "refresh-evidence", "qualify-media"]
+          "enum": ["skip", "reuse", "refresh-evidence", "qualify-media-reuse-evidence", "qualify-media"]
         },
         "artifact_run_id": {},
         "media_run_id": {},
+        "evidence_run_id": {},
         "media_input": {},
         "evidence_input": {}
       }
@@ -44,9 +46,10 @@
         "properties": {
           "qualification": {
             "properties": {
-              "mode": { "enum": ["reuse", "refresh-evidence", "qualify-media"] },
+              "mode": { "enum": ["reuse", "refresh-evidence", "qualify-media-reuse-evidence", "qualify-media"] },
               "artifact_run_id": { "type": "integer", "minimum": 1 },
               "media_run_id": { "type": "integer", "minimum": 1 },
+              "evidence_run_id": { "type": "integer", "minimum": 1 },
               "media_input": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
               "evidence_input": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
             }
@@ -60,6 +63,7 @@
               "mode": { "const": "skip" },
               "artifact_run_id": { "type": "null" },
               "media_run_id": { "type": "null" },
+              "evidence_run_id": { "type": "null" },
               "media_input": { "type": "null" },
               "evidence_input": { "type": "null" }
             }
