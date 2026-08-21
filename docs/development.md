@@ -70,7 +70,7 @@ The `nixoa-ci-route` command emits one versioned JSON route plan. Focused
 qualification, protected-main publication, and the required verdict all
 consume that exact output, so downstream jobs cannot independently reinterpret
 classification or reuse state. Both the router and verdict validate
-`nix/automation/qualification-plan.schema.json`; schema-v2 rejects undeclared
+`nix/automation/qualification-plan.schema.json`; schema-v3 rejects undeclared
 fields, invalid Nix graph digests, and publication without qualification.
 The path policy decides whether a change can affect the appliance. When it
 can, `lib.ciQualificationInputs.x86_64-linux` supplies separate canonical Nix
@@ -108,21 +108,33 @@ The cache layers have separate responsibilities:
 - Cachix stores Nix derivation outputs and shares them between jobs and runs.
 - The immutable `nixoa-installer` artifact stores the tested ISO, SPDX and
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
+- The immutable, normally compressed `nixoa-evidence` artifact separately
+  stores the JSON system SBOMs, XO supply documents, checksums, and
+  qualification state. The combined artifact remains uncompressed by GitHub
+  because its ISO is already compressed.
 
-Qualification has four deliberately distinct outcomes:
+Qualification has five deliberately distinct outcomes:
 
 - `skip` means the change cannot affect the appliance.
 - `reuse` points at an artifact whose media and evidence identities both match.
 - `refresh-evidence` downloads the matching, already-booted ISO and regenerates
   only the system/XO inventories, checksums, and attestations.
+- `qualify-media-reuse-evidence` realizes and boots new media, then validates
+  and re-attests matching cached evidence without executing `sbomnix`.
 - `qualify-media` realizes the ISO, boots it, and then generates its evidence.
 
 The media plan contains only `installer-iso`; the evidence plan contains only
 the appliance closure, `sbomnix`, Xen Orchestra, and its supply assertion.
+The installer explicitly uses SquashFS `zstd` compression level 1 instead of
+nixpkgs' much slower inherited level 19. This intentionally favors fast CI and
+qualification over the smallest possible ISO; release assets remain split
+below GitHub's per-file size limit.
 Deployment templates, metadata, menus, and CLI packages remain covered by the
 repository audit and protected-main publication without being redundantly
-realized during installer qualification. Trusted same-repository pull requests
-may reuse qualified artifacts; forks may not. The scheduled forced run still
+realized during installer qualification. Reusable evidence is accepted only
+from a trusted same-repository run while its artifact is unexpired, its state
+matches the exact appliance closure identity, and all retained checksums pass.
+Forks may not contribute reusable evidence. The scheduled forced run still
 performs a complete media qualification before artifact expiry.
 
 Release workflows serialize their orchestration separately from publication.

@@ -13,7 +13,7 @@ nixoa-ci-validate-plan "$plan_file"
 
 mode=$(jq -r '.qualification.mode' <<<"$CI_PLAN")
 case "$mode" in
-  refresh-evidence|qualify-media)
+  refresh-evidence|qualify-media-reuse-evidence|qualify-media)
     test "${QUALIFICATION_RESULT:?}" = success
     ;;
   skip|reuse)

@@ -60,25 +60,28 @@ classifier_env=(
 [[ $(env "${classifier_env[@]}" MERGE_BASE_SHA= MERGE_HEAD_SHA= "$NIXOA_CI_CLASSIFY" 2>/dev/null) == true ]]
 [[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$irrelevant_head" MERGE_HEAD_SHA="$divergent_head" "$NIXOA_CI_CLASSIFY" 2>/dev/null) == true ]]
 
-skip_plan='{"schema_version":2,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"media_input":null,"evidence_input":null},"publish_required":false}'
-reuse_plan='{"schema_version":2,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":true}'
-evidence_plan='{"schema_version":2,"qualification":{"required":true,"mode":"refresh-evidence","artifact_run_id":42,"media_run_id":41,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
-media_plan='{"schema_version":2,"qualification":{"required":true,"mode":"qualify-media","artifact_run_id":42,"media_run_id":42,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
+skip_plan='{"schema_version":3,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"evidence_run_id":null,"media_input":null,"evidence_input":null},"publish_required":false}'
+reuse_plan='{"schema_version":3,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"evidence_run_id":40,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":true}'
+evidence_plan='{"schema_version":3,"qualification":{"required":true,"mode":"refresh-evidence","artifact_run_id":42,"media_run_id":41,"evidence_run_id":42,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
+media_reuse_plan='{"schema_version":3,"qualification":{"required":true,"mode":"qualify-media-reuse-evidence","artifact_run_id":42,"media_run_id":42,"evidence_run_id":40,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
+media_plan='{"schema_version":3,"qualification":{"required":true,"mode":"qualify-media","artifact_run_id":42,"media_run_id":42,"evidence_run_id":42,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
 env ROUTE_RESULT=success CI_PLAN="$skip_plan" \
   QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$reuse_plan" \
   QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$evidence_plan" \
   QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
+env ROUTE_RESULT=success CI_PLAN="$media_reuse_plan" \
+  QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$media_plan" \
   QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
-invalid_publish_plan='{"schema_version":2,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"media_input":null,"evidence_input":null},"publish_required":true}'
+invalid_publish_plan='{"schema_version":3,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"evidence_run_id":null,"media_input":null,"evidence_input":null},"publish_required":true}'
 if env ROUTE_RESULT=success CI_PLAN="$invalid_publish_plan" \
   QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted publication without an installer lifecycle.\n' >&2
   exit 1
 fi
-invalid_media_input_plan='{"schema_version":2,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"media_input":"not-a-digest","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
+invalid_media_input_plan='{"schema_version":3,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"evidence_run_id":40,"media_input":"not-a-digest","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
 if env ROUTE_RESULT=success CI_PLAN="$invalid_media_input_plan" \
   QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted an invalid media input.\n' >&2
@@ -100,7 +103,7 @@ env \
   "$NIXOA_CI_ROUTE"
 routed_plan=$(sed -n 's/^plan=//p' "$route_output")
 jq -e '
-  .schema_version == 2 and
+  .schema_version == 3 and
   (.qualification.required | not) and
   .qualification.mode == "skip" and
   (.publish_required | not)
@@ -113,19 +116,19 @@ local_plan=$(
     "$NIXOA_CI_ROUTE"
 )
 jq -e '
-  .schema_version == 2 and
+  .schema_version == 3 and
   (.qualification.required | not) and
   .qualification.mode == "skip" and
   (.publish_required | not)
 ' <<<"$local_plan" >/dev/null
 [[ ! -e nixoa-ci-route.json ]]
 
-# The resolver distinguishes exact reuse, evidence refresh, and full media
-# qualification from the two Nix-owned identities.
+# The resolver distinguishes all four qualification routes and rejects
+# incomplete, expired, untrusted, mismatched, or corrupt cached evidence.
 qualification_bin="$temporary/qualification-bin"
-qualification_state="$temporary/qualification-state"
+qualification_artifacts="$temporary/qualification-artifacts"
 qualification_work="$temporary/qualification-work"
-mkdir -p "$qualification_bin" "$qualification_state" "$qualification_work"
+mkdir -p "$qualification_bin" "$qualification_artifacts" "$qualification_work"
 cat >"$qualification_bin/nix" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -135,21 +138,44 @@ cat >"$qualification_bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 if [[ "$1 $2" == "run list" ]]; then
-  printf '77\tpush\n'
+  jq -r '[77, .event] | @tsv' "${FAKE_QUALIFICATION_ARTIFACTS:?}/77/metadata.json"
   exit 0
 fi
 if [[ "$1 $2" == "run download" ]]; then
+  run_id=$3
+  artifact_name=
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --dir) destination=$2; shift 2 ;;
+      --name) artifact_name=$2; shift 2 ;;
       *) shift ;;
     esac
   done
-  cp -R "${FAKE_QUALIFICATION_STATE:?}/." "$destination/"
+  source_dir="${FAKE_QUALIFICATION_ARTIFACTS:?}/$run_id/$artifact_name"
+  [[ -d "$source_dir" && ! -e "$source_dir/.expired" ]]
+  cp -R "$source_dir/." "$destination/"
   exit 0
 fi
 if [[ "$1" == api && "$2" == */artifacts ]]; then
-  printf '900\n'
+  run_id=${2%/artifacts}
+  run_id=${run_id##*/}
+  if [[ "$*" == *'nixoa-evidence'* ]]; then
+    artifact_name=nixoa-evidence
+  else
+    artifact_name=nixoa-installer
+  fi
+  artifact_dir="${FAKE_QUALIFICATION_ARTIFACTS:?}/$run_id/$artifact_name"
+  [[ ! -d "$artifact_dir" || -e "$artifact_dir/.expired" ]] || printf '900\n'
+  exit 0
+fi
+if [[ "$1" == api && "$2" == */actions/runs/* ]]; then
+  run_id=${2##*/}
+  if [[ "$*" == *'head_repository.full_name // empty'* ]]; then
+    jq -r '.head_repository // empty' "${FAKE_QUALIFICATION_ARTIFACTS:?}/$run_id/metadata.json"
+  else
+    jq -r '[.event, (.head_repository // "")] | @tsv' \
+      "${FAKE_QUALIFICATION_ARTIFACTS:?}/$run_id/metadata.json"
+  fi
   exit 0
 fi
 exit 1
@@ -164,20 +190,51 @@ baseline_inputs=$(NIXOA_CI_PATH_PREFIX="$qualification_bin" \
   "$NIXOA_CI_QUALIFICATION_INPUTS")
 baseline_media=$(jq -er .media_input <<<"$baseline_inputs")
 baseline_evidence=$(jq -er .evidence_input <<<"$baseline_inputs")
-jq -n --arg media_input "$baseline_media" --arg evidence_input "$baseline_evidence" '
-  {
-    schema_version:3,
-    mode:"qualify-media",
-    media_input:$media_input,
-    evidence_input:$evidence_input,
-    source_commit:"old-source",
-    artifact_source_commit:"old-source",
-    media_source_commit:"old-source",
-    producer_event:"push",
-    artifact_run_id:77,
-    media_run_id:77
-  }
-' >"$qualification_state/nixoa-qualification-state.json"
+
+reset_qualification_artifacts() {
+  rm -rf -- "$qualification_artifacts/77"
+  mkdir -p \
+    "$qualification_artifacts/77/nixoa-qualification-state" \
+    "$qualification_artifacts/77/nixoa-installer" \
+    "$qualification_artifacts/77/nixoa-evidence"
+  printf '%s\n' '{"event":"push","head_repository":"example/nixoa"}' \
+    >"$qualification_artifacts/77/metadata.json"
+  jq -n --arg media_input "$baseline_media" --arg evidence_input "$baseline_evidence" '
+    {
+      schema_version:4,
+      mode:"qualify-media",
+      media_input:$media_input,
+      evidence_input:$evidence_input,
+      source_commit:"old-source",
+      artifact_source_commit:"old-source",
+      media_source_commit:"old-source",
+      producer_event:"push",
+      artifact_run_id:77,
+      media_run_id:77,
+      evidence_run_id:77
+    }
+  ' >"$qualification_artifacts/77/nixoa-qualification-state/nixoa-qualification-state.json"
+  cp "$qualification_artifacts/77/nixoa-qualification-state/nixoa-qualification-state.json" \
+    "$qualification_artifacts/77/nixoa-evidence/nixoa-qualification-state.json"
+  printf '%s\n' '{"spdxVersion":"SPDX-2.3"}' \
+    >"$qualification_artifacts/77/nixoa-evidence/nixoa-system.spdx.json"
+  printf '%s\n' '{"bomFormat":"CycloneDX"}' \
+    >"$qualification_artifacts/77/nixoa-evidence/nixoa-system.cdx.json"
+  printf '%s\n' '{"schemaVersion":1}' \
+    >"$qualification_artifacts/77/nixoa-evidence/xen-orchestra-supply.assertion.json"
+  printf '%s\n' '{"spdxVersion":"SPDX-2.3"}' \
+    >"$qualification_artifacts/77/nixoa-evidence/xen-orchestra-supply.spdx.json"
+  printf '%s\n' '{"bomFormat":"CycloneDX"}' \
+    >"$qualification_artifacts/77/nixoa-evidence/xen-orchestra-supply.cdx.json"
+  (
+    cd "$qualification_artifacts/77/nixoa-evidence"
+    sha256sum nixoa-system.spdx.json >nixoa-system.spdx.json.sha256
+    sha256sum nixoa-system.cdx.json >nixoa-system.cdx.json.sha256
+    sha256sum xen-orchestra-supply.assertion.json >xen-orchestra-supply.assertion.json.sha256
+    sha256sum xen-orchestra-supply.spdx.json >xen-orchestra-supply.spdx.json.sha256
+    sha256sum xen-orchestra-supply.cdx.json >xen-orchestra-supply.cdx.json.sha256
+  )
+}
 
 resolve_mode() {
   local graph=$1
@@ -188,7 +245,7 @@ resolve_mode() {
     NIXOA_CI_PATH_PREFIX="$qualification_bin" \
       NIXOA_SYSTEM_ROOT="$qualification_work" \
       FAKE_QUALIFICATION_GRAPH="$graph" \
-      FAKE_QUALIFICATION_STATE="$qualification_state" \
+      FAKE_QUALIFICATION_ARTIFACTS="$qualification_artifacts" \
       GITHUB_OUTPUT="$output" \
       GITHUB_REPOSITORY=example/nixoa \
       GITHUB_RUN_ID=99 \
@@ -198,8 +255,38 @@ resolve_mode() {
   sed -n 's/^mode=//p' "$output"
 }
 
+reset_qualification_artifacts
 [[ $(resolve_mode "$baseline_graph") == reuse ]]
+reset_qualification_artifacts
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-a"},"evidence":{"system":"/nix/store/system-b"}}') == refresh-evidence ]]
+reset_qualification_artifacts
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media-reuse-evidence ]]
+reset_qualification_artifacts
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-b"}}') == qualify-media ]]
+
+reset_qualification_artifacts
+rm -rf -- "$qualification_artifacts/77/nixoa-evidence"
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
+
+reset_qualification_artifacts
+touch "$qualification_artifacts/77/nixoa-evidence/.expired"
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
+
+reset_qualification_artifacts
+printf '%s\n' '{"event":"pull_request","head_repository":"attacker/fork"}' \
+  >"$qualification_artifacts/77/metadata.json"
+[[ $(resolve_mode "$baseline_graph") == qualify-media ]]
+
+reset_qualification_artifacts
+jq '.evidence_input = "state-mismatch"' \
+  "$qualification_artifacts/77/nixoa-evidence/nixoa-qualification-state.json" \
+  >"$qualification_work/mismatched-state.json"
+mv "$qualification_work/mismatched-state.json" \
+  "$qualification_artifacts/77/nixoa-evidence/nixoa-qualification-state.json"
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
+
+reset_qualification_artifacts
+printf 'corrupt\n' >>"$qualification_artifacts/77/nixoa-evidence/nixoa-system.spdx.json"
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
 
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)

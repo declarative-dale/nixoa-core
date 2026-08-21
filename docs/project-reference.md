@@ -56,6 +56,10 @@ artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
 from the public NiXOA Cachix cache and, on trusted repository events, streams
 new outputs back through Cachix's daemon. Cachix carries Nix store paths
 between jobs and runs; fork pull requests consume the public cache read-only.
+The ISO's SquashFS payload uses explicit `zstd` level 1 compression to minimize
+qualification time. The resulting size tradeoff is accepted because the
+combined GitHub artifact skips redundant compression and release assets are
+already split below the 2 GiB per-part limit.
 
 The Cachix token and cache name are declared in `secretspec.toml`. GitHub
 Actions maps the repository secret and variable through Secretspec once per
@@ -70,10 +74,13 @@ the upstream assertion names the exact selected XO store path and Cachix trust
 root, verifies its checksums and retained Nix reference, and adds a checksummed
 SPDX `DESCRIBED_BY` external-document link to the appliance inventory. The
 upstream assertion and its SPDX and CycloneDX documents are preserved with the
-installer evidence. The finished SBOMs are cached with the ISO and immutable
-state in the same 90-day GitHub artifact, so
-later runs and releases retrieve the exact tested bundle without regenerating
-it. CI boots a newly identified ISO with QEMU, signs its build provenance, and binds the SPDX
+installer evidence. The finished SBOMs remain in the combined 90-day
+`nixoa-installer` artifact and are also retained in a compressed, JSON-only
+`nixoa-evidence` artifact with their checksums and immutable state. A media-only
+change can therefore reuse evidence for the exact appliance closure without
+executing `sbomnix`. CI applies the same checksum, SPDX, CycloneDX, XO assertion,
+and attestation checks to generated and reused evidence. CI boots a newly
+identified ISO with QEMU, signs its build provenance, and binds the SPDX
 document to the installer. GitHub release assets carry the tested installer in
 numbered parts below GitHub's 2 GiB per-asset limit, plus its whole-file
 checksum, both SBOMs, and a checksummed manifest.
@@ -84,16 +91,20 @@ nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
 Before allocating the installer runner, the route job classifies the event and
 hashes two canonical graphs exported by Nix: the ISO plus its boot policy, and
 the system/XO evidence plus its assembly policy. It emits one versioned JSON
-plan containing the `skip`, `reuse`, `refresh-evidence`, or `qualify-media`
+plan containing the `skip`, `reuse`, `refresh-evidence`,
+`qualify-media-reuse-evidence`, or `qualify-media`
 decision and protected-main publication state. Every downstream job and the
 required verdict consume that exact plan. An exact unexpired match reuses the
 artifact. A media-only match downloads the already-booted ISO and regenerates
-its evidence. Only a new media identity realizes and boots the ISO. Pull
+its evidence. An evidence-only match realizes and boots new media, then
+downloads verified evidence from a trusted same-repository run with an
+unexpired artifact and matching state. With neither identity available, the
+same job generates new evidence after the boot test. Pull
 requests and pushes fetch full history for path classification, while schedules
 and manual runs keep the shallow checkout. Merge-group inputs are supported
 defensively for a future repository transfer but are not triggered in this
 personal repository; missing, unavailable, or non-ancestral SHAs require
-qualification. The router and required verdict share a strict schema-v2 JSON
+qualification. The router and required verdict share a strict schema-v3 JSON
 route contract.
 
 At deployment time, `deploy-template` downloads the newest successful `main`
@@ -115,8 +126,9 @@ Credential-bearing configuration is kept in the runtime Secretspec contract.
   actionlint, and `zizmor` checks. The stable `Required CI verdict` summarizes the
   conditional graph for branch protection.
 - Relevant pull requests select focused qualification from the Nix-owned
-  identities. Only `qualify-media` realizes and boots the installer; exact
-  matches reuse it and evidence-only changes retain the already-tested media.
+  identities. Both media-building routes boot the installer; exact matches
+  reuse it, evidence-only changes retain the already-tested media, and
+  media-only changes retain validated supply evidence.
 - A forced build and boot runs every other month so runtime and cache drift are
   detected before the 90-day artifact expires.
 - A scheduled workflow refreshes `devenv.lock` and `flake.lock` every Wednesday

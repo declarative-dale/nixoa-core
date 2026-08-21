@@ -73,6 +73,9 @@ fi
 grep -Fq '"https://install.determinate.systems"' \
   "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits the Determinate bootstrap cache"
+grep -Fq 'squashfsCompression = "zstd -Xcompression-level 1";' \
+  "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO does not pin fast SquashFS compression"
 grep -Fq '"https://nixoa.cachix.org"' \
   "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits the NiXOA Cachix cache"
@@ -211,6 +214,12 @@ grep -Fq 'fromJSON(needs.route.outputs.plan).publish_required' \
 grep -Fq 'name: nixoa-qualification-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
+grep -Fq 'name: nixoa-evidence' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer workflow does not publish reusable evidence"
+grep -Fq 'qualify-media-reuse-evidence' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer workflow does not route media builds through reusable evidence"
 if grep -Fq 'nixoa-reusable-cache' "$TEST_ROOT/.github/workflows/ci.yml"; then
   fail "installer workflow still transports a redundant closure cache artifact"
 fi
@@ -484,7 +493,7 @@ cp \
     >nixoa-installer.iso.sha256
 )
 printf '%s\n' \
-  '{"schema_version":3,"mode":"qualify-media","media_input":"fixture-media","evidence_input":"fixture-evidence","source_commit":"fixture-source","artifact_source_commit":"fixture-source","media_source_commit":"fixture-source","producer_event":"push","artifact_run_id":12345,"media_run_id":12345}' \
+  '{"schema_version":4,"mode":"qualify-media","media_input":"fixture-media","evidence_input":"fixture-evidence","source_commit":"fixture-source","artifact_source_commit":"fixture-source","media_source_commit":"fixture-source","producer_event":"push","artifact_run_id":12345,"media_run_id":12345,"evidence_run_id":12345}' \
   >"$temporary/fake-state/nixoa-qualification-state.json"
 cp "$temporary/fake-state/nixoa-qualification-state.json" \
   "$temporary/fake-artifact/nixoa-qualification-state.json"

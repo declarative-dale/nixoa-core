@@ -23,21 +23,21 @@ resolve() {
     "$NIXOA_CI_QUALIFICATION_INPUTS"
 }
 
-baseline=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"system":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')
+baseline=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"toplevel":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')
 jq -e '
   .schema_version == 1 and
   (.media_input | test("^[0-9a-f]{64}$")) and
   (.evidence_input | test("^[0-9a-f]{64}$"))
 ' <<<"$baseline" >/dev/null
 
-reordered=$(resolve '{"evidence":{"sbomnix":"/nix/store/sbom-a","system":"/nix/store/system-a"},"media":{"bootPolicy":"boot-a","installer":"/nix/store/media-a"}}')
+reordered=$(resolve '{"evidence":{"sbomnix":"/nix/store/sbom-a","toplevel":"/nix/store/system-a"},"media":{"bootPolicy":"boot-a","installer":"/nix/store/media-a"}}')
 [[ "$reordered" == "$baseline" ]]
 
-evidence_change=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"system":"/nix/store/system-a","sbomnix":"/nix/store/sbom-b"}}')
+evidence_change=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"toplevel":"/nix/store/system-a","sbomnix":"/nix/store/sbom-b"}}')
 [[ $(jq -r .media_input <<<"$evidence_change") == $(jq -r .media_input <<<"$baseline") ]]
 [[ $(jq -r .evidence_input <<<"$evidence_change") != $(jq -r .evidence_input <<<"$baseline") ]]
 
-media_change=$(resolve '{"media":{"installer":"/nix/store/media-b","bootPolicy":"boot-a"},"evidence":{"system":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')
+media_change=$(resolve '{"media":{"installer":"/nix/store/media-b","bootPolicy":"boot-a"},"evidence":{"toplevel":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')
 [[ $(jq -r .media_input <<<"$media_change") != $(jq -r .media_input <<<"$baseline") ]]
 [[ $(jq -r .evidence_input <<<"$media_change") == $(jq -r .evidence_input <<<"$baseline") ]]
 

@@ -31,6 +31,7 @@ esac
 mode=skip
 artifact_run_id=null
 media_run_id=null
+evidence_run_id=null
 media_input=null
 evidence_input=null
 if [[ "$qualification_required" == true ]]; then
@@ -38,10 +39,11 @@ if [[ "$qualification_required" == true ]]; then
   mode=$(sed -n 's/^mode=//p' "$state_outputs" | tail -n 1)
   artifact_run_id=$(sed -n 's/^artifact_run_id=//p' "$state_outputs" | tail -n 1)
   media_run_id=$(sed -n 's/^media_run_id=//p' "$state_outputs" | tail -n 1)
+  evidence_run_id=$(sed -n 's/^evidence_run_id=//p' "$state_outputs" | tail -n 1)
   media_input=$(sed -n 's/^media_input=//p' "$state_outputs" | tail -n 1)
   evidence_input=$(sed -n 's/^evidence_input=//p' "$state_outputs" | tail -n 1)
-  [[ "$mode" == reuse || "$mode" == refresh-evidence || "$mode" == qualify-media ]]
-  [[ "$artifact_run_id" =~ ^[0-9]+$ && "$media_run_id" =~ ^[0-9]+$ ]]
+  [[ "$mode" == reuse || "$mode" == refresh-evidence || "$mode" == qualify-media-reuse-evidence || "$mode" == qualify-media ]]
+  [[ "$artifact_run_id" =~ ^[0-9]+$ && "$media_run_id" =~ ^[0-9]+$ && "$evidence_run_id" =~ ^[0-9]+$ ]]
   [[ "$media_input" =~ ^[0-9a-f]{64}$ && "$evidence_input" =~ ^[0-9a-f]{64}$ ]]
 fi
 
@@ -57,13 +59,14 @@ if [[ "$qualification_required" == true ]]; then
     --arg evidence_input "$evidence_input" \
     --argjson artifact_run_id "$artifact_run_id" \
     --argjson media_run_id "$media_run_id" \
+    --argjson evidence_run_id "$evidence_run_id" \
     --argjson publish_required "$publish_required" \
-    '{schema_version:2,qualification:{required:true,mode:$mode,artifact_run_id:$artifact_run_id,media_run_id:$media_run_id,media_input:$media_input,evidence_input:$evidence_input},publish_required:$publish_required}')
+    '{schema_version:3,qualification:{required:true,mode:$mode,artifact_run_id:$artifact_run_id,media_run_id:$media_run_id,evidence_run_id:$evidence_run_id,media_input:$media_input,evidence_input:$evidence_input},publish_required:$publish_required}')
 else
   plan=$(jq -cn \
     --arg mode "$mode" \
     --argjson publish_required "$publish_required" \
-    '{schema_version:2,qualification:{required:false,mode:$mode,artifact_run_id:null,media_run_id:null,media_input:null,evidence_input:null},publish_required:$publish_required}')
+    '{schema_version:3,qualification:{required:false,mode:$mode,artifact_run_id:null,media_run_id:null,evidence_run_id:null,media_input:null,evidence_input:null},publish_required:$publish_required}')
 fi
 
 printf '%s\n' "$plan" >"$plan_file"

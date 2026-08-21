@@ -60,7 +60,7 @@ jq -n \
   --arg evidence_input "$evidence_input" \
   --arg source_commit "$source_sha" \
   --arg artifact_source_commit "$source_sha" \
-  '{schema_version:3,mode:"qualify-media",media_input:$media_input,evidence_input:$evidence_input,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,media_source_commit:$source_commit,producer_event:"push",artifact_run_id:42,media_run_id:42}' \
+  '{schema_version:4,mode:"qualify-media",media_input:$media_input,evidence_input:$evidence_input,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,media_source_commit:$source_commit,producer_event:"push",artifact_run_id:42,media_run_id:42,evidence_run_id:42}' \
   >"$fixture/candidate-state/nixoa-qualification-state.json"
 
 inventory_output="$temporary/inventory-output"

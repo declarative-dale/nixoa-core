@@ -134,7 +134,7 @@ inventory() {
   expected_evidence_input=$(jq -er .evidence_input <<<"$expected_inputs")
   jq -e --arg media_input "$expected_media_input" --arg evidence_input "$expected_evidence_input" \
     --arg source_commit "$SOURCE_SHA" \
-    '.schema_version == 3 and .media_input == $media_input and .evidence_input == $evidence_input and .source_commit == $source_commit and (.artifact_run_id | type == "number")' \
+    '.schema_version == 4 and .media_input == $media_input and .evidence_input == $evidence_input and .source_commit == $source_commit and (.artifact_run_id | type == "number") and (.evidence_run_id | type == "number")' \
     candidate-state/nixoa-qualification-state.json >/dev/null
   {
     printf 'artifact_run_id=%s\n' "$(jq -r .artifact_run_id candidate-state/nixoa-qualification-state.json)"
@@ -155,7 +155,7 @@ verify() {
   jq -e --arg media_input "$MEDIA_INPUT" --arg evidence_input "$EVIDENCE_INPUT" \
     --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" \
     --argjson artifact_run_id "$ARTIFACT_RUN_ID" \
-    '.schema_version == 3 and .media_input == $media_input and .evidence_input == $evidence_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id' \
+    '.schema_version == 4 and .media_input == $media_input and .evidence_input == $evidence_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id and (.evidence_run_id | type == "number")' \
     candidate/nixoa-qualification-state.json >/dev/null
   installer=candidate/result-installer/iso/nixoa-installer.iso
   signer_workflow="${GITHUB_REPOSITORY}/.github/workflows/ci.yml"

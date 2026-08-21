@@ -86,7 +86,7 @@ jobs:
   qualification:
     name: Qualify installer media and evidence
     needs: route
-    if: contains(fromJSON('["refresh-evidence","qualify-media"]'), fromJSON(needs.route.outputs.plan).qualification.mode)
+    if: contains(fromJSON('["refresh-evidence","qualify-media-reuse-evidence","qualify-media"]'), fromJSON(needs.route.outputs.plan).qualification.mode)
     runs-on: ubuntu-24.04
     timeout-minutes: 165
     permissions:
@@ -113,13 +113,24 @@ jobs:
           path: reused-media
           run-id: ${{ fromJSON(needs.route.outputs.plan).qualification.media_run_id }}
 
+      - name: Download reusable supply evidence
+        if: fromJSON(needs.route.outputs.plan).qualification.mode == 'qualify-media-reuse-evidence'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          name: nixoa-evidence
+          path: reused-evidence
+          run-id: ${{ fromJSON(needs.route.outputs.plan).qualification.evidence_run_id }}
+
       - name: Assemble qualified media and evidence
         env:
+          EXPECTED_EVIDENCE_INPUT: ${{ fromJSON(needs.route.outputs.plan).qualification.evidence_input }}
+          EXPECTED_EVIDENCE_RUN_ID: ${{ fromJSON(needs.route.outputs.plan).qualification.evidence_run_id }}
           QUALIFICATION_MODE: ${{ fromJSON(needs.route.outputs.plan).qualification.mode }}
         run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:qualification:assemble
 
       - name: Boot the installer ISO
-        if: fromJSON(needs.route.outputs.plan).qualification.mode == 'qualify-media'
+        if: contains(fromJSON('["qualify-media-reuse-evidence","qualify-media"]'), fromJSON(needs.route.outputs.plan).qualification.mode)
         env:
           BOOT_LOG: ${{ runner.temp }}/qemu-boot.log
           INSTALLER_ISO: result-installer/iso/nixoa-installer.iso
@@ -173,6 +184,25 @@ jobs:
             nixoa-qualification-state.json
           if-no-files-found: error
           compression-level: 0
+          retention-days: 90
+
+      - name: Upload reusable supply evidence
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nixoa-evidence
+          path: |
+            nixoa-system.spdx.json
+            nixoa-system.spdx.json.sha256
+            nixoa-system.cdx.json
+            nixoa-system.cdx.json.sha256
+            xen-orchestra-supply.assertion.json
+            xen-orchestra-supply.assertion.json.sha256
+            xen-orchestra-supply.spdx.json
+            xen-orchestra-supply.spdx.json.sha256
+            xen-orchestra-supply.cdx.json
+            xen-orchestra-supply.cdx.json.sha256
+            nixoa-qualification-state.json
+          if-no-files-found: error
           retention-days: 90
 
   publish:

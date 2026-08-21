@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 {
   applianceToplevel,
+  config,
   lib,
   modulesPath,
   nixoaMenu,
@@ -33,6 +34,7 @@ in {
 
   image.baseName = lib.mkForce "nixoa-installer";
   isoImage = {
+    squashfsCompression = "zstd -Xcompression-level 1";
     volumeID = "NIXOA_INSTALL";
 
     # Seed the installer store with the complete generic appliance closure and
@@ -45,6 +47,13 @@ in {
       xenOrchestraCe
     ];
   };
+
+  assertions = [
+    {
+      assertion = config.isoImage.squashfsCompression == "zstd -Xcompression-level 1";
+      message = "NiXOA installer SquashFS compression must remain zstd level 1";
+    }
+  ];
 
   networking.hostName = "nixoa-installer";
   networking.firewall.allowedTCPPorts = [22];
