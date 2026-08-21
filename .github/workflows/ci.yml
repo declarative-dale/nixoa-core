@@ -20,9 +20,15 @@ on:
         required: false
         type: boolean
         default: false
+      release_candidate:
+        description: Isolate an internal release qualification from ordinary main CI
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: ci-${{ github.event.pull_request.number || github.ref }}
+  group: >-
+    ci-${{ (github.event_name == 'workflow_dispatch' && inputs.release_candidate && format('release-{0}', github.run_id)) || github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:

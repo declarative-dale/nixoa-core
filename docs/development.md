@@ -125,6 +125,11 @@ realized during installer qualification. Trusted same-repository pull requests
 may reuse qualified artifacts; forks may not. The scheduled forced run still
 performs a complete media qualification before artifact expiry.
 
+Release workflows serialize their orchestration separately from publication.
+The Nix-packaged release manager dispatches qualification with a run-scoped CI
+identity, so a later `main` push cannot replace the pending release candidate.
+Only jobs that can publish acquire the shared `nixoa-publication` queue.
+
 `BOOT_TIMEOUT` remains a failure ceiling, not a normal delay: the QEMU smoke
 test exits as soon as the installer reaches its readiness marker. The routine
 path already completes in under a minute, so qualification policy and target

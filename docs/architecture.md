@@ -54,10 +54,12 @@ filters both changed paths and the tracked-file fingerprint, preventing
 classification and reuse from disagreeing. Only
 path-classifying events fetch full Git history, and future merge-group
 classification also fails toward rebuilding unless its base is a known
-ancestor of its head. Hosted leaf tasks run in isolated Devenv mode, while
-rolling and versioned publication share one non-canceling concurrency queue.
-The router and required verdict validate the same strict JSON Schema, so
-field, type, digest, and lifecycle invariants cannot drift between them.
+ancestor of its head. Hosted leaf tasks run in isolated Devenv mode. Release
+workflows serialize independently, release-owned qualification runs use a
+run-scoped CI identity, and only rolling and versioned publication jobs share
+the non-canceling publication queue. The router and required verdict validate
+the same strict JSON Schema, so field, type, digest, and lifecycle invariants
+cannot drift between them.
 
 ## Module layout
 

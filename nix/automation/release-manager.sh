@@ -112,7 +112,8 @@ dispatch() {
   [[ "$remote_sha" == "$SOURCE_SHA" ]]
   previous_run_id=$(gh run list --workflow ci.yml --event workflow_dispatch --branch main \
     --commit "$SOURCE_SHA" --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-  gh workflow run ci.yml --ref main -f validate_only=false -f force_artifact=false
+  gh workflow run ci.yml --ref main \
+    -f validate_only=false -f force_artifact=false -f release_candidate=true
   run_id=
   for _ in {1..24}; do
     run_id=$(gh run list --workflow ci.yml --event workflow_dispatch --branch main \
