@@ -9,6 +9,12 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-08-20
+
+NiXOA 1.4.0 makes Xen Orchestra's Nix supply-chain evidence a required
+installer input and replaces the former aggregate runtime override with typed,
+non-overlapping NixOS configuration fragments.
+
 ### Changed
 
 - Generate focused, non-overlapping `config.nixos-{http,web,redis,remotes}.toml`
@@ -856,7 +862,8 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 - Created XOA package with yarn2nix using workspace dependencies
 - Applied upstream patches (SMB handler, TypeScript generics) in preBuild
 
-[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/declarative-dale/nixoa-core/compare/540e49a397229cb12301a230c25fe123a42b0eab...v1.2.1
 [1.2.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.2...540e49a397229cb12301a230c25fe123a42b0eab
