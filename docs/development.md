@@ -40,7 +40,7 @@ Use the leaf packages directly for individual automation operations:
 EVENT_NAME=workflow_dispatch VALIDATE_ONLY=true \
   nix run --accept-flake-config .#nixoa-ci-route
 nix run --accept-flake-config .#nixoa-ci-classify-paths < changed-paths.txt
-nix run --accept-flake-config .#nixoa-ci-build-input
+nix run --accept-flake-config .#nixoa-ci-qualification-inputs
 nix eval --json .#lib.ciPlans.x86_64-linux.validation
 nix run --accept-flake-config .#run-ci-plan -- \
   --plan lib.ciPlans.x86_64-linux.validation
@@ -66,22 +66,23 @@ boundary. The aggregate `ci:repository-audit` task remains dependency-aware
 and has no command of its own after its declared flake and formatting checks
 finish.
 
-The `nixoa-ci-route` command emits one versioned JSON route plan. Installer
-allocation, protected-main publication, and the required verdict all consume
-that exact output, so downstream jobs cannot independently reinterpret
+The `nixoa-ci-route` command emits one versioned JSON route plan. Focused
+qualification, protected-main publication, and the required verdict all
+consume that exact output, so downstream jobs cannot independently reinterpret
 classification or reuse state. Both the router and verdict validate
-`nix/automation/ci-plan.schema.json`; schema-v1 rejects undeclared fields,
-invalid build-input digests, and publication without installer validation.
-The installer policy applies the same relevant/ignored path rules to event
-classification and the immutable tracked-file fingerprint; unrecognized paths
-therefore invalidate reusable state instead of merely scheduling resolution.
+`nix/automation/qualification-plan.schema.json`; schema-v2 rejects undeclared
+fields, invalid Nix graph digests, and publication without qualification.
+The path policy decides whether a change can affect the appliance. When it
+can, `lib.ciQualificationInputs.x86_64-linux` supplies separate canonical Nix
+graphs for installer media and supply evidence instead of maintaining another
+source-path approximation.
 Pull requests and pushes fetch full history for path classification;
 scheduled and manual validation use the default shallow checkout. Dormant
 merge-group support accepts a diff only when both event SHAs exist and the base
 is an ancestor of the head, otherwise it requires installer validation.
 
-The `validation`, `installer`, and `publish` target sets are versioned pure values under
-`lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
+The `validation`, `media`, `evidence`, and `publish` target sets are versioned
+pure values under `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
 locked Xen Orchestra input. The schema-v2 runner rejects malformed or duplicate
 targets before building, runs each target in a fresh child process against
 the shared Nix store, and collects every failure before it exits.
@@ -93,7 +94,7 @@ devenv shell -- bash -lc \
   'cd pkgs/nixoa-menu && cargo fmt --check && cargo check --locked && cargo test --locked'
 ```
 
-The flake exposes separate cached checks for automation, installer-input,
+The flake exposes separate cached checks for automation, qualification-input,
 release, operator, and Secretspec contracts, plus ShellCheck, workflow policy
 (`actionlint`, `zizmor`, and YAML-aware assertions), and repository invariants.
 This keeps failures focused while `ci:repository-audit` runs the complete flake and
@@ -107,6 +108,27 @@ The cache layers have separate responsibilities:
 - Cachix stores Nix derivation outputs and shares them between jobs and runs.
 - The immutable `nixoa-installer` artifact stores the tested ISO, SPDX and
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
+
+Qualification has four deliberately distinct outcomes:
+
+- `skip` means the change cannot affect the appliance.
+- `reuse` points at an artifact whose media and evidence identities both match.
+- `refresh-evidence` downloads the matching, already-booted ISO and regenerates
+  only the system/XO inventories, checksums, and attestations.
+- `qualify-media` realizes the ISO, boots it, and then generates its evidence.
+
+The media plan contains only `installer-iso`; the evidence plan contains only
+the appliance closure, `sbomnix`, Xen Orchestra, and its supply assertion.
+Deployment templates, metadata, menus, and CLI packages remain covered by the
+repository audit and protected-main publication without being redundantly
+realized during installer qualification. Trusted same-repository pull requests
+may reuse qualified artifacts; forks may not. The scheduled forced run still
+performs a complete media qualification before artifact expiry.
+
+`BOOT_TIMEOUT` remains a failure ceiling, not a normal delay: the QEMU smoke
+test exits as soon as the installer reaches its readiness marker. The routine
+path already completes in under a minute, so qualification policy and target
+selection—not a shorter timeout—are the meaningful performance controls.
 
 Only local pure validation tasks use devenv's `execIfModified`. Hosted tasks
 always execute and delegate their implementation to flake-packaged programs;

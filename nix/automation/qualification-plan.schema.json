@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/declarative-dale/nixoa-core/blob/main/nix/automation/qualification-plan.schema.json",
+  "title": "NiXOA focused qualification plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "qualification", "publish_required"],
+  "properties": {
+    "schema_version": { "const": 2 },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "mode",
+        "artifact_run_id",
+        "media_run_id",
+        "media_input",
+        "evidence_input"
+      ],
+      "properties": {
+        "required": { "type": "boolean" },
+        "mode": {
+          "enum": ["skip", "reuse", "refresh-evidence", "qualify-media"]
+        },
+        "artifact_run_id": {},
+        "media_run_id": {},
+        "media_input": {},
+        "evidence_input": {}
+      }
+    },
+    "publish_required": { "type": "boolean" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "qualification": {
+            "properties": { "required": { "const": true } }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "mode": { "enum": ["reuse", "refresh-evidence", "qualify-media"] },
+              "artifact_run_id": { "type": "integer", "minimum": 1 },
+              "media_run_id": { "type": "integer", "minimum": 1 },
+              "media_input": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+              "evidence_input": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "qualification": {
+            "properties": {
+              "mode": { "const": "skip" },
+              "artifact_run_id": { "type": "null" },
+              "media_run_id": { "type": "null" },
+              "media_input": { "type": "null" },
+              "evidence_input": { "type": "null" }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "publish_required": { "const": true } } },
+      "then": {
+        "properties": {
+          "qualification": {
+            "properties": { "required": { "const": true } }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -42,7 +42,7 @@ Exact commands and the compatible flake interfaces are in the
 
 Pure CI target contracts are exported as
 `lib.ciPlans.x86_64-linux.validation` and
-`lib.ciPlans.x86_64-linux.installer`. Both use the reusable planner and
+the focused `lib.ciPlans.x86_64-linux.media` and `.evidence` plans. All use the reusable planner and
 Nix-wrapped validator from the locked Xen Orchestra flake; publication,
 attestation, and signing remain separate delivery operations.
 
@@ -60,7 +60,7 @@ Actions maps the repository secret and variable through Secretspec once per
 job, then shares the masked environment with later actions. The flake packages
 Secretspec and validates both the public-read and publishing profiles.
 
-The build uses the flake-provided `sbomnix` to create validated, checksummed
+Evidence qualification uses the flake-provided `sbomnix` to create validated, checksummed
 SPDX and CycloneDX runtime inventories for the complete appliance closure.
 Cachix substitutes the system closure, SBOM tooling, and xo-nixpkg's matching
 `supply-protector-latest` output. Before attestation, the builder verifies that
@@ -71,7 +71,7 @@ upstream assertion and its SPDX and CycloneDX documents are preserved with the
 installer evidence. The finished SBOMs are cached with the ISO and immutable
 state in the same 90-day GitHub artifact, so
 later runs and releases retrieve the exact tested bundle without regenerating
-it. CI boots the ISO with QEMU, signs its build provenance, and binds the SPDX
+it. CI boots a newly identified ISO with QEMU, signs its build provenance, and binds the SPDX
 document to the installer. GitHub release assets carry the tested installer in
 numbered parts below GitHub's 2 GiB per-asset limit, plus its whole-file
 checksum, both SBOMs, and a checksummed manifest.
@@ -79,24 +79,20 @@ Reassemble a directly downloaded installer with `cat nixoa-v*.iso.part-* >
 nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
 `deploy-template` path performs artifact retrieval and verification itself.
 
-Before allocating the installer runner, the route job fingerprints only the
-tracked files that affect the appliance, installer, and SBOM outputs. It emits
-one versioned JSON plan containing classification, reuse, build, and
-protected-main publication decisions. Every downstream job and the required
-verdict consume that exact plan. If the input state matches a successful
-unexpired build, CI publishes a tiny state pointer to the original immutable
-artifact instead of rebuilding it. A fixture test proves that appliance and
-artifact-recipe changes alter the fingerprint while version, docs, tests,
-non-CI workflow maintenance, and Packer-only changes do not. Unknown tracked
-paths are included by default, and the CI workflow is an explicit override to
-the ignored GitHub metadata pattern. A relevant up-to-date
-pull-request candidate is built and booted once; the resulting state can then
-be reused by the identical `main` tree. Pull requests and pushes fetch full
-history for this comparison, while schedules and manual runs keep the shallow
-checkout. Merge-group inputs are supported defensively for a future repository
-transfer but are not triggered in this personal repository; missing,
-unavailable, or non-ancestral SHAs require installer validation. The router
-and required verdict share a strict schema-v1 JSON route contract.
+Before allocating the installer runner, the route job classifies the event and
+hashes two canonical graphs exported by Nix: the ISO plus its boot policy, and
+the system/XO evidence plus its assembly policy. It emits one versioned JSON
+plan containing the `skip`, `reuse`, `refresh-evidence`, or `qualify-media`
+decision and protected-main publication state. Every downstream job and the
+required verdict consume that exact plan. An exact unexpired match reuses the
+artifact. A media-only match downloads the already-booted ISO and regenerates
+its evidence. Only a new media identity realizes and boots the ISO. Pull
+requests and pushes fetch full history for path classification, while schedules
+and manual runs keep the shallow checkout. Merge-group inputs are supported
+defensively for a future repository transfer but are not triggered in this
+personal repository; missing, unavailable, or non-ancestral SHAs require
+qualification. The router and required verdict share a strict schema-v2 JSON
+route contract.
 
 At deployment time, `deploy-template` downloads the newest successful `main`
 artifact to a temporary directory, verifies its SHA-256 checksum and state
@@ -116,9 +112,9 @@ Credential-bearing configuration is kept in the runtime Secretspec contract.
 - Pull requests run flake, source, workflow, lock-health, ShellCheck,
   actionlint, and `zizmor` checks. The stable `Required CI verdict` summarizes the
   conditional graph for branch protection.
-- Relevant pull requests build and boot the installer. The protected branch
-  must be current before auto-merge, then `main` reuses the identical immutable
-  artifact while metadata-only changes skip planning.
+- Relevant pull requests select focused qualification from the Nix-owned
+  identities. Only `qualify-media` realizes and boots the installer; exact
+  matches reuse it and evidence-only changes retain the already-tested media.
 - A forced build and boot runs every other month so runtime and cache drift are
   detected before the 90-day artifact expires.
 - A scheduled workflow refreshes `devenv.lock` and `flake.lock` every Wednesday

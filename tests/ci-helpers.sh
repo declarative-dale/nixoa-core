@@ -4,10 +4,12 @@
 set -euo pipefail
 : "${NIXOA_CI_CLASSIFY:?NIXOA_CI_CLASSIFY must point to the packaged classifier}"
 : "${NIXOA_CI_CLASSIFY_PATHS:?NIXOA_CI_CLASSIFY_PATHS must point to the packaged path classifier}"
-: "${NIXOA_CI_BOOT:?NIXOA_CI_BOOT must point to the packaged boot test}"
+: "${NIXOA_CI_BOOT_MEDIA:?NIXOA_CI_BOOT_MEDIA must point to the packaged media boot test}"
 : "${NIXOA_CI_VERDICT:?NIXOA_CI_VERDICT must point to the packaged verdict}"
 : "${NIXOA_CI_LOCK_VALIDATE:?NIXOA_CI_LOCK_VALIDATE must point to the packaged lock validator}"
 : "${NIXOA_CI_ROUTE:?NIXOA_CI_ROUTE must point to the packaged work router}"
+: "${NIXOA_CI_RESOLVE_QUALIFICATION:?NIXOA_CI_RESOLVE_QUALIFICATION must point to the packaged qualification resolver}"
+: "${NIXOA_CI_QUALIFICATION_INPUTS:?NIXOA_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
 : "${NIXOA_CI_RELEASE_NOTES:?NIXOA_CI_RELEASE_NOTES must point to the packaged notes extractor}"
 : "${NIXOA_CI_RELEASE_VERSION:?NIXOA_CI_RELEASE_VERSION must point to the packaged version selector}"
 : "${NIXOA_CI_TRUSTED_UPDATE:?NIXOA_CI_TRUSTED_UPDATE must point to the packaged trusted updater}"
@@ -19,7 +21,7 @@ trap 'rm -rf -- "$temporary"' EXIT
 [[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/checks.nix modules/outputs/dev-shells.nix nix/checks/repository-policy.nix | "$NIXOA_CI_CLASSIFY_PATHS") == false ]]
 [[ $(printf '%s\n' modules/_nixos/platform.nix | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
 [[ $(printf '%s\n' nix/ci-plans.json | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
-[[ $(printf '%s\n' nix/automation/installer-build-assets.sh | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
+[[ $(printf '%s\n' nix/automation/qualification-assets.sh | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
 [[ $(printf '%s\n' .github/workflows/ci.yml | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
 [[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI_CLASSIFY_PATHS") == false ]]
 [[ $(printf '%s\n' future/unknown-output | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
@@ -58,29 +60,32 @@ classifier_env=(
 [[ $(env "${classifier_env[@]}" MERGE_BASE_SHA= MERGE_HEAD_SHA= "$NIXOA_CI_CLASSIFY" 2>/dev/null) == true ]]
 [[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$irrelevant_head" MERGE_HEAD_SHA="$divergent_head" "$NIXOA_CI_CLASSIFY" 2>/dev/null) == true ]]
 
-skip_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":false}'
-reuse_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":true}'
-build_plan='{"schema_version":1,"installer":{"required":true,"build_required":true,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":false}'
+skip_plan='{"schema_version":2,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"media_input":null,"evidence_input":null},"publish_required":false}'
+reuse_plan='{"schema_version":2,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":true}'
+evidence_plan='{"schema_version":2,"qualification":{"required":true,"mode":"refresh-evidence","artifact_run_id":42,"media_run_id":41,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
+media_plan='{"schema_version":2,"qualification":{"required":true,"mode":"qualify-media","artifact_run_id":42,"media_run_id":42,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
 env ROUTE_RESULT=success CI_PLAN="$skip_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT"
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$reuse_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT"
-env ROUTE_RESULT=success CI_PLAN="$build_plan" \
-  BUILD_RESULT=success "$NIXOA_CI_VERDICT"
-invalid_publish_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":true}'
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"
+env ROUTE_RESULT=success CI_PLAN="$evidence_plan" \
+  QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
+env ROUTE_RESULT=success CI_PLAN="$media_plan" \
+  QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
+invalid_publish_plan='{"schema_version":2,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"media_input":null,"evidence_input":null},"publish_required":true}'
 if env ROUTE_RESULT=success CI_PLAN="$invalid_publish_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted publication without an installer lifecycle.\n' >&2
   exit 1
 fi
-invalid_build_input_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"not-a-digest"},"publish_required":false}'
-if env ROUTE_RESULT=success CI_PLAN="$invalid_build_input_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
-  printf 'CI verdict accepted an invalid installer build input.\n' >&2
+invalid_media_input_plan='{"schema_version":2,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"media_input":"not-a-digest","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
+if env ROUTE_RESULT=success CI_PLAN="$invalid_media_input_plan" \
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  printf 'CI verdict accepted an invalid media input.\n' >&2
   exit 1
 fi
 if env ROUTE_RESULT=failure CI_PLAN="$skip_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT"; then
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"; then
   printf 'CI verdict accepted a failed repository audit.\n' >&2
   exit 1
 fi
@@ -95,9 +100,9 @@ env \
   "$NIXOA_CI_ROUTE"
 routed_plan=$(sed -n 's/^plan=//p' "$route_output")
 jq -e '
-  .schema_version == 1 and
-  (.installer.required | not) and
-  (.installer.build_required | not) and
+  .schema_version == 2 and
+  (.qualification.required | not) and
+  .qualification.mode == "skip" and
   (.publish_required | not)
 ' <<<"$routed_plan" >/dev/null
 
@@ -108,12 +113,94 @@ local_plan=$(
     "$NIXOA_CI_ROUTE"
 )
 jq -e '
-  .schema_version == 1 and
-  (.installer.required | not) and
-  (.installer.build_required | not) and
+  .schema_version == 2 and
+  (.qualification.required | not) and
+  .qualification.mode == "skip" and
   (.publish_required | not)
 ' <<<"$local_plan" >/dev/null
 [[ ! -e nixoa-ci-route.json ]]
+
+# The resolver distinguishes exact reuse, evidence refresh, and full media
+# qualification from the two Nix-owned identities.
+qualification_bin="$temporary/qualification-bin"
+qualification_state="$temporary/qualification-state"
+qualification_work="$temporary/qualification-work"
+mkdir -p "$qualification_bin" "$qualification_state" "$qualification_work"
+cat >"$qualification_bin/nix" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "${FAKE_QUALIFICATION_GRAPH:?}"
+EOF
+cat >"$qualification_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$1 $2" == "run list" ]]; then
+  printf '77\tpush\n'
+  exit 0
+fi
+if [[ "$1 $2" == "run download" ]]; then
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dir) destination=$2; shift 2 ;;
+      *) shift ;;
+    esac
+  done
+  cp -R "${FAKE_QUALIFICATION_STATE:?}/." "$destination/"
+  exit 0
+fi
+if [[ "$1" == api && "$2" == */artifacts ]]; then
+  printf '900\n'
+  exit 0
+fi
+exit 1
+EOF
+sed -i "1c#!${BASH}" "$qualification_bin/nix" "$qualification_bin/gh"
+chmod +x "$qualification_bin/nix" "$qualification_bin/gh"
+
+baseline_graph='{"media":{"installer":"/nix/store/media-a"},"evidence":{"system":"/nix/store/system-a"}}'
+baseline_inputs=$(NIXOA_CI_PATH_PREFIX="$qualification_bin" \
+  NIXOA_SYSTEM_ROOT="$qualification_work" \
+  FAKE_QUALIFICATION_GRAPH="$baseline_graph" \
+  "$NIXOA_CI_QUALIFICATION_INPUTS")
+baseline_media=$(jq -er .media_input <<<"$baseline_inputs")
+baseline_evidence=$(jq -er .evidence_input <<<"$baseline_inputs")
+jq -n --arg media_input "$baseline_media" --arg evidence_input "$baseline_evidence" '
+  {
+    schema_version:3,
+    mode:"qualify-media",
+    media_input:$media_input,
+    evidence_input:$evidence_input,
+    source_commit:"old-source",
+    artifact_source_commit:"old-source",
+    media_source_commit:"old-source",
+    producer_event:"push",
+    artifact_run_id:77,
+    media_run_id:77
+  }
+' >"$qualification_state/nixoa-qualification-state.json"
+
+resolve_mode() {
+  local graph=$1
+  local output=$qualification_work/output
+  rm -f "$output" "$qualification_work/nixoa-qualification-state.json"
+  (
+    cd "$qualification_work"
+    NIXOA_CI_PATH_PREFIX="$qualification_bin" \
+      NIXOA_SYSTEM_ROOT="$qualification_work" \
+      FAKE_QUALIFICATION_GRAPH="$graph" \
+      FAKE_QUALIFICATION_STATE="$qualification_state" \
+      GITHUB_OUTPUT="$output" \
+      GITHUB_REPOSITORY=example/nixoa \
+      GITHUB_RUN_ID=99 \
+      GITHUB_SHA=current-source \
+      "$NIXOA_CI_RESOLVE_QUALIFICATION" >/dev/null
+  )
+  sed -n 's/^mode=//p' "$output"
+}
+
+[[ $(resolve_mode "$baseline_graph") == reuse ]]
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-a"},"evidence":{"system":"/nix/store/system-b"}}') == refresh-evidence ]]
+[[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
 
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]
@@ -181,7 +268,7 @@ chmod +x "$temporary/bin/qemu-img" "$temporary/bin/qemu-system-x86_64"
 PATH="$temporary/bin:$PATH" \
   BOOT_TIMEOUT=20s \
   BOOT_LOG="$temporary/boot.log" \
-  timeout 5s "$NIXOA_CI_BOOT" "$temporary/installer.iso"
+  timeout 5s "$NIXOA_CI_BOOT_MEDIA" "$temporary/installer.iso"
 grep -Fq 'nixoa-installer login:' "$temporary/boot.log"
 
 cat >"$temporary/bin/gh" <<'EOF'
