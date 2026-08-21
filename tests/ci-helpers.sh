@@ -92,6 +92,17 @@ if env ROUTE_RESULT=failure CI_PLAN="$skip_plan" \
   printf 'CI verdict accepted a failed repository audit.\n' >&2
   exit 1
 fi
+unknown_mode_plan=$(jq -c '.qualification.mode = "future-mode"' <<<"$skip_plan")
+if env ROUTE_RESULT=success CI_PLAN="$unknown_mode_plan" \
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  printf 'CI verdict accepted an unknown qualification mode.\n' >&2
+  exit 1
+fi
+if env ROUTE_RESULT=success CI_PLAN='{"schema_version":3' \
+  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  printf 'CI verdict accepted malformed route JSON.\n' >&2
+  exit 1
+fi
 
 route_output="$temporary/route-output"
 env \

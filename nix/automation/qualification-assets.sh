@@ -165,4 +165,14 @@ jq -e --arg core_xo_element "$core_xo_element" --arg root "$xo_document_root" --
 check-jsonschema --schemafile "$NIXOA_SPDX_SCHEMA" nixoa-system.spdx.json
 jq -e '.bomFormat == "CycloneDX"' nixoa-system.cdx.json >/dev/null
 
+installer_iso=result-installer/iso/nixoa-installer.iso
+installer_budget_bytes=${NIXOA_INSTALLER_ARTIFACT_BUDGET_BYTES:-3000000000}
+installer_size_bytes=$(stat -c %s "$installer_iso")
+if (( installer_size_bytes > installer_budget_bytes )); then
+  printf 'Installer ISO is %s bytes, exceeding the %s-byte artifact budget\n' \
+    "$installer_size_bytes" "$installer_budget_bytes" >&2
+  exit 1
+fi
+printf 'Installer ISO size: %s bytes (budget: %s bytes)\n' \
+  "$installer_size_bytes" "$installer_budget_bytes"
 sha256sum result-installer/iso/nixoa-installer.iso >nixoa-installer.iso.sha256

@@ -254,19 +254,17 @@ jobs:
       - route
       - qualification
     runs-on: ubuntu-slim
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 1
           persist-credentials: false
-
-      - name: Set up Nix
-        uses: ./.github/actions/setup-nix
 
       - name: Enforce the conditional CI graph
         env:
           QUALIFICATION_RESULT: ${{ needs.qualification.result }}
           CI_PLAN: ${{ needs.route.outputs.plan }}
           ROUTE_RESULT: ${{ needs.route.result }}
-        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:verdict
+        run: bash nix/automation/verdict.sh

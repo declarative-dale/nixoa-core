@@ -16,7 +16,12 @@ correspond to published GitHub tags.
   changes to build and boot a new installer without rerunning `sbomnix` while
   preserving the combined installer artifact and release interfaces.
 - Build the installer SquashFS with explicit `zstd` level 1 compression,
-  trading a modest ISO size increase for substantially faster qualification.
+  reducing compression from about 9m07s to 20s. The accepted installer size
+  changed from 2.491 GB to 2.892 GB (about 16%) and remains under an enforced
+  3.0 GB artifact budget.
+- Keep Core CI on public Nix/Cachix substituters and run the required verdict
+  directly with runner-provided `jq`, avoiding FlakeHub cache 401s and a second
+  Nix/devenv bootstrap after qualification.
 
 ## [1.4.0] - 2026-08-20
 

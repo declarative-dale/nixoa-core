@@ -128,7 +128,12 @@ the appliance closure, `sbomnix`, Xen Orchestra, and its supply assertion.
 The installer explicitly uses SquashFS `zstd` compression level 1 instead of
 nixpkgs' much slower inherited level 19. This intentionally favors fast CI and
 qualification over the smallest possible ISO; release assets remain split
-below GitHub's per-file size limit.
+below GitHub's per-file size limit. The measured installer moved from 2.491 GB
+to 2.892 GB (about 16%); qualification enforces a 3.0 GB ISO budget.
+GitHub Actions resets Nix's base substituter to `cache.nixos.org`; the flake's
+public Cachix `extra-substituters` are then applied normally. The required
+verdict runs directly from the repository with runner-provided `jq`, validates
+the complete schema-v3 route contract, and does not install Nix.
 Deployment templates, metadata, menus, and CLI packages remain covered by the
 repository audit and protected-main publication without being redundantly
 realized during installer qualification. Reusable evidence is accepted only
