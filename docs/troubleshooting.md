@@ -53,7 +53,8 @@ systemctl status redis-xo.service xo-server.service
 journalctl -u redis-xo.service -u xo-server.service -b
 ```
 
-Also confirm that `/etc/xo-server/config.nixoa.toml` exists.
+Also confirm that the four generated
+`/etc/xo-server/config.nixos-{http,web,redis,remotes}.toml` overrides exist.
 
 ## TLS fails
 

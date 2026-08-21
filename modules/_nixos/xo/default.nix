@@ -58,18 +58,12 @@ in {
     tempDir = mkOption {
       type = types.str;
       default = "${config.nixoa.xo.home}/tmp";
-      description = "XO temporary directory.";
+      description = "XO temporary directory exposed to Node.js through TMPDIR.";
     };
     httpHost = mkOption {
       type = types.str;
       default = "0.0.0.0";
       description = "Address used in automatically generated certificates.";
-    };
-    config.file = mkOption {
-      type = types.nullOr types.path;
-      default = null;
-      example = lib.literalExpression "./config.nixoa.toml";
-      description = "Native xo-server TOML system override layered over vendor defaults.";
     };
     extraServerEnv = mkOption {
       type = types.attrsOf types.str;

@@ -29,7 +29,6 @@
   nixoa.xo = {
     enable = true;
     httpHost = "0.0.0.0";
-    config.file = ./config.nixoa.toml;
     tls = {
       enable = true;
       autoCert = true;

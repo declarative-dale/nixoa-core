@@ -193,7 +193,7 @@ load_xoa_state() {
     fi
   fi
 
-  if nixoa_tui_xo_tls_enabled /etc/xo-server/config.nixoa.toml; then
+  if nixoa_tui_xo_tls_enabled /etc/xo-server/config.nixos-http.toml; then
     scheme="https"
   fi
 
