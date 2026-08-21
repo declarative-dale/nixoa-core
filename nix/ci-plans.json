@@ -30,6 +30,7 @@
       { "name": "nxcli", "attribute": "packages.x86_64-linux.nxcli", "link": "result-nxcli" },
       { "name": "sbomnix", "attribute": "packages.x86_64-linux.sbomnix" },
       { "name": "xen-orchestra-ce", "attribute": "packages.x86_64-linux.xen-orchestra-ce" },
+      { "name": "xen-orchestra-supply-protector", "attribute": "packages.x86_64-linux.xen-orchestra-supply-protector" },
       { "name": "installer-iso", "attribute": "packages.x86_64-linux.installer-iso", "link": "result-installer" }
     ]
   },

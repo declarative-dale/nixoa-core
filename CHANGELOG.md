@@ -11,6 +11,10 @@ correspond to published GitHub tags.
 
 ### Changed
 
+- Verify xo-nixpkg's cache-distributed closure assertion before building the
+  installer, link its checksummed SPDX document to the Xen Orchestra component
+  in the appliance inventory, and preserve the upstream evidence beside the
+  attested installer artifact.
 - Run declared CI, release, and automation tasks through their leaf Nix
   packages instead of routing hosted execution through the monolithic
   `nixoa-ci` dispatcher, disable the unrelated development package set on

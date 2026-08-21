@@ -26,6 +26,11 @@
     nix
   ];
 
+  spdxSchema = pkgs.fetchurl {
+    url = "https://raw.githubusercontent.com/spdx/spdx-spec/v2.3/schemas/spdx-schema.json";
+    hash = "sha256-I5IIt6woezz12amvI/nWmGOXEQKl4Vh6J6OYtDSQuJs=";
+  };
+
   validatePlan = mkCommand {
     name = "validate-plan";
     prefix = ''
@@ -50,7 +55,11 @@
     };
     build-assets = mkCommand {
       name = "build-assets";
-      runtimeInputs = commonInputs ++ [planRunner];
+      prefix = ''
+        NIXOA_SPDX_SCHEMA="''${NIXOA_SPDX_SCHEMA:-${spdxSchema}}"
+        export NIXOA_SPDX_SCHEMA
+      '';
+      runtimeInputs = commonInputs ++ [pkgs.check-jsonschema planRunner];
       source = ./installer-build-assets.sh;
     };
     build-input = mkCommand {

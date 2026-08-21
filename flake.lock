@@ -614,11 +614,11 @@
         "xo-stable": "xo-stable"
       },
       "locked": {
-        "lastModified": 1787218792,
-        "narHash": "sha256-DB+ybax/22/2iO0XLqnBA+aToegSA1qHRetVGrNht/k=",
+        "lastModified": 1787274963,
+        "narHash": "sha256-pOes39pzLxOHaQ/TMfC8aXNNe6R8/EjiPrR96kHhX2Q=",
         "ref": "refs/heads/main",
-        "rev": "e93efbd5d44d2788cddb985d31ba29ee72779485",
-        "revCount": 113,
+        "rev": "0168669fd83b4ed85b4e600b55b0ebed369869dc",
+        "revCount": 119,
         "type": "git",
         "url": "https://github.com/declarative-dale/xo-nixpkg.git"
       },

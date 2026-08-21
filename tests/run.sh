@@ -108,6 +108,17 @@ grep -Fq '.#packages.x86_64-linux.xen-orchestra-ce' \
 grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer workflow does not verify that its Xen Orchestra output is cached"
+grep -Fq 'xen-orchestra-supply-protector' \
+  "$TEST_ROOT/nix/ci-plans.json" \
+  || fail "installer plan omits the upstream XO supply assertion"
+grep -Fq 'relationshipType: "DESCRIBED_BY"' \
+  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  || fail "appliance SPDX does not link its XO component to upstream evidence"
+# The variable reference must remain literal in the packaged command source.
+# shellcheck disable=SC2016
+grep -Fq 'check-jsonschema --schemafile "$NIXOA_SPDX_SCHEMA"' \
+  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  || fail "enriched appliance SPDX is not schema validated"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
   "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "installer workflow does not pin Determinate Nix to an immutable revision"
@@ -202,6 +213,9 @@ grep -Fq 'nixoa-system.spdx.json' \
 grep -Fq 'nixoa-system.cdx.json' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish a CycloneDX SBOM"
+grep -Fq 'xen-orchestra-supply.assertion.json' \
+  "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "installer artifact omits the verified upstream XO evidence"
 grep -Fq 'DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "rolling FlakeHub publication does not use the current Node.js 24 action"
