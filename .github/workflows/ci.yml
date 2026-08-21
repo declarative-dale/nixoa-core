@@ -29,8 +29,8 @@ permissions:
   contents: read
 
 jobs:
-  prepare:
-    name: Validate repository and prepare CI plan
+  route:
+    name: Audit repository and route downstream work
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     permissions:
@@ -48,7 +48,7 @@ jobs:
       - name: Set up Nix
         uses: ./.github/actions/setup-nix
 
-      - name: Prepare authoritative downstream CI plan
+      - name: Route authoritative downstream CI work
         id: plan
         env:
           ALLOW_REUSE: ${{ (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.force_artifact != true)) && 'true' || 'false' }}
@@ -63,10 +63,10 @@ jobs:
           PUSH_BASE_SHA: ${{ github.event.before }}
           PUSH_HEAD_SHA: ${{ github.sha }}
           VALIDATE_ONLY: ${{ inputs.validate_only || false }}
-        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:prepare
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:route
 
       - name: Validate repository
-        run: nix run --accept-flake-config .#devenv -- tasks run --option 'packages:pkgs!' '' ci:check
+        run: nix run --accept-flake-config .#devenv -- tasks run --option 'packages:pkgs!' '' ci:repository-audit
 
       - name: Upload installer state pointer
         if: fromJSON(steps.plan.outputs.plan).installer.required
@@ -79,8 +79,8 @@ jobs:
 
   build:
     name: Build, attest, and boot installer
-    needs: prepare
-    if: fromJSON(needs.prepare.outputs.plan).installer.build_required
+    needs: route
+    if: fromJSON(needs.route.outputs.plan).installer.build_required
     runs-on: ubuntu-24.04
     timeout-minutes: 165
     permissions:
@@ -154,12 +154,12 @@ jobs:
   publish:
     name: Publish reusable main outputs
     needs:
-      - prepare
+      - route
       - build
     if: >-
       always() &&
-      needs.prepare.result == 'success' &&
-      fromJSON(needs.prepare.outputs.plan).publish_required &&
+      needs.route.result == 'success' &&
+      fromJSON(needs.route.outputs.plan).publish_required &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
@@ -193,11 +193,11 @@ jobs:
           rolling-minor: 2
           include-output-paths: true
 
-  gate:
-    name: CI gate
+  verdict:
+    name: Required CI verdict
     if: always()
     needs:
-      - prepare
+      - route
       - build
     runs-on: ubuntu-slim
     timeout-minutes: 15
@@ -213,6 +213,6 @@ jobs:
       - name: Enforce the conditional CI graph
         env:
           BUILD_RESULT: ${{ needs.build.result }}
-          CI_PLAN: ${{ needs.prepare.outputs.plan }}
-          PREPARE_RESULT: ${{ needs.prepare.result }}
-        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:gate
+          CI_PLAN: ${{ needs.route.outputs.plan }}
+          ROUTE_RESULT: ${{ needs.route.result }}
+        run: nix run --accept-flake-config .#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:verdict

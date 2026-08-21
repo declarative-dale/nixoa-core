@@ -3,7 +3,7 @@
     "name": "nixoa-validation",
     "targets": [
       { "name": "metadata", "attribute": "checks.x86_64-linux.metadata" },
-      { "name": "nixoa-ci-check", "attribute": "checks.x86_64-linux.nixoa-ci-check" },
+      { "name": "nixoa-ci-repository-audit", "attribute": "checks.x86_64-linux.nixoa-ci-repository-audit" },
       { "name": "nxcli", "attribute": "checks.x86_64-linux.nxcli" },
       { "name": "flake-plan-runner", "attribute": "checks.x86_64-linux.flake-plan-runner" },
       { "name": "eval-smoke", "attribute": "checks.x86_64-linux.eval-smoke" },

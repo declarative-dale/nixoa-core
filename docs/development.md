@@ -31,14 +31,14 @@ linters.
 Run the complete flake-packaged CI contract before publishing:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci-check -- --no-write-lock-file
+nix run --accept-flake-config .#nixoa-ci-repository-audit -- --no-write-lock-file
 ```
 
 Use the leaf packages directly for individual automation operations:
 
 ```bash
 EVENT_NAME=workflow_dispatch VALIDATE_ONLY=true \
-  nix run --accept-flake-config .#nixoa-ci-prepare
+  nix run --accept-flake-config .#nixoa-ci-route
 nix run --accept-flake-config .#nixoa-ci-classify-paths < changed-paths.txt
 nix run --accept-flake-config .#nixoa-ci-build-input
 nix eval --json .#lib.ciPlans.x86_64-linux.validation
@@ -55,14 +55,21 @@ Automation programs and security-sensitive XO helpers remain native shell
 sources, while Nix provides their runtime dependencies and executable app
 boundaries.
 
-Hosted leaf tasks use Devenv's `--mode single` so they execute only the named
-boundary. The aggregate `ci:check` task remains dependency-aware and has no
-command of its own after its declared flake and formatting checks finish.
+Workflow policy allowlists Actions only for GitHub-platform boundaries:
+checkout, Determinate Nix bootstrap, artifact upload/download, attestations,
+and FlakeHub's OIDC publication. Linters, formatters, compilers, Cachix, and
+repository orchestration are ordinary pinned executables supplied by Nix, so
+the same commands run locally and on hosted runners.
 
-The CI `prepare` command emits one versioned JSON plan. Installer allocation,
-protected-main publication, and the stable gate all consume that exact output,
-so downstream jobs cannot independently reinterpret classification or reuse
-state. Both the producer and gate validate
+Hosted leaf tasks use Devenv's `--mode single` so they execute only the named
+boundary. The aggregate `ci:repository-audit` task remains dependency-aware
+and has no command of its own after its declared flake and formatting checks
+finish.
+
+The `nixoa-ci-route` command emits one versioned JSON route plan. Installer
+allocation, protected-main publication, and the required verdict all consume
+that exact output, so downstream jobs cannot independently reinterpret
+classification or reuse state. Both the router and verdict validate
 `nix/automation/ci-plan.schema.json`; schema-v1 rejects undeclared fields,
 invalid build-input digests, and publication without installer validation.
 The installer policy applies the same relevant/ignored path rules to event
@@ -89,7 +96,7 @@ devenv shell -- bash -lc \
 The flake exposes separate cached checks for automation, installer-input,
 release, operator, and Secretspec contracts, plus ShellCheck, workflow policy
 (`actionlint`, `zizmor`, and YAML-aware assertions), and repository invariants.
-This keeps failures focused while `ci:check` runs the complete flake and
+This keeps failures focused while `ci:repository-audit` runs the complete flake and
 formatting contracts. Run focused fixtures through devenv, then finish with
 the full task graph.
 
@@ -121,7 +128,7 @@ jj bookmark set my-change -r @
 jj git push --bookmark my-change
 ```
 
-Protected `main` requires the stable `CI gate`. Maintenance bots and release
+Protected `main` requires the stable `Required CI verdict`. Maintenance bots and release
 automation use narrowly validated pull requests rather than writing around
 that protection. See [Project reference](project-reference.md) for the
 immutable installer state, caches, SBOMs, attestations, and release flow.

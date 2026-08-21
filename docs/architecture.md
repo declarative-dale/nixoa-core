@@ -45,8 +45,8 @@ execute explicit `nixoa-ci-*` leaf packages. No umbrella automation app or
 dispatcher sits between the task graph and those Nix derivations. Workflows
 retain GitHub security
 boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
-The prepare program combines source classification and immutable artifact
-reuse into one versioned JSON plan consumed by later jobs and the stable gate.
+The work router combines source classification and immutable artifact reuse
+into one versioned JSON plan consumed by later jobs and the required verdict.
 A Nix policy declares which source paths affect the immutable installer
 fingerprint, allowing metadata-only commits to reuse a previously verified
 artifact while unknown paths fail safely toward rebuilding. The same policy
@@ -56,7 +56,7 @@ path-classifying events fetch full Git history, and future merge-group
 classification also fails toward rebuilding unless its base is a known
 ancestor of its head. Hosted leaf tasks run in isolated Devenv mode, while
 rolling and versioned publication share one non-canceling concurrency queue.
-The plan producer and stable gate validate the same strict JSON Schema, so
+The router and required verdict validate the same strict JSON Schema, so
 field, type, digest, and lifecycle invariants cannot drift between them.
 
 ## Module layout

@@ -34,10 +34,10 @@ in {
           export NIXOA_CI_BUILD_INPUT=${lib.getExe packages.nixoa-ci-build-input}
           export NIXOA_CI_CLASSIFY=${lib.getExe packages.nixoa-ci-classify}
           export NIXOA_CI_CLASSIFY_PATHS=${lib.getExe packages.nixoa-ci-classify-paths}
-          export NIXOA_CI_GATE=${lib.getExe packages.nixoa-ci-gate}
+          export NIXOA_CI_VERDICT=${lib.getExe packages.nixoa-ci-verdict}
           export NIXOA_CI_LOCK_VALIDATE=${lib.getExe packages.nixoa-ci-lock-validate}
-          export NIXOA_CI_PREPARE=${lib.getExe packages.nixoa-ci-prepare}
-          export NIXOA_CI_RELEASE=${lib.getExe packages.nixoa-ci-release}
+          export NIXOA_CI_ROUTE=${lib.getExe packages.nixoa-ci-route}
+          export NIXOA_CI_RELEASE_MANAGER=${lib.getExe packages.nixoa-ci-release-manager}
           export NIXOA_CI_RELEASE_NOTES=${lib.getExe packages.nixoa-ci-release-notes}
           export NIXOA_CI_RELEASE_SPLIT=${lib.getExe packages.nixoa-ci-release-stage}
           export NIXOA_CI_RELEASE_VERSION=${lib.getExe packages.nixoa-ci-release-version}
@@ -52,7 +52,7 @@ in {
         (packages)
         flake-plan-runner
         metadata
-        nixoa-ci-check
+        nixoa-ci-repository-audit
         nxcli
         ;
 
@@ -104,6 +104,13 @@ in {
                 exit 1
                 ;;
             esac
+            case "$action" in
+              ./* | actions/checkout@* | actions/upload-artifact@* | actions/download-artifact@* | actions/attest@* | DeterminateSystems/determinate-nix-action@* | DeterminateSystems/flakehub-push@*) ;;
+              *)
+                printf 'Action is not an approved GitHub-platform boundary: %s\n' "$action" >&2
+                exit 1
+                ;;
+            esac
           done < <(
             yq -r '.. | .uses? | select(. != null)' \
               .github/workflows/*.yml \
@@ -112,7 +119,7 @@ in {
           )
           if yq -r '.jobs[].steps[]?.run // ""' .github/workflows/*.yml |
             grep -v '^---$' |
-            grep -Ev "^$|^nix run --accept-flake-config \.#devenv -- tasks run --option 'packages:pkgs!' [']['] ci:check$|^nix run --accept-flake-config \.#devenv -- tasks run --mode single --option 'packages:pkgs!' [']['] [a-z0-9:_-]+$"; then
+            grep -Ev "^$|^nix run --accept-flake-config \.#devenv -- tasks run --option 'packages:pkgs!' [']['] ci:repository-audit$|^nix run --accept-flake-config \.#devenv -- tasks run --mode single --option 'packages:pkgs!' [']['] [a-z0-9:_-]+$"; then
             printf 'Workflow command bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
@@ -129,8 +136,8 @@ in {
         } ''
           cd ${inputs.self}
           for task in \
-            ci:prepare ci:classify ci:check ci:installer:plan ci:installer:build \
-            ci:installer:boot ci:publish ci:gate automation:queue \
+            ci:route ci:classify ci:repository-audit ci:installer:state ci:installer:build \
+            ci:installer:boot ci:publish ci:verdict automation:queue \
             automation:update-locks automation:validate-locks automation:open-lock-update-pr \
             release:prepare release:dispatch release:inventory release:verify \
             release:stage release:draft release:publish release:advance; do
@@ -139,7 +146,12 @@ in {
           grep -Fq 'pkgs.check-jsonschema' nix/automation/default.nix
           ! test -e nix/automation/cli.sh
           ! grep -Fq 'nixoaCiCommand' nix/devenv.nix
-          grep -Fq 'runFlakePackage "nixoa-ci-prepare"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "nixoa-ci-route"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "nixoa-ci-repository-audit"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "nixoa-ci-verdict"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "nixoa-ci-release-manager"' nix/devenv.nix
+          ! grep -RqE --exclude=checks.nix 'ci:(prepare|plan|check|gate)|nixoa-ci-(prepare|plan|check|gate|release)([^a-z-]|$)|NIXOA_CI_(PREPARE|PLAN|CHECK|GATE|RELEASE)([^A-Z_]|$)|PREPARE_RESULT|PLAN_RESULT' \
+            .github nix docs modules tests
           test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
           ! grep -Fq 'exec = "true";' nix/devenv.nix
           grep -Fq "git ls-files -z -- '*.nix'" nix/devenv.nix

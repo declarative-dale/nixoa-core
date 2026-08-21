@@ -5,9 +5,9 @@ set -euo pipefail
 : "${NIXOA_CI_CLASSIFY:?NIXOA_CI_CLASSIFY must point to the packaged classifier}"
 : "${NIXOA_CI_CLASSIFY_PATHS:?NIXOA_CI_CLASSIFY_PATHS must point to the packaged path classifier}"
 : "${NIXOA_CI_BOOT:?NIXOA_CI_BOOT must point to the packaged boot test}"
-: "${NIXOA_CI_GATE:?NIXOA_CI_GATE must point to the packaged gate}"
+: "${NIXOA_CI_VERDICT:?NIXOA_CI_VERDICT must point to the packaged verdict}"
 : "${NIXOA_CI_LOCK_VALIDATE:?NIXOA_CI_LOCK_VALIDATE must point to the packaged lock validator}"
-: "${NIXOA_CI_PREPARE:?NIXOA_CI_PREPARE must point to the packaged planner}"
+: "${NIXOA_CI_ROUTE:?NIXOA_CI_ROUTE must point to the packaged work router}"
 : "${NIXOA_CI_RELEASE_NOTES:?NIXOA_CI_RELEASE_NOTES must point to the packaged notes extractor}"
 : "${NIXOA_CI_RELEASE_VERSION:?NIXOA_CI_RELEASE_VERSION must point to the packaged version selector}"
 : "${NIXOA_CI_TRUSTED_UPDATE:?NIXOA_CI_TRUSTED_UPDATE must point to the packaged trusted updater}"
@@ -61,51 +61,51 @@ classifier_env=(
 skip_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":false}'
 reuse_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":true}'
 build_plan='{"schema_version":1,"installer":{"required":true,"build_required":true,"artifact_run_id":42,"build_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"publish_required":false}'
-env PREPARE_RESULT=success CI_PLAN="$skip_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_GATE"
-env PREPARE_RESULT=success CI_PLAN="$reuse_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_GATE"
-env PREPARE_RESULT=success CI_PLAN="$build_plan" \
-  BUILD_RESULT=success "$NIXOA_CI_GATE"
+env ROUTE_RESULT=success CI_PLAN="$skip_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT"
+env ROUTE_RESULT=success CI_PLAN="$reuse_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT"
+env ROUTE_RESULT=success CI_PLAN="$build_plan" \
+  BUILD_RESULT=success "$NIXOA_CI_VERDICT"
 invalid_publish_plan='{"schema_version":1,"installer":{"required":false,"build_required":false,"artifact_run_id":null,"build_input":null},"publish_required":true}'
-if env PREPARE_RESULT=success CI_PLAN="$invalid_publish_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_GATE" >/dev/null 2>&1; then
-  printf 'CI gate accepted publication without an installer lifecycle.\n' >&2
+if env ROUTE_RESULT=success CI_PLAN="$invalid_publish_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  printf 'CI verdict accepted publication without an installer lifecycle.\n' >&2
   exit 1
 fi
 invalid_build_input_plan='{"schema_version":1,"installer":{"required":true,"build_required":false,"artifact_run_id":42,"build_input":"not-a-digest"},"publish_required":false}'
-if env PREPARE_RESULT=success CI_PLAN="$invalid_build_input_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_GATE" >/dev/null 2>&1; then
-  printf 'CI gate accepted an invalid installer build input.\n' >&2
+if env ROUTE_RESULT=success CI_PLAN="$invalid_build_input_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  printf 'CI verdict accepted an invalid installer build input.\n' >&2
   exit 1
 fi
-if env PREPARE_RESULT=failure CI_PLAN="$skip_plan" \
-  BUILD_RESULT=skipped "$NIXOA_CI_GATE"; then
-  printf 'CI gate accepted a failed repository check.\n' >&2
+if env ROUTE_RESULT=failure CI_PLAN="$skip_plan" \
+  BUILD_RESULT=skipped "$NIXOA_CI_VERDICT"; then
+  printf 'CI verdict accepted a failed repository audit.\n' >&2
   exit 1
 fi
 
-prepare_output="$temporary/prepare-output"
+route_output="$temporary/route-output"
 env \
   EVENT_NAME=workflow_dispatch \
   GITHUB_EVENT_NAME=workflow_dispatch \
-  GITHUB_OUTPUT="$prepare_output" \
+  GITHUB_OUTPUT="$route_output" \
   GITHUB_REF=refs/heads/main \
   VALIDATE_ONLY=true \
-  "$NIXOA_CI_PREPARE"
-prepared_plan=$(sed -n 's/^plan=//p' "$prepare_output")
+  "$NIXOA_CI_ROUTE"
+routed_plan=$(sed -n 's/^plan=//p' "$route_output")
 jq -e '
   .schema_version == 1 and
   (.installer.required | not) and
   (.installer.build_required | not) and
   (.publish_required | not)
-' <<<"$prepared_plan" >/dev/null
+' <<<"$routed_plan" >/dev/null
 
 local_plan=$(
   env \
     EVENT_NAME=workflow_dispatch \
     VALIDATE_ONLY=true \
-    "$NIXOA_CI_PREPARE"
+    "$NIXOA_CI_ROUTE"
 )
 jq -e '
   .schema_version == 1 and
@@ -113,7 +113,7 @@ jq -e '
   (.installer.build_required | not) and
   (.publish_required | not)
 ' <<<"$local_plan" >/dev/null
-[[ ! -e nixoa-ci-plan.json ]]
+[[ ! -e nixoa-ci-route.json ]]
 
 read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]
@@ -126,7 +126,7 @@ jq -e '
   .enforcement == "active" and
   (.bypass_actors | length) == 0 and
   ([.rules[].type] | index("merge_queue") | not) and
-  any(.rules[]; .type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and .parameters.required_status_checks == [{context:"CI gate",integration_id:15368}])
+  any(.rules[]; .type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and .parameters.required_status_checks == [{context:"Required CI verdict",integration_id:15368}])
 ' "$test_root/nix/automation/github/main-ruleset.json" >/dev/null
 read -r version bump < <(printf '%s\n' 'feat!: incompatible' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '3.0.0 major' ]]
@@ -146,7 +146,7 @@ if "$NIXOA_CI_RELEASE_NOTES" 9.9.9 "$test_root/CHANGELOG.md" >/dev/null 2>&1; th
 fi
 
 grep -Fq 'gh release view --json tagName --jq .tagName' \
-  "$test_root/nix/automation/release.sh"
+  "$test_root/nix/automation/release-manager.sh"
 if grep -Eq 'MERGE_QUEUE_TOKEN|RELEASE_AUTOMATION_LOGIN' \
   "$test_root/.github/workflows/release.yml" \
   "$test_root/.github/workflows/queue-automation.yml" \

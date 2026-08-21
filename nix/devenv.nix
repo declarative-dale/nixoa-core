@@ -19,10 +19,10 @@ in {
   packages = import ./devenv-packages.nix {inherit pkgs;};
 
   tasks = {
-    "ci:prepare".exec = runFlakePackage "nixoa-ci-prepare" "";
+    "ci:route".exec = runFlakePackage "nixoa-ci-route" "";
     "ci:classify".exec = runFlakePackage "nixoa-ci-classify" "";
 
-    "ci:check:format" = {
+    "ci:repository-audit:format" = {
       exec = withFlake ''
         cd "$DEVENV_ROOT"
         if git rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -44,26 +44,26 @@ in {
         "**/*.nix"
       ];
     };
-    "ci:check:flake" = {
-      exec = runFlakePackage "nixoa-ci-check" "--no-write-lock-file";
+    "ci:repository-audit:flake" = {
+      exec = runFlakePackage "nixoa-ci-repository-audit" "--no-write-lock-file";
       # Reuse is safe only for an identical checkout; every tracked source or
       # documentation change is allowed to invalidate the complete contract.
       execIfModified = ["."];
     };
-    "ci:check" = {
+    "ci:repository-audit" = {
       after = [
-        "ci:check:flake"
-        "ci:check:format"
+        "ci:repository-audit:flake"
+        "ci:repository-audit:format"
       ];
     };
 
-    "ci:installer:plan".exec = runFlakePackage "nixoa-ci-resolve-state" "";
+    "ci:installer:state".exec = runFlakePackage "nixoa-ci-resolve-state" "";
     "ci:installer:build".exec = runFlakePackage "nixoa-ci-build-assets" "";
     "ci:installer:boot".exec = runFlakePackage "nixoa-ci-boot" ''
       "''${INSTALLER_ISO:-result-installer/iso/nixoa-installer.iso}"
     '';
     "ci:publish".exec = runFlakePackage "nixoa-ci-publish" "";
-    "ci:gate".exec = runFlakePackage "nixoa-ci-gate" "";
+    "ci:verdict".exec = runFlakePackage "nixoa-ci-verdict" "";
 
     "automation:queue".exec = runFlakePackage "nixoa-ci-queue" "";
     "automation:update-locks".exec = runFlakePackage "nixoa-ci-update-locks" "";
@@ -71,13 +71,13 @@ in {
     "automation:open-lock-update-pr".exec =
       runFlakePackage "nixoa-ci-open-update-pr" "flake.lock devenv.lock";
 
-    "release:prepare".exec = runFlakePackage "nixoa-ci-release" "prepare";
-    "release:dispatch".exec = runFlakePackage "nixoa-ci-release" "dispatch";
-    "release:inventory".exec = runFlakePackage "nixoa-ci-release" "inventory";
-    "release:verify".exec = runFlakePackage "nixoa-ci-release" "verify";
-    "release:stage".exec = runFlakePackage "nixoa-ci-release" "stage";
-    "release:draft".exec = runFlakePackage "nixoa-ci-release" "draft";
-    "release:publish".exec = runFlakePackage "nixoa-ci-release" "publish";
-    "release:advance".exec = runFlakePackage "nixoa-ci-release" "advance";
+    "release:prepare".exec = runFlakePackage "nixoa-ci-release-manager" "prepare";
+    "release:dispatch".exec = runFlakePackage "nixoa-ci-release-manager" "dispatch";
+    "release:inventory".exec = runFlakePackage "nixoa-ci-release-manager" "inventory";
+    "release:verify".exec = runFlakePackage "nixoa-ci-release-manager" "verify";
+    "release:stage".exec = runFlakePackage "nixoa-ci-release-manager" "stage";
+    "release:draft".exec = runFlakePackage "nixoa-ci-release-manager" "draft";
+    "release:publish".exec = runFlakePackage "nixoa-ci-release-manager" "publish";
+    "release:advance".exec = runFlakePackage "nixoa-ci-release-manager" "advance";
   };
 }

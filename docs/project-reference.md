@@ -35,8 +35,8 @@ Run `nix flake show` for the complete evaluated output tree.
 
 Native devenv and the default `devShells.x86_64-linux` output share the
 repository toolchain module. Use `devenv shell` for interactive work and
-`devenv tasks run ci:check` for the complete repository contract. Exact
-commands and the compatible flake interfaces are in the
+`devenv tasks run ci:repository-audit` for the complete repository contract.
+Exact commands and the compatible flake interfaces are in the
 [development guide](development.md).
 
 Pure CI target contracts are exported as
@@ -72,13 +72,13 @@ Reassemble a directly downloaded installer with `cat nixoa-v*.iso.part-* >
 nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
 `deploy-template` path performs artifact retrieval and verification itself.
 
-Before allocating the installer runner, the prepare job fingerprints only the
+Before allocating the installer runner, the route job fingerprints only the
 tracked files that affect the appliance, installer, and SBOM outputs. It emits
 one versioned JSON plan containing classification, reuse, build, and
-protected-main publication decisions. Every downstream job and the stable gate
-consume that exact plan. If the input state matches a successful unexpired
-build, CI publishes a tiny state pointer to the original immutable artifact
-instead of rebuilding it. A fixture test proves that appliance and
+protected-main publication decisions. Every downstream job and the required
+verdict consume that exact plan. If the input state matches a successful
+unexpired build, CI publishes a tiny state pointer to the original immutable
+artifact instead of rebuilding it. A fixture test proves that appliance and
 artifact-recipe changes alter the fingerprint while version, docs, tests,
 non-CI workflow maintenance, and Packer-only changes do not. Unknown tracked
 paths are included by default, and the CI workflow is an explicit override to
@@ -88,8 +88,8 @@ be reused by the identical `main` tree. Pull requests and pushes fetch full
 history for this comparison, while schedules and manual runs keep the shallow
 checkout. Merge-group inputs are supported defensively for a future repository
 transfer but are not triggered in this personal repository; missing,
-unavailable, or non-ancestral SHAs require installer validation. The prepare
-command and stable gate share a strict schema-v1 JSON lifecycle contract.
+unavailable, or non-ancestral SHAs require installer validation. The router
+and required verdict share a strict schema-v1 JSON route contract.
 
 At deployment time, `deploy-template` downloads the newest successful `main`
 artifact to a temporary directory, verifies its SHA-256 checksum and state
@@ -107,7 +107,7 @@ Credential-bearing configuration is kept in the runtime Secretspec contract.
 ## Automation
 
 - Pull requests run flake, source, workflow, lock-health, ShellCheck,
-  actionlint, and `zizmor` checks. The stable `CI gate` summarizes the
+  actionlint, and `zizmor` checks. The stable `Required CI verdict` summarizes the
   conditional graph for branch protection.
 - Relevant pull requests build and boot the installer. The protected branch
   must be current before auto-merge, then `main` reuses the identical immutable
@@ -129,7 +129,7 @@ Credential-bearing configuration is kept in the runtime Secretspec contract.
   development version passes through the same protection.
 - Release, development-version, and flake-input pull requests use the
   repository-scoped `GITHUB_TOKEN`. Trusted automation dispatches CI for the
-  exact head SHA, waits for the protected `CI gate`, and enables auto-merge
+  exact head SHA, waits for the protected `Required CI verdict`, and enables auto-merge
   after validating the bot identity, branch, title, repository, and allowlisted
   files. Version pull requests carry exactly the `VERSION` change.
 - `VERSION` records the current development release. The release workflow

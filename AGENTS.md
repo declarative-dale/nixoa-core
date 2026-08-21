@@ -30,7 +30,7 @@ nix flake check --no-write-lock-file
 nix build .#nixosConfigurations.nixoa.config.system.build.toplevel --no-link
 nix build .#xen-orchestra-ce .#nxcli .#nixoa-menu .#installer-iso --no-link
 nix run --accept-flake-config .#deploy-template -- --help
-nix run --accept-flake-config .#nixoa-ci-check -- --no-write-lock-file
+nix run --accept-flake-config .#nixoa-ci-repository-audit -- --no-write-lock-file
 ```
 
 `nix run --accept-flake-config .#deploy-template` downloads the latest
@@ -40,10 +40,11 @@ flake-build fallback.
 
 Enter the native toolchain with `devenv shell`; `nix develop
 --accept-flake-config` is the compatible flake-only fallback. Run the complete
-repository contract with `devenv tasks run ci:check`. GitHub workflow command
-bodies must call declared devenv tasks, which delegate repository policy to the
-flake-packaged `nixoa-ci-*` leaf commands; do not add raw CI or release logic
-to workflow YAML. Do not add a monolithic automation dispatcher.
+repository contract with `devenv tasks run ci:repository-audit`. GitHub
+workflow command bodies must call declared devenv tasks, which delegate
+repository policy to the flake-packaged `nixoa-ci-*` leaf commands; do not add
+raw CI or release logic to workflow YAML. Do not add a monolithic automation
+dispatcher.
 Declare credential and repository-variable contracts in `secretspec.toml`.
 Resolve values only at runtime; never pass credentials through Nix evaluation
 or derivations where they would enter the store.

@@ -123,18 +123,18 @@ fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
 assert_eq "$setup_steps" 4
-grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:gate" \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:verdict" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "stable CI gate bypasses its declared devenv task"
-yq -e '.jobs.gate.timeout-minutes >= 15' \
+  || fail "required CI verdict bypasses its declared devenv task"
+yq -e '.jobs.verdict.timeout-minutes >= 15' \
   "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
-  || fail "stable CI gate cannot cold-start its declared devenv task"
+  || fail "required CI verdict cannot cold-start its declared devenv task"
 grep -Fq "fetch-depth: \${{ contains(fromJSON('[\"pull_request\",\"push\",\"merge_group\"]'), github.event_name) && '0' || '1' }}" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "prepare checkout does not limit full history to path-classifying events"
-prepare_outputs=$(yq -r '.jobs.prepare.outputs | keys | join(",")' \
+  || fail "route checkout does not limit full history to path-classifying events"
+route_outputs=$(yq -r '.jobs.route.outputs | keys | join(",")' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$prepare_outputs" plan
+assert_eq "$route_outputs" plan
 yq -e \
   '.jobs.publish.concurrency.group == "nixoa-publication" and .jobs.publish.concurrency.cancel-in-progress == false' \
   "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
@@ -157,7 +157,7 @@ grep -Fq 'flake-plan-runner' \
   "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
   || fail "installer builds bypass the shared schema-v2 plan runner"
 grep -Fq -- '--no-build --print-build-logs' \
-  "$TEST_ROOT/nix/automation/check.sh" \
+  "$TEST_ROOT/nix/automation/repository-audit.sh" \
   || fail "complete validation does not separate evaluation from planned builds"
 # GitHub and shell expressions must remain literal in the source contract.
 # shellcheck disable=SC2016
@@ -176,15 +176,15 @@ grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
 grep -Fq 'build_input=$(nixoa-ci-build-input)' \
   "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
   || fail "installer workflow does not calculate deterministic build state"
-grep -Fq 'if: fromJSON(needs.prepare.outputs.plan).installer.build_required' \
+grep -Fq 'if: fromJSON(needs.route.outputs.plan).installer.build_required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer build is not gated by the authoritative prepare plan"
+  || fail "installer build does not consume the authoritative route plan"
 grep -Fq 'if: fromJSON(steps.plan.outputs.plan).installer.required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer state upload is not gated by the authoritative prepare plan"
-grep -Fq 'fromJSON(needs.prepare.outputs.plan).publish_required' \
+  || fail "installer state upload does not consume the authoritative route plan"
+grep -Fq 'fromJSON(needs.route.outputs.plan).publish_required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "publication is not gated by the authoritative prepare plan"
+  || fail "publication does not consume the authoritative route plan"
 grep -Fq 'name: nixoa-build-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
@@ -211,8 +211,8 @@ grep -Fq 'rolling-minor: 2' \
 grep -Fq -- '--status completed' \
   "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
   || fail "installer state cannot recover verified artifacts from late failures"
-grep -Fq 'name: CI gate' "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "consolidated CI does not expose a stable gate"
+grep -Fq 'name: Required CI verdict' "$TEST_ROOT/.github/workflows/ci.yml" \
+  || fail "consolidated CI does not expose a stable verdict"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
 grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:installer:boot" "$TEST_ROOT/.github/workflows/ci.yml" \
@@ -233,9 +233,9 @@ grep -Fq 'cron: "17 9 * * 3"' \
 grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' automation:open-lock-update-pr" \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml" \
   || fail "flake input refresh bypasses the declared PR publisher task"
-grep -Fq ".#devenv -- tasks run --option 'packages:pkgs!' '' ci:check" \
+grep -Fq ".#devenv -- tasks run --option 'packages:pkgs!' '' ci:repository-audit" \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "validation bypasses the declared complete-check task"
+  || fail "validation bypasses the declared repository-audit task"
 if grep -Fq 'inputs:' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh unexpectedly limits the inputs it updates"
@@ -247,7 +247,7 @@ grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' relea
 grep -Fq '2147483648' "$TEST_ROOT/nix/automation/release-split.sh" \
   || fail "release staging does not enforce GitHub's per-asset size limit"
 grep -Fq 'Release tag %s already exists without a GitHub release.' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release preparation does not reject pre-existing unpublished tags"
 # The variable references must remain literal in the trusted-update source.
 # shellcheck disable=SC2016
@@ -257,35 +257,35 @@ grep -Fq 'if [[ $dispatched == false && $attempt -ge 2 ]]' \
 # The variable references must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'git merge-base --is-ancestor "$draft_target" "$SOURCE_SHA"' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow cannot safely refresh a failed draft from newer main"
-grep -Fq -- '--draft' "$TEST_ROOT/nix/automation/release.sh" \
+grep -Fq -- '--draft' "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not stage assets in a draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'nixoa-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not use the curated changelog entry"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq -- '--notes-file "$notes_file"' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not publish curated release notes"
-if grep -Fq -- '--generate-notes' "$TEST_ROOT/nix/automation/release.sh"; then
+if grep -Fq -- '--generate-notes' "$TEST_ROOT/nix/automation/release-manager.sh"; then
   fail "release workflow still substitutes generated notes for the changelog"
 fi
 grep -Fq 'candidate-state/nixoa-build-state.json' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not resolve the immutable build state"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'gh attestation verify "$installer"' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not verify builder attestations"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq -- '--signer-workflow "$signer_workflow"' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release verification does not constrain the signer workflow"
 grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
@@ -299,12 +299,12 @@ grep -Fq 'actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c' \
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'gh release edit "$RELEASE_TAG" --draft=false --latest' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not publish the verified immutable draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'Start NiXOA ${next_version}' \
-  "$TEST_ROOT/nix/automation/release.sh" \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not advance the development version"
 grep -Fq 'package-ecosystem: github-actions' \
   "$TEST_ROOT/.github/dependabot.yml" \
