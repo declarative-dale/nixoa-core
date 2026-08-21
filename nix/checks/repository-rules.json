@@ -1,4 +1,7 @@
 [
+  { "kind": "contains", "path": "flake.nix", "needle": "nixpkgs.url = \"https://flakehub.com/f/NixOS/nixpkgs/0\";", "message": "The appliance must follow FlakeHub's stable Nixpkgs train" },
+  { "kind": "contains", "path": "flake.nix", "needle": "url = \"https://flakehub.com/f/nix-community/home-manager/0\";", "message": "Home Manager must follow its matching stable FlakeHub train" },
+  { "kind": "contains", "path": "flake.nix", "needle": "inputs.nixpkgs.follows = \"nixpkgs\";", "message": "Home Manager must share the appliance's stable Nixpkgs input" },
   { "kind": "contains", "path": ".github/actions/setup-nix/action.yml", "needle": "DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858", "message": "CI must pin Determinate Nix to the reviewed revision" },
   { "kind": "excludes", "path": ".github/workflows/ci.yml", "needle": "magic-nix-cache-action", "message": "CI must publish only explicitly planned protected-main closures" },
   { "kind": "excludes", "path": ".github/actions/setup-nix/action.yml", "needle": "cachix/cachix-action@", "message": "CI setup must not implicitly push every realized closure" },
