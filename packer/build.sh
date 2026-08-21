@@ -4,7 +4,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT=${NIXOA_SYSTEM_ROOT:-}
+if [[ -z "$REPO_ROOT" ]]; then
+  if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
+    REPO_ROOT=$git_root
+  elif [[ -f "$SCRIPT_DIR/../flake.nix" ]]; then
+    REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
+  else
+    printf 'Run this command from a NiXOA checkout or set NIXOA_SYSTEM_ROOT.\n' >&2
+    exit 1
+  fi
+fi
+PACKER_ROOT=${NIXOA_PACKER_ROOT:-$REPO_ROOT/packer}
+[[ -f "$PACKER_ROOT/builds.pkr.hcl" ]] || {
+  printf 'NiXOA Packer sources were not found at %s.\n' "$PACKER_ROOT" >&2
+  exit 1
+}
 
 PACKER_BIN=${PACKER_BIN:-packer-xenserver}
 NIX_BIN=${NIX_BIN:-nix}
@@ -166,7 +181,7 @@ installer_sha256=$(sha256sum "$installer_iso" | awk '{print $1}')
 operator_key=$(realpath "$OPERATOR_PUBLIC_KEY_FILE")
 printf 'Installer ISO: %s\n' "$installer_iso"
 
-cd "$SCRIPT_DIR"
+cd "$PACKER_ROOT"
 "$PACKER_BIN" init .
 "$PACKER_BIN" build \
   -parallel-builds=1 \

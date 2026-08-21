@@ -28,6 +28,18 @@ The helper saves non-secret pool settings to the ignored
 `PKR_VAR_remote_password` for non-interactive use; otherwise the helper prompts
 without echo.
 
+The lower-level builder is also a first-class app. It consumes an existing
+Packer variable file without running the interactive configuration step:
+
+```bash
+nix run --accept-flake-config .#build-template -- \
+  -var-file=packer/local.pkrvars.json
+```
+
+Both apps use the same Nix-packaged Packer and XenServer plugin. Run them from
+the checkout whose `packer/` sources and appliance flake should be built, or
+set `NIXOA_SYSTEM_ROOT` explicitly.
+
 GitHub Actions builds the deployer, appliance packages, complete system, and
 installer ISO. The complete, closure-preseeded ISO is retained for 90 days as
 the `nixoa-installer` workflow artifact; only the smaller reusable NiXOA
