@@ -151,9 +151,21 @@ yq -e \
   "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
   || fail "rolling publication does not wait in the shared non-canceling queue"
 yq -e \
-  '.concurrency.group == "nixoa-publication" and .concurrency.cancel-in-progress == false' \
+  '.concurrency.group == "nixoa-release" and .concurrency.cancel-in-progress == false and
+   .jobs.release.concurrency.group == "nixoa-publication" and
+   .jobs.release.concurrency.cancel-in-progress == false' \
   "$TEST_ROOT/.github/workflows/release.yml" >/dev/null \
-  || fail "versioned publication does not wait in the shared non-canceling queue"
+  || fail "release orchestration and publication do not use distinct non-canceling queues"
+yq -e \
+  '.on.workflow_dispatch.inputs.release_candidate.type == "boolean" and
+   .on.workflow_dispatch.inputs.release_candidate.default == false and
+   (.concurrency.group | contains("inputs.release_candidate")) and
+   (.concurrency.group | contains("github.run_id"))' \
+  "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
+  || fail "release qualification can be replaced by an ordinary pending main run"
+grep -Fq -- '-f release_candidate=true' \
+  "$TEST_ROOT/nix/automation/release-manager.sh" \
+  || fail "release dispatch does not request an isolated qualification run"
 if grep -Fq 'run: nix flake update' \
   "$TEST_ROOT/.github/workflows/update-flake-lock.yml"; then
   fail "flake input refresh bypasses its packaged updater"

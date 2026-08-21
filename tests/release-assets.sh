@@ -107,4 +107,46 @@ jq -e \
     .assets.cyclonedx.name == "nixoa-v1.1.2.cdx.json.gz"
   ' "$fixture/release/release-manifest.json" >/dev/null
 
+# Exercise release qualification dispatch through the same packaged command
+# used by GitHub. A release-owned run must not share main's replaceable pending
+# slot, and the exact successful run ID must flow back to the release job.
+cat >"$temporary/bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-} ${2:-}" in
+  "api repos/example/nixoa/commits/main")
+    printf '%s\n' "${FAKE_SOURCE_SHA:?}"
+    ;;
+  "run list")
+    if [[ -e ${FAKE_DISPATCH_MARKER:?} ]]; then
+      printf '%s\n' 314
+    fi
+    ;;
+  "workflow run")
+    printf '%s\n' "$*" >"${FAKE_WORKFLOW_ARGS:?}"
+    [[ "$*" == *"-f release_candidate=true"* ]]
+    touch "${FAKE_DISPATCH_MARKER:?}"
+    ;;
+  "run watch")
+    [[ "${3:-}" == 314 && "${4:-}" == --exit-status ]]
+    ;;
+  *)
+    printf 'Unexpected gh fixture invocation: %s\n' "$*" >&2
+    exit 1
+    ;;
+esac
+EOF
+sed -i "1c#!${BASH}" "$temporary/bin/gh"
+chmod +x "$temporary/bin/gh"
+dispatch_output="$temporary/dispatch-output"
+export FAKE_DISPATCH_MARKER="$temporary/dispatched"
+export FAKE_SOURCE_SHA="$source_sha"
+export FAKE_WORKFLOW_ARGS="$temporary/workflow-args"
+GITHUB_OUTPUT="$dispatch_output" \
+GITHUB_REPOSITORY=example/nixoa \
+SOURCE_SHA="$source_sha" \
+  "$NIXOA_CI_RELEASE_MANAGER" dispatch
+grep -Fxq 'run_id=314' "$dispatch_output"
+grep -Fq -- '-f release_candidate=true' "$FAKE_WORKFLOW_ARGS"
+
 printf 'Release asset fixture checks passed.\n'

@@ -9,14 +9,6 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
-### Changed
-
-- Split installer qualification into Nix-identified media and evidence graphs:
-  reuse exact artifacts, refresh supply evidence against matching tested media,
-  and realize and boot an ISO only when its media identity changes. Limit the
-  qualification plans to their direct targets and allow trusted repository pull
-  requests to consume already-qualified media.
-
 ## [1.4.0] - 2026-08-20
 
 NiXOA 1.4.0 makes Xen Orchestra's Nix supply-chain evidence a required
@@ -45,6 +37,17 @@ non-overlapping NixOS configuration fragments.
 - Restrict hosted Actions to pinned GitHub-platform boundaries for checkout,
   Nix bootstrap, artifact transfer, attestations, and FlakeHub OIDC publication;
   keep ordinary tools and repository logic in the Nix-packaged task graph.
+- Split installer qualification into Nix-identified media and evidence graphs:
+  reuse exact artifacts, refresh supply evidence against matching tested media,
+  and realize and boot an ISO only when its media identity changes. Limit the
+  qualification plans to their direct targets and allow trusted repository pull
+  requests to consume already-qualified media.
+
+### Fixed
+
+- Prevent later `main` pushes from replacing pending release qualification, and
+  keep release preparation from holding the shared publication queue needed by
+  the CI run it dispatches.
 
 ## [1.3.0] - 2026-08-20
 
