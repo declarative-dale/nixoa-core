@@ -604,8 +604,11 @@ grep -q 'ssh-ed25519 AAAATEST operator@example' "$temporary/generated/host/setti
   || fail "generated settings omitted the SSH key"
 grep -q 'nixoa.xo = {' "$temporary/generated/host/settings.nix" \
   || fail "generated settings omitted XO"
-grep -q 'config.file = ./config.nixoa.toml;' "$temporary/generated/host/settings.nix" \
-  || fail "generated settings omitted the native XO configuration"
+if grep -q 'config.file' "$temporary/generated/host/settings.nix"; then
+  fail "generated settings retain the removed handwritten XO configuration option"
+fi
+test ! -e "$TEST_ROOT/host/config.nixoa.toml" \
+  || fail "the obsolete handwritten XO configuration still exists"
 
 # TUI writes only the dedicated native-option override module.
 cp "$TEST_ROOT/host/settings.nix" "$temporary/generated/host/settings.nix"

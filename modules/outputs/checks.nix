@@ -11,6 +11,8 @@ in {
       packages = inputs.self.packages.${system};
       appliance = inputs.self.nixosConfigurations.nixoa.config;
       xoPackages = inputs.xen-orchestra-ce.packages.${system};
+      xoConfigFeatures = ["http" "redis" "remotes" "web"];
+      xoConfigFragments = appliance.nixoa.xo.internal.configFragments;
       fixtureInputs = [
         pkgs.bash
         pkgs.coreutils
@@ -241,9 +243,18 @@ in {
       assert appliance.nixoa.xo.channel == "latest";
       assert lib.all (channel: builtins.hasAttr channel xoPackages) ["latest" "stable" "rolling"];
       assert appliance.nixoa.xo.package == xoPackages.latest;
-      assert appliance.nixoa.xo.config.file != null;
-      assert appliance.environment.etc."xo-server/config.nixoa.toml".source == appliance.nixoa.xo.config.file;
-      assert (builtins.fromTOML (builtins.readFile appliance.nixoa.xo.config.file)).remoteOptions.mountsDir == appliance.nixoa.xo.storage.mountsDir;
+      assert builtins.attrNames xoConfigFragments == xoConfigFeatures;
+      assert lib.all (
+        feature: builtins.hasAttr "xo-server/config.nixos-${feature}.toml" appliance.environment.etc
+      )
+      xoConfigFeatures;
+      assert xoConfigFragments.redis.redis.socket == "/run/redis-xo/redis.sock";
+      assert xoConfigFragments.remotes.remoteOptions.mountsDir == appliance.nixoa.xo.storage.mountsDir;
+      assert xoConfigFragments.remotes.remoteOptions.useSudo;
+      assert xoConfigFragments.http.http.redirectToHttps == appliance.nixoa.xo.tls.enable;
+      assert builtins.length xoConfigFragments.http.http.listen == 2;
+      assert xoConfigFragments.web.http.mounts."/v6" == "${appliance.nixoa.xo.home}/xen-orchestra/@xen-orchestra/web/dist";
+      assert appliance.systemd.services.xo-server.environment.TMPDIR == appliance.nixoa.xo.tempDir;
       assert appliance.nixoa.xo.storage.libvhdiPackage == inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
       assert appliance.programs.fuse.userAllowOther;
       assert builtins.elem "fuse" appliance.users.users.${appliance.nixoa.xo.user}.extraGroups;

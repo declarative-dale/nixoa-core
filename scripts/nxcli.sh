@@ -153,7 +153,7 @@ host_show() {
     printf '  "hostname": %s,\n' "$(json_quote "$(nixoa_default_hostname)")"
     printf '  "developmentMode": %s,\n' "$development"
     printf '  "settingsFile": "host/settings.nix",\n'
-    printf '  "xoConfigFile": "host/config.nixoa.toml",\n'
+    printf '  "xoConfigPattern": "/etc/xo-server/config.nixos-*.toml",\n'
     printf '  "menuFile": "host/menu.nix",\n'
     printf '  "hardwareFile": "host/hardware-configuration.nix"\n'
     printf '}\n'
@@ -164,7 +164,7 @@ host_show() {
     printf 'Operator: nixoa\n'
     printf 'Development Mode: %s\n' "$development"
     printf 'Settings: host/settings.nix\n'
-    printf 'XO configuration: host/config.nixoa.toml\n'
+    printf 'XO configuration: generated /etc/xo-server/config.nixos-*.toml\n'
     printf 'Menu overrides: host/menu.nix\n'
     printf 'Hardware: host/hardware-configuration.nix\n'
   fi
@@ -211,7 +211,6 @@ dispatch_host() {
       }
       exec "$(nixoa_default_editor)" \
         "$NIXOA_SETTINGS_FILE" \
-        "$NIXOA_XO_CONFIG_FILE" \
         "$NIXOA_MENU_FILE"
       ;;
     development-mode) host_development_mode "$@" ;;

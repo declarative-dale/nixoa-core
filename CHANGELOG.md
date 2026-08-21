@@ -11,6 +11,10 @@ correspond to published GitHub tags.
 
 ### Changed
 
+- Generate focused, non-overlapping `config.nixos-{http,web,redis,remotes}.toml`
+  Xen Orchestra overrides from typed NixOS settings, remove the handwritten
+  aggregate override and its inert keys, and expose the managed temporary
+  directory to Node.js through the conventional `TMPDIR` environment variable.
 - Verify xo-nixpkg's cache-distributed closure assertion before building the
   installer, link its checksummed SPDX document to the Xen Orchestra component
   in the appliance inventory, and preserve the upstream evidence beside the

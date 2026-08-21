@@ -15,7 +15,6 @@ configuration files.
 | File | Purpose | Maintained by |
 |---|---|---|
 | `host/settings.nix` | Durable appliance policy | Operator |
-| `host/config.nixoa.toml` | NiXOA system override for Xen Orchestra | Operator |
 | `host/hardware-configuration.nix` | Generated disks, filesystems, and detected hardware | Hardware workflow |
 | `host/menu.nix` | Console-generated overrides | `nixoa-menu` |
 
@@ -49,7 +48,7 @@ The main NiXOA options are grouped by purpose:
 | `nixoa.xo.channel` | `latest`, `stable`, or `rolling` xo-nixpkg output; defaults to `latest` |
 | `nixoa.xo.tls` | HTTPS certificates |
 | `nixoa.xo.storage` | NFS, CIFS, and VHD support |
-| `nixoa.xo.config.file` | Native Xen Orchestra TOML system override |
+| `nixoa.xo.tempDir` | Node.js temporary directory supplied through `TMPDIR` |
 
 NiXOA supplies the operator name, `.#nixoa` flake target, platform, and
 appliance role as stable appliance defaults.
@@ -61,11 +60,18 @@ commit. An explicit `nixoa.xo.package` still overrides the channel-derived
 package.
 
 Xen Orchestra first loads its immutable vendor `config.toml` from the
-`xo-nixpkg` package. The checked-in `host/config.nixoa.toml` is linked to
-`/etc/xo-server/config.nixoa.toml` and merged over those defaults as NiXOA's
-system override. Keep its Redis socket, runtime directories, web mounts,
-listeners, TLS paths, and remote-storage directory aligned with the typed
-`nixoa.xo` settings; evaluation rejects mismatches before deployment.
+`xo-nixpkg` package. The NixOS module maps one declarative attribute set into
+four focused system overrides under `/etc/xo-server/`:
+
+- `config.nixos-http.toml` owns listeners, TLS, and HTTPS redirection.
+- `config.nixos-web.toml` owns the packaged web-interface mounts.
+- `config.nixos-redis.toml` owns the managed Redis-compatible socket.
+- `config.nixos-remotes.toml` owns remote mount policy.
+
+These generated files do not overlap and are not edited directly. Change their
+typed `nixoa.xo` inputs in `host/settings.nix`. Node.js receives the managed
+temporary directory through `TMPDIR`; it is not represented as an unsupported
+XO TOML key.
 
 See [Common tasks](common-tasks.md) for copyable examples.
 
