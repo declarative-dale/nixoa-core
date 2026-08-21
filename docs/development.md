@@ -114,7 +114,10 @@ dependency-free tasks run in isolated single-task mode.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
 the scheduled updater; `nix run .#nixoa-ci-lock-validate` verifies
-that their shared nixpkgs and devenv pins match.
+that their shared nixpkgs and devenv pins match. The root Nixpkgs and Home
+Manager inputs use FlakeHub's `/0` stable release trains, and Home Manager
+follows the root Nixpkgs input. FlakeHub reserves `/0.1` for rolling unstable
+releases, so the repository contract rejects either root input moving there.
 
 ## Work with changes
 
