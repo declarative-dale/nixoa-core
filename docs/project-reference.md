@@ -19,6 +19,7 @@ operator command targets `.#nixoa`.
 Public packages include:
 
 - `xen-orchestra-ce`
+- `xen-orchestra-supply-protector`
 - `libvhdi`
 - `nxcli`
 - `nixoa-menu`
@@ -61,8 +62,14 @@ Secretspec and validates both the public-read and publishing profiles.
 
 The build uses the flake-provided `sbomnix` to create validated, checksummed
 SPDX and CycloneDX runtime inventories for the complete appliance closure.
-Cachix substitutes the system closure and SBOM tooling. The finished SBOMs are
-cached with the ISO and immutable state in the same 90-day GitHub artifact, so
+Cachix substitutes the system closure, SBOM tooling, and xo-nixpkg's matching
+`supply-protector-latest` output. Before attestation, the builder verifies that
+the upstream assertion names the exact selected XO store path and Cachix trust
+root, verifies its checksums and retained Nix reference, and adds a checksummed
+SPDX `DESCRIBED_BY` external-document link to the appliance inventory. The
+upstream assertion and its SPDX and CycloneDX documents are preserved with the
+installer evidence. The finished SBOMs are cached with the ISO and immutable
+state in the same 90-day GitHub artifact, so
 later runs and releases retrieve the exact tested bundle without regenerating
 it. CI boots the ISO with QEMU, signs its build provenance, and binds the SPDX
 document to the installer. GitHub release assets carry the tested installer in

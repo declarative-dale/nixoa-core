@@ -69,7 +69,7 @@ in {
             (.validation.targets | length == 16) and
             (.installer.schemaVersion == 2) and
             (.installer.name == "nixoa-installer") and
-            (.installer.targets | length == 8) and
+            (.installer.targets | length == 9) and
             (.publish.schemaVersion == 2) and
             (.publish.name == "nixoa-publish") and
             (.publish.targets | length == 5)

@@ -146,6 +146,12 @@ jobs:
             nixoa-system.spdx.json.sha256
             nixoa-system.cdx.json
             nixoa-system.cdx.json.sha256
+            xen-orchestra-supply.assertion.json
+            xen-orchestra-supply.assertion.json.sha256
+            xen-orchestra-supply.spdx.json
+            xen-orchestra-supply.spdx.json.sha256
+            xen-orchestra-supply.cdx.json
+            xen-orchestra-supply.cdx.json.sha256
             nixoa-build-state.json
           if-no-files-found: error
           compression-level: 0

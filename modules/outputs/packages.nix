@@ -13,6 +13,7 @@ in {
           lib.getName package == "packer";
       };
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.latest;
+      xenOrchestraSupplyProtector = inputs.xen-orchestra-ce.packages.x86_64-linux.supply-protector-latest;
       planRunner = inputs.xen-orchestra-ce.packages.${system}.flake-plan-runner;
       nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
       nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
@@ -75,6 +76,7 @@ in {
     in
       {
         xen-orchestra-ce = xenOrchestraCe;
+        xen-orchestra-supply-protector = xenOrchestraSupplyProtector;
         flake-plan-runner = planRunner;
         sbomnix = pkgs.sbomnix;
         inherit secretspec;

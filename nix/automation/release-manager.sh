@@ -143,7 +143,10 @@ verify() {
   : "${ARTIFACT_RUN_ID:?}" "${ARTIFACT_SOURCE_COMMIT:?}" "${BUILD_INPUT:?}" "${GITHUB_REPOSITORY:?}"
   (cd candidate && sha256sum --check --strict nixoa-installer.iso.sha256 \
     && sha256sum --check --strict nixoa-system.spdx.json.sha256 \
-    && sha256sum --check --strict nixoa-system.cdx.json.sha256)
+    && sha256sum --check --strict nixoa-system.cdx.json.sha256 \
+    && sha256sum --check --strict xen-orchestra-supply.assertion.json.sha256 \
+    && sha256sum --check --strict xen-orchestra-supply.spdx.json.sha256 \
+    && sha256sum --check --strict xen-orchestra-supply.cdx.json.sha256)
   jq -e --arg build_input "$BUILD_INPUT" --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" \
     --argjson artifact_run_id "$ARTIFACT_RUN_ID" \
     '.schema_version == 2 and .build_input == $build_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id' \
