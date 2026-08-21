@@ -125,6 +125,10 @@ Qualification has five deliberately distinct outcomes:
 
 The media plan contains only `installer-iso`; the evidence plan contains only
 the appliance closure, `sbomnix`, Xen Orchestra, and its supply assertion.
+The installer explicitly uses SquashFS `zstd` compression level 1 instead of
+nixpkgs' much slower inherited level 19. This intentionally favors fast CI and
+qualification over the smallest possible ISO; release assets remain split
+below GitHub's per-file size limit.
 Deployment templates, metadata, menus, and CLI packages remain covered by the
 repository audit and protected-main publication without being redundantly
 realized during installer qualification. Reusable evidence is accepted only

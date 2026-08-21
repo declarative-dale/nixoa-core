@@ -73,6 +73,9 @@ fi
 grep -Fq '"https://install.determinate.systems"' \
   "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits the Determinate bootstrap cache"
+grep -Fq 'squashfsCompression = "zstd -Xcompression-level 1";' \
+  "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO does not pin fast SquashFS compression"
 grep -Fq '"https://nixoa.cachix.org"' \
   "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits the NiXOA Cachix cache"

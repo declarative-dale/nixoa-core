@@ -56,6 +56,10 @@ artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
 from the public NiXOA Cachix cache and, on trusted repository events, streams
 new outputs back through Cachix's daemon. Cachix carries Nix store paths
 between jobs and runs; fork pull requests consume the public cache read-only.
+The ISO's SquashFS payload uses explicit `zstd` level 1 compression to minimize
+qualification time. The resulting size tradeoff is accepted because the
+combined GitHub artifact skips redundant compression and release assets are
+already split below the 2 GiB per-part limit.
 
 The Cachix token and cache name are declared in `secretspec.toml`. GitHub
 Actions maps the repository secret and variable through Secretspec once per

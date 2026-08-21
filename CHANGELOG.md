@@ -15,6 +15,8 @@ correspond to published GitHub tags.
   immutable artifact bound to the exact appliance closure, allowing media-only
   changes to build and boot a new installer without rerunning `sbomnix` while
   preserving the combined installer artifact and release interfaces.
+- Build the installer SquashFS with explicit `zstd` level 1 compression,
+  trading a modest ISO size increase for substantially faster qualification.
 
 ## [1.4.0] - 2026-08-20
 
