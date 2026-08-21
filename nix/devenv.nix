@@ -57,9 +57,9 @@ in {
       ];
     };
 
-    "ci:installer:state".exec = runFlakePackage "nixoa-ci-resolve-state" "";
-    "ci:installer:build".exec = runFlakePackage "nixoa-ci-build-assets" "";
-    "ci:installer:boot".exec = runFlakePackage "nixoa-ci-boot" ''
+    "ci:qualification:resolve".exec = runFlakePackage "nixoa-ci-resolve-qualification" "";
+    "ci:qualification:assemble".exec = runFlakePackage "nixoa-ci-qualification-assets" "";
+    "ci:qualification:boot-media".exec = runFlakePackage "nixoa-ci-boot-media" ''
       "''${INSTALLER_ISO:-result-installer/iso/nixoa-installer.iso}"
     '';
     "ci:publish".exec = runFlakePackage "nixoa-ci-publish" "";

@@ -128,29 +128,34 @@ dispatch() {
 
 inventory() {
   : "${SOURCE_SHA:?}"
-  expected_build_input=$(nixoa-ci-build-input)
-  jq -e --arg build_input "$expected_build_input" --arg source_commit "$SOURCE_SHA" \
-    '.schema_version == 2 and .build_input == $build_input and .source_commit == $source_commit and (.artifact_run_id | type == "number")' \
-    candidate-state/nixoa-build-state.json >/dev/null
+  expected_inputs=$(nixoa-ci-qualification-inputs)
+  expected_media_input=$(jq -er .media_input <<<"$expected_inputs")
+  expected_evidence_input=$(jq -er .evidence_input <<<"$expected_inputs")
+  jq -e --arg media_input "$expected_media_input" --arg evidence_input "$expected_evidence_input" \
+    --arg source_commit "$SOURCE_SHA" \
+    '.schema_version == 3 and .media_input == $media_input and .evidence_input == $evidence_input and .source_commit == $source_commit and (.artifact_run_id | type == "number")' \
+    candidate-state/nixoa-qualification-state.json >/dev/null
   {
-    printf 'artifact_run_id=%s\n' "$(jq -r .artifact_run_id candidate-state/nixoa-build-state.json)"
-    printf 'artifact_source_commit=%s\n' "$(jq -r .artifact_source_commit candidate-state/nixoa-build-state.json)"
-    printf 'build_input=%s\n' "$expected_build_input"
+    printf 'artifact_run_id=%s\n' "$(jq -r .artifact_run_id candidate-state/nixoa-qualification-state.json)"
+    printf 'artifact_source_commit=%s\n' "$(jq -r .artifact_source_commit candidate-state/nixoa-qualification-state.json)"
+    printf 'media_input=%s\n' "$expected_media_input"
+    printf 'evidence_input=%s\n' "$expected_evidence_input"
   } >>"${GITHUB_OUTPUT:?}"
 }
 
 verify() {
-  : "${ARTIFACT_RUN_ID:?}" "${ARTIFACT_SOURCE_COMMIT:?}" "${BUILD_INPUT:?}" "${GITHUB_REPOSITORY:?}"
+  : "${ARTIFACT_RUN_ID:?}" "${ARTIFACT_SOURCE_COMMIT:?}" "${MEDIA_INPUT:?}" "${EVIDENCE_INPUT:?}" "${GITHUB_REPOSITORY:?}"
   (cd candidate && sha256sum --check --strict nixoa-installer.iso.sha256 \
     && sha256sum --check --strict nixoa-system.spdx.json.sha256 \
     && sha256sum --check --strict nixoa-system.cdx.json.sha256 \
     && sha256sum --check --strict xen-orchestra-supply.assertion.json.sha256 \
     && sha256sum --check --strict xen-orchestra-supply.spdx.json.sha256 \
     && sha256sum --check --strict xen-orchestra-supply.cdx.json.sha256)
-  jq -e --arg build_input "$BUILD_INPUT" --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" \
+  jq -e --arg media_input "$MEDIA_INPUT" --arg evidence_input "$EVIDENCE_INPUT" \
+    --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" \
     --argjson artifact_run_id "$ARTIFACT_RUN_ID" \
-    '.schema_version == 2 and .build_input == $build_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id' \
-    candidate/nixoa-build-state.json >/dev/null
+    '.schema_version == 3 and .media_input == $media_input and .evidence_input == $evidence_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id' \
+    candidate/nixoa-qualification-state.json >/dev/null
   installer=candidate/result-installer/iso/nixoa-installer.iso
   signer_workflow="${GITHUB_REPOSITORY}/.github/workflows/ci.yml"
   gh attestation verify "$installer" --repo "$GITHUB_REPOSITORY" --signer-workflow "$signer_workflow" \
@@ -162,7 +167,7 @@ verify() {
 }
 
 stage() {
-  : "${ARTIFACT_RUN_ID:?}" "${ARTIFACT_SOURCE_COMMIT:?}" "${BUILD_INPUT:?}"
+  : "${ARTIFACT_RUN_ID:?}" "${ARTIFACT_SOURCE_COMMIT:?}" "${MEDIA_INPUT:?}" "${EVIDENCE_INPUT:?}"
   : "${RELEASE_TAG:?}" "${RELEASE_VERSION:?}" "${SOURCE_SHA:?}" "${GITHUB_REPOSITORY:?}" "${GITHUB_RUN_ID:?}"
   [[ "$SOURCE_SHA" == "$(git rev-parse HEAD)" ]]
   [[ $(<VERSION) == "$RELEASE_VERSION" ]]
@@ -180,7 +185,8 @@ stage() {
   done | jq -s .)
   created_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)
   jq -n --arg version "$RELEASE_VERSION" --arg tag "$RELEASE_TAG" --arg source_commit "$SOURCE_SHA" \
-    --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" --arg build_input "$BUILD_INPUT" \
+    --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" --arg media_input "$MEDIA_INPUT" \
+    --arg evidence_input "$EVIDENCE_INPUT" \
     --arg created_at "$created_at" --arg repository "$GITHUB_REPOSITORY" \
     --arg release_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
     --arg artifact_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${ARTIFACT_RUN_ID}" \
@@ -190,7 +196,7 @@ stage() {
     --arg spdx_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.spdx.json.gz.sha256")" \
     --arg cdx "nixoa-${RELEASE_TAG}.cdx.json.gz" \
     --arg cdx_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.cdx.json.gz.sha256")" \
-    '{schema_version:2,version:$version,tag:$tag,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,build_input:$build_input,created_at:$created_at,repository:$repository,release_run:$release_run,artifact_run:$artifact_run,assets:{installer:{name:$installer,sha256:$installer_sha256,parts:$installer_parts},spdx:{name:$spdx,sha256:$spdx_sha256},cyclonedx:{name:$cdx,sha256:$cdx_sha256}}}' \
+    '{schema_version:3,version:$version,tag:$tag,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,media_input:$media_input,evidence_input:$evidence_input,created_at:$created_at,repository:$repository,release_run:$release_run,artifact_run:$artifact_run,assets:{installer:{name:$installer,sha256:$installer_sha256,parts:$installer_parts},spdx:{name:$spdx,sha256:$spdx_sha256},cyclonedx:{name:$cdx,sha256:$cdx_sha256}}}' \
     >release/release-manifest.json
   (cd release && sha256sum release-manifest.json >release-manifest.json.sha256)
 }

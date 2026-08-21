@@ -11,7 +11,7 @@
       { "name": "devenv-contract", "attribute": "checks.x86_64-linux.devenv-contract" },
       { "name": "shell-lint", "attribute": "checks.x86_64-linux.shell-lint" },
       { "name": "automation-fixtures", "attribute": "checks.x86_64-linux.automation-fixtures" },
-      { "name": "installer-input-fixtures", "attribute": "checks.x86_64-linux.installer-input-fixtures" },
+      { "name": "qualification-input-fixtures", "attribute": "checks.x86_64-linux.qualification-input-fixtures" },
       { "name": "release-fixtures", "attribute": "checks.x86_64-linux.release-fixtures" },
       { "name": "secretspec-contract", "attribute": "checks.x86_64-linux.secretspec-contract" },
       { "name": "operator-fixtures", "attribute": "checks.x86_64-linux.operator-fixtures" },
@@ -20,18 +20,19 @@
       { "name": "ci-plan-contract", "attribute": "checks.x86_64-linux.ci-plan-contract" }
     ]
   },
-  "installer": {
-    "name": "nixoa-installer",
+  "media": {
+    "name": "nixoa-media-qualification",
+    "targets": [
+      { "name": "installer-iso", "attribute": "packages.x86_64-linux.installer-iso", "link": "result-installer" }
+    ]
+  },
+  "evidence": {
+    "name": "nixoa-evidence-qualification",
     "targets": [
       { "name": "toplevel", "attribute": "nixosConfigurations.nixoa.config.system.build.toplevel" },
-      { "name": "deploy-template", "attribute": "packages.x86_64-linux.deploy-template", "link": "result-deploy-template" },
-      { "name": "metadata", "attribute": "packages.x86_64-linux.metadata", "link": "result-metadata" },
-      { "name": "nixoa-menu", "attribute": "packages.x86_64-linux.nixoa-menu", "link": "result-nixoa-menu" },
-      { "name": "nxcli", "attribute": "packages.x86_64-linux.nxcli", "link": "result-nxcli" },
       { "name": "sbomnix", "attribute": "packages.x86_64-linux.sbomnix" },
       { "name": "xen-orchestra-ce", "attribute": "packages.x86_64-linux.xen-orchestra-ce" },
-      { "name": "xen-orchestra-supply-protector", "attribute": "packages.x86_64-linux.xen-orchestra-supply-protector" },
-      { "name": "installer-iso", "attribute": "packages.x86_64-linux.installer-iso", "link": "result-installer" }
+      { "name": "xen-orchestra-supply-protector", "attribute": "packages.x86_64-linux.xen-orchestra-supply-protector" }
     ]
   },
   "publish": {

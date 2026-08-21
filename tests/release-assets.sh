@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-: "${NIXOA_CI_BUILD_INPUT:?NIXOA_CI_BUILD_INPUT must point to the packaged build-input command}"
+: "${NIXOA_CI_QUALIFICATION_INPUTS:?NIXOA_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
 : "${NIXOA_CI_RELEASE_MANAGER:?NIXOA_CI_RELEASE_MANAGER must point to the packaged release manager}"
 : "${NIXOA_CI_RELEASE_SPLIT:?NIXOA_CI_RELEASE_SPLIT must point to the packaged release splitter}"
 
@@ -11,6 +11,16 @@ export NIXOA_INSTALLER_POLICY="$test_root/nix/automation/installer-policy.json"
 
 temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-release-assets.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
+mkdir -p "$temporary/bin"
+cat >"$temporary/bin/nix" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "${FAKE_QUALIFICATION_GRAPH:?}"
+EOF
+sed -i "1c#!${BASH}" "$temporary/bin/nix"
+chmod +x "$temporary/bin/nix"
+export NIXOA_CI_PATH_PREFIX="$temporary/bin"
+export FAKE_QUALIFICATION_GRAPH='{"media":{"installer":"/nix/store/media"},"evidence":{"system":"/nix/store/system"}}'
 
 printf '0123456789abcdefghijklmno' >"$temporary/installer.iso"
 NIXOA_RELEASE_PART_SIZE=10 \
@@ -42,13 +52,16 @@ git -C "$fixture" add .
 git -C "$fixture" -c user.name=fixture -c user.email=fixture@example.invalid \
   commit -qm fixture
 source_sha=$(git -C "$fixture" rev-parse HEAD)
-build_input=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_BUILD_INPUT")
+qualification_inputs=$(NIXOA_SYSTEM_ROOT="$fixture" "$NIXOA_CI_QUALIFICATION_INPUTS")
+media_input=$(jq -er .media_input <<<"$qualification_inputs")
+evidence_input=$(jq -er .evidence_input <<<"$qualification_inputs")
 jq -n \
-  --arg build_input "$build_input" \
+  --arg media_input "$media_input" \
+  --arg evidence_input "$evidence_input" \
   --arg source_commit "$source_sha" \
   --arg artifact_source_commit "$source_sha" \
-  '{schema_version:2,build_input:$build_input,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,producer_event:"push",artifact_run_id:42}' \
-  >"$fixture/candidate-state/nixoa-build-state.json"
+  '{schema_version:3,mode:"qualify-media",media_input:$media_input,evidence_input:$evidence_input,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,media_source_commit:$source_commit,producer_event:"push",artifact_run_id:42,media_run_id:42}' \
+  >"$fixture/candidate-state/nixoa-qualification-state.json"
 
 inventory_output="$temporary/inventory-output"
 (
@@ -59,13 +72,15 @@ inventory_output="$temporary/inventory-output"
     "$NIXOA_CI_RELEASE_MANAGER" inventory
 )
 grep -Fxq 'artifact_run_id=42' "$inventory_output"
-grep -Fxq "build_input=${build_input}" "$inventory_output"
+grep -Fxq "media_input=${media_input}" "$inventory_output"
+grep -Fxq "evidence_input=${evidence_input}" "$inventory_output"
 
 (
   cd "$fixture"
   ARTIFACT_RUN_ID=42 \
     ARTIFACT_SOURCE_COMMIT="$source_sha" \
-    BUILD_INPUT="$build_input" \
+    MEDIA_INPUT="$media_input" \
+    EVIDENCE_INPUT="$evidence_input" \
     GITHUB_REPOSITORY=example/nixoa \
     GITHUB_RUN_ID=99 \
     NIXOA_RELEASE_ASSET_LIMIT=12 \
@@ -78,12 +93,14 @@ grep -Fxq "build_input=${build_input}" "$inventory_output"
     "$NIXOA_CI_RELEASE_MANAGER" stage
 )
 jq -e \
-  --arg build_input "$build_input" \
+  --arg media_input "$media_input" \
+  --arg evidence_input "$evidence_input" \
   --arg source_commit "$source_sha" '
-    .schema_version == 2 and
+    .schema_version == 3 and
     .version == "1.1.2" and
     .tag == "v1.1.2" and
-    .build_input == $build_input and
+    .media_input == $media_input and
+    .evidence_input == $evidence_input and
     .source_commit == $source_commit and
     (.assets.installer.parts | length) > 1 and
     .assets.spdx.name == "nixoa-v1.1.2.spdx.json.gz" and

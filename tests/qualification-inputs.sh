@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: Apache-2.0
+
+set -euo pipefail
+: "${NIXOA_CI_QUALIFICATION_INPUTS:?NIXOA_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
+
+temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-qualification-inputs.XXXXXX")
+trap 'rm -rf -- "$temporary"' EXIT
+mkdir -p "$temporary/bin" "$temporary/source"
+
+cat >"$temporary/bin/nix" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "${FAKE_QUALIFICATION_GRAPH:?}"
+EOF
+sed -i "1c#!${BASH}" "$temporary/bin/nix"
+chmod +x "$temporary/bin/nix"
+
+resolve() {
+  NIXOA_CI_PATH_PREFIX="$temporary/bin" \
+    NIXOA_SYSTEM_ROOT="$temporary/source" \
+    FAKE_QUALIFICATION_GRAPH="$1" \
+    "$NIXOA_CI_QUALIFICATION_INPUTS"
+}
+
+baseline=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"system":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')
+jq -e '
+  .schema_version == 1 and
+  (.media_input | test("^[0-9a-f]{64}$")) and
+  (.evidence_input | test("^[0-9a-f]{64}$"))
+' <<<"$baseline" >/dev/null
+
+reordered=$(resolve '{"evidence":{"sbomnix":"/nix/store/sbom-a","system":"/nix/store/system-a"},"media":{"bootPolicy":"boot-a","installer":"/nix/store/media-a"}}')
+[[ "$reordered" == "$baseline" ]]
+
+evidence_change=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"system":"/nix/store/system-a","sbomnix":"/nix/store/sbom-b"}}')
+[[ $(jq -r .media_input <<<"$evidence_change") == $(jq -r .media_input <<<"$baseline") ]]
+[[ $(jq -r .evidence_input <<<"$evidence_change") != $(jq -r .evidence_input <<<"$baseline") ]]
+
+media_change=$(resolve '{"media":{"installer":"/nix/store/media-b","bootPolicy":"boot-a"},"evidence":{"system":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')
+[[ $(jq -r .media_input <<<"$media_change") != $(jq -r .media_input <<<"$baseline") ]]
+[[ $(jq -r .evidence_input <<<"$media_change") == $(jq -r .evidence_input <<<"$baseline") ]]
+
+if resolve '{"media":null,"evidence":{}}' >/dev/null 2>&1; then
+  printf 'Qualification input resolver accepted an invalid Nix graph.\n' >&2
+  exit 1
+fi
+
+printf 'Focused qualification input checks passed.\n'

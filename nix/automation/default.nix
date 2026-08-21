@@ -34,7 +34,7 @@
   validatePlan = mkCommand {
     name = "validate-plan";
     prefix = ''
-      NIXOA_CI_PLAN_SCHEMA="''${NIXOA_CI_PLAN_SCHEMA:-${./ci-plan.schema.json}}"
+      NIXOA_CI_PLAN_SCHEMA="''${NIXOA_CI_PLAN_SCHEMA:-${./qualification-plan.schema.json}}"
       export NIXOA_CI_PLAN_SCHEMA
     '';
     runtimeInputs = commonInputs ++ [pkgs.check-jsonschema];
@@ -48,24 +48,24 @@
   };
 
   commands = {
-    boot = mkCommand {
-      name = "boot";
+    boot-media = mkCommand {
+      name = "boot-media";
       runtimeInputs = commonInputs ++ [pkgs.qemu_kvm];
-      source = ./installer-boot.sh;
+      source = ./boot-media.sh;
     };
-    build-assets = mkCommand {
-      name = "build-assets";
+    qualification-assets = mkCommand {
+      name = "qualification-assets";
       prefix = ''
         NIXOA_SPDX_SCHEMA="''${NIXOA_SPDX_SCHEMA:-${spdxSchema}}"
         export NIXOA_SPDX_SCHEMA
       '';
       runtimeInputs = commonInputs ++ [pkgs.check-jsonschema planRunner];
-      source = ./installer-build-assets.sh;
+      source = ./qualification-assets.sh;
     };
-    build-input = mkCommand {
-      name = "build-input";
-      runtimeInputs = commonInputs ++ [classifyPaths];
-      source = ./build-input.sh;
+    qualification-inputs = mkCommand {
+      name = "qualification-inputs";
+      runtimeInputs = commonInputs;
+      source = ./qualification-inputs.sh;
     };
     repository-audit = mkCommand {
       name = "repository-audit";
@@ -99,10 +99,10 @@
         commonInputs
         ++ [
           commands.classify
-          commands.resolve-state
+          commands.resolve-qualification
           validatePlan
         ];
-      source = ./route.sh;
+      source = ./route-plan.sh;
     };
     publish = mkCommand {
       name = "publish";
@@ -120,7 +120,7 @@
         commonInputs
         ++ [
           pkgs.gzip
-          commands.build-input
+          commands.qualification-inputs
           commands.release-notes
           commands.release-stage
           commands.release-version
@@ -143,10 +143,10 @@
       runtimeInputs = commonInputs;
       source = ./release-version.sh;
     };
-    resolve-state = mkCommand {
-      name = "resolve-state";
-      runtimeInputs = commonInputs ++ [commands.build-input];
-      source = ./installer-resolve-state.sh;
+    resolve-qualification = mkCommand {
+      name = "resolve-qualification";
+      runtimeInputs = commonInputs ++ [commands.qualification-inputs];
+      source = ./qualification-resolve.sh;
     };
     trusted-update = mkCommand {
       name = "trusted-update";

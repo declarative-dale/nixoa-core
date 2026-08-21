@@ -9,6 +9,14 @@ correspond to published GitHub tags.
 
 ## [Unreleased]
 
+### Changed
+
+- Split installer qualification into Nix-identified media and evidence graphs:
+  reuse exact artifacts, refresh supply evidence against matching tested media,
+  and realize and boot an ISO only when its media identity changes. Limit the
+  qualification plans to their direct targets and allow trusted repository pull
+  requests to consume already-qualified media.
+
 ## [1.4.0] - 2026-08-20
 
 NiXOA 1.4.0 makes Xen Orchestra's Nix supply-chain evidence a required

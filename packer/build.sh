@@ -17,7 +17,7 @@ GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-declarative-dale/nixoa-core}
 GITHUB_WORKFLOW=${GITHUB_WORKFLOW:-ci.yml}
 GITHUB_BRANCH=${GITHUB_BRANCH:-main}
 GITHUB_ARTIFACT_NAME=${GITHUB_ARTIFACT_NAME:-nixoa-installer}
-GITHUB_STATE_ARTIFACT_NAME=${GITHUB_STATE_ARTIFACT_NAME:-nixoa-build-state}
+GITHUB_STATE_ARTIFACT_NAME=${GITHUB_STATE_ARTIFACT_NAME:-nixoa-qualification-state}
 
 if [[ ${BUILD_INSTALLER+x} ]]; then
   case "$BUILD_INSTALLER" in
@@ -80,7 +80,7 @@ case "$INSTALLER_SOURCE" in
     for run_id in "${run_ids[@]}"; do
       [[ "$run_id" =~ ^[0-9]+$ ]] || continue
       artifact_run_id=$run_id
-      expected_build_input=
+      expected_media_input=
       state_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-state.XXXXXX")
       if "$GH_BIN" run download "$run_id" \
         --repo "$GITHUB_REPOSITORY" \
@@ -91,15 +91,15 @@ case "$INSTALLER_SOURCE" in
           exit 1
         }
         if ! "$JQ_BIN" -e \
-          '.schema_version == 2 and (.artifact_run_id | type == "number") and (.build_input | type == "string")' \
-          "$state_dir/nixoa-build-state.json" >/dev/null; then
+          '.schema_version == 3 and (.artifact_run_id | type == "number") and (.media_input | type == "string")' \
+          "$state_dir/nixoa-qualification-state.json" >/dev/null; then
           rm -rf -- "$state_dir"
           continue
         fi
         artifact_run_id=$("$JQ_BIN" -r .artifact_run_id \
-          "$state_dir/nixoa-build-state.json")
-        expected_build_input=$("$JQ_BIN" -r .build_input \
-          "$state_dir/nixoa-build-state.json")
+          "$state_dir/nixoa-qualification-state.json")
+        expected_media_input=$("$JQ_BIN" -r .media_input \
+          "$state_dir/nixoa-qualification-state.json")
       fi
       rm -rf -- "$state_dir"
 
@@ -114,12 +114,12 @@ case "$INSTALLER_SOURCE" in
         ); then
         # jq variables are intentionally protected from the shell.
         # shellcheck disable=SC2016
-        if [[ -n "$expected_build_input" ]] &&
+        if [[ -n "$expected_media_input" ]] &&
           ! "$JQ_BIN" -e \
-            --arg build_input "$expected_build_input" \
+            --arg media_input "$expected_media_input" \
             --argjson artifact_run_id "$artifact_run_id" \
-            '.schema_version == 2 and .build_input == $build_input and .artifact_run_id == $artifact_run_id' \
-            "$candidate_dir/nixoa-build-state.json" >/dev/null; then
+            '.schema_version == 3 and .media_input == $media_input and .artifact_run_id == $artifact_run_id' \
+            "$candidate_dir/nixoa-qualification-state.json" >/dev/null; then
           rm -rf -- "$candidate_dir"
           continue
         fi

@@ -3,6 +3,7 @@
 
 set -euo pipefail
 : "${NIXOA_SPDX_SCHEMA:?NIXOA_SPDX_SCHEMA must point to the pinned SPDX schema}"
+: "${QUALIFICATION_MODE:?QUALIFICATION_MODE must be refresh-evidence or qualify-media}"
 
 repo_root=${NIXOA_SYSTEM_ROOT:-}
 if [[ -z "$repo_root" ]]; then
@@ -10,6 +11,25 @@ if [[ -z "$repo_root" ]]; then
 fi
 cd "$repo_root"
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
+case "$QUALIFICATION_MODE" in
+  qualify-media)
+    media_manifest=$(mktemp "${runner_temp}/nixoa-media-plan.XXXXXX")
+    flake-plan-runner \
+      --flake "path:$repo_root" \
+      --plan lib.ciPlans.x86_64-linux.media \
+      --manifest "$media_manifest"
+    ;;
+  refresh-evidence)
+    reused_installer=reused-media/result-installer
+    [[ -f "$reused_installer/iso/nixoa-installer.iso" ]]
+    mv "$reused_installer" result-installer
+    media_manifest=
+    ;;
+  *)
+    printf 'Unsupported qualification mode: %s\n' "$QUALIFICATION_MODE" >&2
+    exit 1
+    ;;
+esac
 
 nix config show substituters
 nix config show trusted-public-keys
@@ -21,7 +41,7 @@ nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"
 manifest=$(mktemp "${runner_temp}/nixoa-plan.XXXXXX")
 flake-plan-runner \
   --flake "path:$repo_root" \
-  --plan lib.ciPlans.x86_64-linux.installer \
+  --plan lib.ciPlans.x86_64-linux.evidence \
   --manifest "$manifest"
 
 sbomnix_out=$(jq -er \
@@ -61,7 +81,7 @@ install -m 0644 "$xo_supply_out/xen-orchestra.spdx.json" xen-orchestra-supply.sp
 install -m 0644 "$xo_supply_out/xen-orchestra.cdx.json" xen-orchestra-supply.cdx.json
 
 sbom_work=$(mktemp -d "${runner_temp}/nixoa-sbom.XXXXXX")
-trap 'rm -rf -- "$sbom_work"; rm -f -- "$manifest"' EXIT
+trap 'rm -rf -- "$sbom_work"; rm -f -- "$manifest" ${media_manifest:+"$media_manifest"}' EXIT
 (
   cd "$sbom_work"
   "$sbomnix_out/bin/sbomnix" \

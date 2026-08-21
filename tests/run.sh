@@ -30,7 +30,7 @@ bash -n \
   "$TEST_ROOT/installer/install-nixoa.sh" \
   "$TEST_ROOT/packer/build.sh" \
   "$TEST_ROOT/packer/deploy-template.sh" \
-  "$TEST_ROOT/tests/installer-build-input.sh" \
+  "$TEST_ROOT/tests/qualification-inputs.sh" \
   "$TEST_ROOT/tests/ci-helpers.sh" \
   "$TEST_ROOT/tests/xo-storage-helper.sh" \
   "$TEST_ROOT"/packer/scripts/*.sh
@@ -101,23 +101,23 @@ if grep -Fq 'git ls-remote --tags' "$TEST_ROOT/scripts/tui/action.sh"; then
   fail "XOA update still depends on removed moving channel tags"
 fi
 grep -Fq '.#packages.x86_64-linux.xen-orchestra-ce' \
-  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "installer workflow does not build Xen Orchestra explicitly"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq 'nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"' \
-  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "installer workflow does not verify that its Xen Orchestra output is cached"
 grep -Fq 'xen-orchestra-supply-protector' \
   "$TEST_ROOT/nix/ci-plans.json" \
   || fail "installer plan omits the upstream XO supply assertion"
 grep -Fq 'relationshipType: "DESCRIBED_BY"' \
-  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "appliance SPDX does not link its XO component to upstream evidence"
 # The variable reference must remain literal in the packaged command source.
 # shellcheck disable=SC2016
 grep -Fq 'check-jsonschema --schemafile "$NIXOA_SPDX_SCHEMA"' \
-  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "enriched appliance SPDX is not schema validated"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
   "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
@@ -165,7 +165,7 @@ grep -Fq '"name": "nixoa-validation"' \
   "$TEST_ROOT/nix/ci-plans.json" \
   || fail "flake does not expose pure CI attribute plans"
 grep -Fq 'flake-plan-runner' \
-  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "installer builds bypass the shared schema-v2 plan runner"
 grep -Fq -- '--no-build --print-build-logs' \
   "$TEST_ROOT/nix/automation/repository-audit.sh" \
@@ -184,19 +184,19 @@ grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   || fail "installer workflow does not pin the Node.js 24 artifact uploader"
 # The command substitution must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'build_input=$(nixoa-ci-build-input)' \
-  "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
-  || fail "installer workflow does not calculate deterministic build state"
-grep -Fq 'if: fromJSON(needs.route.outputs.plan).installer.build_required' \
+grep -Fq 'inputs=$(nixoa-ci-qualification-inputs)' \
+  "$TEST_ROOT/nix/automation/qualification-resolve.sh" \
+  || fail "installer workflow does not calculate Nix-owned qualification state"
+grep -Fq 'contains(fromJSON' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
-  || fail "installer build does not consume the authoritative route plan"
-grep -Fq 'if: fromJSON(steps.plan.outputs.plan).installer.required' \
+  || fail "focused qualification does not consume the authoritative route plan"
+grep -Fq 'if: fromJSON(steps.plan.outputs.plan).qualification.required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer state upload does not consume the authoritative route plan"
 grep -Fq 'fromJSON(needs.route.outputs.plan).publish_required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "publication does not consume the authoritative route plan"
-grep -Fq 'name: nixoa-build-state' \
+grep -Fq 'name: nixoa-qualification-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
 if grep -Fq 'nixoa-reusable-cache' "$TEST_ROOT/.github/workflows/ci.yml"; then
@@ -205,7 +205,7 @@ fi
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
 grep -Fq '"$sbomnix_out/bin/sbomnix"' \
-  "$TEST_ROOT/nix/automation/installer-build-assets.sh" \
+  "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "installer workflow does not use the flake-provided sbomnix"
 grep -Fq 'nixoa-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
@@ -223,13 +223,13 @@ grep -Fq 'rolling-minor: 2' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "rolling FlakeHub publication does not avoid the legacy version line"
 grep -Fq -- '--status completed' \
-  "$TEST_ROOT/nix/automation/installer-resolve-state.sh" \
+  "$TEST_ROOT/nix/automation/qualification-resolve.sh" \
   || fail "installer state cannot recover verified artifacts from late failures"
 grep -Fq 'name: Required CI verdict' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable verdict"
 grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
-grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:installer:boot" "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:qualification:boot-media" "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO through its declared task"
 grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
@@ -288,7 +288,7 @@ grep -Fq -- '--notes-file "$notes_file"' \
 if grep -Fq -- '--generate-notes' "$TEST_ROOT/nix/automation/release-manager.sh"; then
   fail "release workflow still substitutes generated notes for the changelog"
 fi
-grep -Fq 'candidate-state/nixoa-build-state.json' \
+grep -Fq 'candidate-state/nixoa-qualification-state.json' \
   "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not resolve the immutable build state"
 # The variable reference must remain literal in the workflow source.
@@ -448,10 +448,10 @@ cp \
     >nixoa-installer.iso.sha256
 )
 printf '%s\n' \
-  '{"schema_version":2,"build_input":"fixture-state","source_commit":"fixture-source","artifact_source_commit":"fixture-source","producer_event":"push","artifact_run_id":12345}' \
-  >"$temporary/fake-state/nixoa-build-state.json"
-cp "$temporary/fake-state/nixoa-build-state.json" \
-  "$temporary/fake-artifact/nixoa-build-state.json"
+  '{"schema_version":3,"mode":"qualify-media","media_input":"fixture-media","evidence_input":"fixture-evidence","source_commit":"fixture-source","artifact_source_commit":"fixture-source","media_source_commit":"fixture-source","producer_event":"push","artifact_run_id":12345,"media_run_id":12345}' \
+  >"$temporary/fake-state/nixoa-qualification-state.json"
+cp "$temporary/fake-state/nixoa-qualification-state.json" \
+  "$temporary/fake-artifact/nixoa-qualification-state.json"
 # The variable references belong in the generated fake, not this test shell.
 # shellcheck disable=SC2016
 printf '%s\n' \
@@ -468,7 +468,7 @@ printf '%s\n' \
   '      *) shift ;;' \
   '    esac' \
   '  done' \
-  '  if [[ "$artifact_name" == "nixoa-build-state" ]]; then' \
+  '  if [[ "$artifact_name" == "nixoa-qualification-state" ]]; then' \
   '    cp -R "$FAKE_STATE_DIR/." "$artifact_dir/"' \
   '  else' \
   '    cp -R "$FAKE_ARTIFACT_DIR/." "$artifact_dir/"' \

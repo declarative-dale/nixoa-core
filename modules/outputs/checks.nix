@@ -32,13 +32,14 @@ in {
           chmod -R u+w source
           cd source
           export HOME="$TMPDIR/home"
-          export NIXOA_CI_BOOT=${lib.getExe packages.nixoa-ci-boot}
-          export NIXOA_CI_BUILD_INPUT=${lib.getExe packages.nixoa-ci-build-input}
+          export NIXOA_CI_BOOT_MEDIA=${lib.getExe packages.nixoa-ci-boot-media}
+          export NIXOA_CI_QUALIFICATION_INPUTS=${lib.getExe packages.nixoa-ci-qualification-inputs}
           export NIXOA_CI_CLASSIFY=${lib.getExe packages.nixoa-ci-classify}
           export NIXOA_CI_CLASSIFY_PATHS=${lib.getExe packages.nixoa-ci-classify-paths}
           export NIXOA_CI_VERDICT=${lib.getExe packages.nixoa-ci-verdict}
           export NIXOA_CI_LOCK_VALIDATE=${lib.getExe packages.nixoa-ci-lock-validate}
           export NIXOA_CI_ROUTE=${lib.getExe packages.nixoa-ci-route}
+          export NIXOA_CI_RESOLVE_QUALIFICATION=${lib.getExe packages.nixoa-ci-resolve-qualification}
           export NIXOA_CI_RELEASE_MANAGER=${lib.getExe packages.nixoa-ci-release-manager}
           export NIXOA_CI_RELEASE_NOTES=${lib.getExe packages.nixoa-ci-release-notes}
           export NIXOA_CI_RELEASE_SPLIT=${lib.getExe packages.nixoa-ci-release-stage}
@@ -60,6 +61,7 @@ in {
 
       ci-plan-contract = let
         plans = inputs.self.lib.ciPlans.${system};
+        qualificationInputs = inputs.self.lib.ciQualificationInputs.${system};
       in
         pkgs.runCommandLocal "nixoa-ci-plan-contract" {
           nativeBuildInputs = [pkgs.jq];
@@ -69,13 +71,20 @@ in {
             (.validation.schemaVersion == 2) and
             (.validation.name == "nixoa-validation") and
             (.validation.targets | length == 16) and
-            (.installer.schemaVersion == 2) and
-            (.installer.name == "nixoa-installer") and
-            (.installer.targets | length == 9) and
+            (.media.schemaVersion == 2) and
+            (.media.name == "nixoa-media-qualification") and
+            (.media.targets | length == 1) and
+            (.evidence.schemaVersion == 2) and
+            (.evidence.name == "nixoa-evidence-qualification") and
+            (.evidence.targets | length == 4) and
             (.publish.schemaVersion == 2) and
             (.publish.name == "nixoa-publish") and
             (.publish.targets | length == 5)
           ' plans.json >/dev/null
+          test -e ${qualificationInputs.media.source}/installer/default.nix
+          test -e ${qualificationInputs.media.source}/modules/outputs/packages.nix
+          ! test -e ${qualificationInputs.media.source}/docs
+          ! test -e ${qualificationInputs.media.source}/.github
           touch "$out"
         '';
 
@@ -138,8 +147,8 @@ in {
         } ''
           cd ${inputs.self}
           for task in \
-            ci:route ci:classify ci:repository-audit ci:installer:state ci:installer:build \
-            ci:installer:boot ci:publish ci:verdict automation:queue \
+            ci:route ci:classify ci:repository-audit ci:qualification:resolve \
+            ci:qualification:assemble ci:qualification:boot-media ci:publish ci:verdict automation:queue \
             automation:update-locks automation:validate-locks automation:open-lock-update-pr \
             release:prepare release:dispatch release:inventory release:verify \
             release:stage release:draft release:publish release:advance; do
@@ -160,7 +169,7 @@ in {
           grep -Fq -- "-path './.devenv'" nix/devenv.nix
           grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
             .github/actions/setup-nix/action.yml
-          if grep -RqE '\.#nixoa-ci([ -]|$)|\.#nixoa-ci-installer-boot|\.#nixoa-ci-update-locks' .github/workflows; then
+          if grep -RqE '\.#nixoa-ci([ -]|$)|\.#nixoa-ci-(boot-media|qualification-assets|qualification-inputs|resolve-qualification|update-locks)' .github/workflows; then
             printf 'A hosted workflow bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
@@ -194,9 +203,9 @@ in {
         command = "bash ./tests/ci-helpers.sh";
       };
 
-      installer-input-fixtures = mkSourceCheck {
-        name = "installer-input-fixtures";
-        command = "bash ./tests/installer-build-input.sh";
+      qualification-input-fixtures = mkSourceCheck {
+        name = "qualification-input-fixtures";
+        command = "bash ./tests/qualification-inputs.sh";
       };
 
       release-fixtures = mkSourceCheck {
