@@ -10,6 +10,6 @@
     "Pool-wide network associated with eth0"
   ],
   "vm_name": "NiXOA",
-  "repo_url": "https://github.com/declarative-dale/nixoa-core.git",
+  "repo_url": "https://github.com/closure-labs/nixoa.git",
   "repo_branch": "main"
 }

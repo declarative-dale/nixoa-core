@@ -145,7 +145,8 @@ performs a complete media qualification before artifact expiry.
 Release workflows serialize their orchestration separately from publication.
 The Nix-packaged release manager dispatches qualification with a run-scoped CI
 identity, so a later `main` push cannot replace the pending release candidate.
-Only jobs that can publish acquire the shared `nixoa-publication` queue.
+Only jobs that can publish acquire the shared `nixoa-publication` queue. Its
+`queue: max` policy preserves every pending rolling or versioned publication.
 
 `BOOT_TIMEOUT` remains a failure ceiling, not a normal delay: the QEMU smoke
 test exits as soon as the installer reaches its readiness marker. The routine

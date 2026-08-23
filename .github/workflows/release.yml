@@ -71,6 +71,7 @@ jobs:
     environment: release
     concurrency:
       group: nixoa-publication
+      queue: max
       cancel-in-progress: false
     permissions:
       actions: read

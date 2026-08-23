@@ -100,12 +100,11 @@ its evidence. An evidence-only match realizes and boots new media, then
 downloads verified evidence from a trusted same-repository run with an
 unexpired artifact and matching state. With neither identity available, the
 same job generates new evidence after the boot test. Pull
-requests and pushes fetch full history for path classification, while schedules
-and manual runs keep the shallow checkout. Merge-group inputs are supported
-defensively for a future repository transfer but are not triggered in this
-personal repository; missing, unavailable, or non-ancestral SHAs require
-qualification. The router and required verdict share a strict schema-v3 JSON
-route contract.
+requests, merge groups, and pushes fetch full history for path classification,
+while schedules and manual runs keep the shallow checkout. The repository merge
+queue runs the same required verdict against the synthetic merge-group commit;
+missing, unavailable, or non-ancestral SHAs require qualification. The router
+and required verdict share a strict schema-v3 JSON route contract.
 
 At deployment time, `deploy-template` downloads the newest successful `main`
 artifact to a temporary directory, verifies its SHA-256 checksum and state

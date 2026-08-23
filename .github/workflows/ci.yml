@@ -6,6 +6,8 @@ on:
     branches:
       - main
   pull_request:
+  merge_group:
+    types: [checks_requested]
   schedule:
     - cron: "23 8 1 */2 *"
   workflow_dispatch:
@@ -28,8 +30,8 @@ on:
 
 concurrency:
   group: >-
-    ci-${{ (github.event_name == 'workflow_dispatch' && inputs.release_candidate && format('release-{0}', github.run_id)) || github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    ci-${{ (github.event_name == 'workflow_dispatch' && inputs.release_candidate && format('release-{0}', github.run_id)) || github.event.pull_request.number || github.event.merge_group.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
 
 permissions:
   contents: read
@@ -219,6 +221,7 @@ jobs:
     timeout-minutes: 45
     concurrency:
       group: nixoa-publication
+      queue: max
       cancel-in-progress: false
     permissions:
       contents: read

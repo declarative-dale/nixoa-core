@@ -33,7 +33,7 @@ template_name=
 memory_mb=
 disk_size_mb=
 operator_key=${HOME:-}/.ssh/id_ed25519.pub
-repo_url=https://github.com/declarative-dale/nixoa-core.git
+repo_url=https://github.com/closure-labs/nixoa.git
 repo_branch=main
 
 usage() {

@@ -22,8 +22,8 @@ Install Nix and Git, authenticate GitHub CLI with `gh auth login`, and have an
 SSH public key plus XCP-ng pool access ready. Then run:
 
 ```bash
-git clone https://github.com/declarative-dale/nixoa-core.git
-cd nixoa-core
+git clone https://github.com/closure-labs/nixoa.git
+cd nixoa
 
 nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
