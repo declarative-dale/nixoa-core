@@ -154,6 +154,7 @@ in {
           for task in \
             ci:route ci:classify ci:repository-audit ci:qualification:resolve \
             ci:qualification:assemble ci:qualification:boot-media ci:publish ci:verdict automation:queue \
+            automation:fix-hashes \
             automation:update-locks automation:validate-locks automation:open-lock-update-pr \
             release:prepare release:dispatch release:inventory release:verify \
             release:stage release:draft release:publish release:advance; do
@@ -163,6 +164,7 @@ in {
           ! test -e nix/automation/cli.sh
           ! grep -Fq 'maestroCiCommand' nix/devenv.nix
           grep -Fq 'runFlakePackage "maestro-ci-route"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "maestro-ci-fix-hashes"' nix/devenv.nix
           grep -Fq 'runFlakePackage "maestro-ci-repository-audit"' nix/devenv.nix
           grep -Fq 'runFlakePackage "maestro-ci-verdict"' nix/devenv.nix
           grep -Fq 'runFlakePackage "maestro-ci-release-manager"' nix/devenv.nix
@@ -205,7 +207,10 @@ in {
 
       automation-fixtures = mkSourceCheck {
         name = "automation-fixtures";
-        command = "bash ./tests/ci-helpers.sh";
+        command = ''
+          bash ./tests/ci-helpers.sh
+          bash ./tests/fix-nix-hashes.sh
+        '';
       };
 
       qualification-input-fixtures = mkSourceCheck {

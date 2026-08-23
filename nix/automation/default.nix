@@ -78,6 +78,11 @@
       source = ./classify.sh;
     };
     classify-paths = classifyPaths;
+    fix-hashes = mkCommand {
+      name = "fix-hashes";
+      runtimeInputs = commonInputs;
+      source = ./fix-hashes.sh;
+    };
     verdict = mkCommand {
       name = "verdict";
       runtimeInputs = with pkgs; [

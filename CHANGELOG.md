@@ -38,6 +38,11 @@ correspond to published GitHub tags.
   directly with runner-provided `jq`, avoiding FlakeHub cache 401s and a second
   Nix/devenv bootstrap after qualification.
 
+### Fixed
+
+- Let failed same-repository Dependabot validation invoke the flake-packaged
+  `maestro-ci-fix-hashes` command, remove the write token while Determinate Nix
+  evaluates repairs, and push tracked fixes only to the exact PR head.
 
 Released 1.x history is preserved in
 [`docs/history/legacy-changelog.md`](docs/history/legacy-changelog.md).

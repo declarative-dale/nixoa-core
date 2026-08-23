@@ -66,6 +66,7 @@ in {
     "ci:verdict".exec = runFlakePackage "maestro-ci-verdict" "";
 
     "automation:queue".exec = runFlakePackage "maestro-ci-queue" "";
+    "automation:fix-hashes".exec = runFlakePackage "maestro-ci-fix-hashes" "";
     "automation:update-locks".exec = runFlakePackage "maestro-ci-update-locks" "";
     "automation:validate-locks".exec = runFlakePackage "maestro-ci-lock-validate" "";
     "automation:open-lock-update-pr".exec =
