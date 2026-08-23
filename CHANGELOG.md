@@ -14,7 +14,8 @@ correspond to published GitHub tags.
 - Move live GitHub references to `closure-labs/nixoa` and
   `closure-labs/xo-nixpkg`, validate merge-group commits in CI, require GitHub's
   repository merge queue, and preserve every pending publication run with the
-  organization-level FIFO concurrency queue.
+  organization-level FIFO concurrency queue. Publish rolling and versioned
+  flakes from the matching `closure-labs/nixoa` FlakeHub namespace.
 - Cache checksummed system and Xen Orchestra supply evidence as a separate
   immutable artifact bound to the exact appliance closure, allowing media-only
   changes to build and boot a new installer without rerunning `sbomnix` while

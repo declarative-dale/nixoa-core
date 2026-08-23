@@ -245,7 +245,7 @@ jobs:
         uses: DeterminateSystems/flakehub-push@abcff4fb351e63f852f5fb2b9af0ae4e69de07d4 # main, Node.js 24 (post-v6)
         with:
           visibility: public
-          name: declarative-dale/nixoa-core
+          name: closure-labs/nixoa
           rolling: true
           rolling-minor: 2
           include-output-paths: true
