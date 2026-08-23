@@ -171,15 +171,18 @@ route_outputs=$(yq -r '.jobs.route.outputs | keys | join(",")' \
   "$TEST_ROOT/.github/workflows/ci.yml")
 assert_eq "$route_outputs" plan
 yq -e \
-  '.jobs.publish.concurrency.group == "nixoa-publication" and .jobs.publish.concurrency.cancel-in-progress == false' \
+  '.jobs.publish.concurrency.group == "nixoa-publication" and
+   .jobs.publish.concurrency.queue == "max" and
+   .jobs.publish.concurrency.cancel-in-progress == false' \
   "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
-  || fail "rolling publication does not wait in the shared non-canceling queue"
+  || fail "the durable rolling publication queue is not configured"
 yq -e \
   '.concurrency.group == "nixoa-release" and .concurrency.cancel-in-progress == false and
    .jobs.release.concurrency.group == "nixoa-publication" and
+   .jobs.release.concurrency.queue == "max" and
    .jobs.release.concurrency.cancel-in-progress == false' \
   "$TEST_ROOT/.github/workflows/release.yml" >/dev/null \
-  || fail "release orchestration and publication do not use distinct non-canceling queues"
+  || fail "release orchestration and durable publication do not use distinct queues"
 yq -e \
   '.on.workflow_dispatch.inputs.release_candidate.type == "boolean" and
    .on.workflow_dispatch.inputs.release_candidate.default == false and

@@ -310,8 +310,10 @@ read -r version bump < <(printf '%s\n' 'feat(core): capability' | "$NIXOA_CI_REL
 jq -e '
   .enforcement == "active" and
   (.bypass_actors | length) == 0 and
-  ([.rules[].type] | index("merge_queue") | not) and
-  any(.rules[]; .type == "required_status_checks" and .parameters.strict_required_status_checks_policy == true and .parameters.required_status_checks == [{context:"Required CI verdict",integration_id:15368}])
+  any(.rules[]; .type == "merge_queue" and
+    .parameters.merge_method == "MERGE" and
+    .parameters.max_entries_to_merge == 1) and
+  any(.rules[]; .type == "required_status_checks" and .parameters.strict_required_status_checks_policy == false and .parameters.required_status_checks == [{context:"Required CI verdict",integration_id:15368}])
 ' "$test_root/nix/automation/github/main-ruleset.json" >/dev/null
 read -r version bump < <(printf '%s\n' 'feat!: incompatible' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '3.0.0 major' ]]

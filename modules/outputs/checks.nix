@@ -108,7 +108,8 @@ in {
         } ''
           cp -R ${inputs.self} source
           cd source
-          actionlint .github/workflows/*.yml
+          # actionlint 1.7.12 predates GitHub's organization queue extension.
+          actionlint -ignore 'unexpected key "queue"' .github/workflows/*.yml
           zizmor .github
           while IFS= read -r action; do
             case "$action" in

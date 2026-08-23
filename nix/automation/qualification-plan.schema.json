@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/declarative-dale/nixoa-core/blob/main/nix/automation/qualification-plan.schema.json",
+  "$id": "https://github.com/closure-labs/nixoa/blob/main/nix/automation/qualification-plan.schema.json",
   "title": "NiXOA focused qualification plan",
   "type": "object",
   "additionalProperties": false,

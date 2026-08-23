@@ -11,6 +11,10 @@ correspond to published GitHub tags.
 
 ### Changed
 
+- Move live GitHub references to `closure-labs/nixoa` and
+  `closure-labs/xo-nixpkg`, validate merge-group commits in CI, require GitHub's
+  repository merge queue, and preserve every pending publication run with the
+  organization-level FIFO concurrency queue.
 - Cache checksummed system and Xen Orchestra supply evidence as a separate
   immutable artifact bound to the exact appliance closure, allowing media-only
   changes to build and boot a new installer without rerunning `sbomnix` while
@@ -890,11 +894,11 @@ This major release refactors NiXOA Core from a runtime build system to a pure Ni
 - Created XOA package with yarn2nix using workspace dependencies
 - Applied upstream patches (SMB handler, TypeScript generics) in preBuild
 
-[Unreleased]: https://github.com/declarative-dale/nixoa-core/compare/v1.4.0...HEAD
-[1.4.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.3.0...v1.4.0
-[1.3.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.2.1...v1.3.0
-[1.2.1]: https://github.com/declarative-dale/nixoa-core/compare/540e49a397229cb12301a230c25fe123a42b0eab...v1.2.1
-[1.2.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.2...540e49a397229cb12301a230c25fe123a42b0eab
-[1.1.2]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.1...v1.1.2
-[1.1.1]: https://github.com/declarative-dale/nixoa-core/compare/v1.1.0...v1.1.1
-[1.1.0]: https://github.com/declarative-dale/nixoa-core/compare/v1.0...v1.1.0
+[Unreleased]: https://github.com/closure-labs/nixoa/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/closure-labs/nixoa/compare/v1.3.0...v1.4.0
+[1.3.0]: https://github.com/closure-labs/nixoa/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/closure-labs/nixoa/compare/540e49a397229cb12301a230c25fe123a42b0eab...v1.2.1
+[1.2.0]: https://github.com/closure-labs/nixoa/compare/v1.1.2...540e49a397229cb12301a230c25fe123a42b0eab
+[1.1.2]: https://github.com/closure-labs/nixoa/compare/v1.1.1...v1.1.2
+[1.1.1]: https://github.com/closure-labs/nixoa/compare/v1.1.0...v1.1.1
+[1.1.0]: https://github.com/closure-labs/nixoa/compare/v1.0...v1.1.0

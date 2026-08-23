@@ -26,8 +26,8 @@ You need:
 ### Deploy
 
 ```bash
-git clone https://github.com/declarative-dale/nixoa-core.git
-cd nixoa-core
+git clone https://github.com/closure-labs/nixoa.git
+cd nixoa
 
 nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
@@ -84,7 +84,7 @@ networking and `/etc/nixos/hardware-configuration.nix`.
 From the VM:
 
 ```bash
-git clone https://github.com/declarative-dale/nixoa-core.git /tmp/nixoa-bootstrap
+git clone https://github.com/closure-labs/nixoa.git /tmp/nixoa-bootstrap
 cd /tmp/nixoa-bootstrap
 
 sudo ./scripts/bootstrap.sh \

@@ -620,12 +620,12 @@
         "rev": "47ea2f4ada5832352dc61d59ab40baa29d33707a",
         "revCount": 121,
         "type": "git",
-        "url": "https://github.com/declarative-dale/xo-nixpkg.git"
+        "url": "https://github.com/closure-labs/xo-nixpkg.git"
       },
       "original": {
         "ref": "refs/heads/main",
         "type": "git",
-        "url": "https://github.com/declarative-dale/xo-nixpkg.git"
+        "url": "https://github.com/closure-labs/xo-nixpkg.git"
       }
     },
     "xo-latest": {
