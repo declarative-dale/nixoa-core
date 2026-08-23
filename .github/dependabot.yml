@@ -12,7 +12,7 @@ updates:
           - "*"
 
   - package-ecosystem: cargo
-    directory: /pkgs/nixoa-menu
+    directory: /pkgs/maestro-menu
     schedule:
       interval: weekly
     cooldown:

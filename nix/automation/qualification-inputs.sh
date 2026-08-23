@@ -3,11 +3,11 @@
 
 set -euo pipefail
 
-repo_root=${NIXOA_SYSTEM_ROOT:-}
+repo_root=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$repo_root" ]]; then
   repo_root=$(git rev-parse --show-toplevel)
 fi
-system=${NIXOA_CI_SYSTEM:-x86_64-linux}
+system=${MAESTRO_CI_SYSTEM:-x86_64-linux}
 graph=$(nix eval --accept-flake-config --json \
   "path:${repo_root}#lib.ciQualificationInputs.${system}")
 jq -e 'type == "object" and (.media | type == "object") and (.evidence | type == "object")' \

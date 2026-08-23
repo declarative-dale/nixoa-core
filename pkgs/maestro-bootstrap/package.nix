@@ -9,7 +9,7 @@
   writeShellApplication,
 }:
 writeShellApplication {
-  name = "nixoa-bootstrap";
+  name = "maestro-bootstrap";
   runtimeInputs = [
     coreutils
     findutils
@@ -20,9 +20,9 @@ writeShellApplication {
   ];
   text = builtins.readFile ../../scripts/bootstrap.sh;
   meta = {
-    description = "Bootstrap the fixed NiXOA appliance checkout";
+    description = "Bootstrap the fixed Maestro appliance checkout";
     license = lib.licenses.asl20;
-    mainProgram = "nixoa-bootstrap";
+    mainProgram = "maestro-bootstrap";
     platforms = ["x86_64-linux"];
   };
 }

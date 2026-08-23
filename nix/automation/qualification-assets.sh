@@ -2,10 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-: "${NIXOA_SPDX_SCHEMA:?NIXOA_SPDX_SCHEMA must point to the pinned SPDX schema}"
+: "${MAESTRO_SPDX_SCHEMA:?MAESTRO_SPDX_SCHEMA must point to the pinned SPDX schema}"
 : "${QUALIFICATION_MODE:?QUALIFICATION_MODE must be a supported qualification mode}"
 
-repo_root=${NIXOA_SYSTEM_ROOT:-}
+repo_root=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$repo_root" ]]; then
   repo_root=$(git rev-parse --show-toplevel)
 fi
@@ -23,12 +23,12 @@ trap cleanup EXIT
 
 case "$QUALIFICATION_MODE" in
   qualify-media|qualify-media-reuse-evidence)
-    media_manifest=$(mktemp "${runner_temp}/nixoa-media-plan.XXXXXX")
+    media_manifest=$(mktemp "${runner_temp}/maestro-media-plan.XXXXXX")
     flake-plan-runner --flake "path:$repo_root" --plan lib.ciPlans.x86_64-linux.media --manifest "$media_manifest"
     ;;
   refresh-evidence)
     reused_installer=reused-media/result-installer
-    [[ -f "$reused_installer/iso/nixoa-installer.iso" ]]
+    [[ -f "$reused_installer/iso/maestro-installer.iso" ]]
     mv "$reused_installer" result-installer
     ;;
   *)
@@ -39,12 +39,12 @@ esac
 
 nix config show substituters
 nix config show trusted-public-keys
-determinate_out=$(nix eval --accept-flake-config --raw .#nixosConfigurations.nixoa.config.nix.package.upstream.outPath)
+determinate_out=$(nix eval --accept-flake-config --raw .#nixosConfigurations.maestro.config.nix.package.upstream.outPath)
 nix path-info --store https://install.determinate.systems "$determinate_out"
 xo_out=$(nix eval --accept-flake-config --raw .#packages.x86_64-linux.xen-orchestra-ce.outPath)
 nix path-info --store https://xen-orchestra-ce.cachix.org "$xo_out"
 
-manifest=$(mktemp "${runner_temp}/nixoa-plan.XXXXXX")
+manifest=$(mktemp "${runner_temp}/maestro-plan.XXXXXX")
 flake-plan-runner --flake "path:$repo_root" --plan lib.ciPlans.x86_64-linux.evidence --manifest "$manifest"
 
 sbomnix_out=$(jq -er '.results[] | select(.name == "sbomnix") | .outputs | select(length == 1) | .[0]' "$manifest")
@@ -56,11 +56,11 @@ if [[ "$QUALIFICATION_MODE" == qualify-media-reuse-evidence ]]; then
   : "${EXPECTED_EVIDENCE_INPUT:?EXPECTED_EVIDENCE_INPUT must identify reused evidence}"
   : "${EXPECTED_EVIDENCE_RUN_ID:?EXPECTED_EVIDENCE_RUN_ID must identify reused evidence}"
   jq -e --arg evidence_input "$EXPECTED_EVIDENCE_INPUT" --argjson evidence_run_id "$EXPECTED_EVIDENCE_RUN_ID" '
-      .schema_version == 4 and
+      .schema_version == 5 and
       .evidence_input == $evidence_input and
       .evidence_run_id == $evidence_run_id
-    ' reused-evidence/nixoa-qualification-state.json >/dev/null
-  for evidence_file in nixoa-system.spdx.json nixoa-system.spdx.json.sha256 nixoa-system.cdx.json nixoa-system.cdx.json.sha256 xen-orchestra-supply.assertion.json xen-orchestra-supply.assertion.json.sha256 xen-orchestra-supply.spdx.json xen-orchestra-supply.spdx.json.sha256 xen-orchestra-supply.cdx.json xen-orchestra-supply.cdx.json.sha256; do
+    ' reused-evidence/maestro-qualification-state.json >/dev/null
+  for evidence_file in maestro-system.spdx.json maestro-system.spdx.json.sha256 maestro-system.cdx.json maestro-system.cdx.json.sha256 xen-orchestra-supply.assertion.json xen-orchestra-supply.assertion.json.sha256 xen-orchestra-supply.spdx.json xen-orchestra-supply.spdx.json.sha256 xen-orchestra-supply.cdx.json xen-orchestra-supply.cdx.json.sha256; do
     install -m 0644 "reused-evidence/$evidence_file" "$evidence_file"
   done
 else
@@ -69,13 +69,13 @@ else
   install -m 0644 "$xo_supply_out/xen-orchestra.spdx.json" xen-orchestra-supply.spdx.json
   install -m 0644 "$xo_supply_out/xen-orchestra.cdx.json" xen-orchestra-supply.cdx.json
 
-  sbom_work=$(mktemp -d "${runner_temp}/nixoa-sbom.XXXXXX")
+  sbom_work=$(mktemp -d "${runner_temp}/maestro-sbom.XXXXXX")
   (
     cd "$sbom_work"
-    "$sbomnix_out/bin/sbomnix" "path:${repo_root}#nixosConfigurations.nixoa.config.system.build.toplevel"
+    "$sbomnix_out/bin/sbomnix" "path:${repo_root}#nixosConfigurations.maestro.config.system.build.toplevel"
   )
-  mv "$sbom_work/sbom.spdx.json" nixoa-system.spdx.json
-  mv "$sbom_work/sbom.cdx.json" nixoa-system.cdx.json
+  mv "$sbom_work/sbom.spdx.json" maestro-system.spdx.json
+  mv "$sbom_work/sbom.cdx.json" maestro-system.cdx.json
 
   xo_version=$(jq -er .subject.version xen-orchestra-supply.assertion.json)
   xo_document_namespace=$(jq -er .documentNamespace xen-orchestra-supply.spdx.json)
@@ -85,29 +85,29 @@ else
       .relatedSpdxElement] |
     select(length == 1) | .[0]
   ' xen-orchestra-supply.spdx.json)
-  core_xo_element=$(jq -er --arg version "$xo_version" '
+  appliance_xo_element=$(jq -er --arg version "$xo_version" '
     [.packages[] |
       select(.name == "xen-orchestra-ce" and .versionInfo == $version) |
       .SPDXID] |
     select(length == 1) | .[0]
-  ' nixoa-system.spdx.json)
+  ' maestro-system.spdx.json)
 
-  jq -S --arg core_xo_element "$core_xo_element" --arg namespace "$xo_document_namespace" --arg root "$xo_document_root" --arg sha256 "$(jq -er .documents.spdx.sha256 xen-orchestra-supply.assertion.json)" '
+  jq -S --arg appliance_xo_element "$appliance_xo_element" --arg namespace "$xo_document_namespace" --arg root "$xo_document_root" --arg sha256 "$(jq -er .documents.spdx.sha256 xen-orchestra-supply.assertion.json)" '
     .externalDocumentRefs = ((.externalDocumentRefs // []) + [{
       externalDocumentId: "DocumentRef-XOSupply",
       spdxDocument: $namespace,
       checksum: {algorithm: "SHA256", checksumValue: $sha256}
     }]) |
     .relationships += [{
-      spdxElementId: $core_xo_element,
+      spdxElementId: $appliance_xo_element,
       relationshipType: "DESCRIBED_BY",
       relatedSpdxElement: ("DocumentRef-XOSupply:" + $root)
     }]
-  ' nixoa-system.spdx.json >"$sbom_work/nixoa-system.spdx.json"
-  mv "$sbom_work/nixoa-system.spdx.json" nixoa-system.spdx.json
+  ' maestro-system.spdx.json >"$sbom_work/maestro-system.spdx.json"
+  mv "$sbom_work/maestro-system.spdx.json" maestro-system.spdx.json
 
-  sha256sum nixoa-system.spdx.json >nixoa-system.spdx.json.sha256
-  sha256sum nixoa-system.cdx.json >nixoa-system.cdx.json.sha256
+  sha256sum maestro-system.spdx.json >maestro-system.spdx.json.sha256
+  sha256sum maestro-system.cdx.json >maestro-system.cdx.json.sha256
   sha256sum xen-orchestra-supply.assertion.json >xen-orchestra-supply.assertion.json.sha256
   sha256sum xen-orchestra-supply.spdx.json >xen-orchestra-supply.spdx.json.sha256
   sha256sum xen-orchestra-supply.cdx.json >xen-orchestra-supply.cdx.json.sha256
@@ -138,35 +138,35 @@ xo_document_root=$(jq -er '
     .relatedSpdxElement] |
   select(length == 1) | .[0]
 ' xen-orchestra-supply.spdx.json)
-core_xo_element=$(jq -er --arg version "$xo_version" '
+appliance_xo_element=$(jq -er --arg version "$xo_version" '
   [.packages[] |
     select(.name == "xen-orchestra-ce" and .versionInfo == $version) |
     .SPDXID] |
   select(length == 1) | .[0]
-' nixoa-system.spdx.json)
-jq -e --arg core_xo_element "$core_xo_element" --arg root "$xo_document_root" --arg sha256 "$asserted_spdx_sha" '
+' maestro-system.spdx.json)
+jq -e --arg appliance_xo_element "$appliance_xo_element" --arg root "$xo_document_root" --arg sha256 "$asserted_spdx_sha" '
   any(.externalDocumentRefs[];
     .externalDocumentId == "DocumentRef-XOSupply" and
     .checksum.algorithm == "SHA256" and
     .checksum.checksumValue == $sha256) and
   any(.relationships[];
-    .spdxElementId == $core_xo_element and
+    .spdxElementId == $appliance_xo_element and
     .relationshipType == "DESCRIBED_BY" and
     .relatedSpdxElement == ("DocumentRef-XOSupply:" + $root))
-' nixoa-system.spdx.json >/dev/null
+' maestro-system.spdx.json >/dev/null
 
 (
-  sha256sum --check --strict nixoa-system.spdx.json.sha256
-  sha256sum --check --strict nixoa-system.cdx.json.sha256
+  sha256sum --check --strict maestro-system.spdx.json.sha256
+  sha256sum --check --strict maestro-system.cdx.json.sha256
   sha256sum --check --strict xen-orchestra-supply.assertion.json.sha256
   sha256sum --check --strict xen-orchestra-supply.spdx.json.sha256
   sha256sum --check --strict xen-orchestra-supply.cdx.json.sha256
 )
-check-jsonschema --schemafile "$NIXOA_SPDX_SCHEMA" nixoa-system.spdx.json
-jq -e '.bomFormat == "CycloneDX"' nixoa-system.cdx.json >/dev/null
+check-jsonschema --schemafile "$MAESTRO_SPDX_SCHEMA" maestro-system.spdx.json
+jq -e '.bomFormat == "CycloneDX"' maestro-system.cdx.json >/dev/null
 
-installer_iso=result-installer/iso/nixoa-installer.iso
-installer_budget_bytes=${NIXOA_INSTALLER_ARTIFACT_BUDGET_BYTES:-3000000000}
+installer_iso=result-installer/iso/maestro-installer.iso
+installer_budget_bytes=${MAESTRO_INSTALLER_ARTIFACT_BUDGET_BYTES:-3000000000}
 installer_size_bytes=$(stat -c %s "$installer_iso")
 if (( installer_size_bytes > installer_budget_bytes )); then
   printf 'Installer ISO is %s bytes, exceeding the %s-byte artifact budget\n' \
@@ -175,4 +175,4 @@ if (( installer_size_bytes > installer_budget_bytes )); then
 fi
 printf 'Installer ISO size: %s bytes (budget: %s bytes)\n' \
   "$installer_size_bytes" "$installer_budget_bytes"
-sha256sum result-installer/iso/nixoa-installer.iso >nixoa-installer.iso.sha256
+sha256sum result-installer/iso/maestro-installer.iso >maestro-installer.iso.sha256

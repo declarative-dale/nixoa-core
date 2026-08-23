@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: Apache-2.0
-# Bootstrap the single NiXOA appliance checkout.
+# Bootstrap the single Maestro appliance checkout.
 
 set -euo pipefail
 
-readonly BOOTSTRAP_DEFAULT_REPO_URL="https://codeberg.org/NiXOA/core.git"
+readonly BOOTSTRAP_DEFAULT_REPO_URL="https://github.com/closure-labs/maestro.git"
 readonly BOOTSTRAP_DEFAULT_BRANCH="main"
-readonly BOOTSTRAP_OPERATOR="nixoa"
+readonly BOOTSTRAP_OPERATOR="maestro"
 
 bootstrap_error() {
   printf 'error: %s\n' "$1" >&2
@@ -28,8 +28,8 @@ bootstrap_sudo() {
 
 resolve_script_checkout() {
   local script_dir candidate git_root
-  if [ -n "${NIXOA_SYSTEM_ROOT:-}" ] && [ -f "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh" ]; then
-    printf '%s\n' "$NIXOA_SYSTEM_ROOT"
+  if [ -n "${MAESTRO_SYSTEM_ROOT:-}" ] && [ -f "$MAESTRO_SYSTEM_ROOT/scripts/lib/common.sh" ]; then
+    printf '%s\n' "$MAESTRO_SYSTEM_ROOT"
     return
   fi
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd || true)"
@@ -50,14 +50,14 @@ usage() {
 Usage: bootstrap.sh [options]
 
 Options:
-  --repo-dir PATH       Checkout directory (default: /home/nixoa/nixoa)
+  --repo-dir PATH       Checkout directory (default: /home/maestro/maestro)
   --repo-url URL        Repository URL
   --branch NAME         Branch to clone or update
   --git-name NAME       Operator Git author name
   --git-email EMAIL     Operator Git author email
   --timezone ZONE       Appliance time zone
   --state-version VER   Initial NixOS state version (default: 26.05)
-  --ssh-key KEY         Authorized key for nixoa; repeatable
+  --ssh-key KEY         Authorized key for maestro; repeatable
   --enable-flakes       Persist nix-command and flakes before validation
   --skip-check          Skip nix flake check
   --skip-hardware-copy  Keep the checked-in placeholder hardware module
@@ -65,8 +65,8 @@ Options:
   --no-first-switch     Configure and validate without switching
   --help                Show this help
 
-The hostname, operator, architecture, and flake target are fixed to nixoa,
-nixoa, x86_64-linux, and .#nixoa respectively.
+The hostname, operator, architecture, and flake target are fixed to maestro,
+maestro, x86_64-linux, and .#maestro respectively.
 EOF
 }
 
@@ -83,7 +83,7 @@ enable_flakes() {
   if [ -f "$config_file" ]; then
     cp "$config_file" "$temporary"
   fi
-  printf '\n# Added by NiXOA bootstrap\nexperimental-features = nix-command flakes\n' >> "$temporary"
+  printf '\n# Added by Maestro bootstrap\nexperimental-features = nix-command flakes\n' >> "$temporary"
   bootstrap_sudo install -d -m 0755 /etc/nix
   bootstrap_sudo install -m 0644 "$temporary" "$config_file"
   rm -f "$temporary"
@@ -104,11 +104,11 @@ collect_existing_keys() {
   done
 }
 
-repo_url="${NIXOA_BOOTSTRAP_SOURCE_REPO_URL:-$BOOTSTRAP_DEFAULT_REPO_URL}"
-branch="${NIXOA_BOOTSTRAP_SOURCE_BRANCH:-}"
+repo_url="${MAESTRO_BOOTSTRAP_SOURCE_REPO_URL:-$BOOTSTRAP_DEFAULT_REPO_URL}"
+branch="${MAESTRO_BOOTSTRAP_SOURCE_BRANCH:-}"
 repo_dir=""
-git_name="NiXOA Admin"
-git_email="nixoa@nixoa"
+git_name="Maestro Admin"
+git_email="maestro@maestro"
 timezone="America/Chicago"
 state_version="26.05"
 persist_flakes=0
@@ -133,7 +133,7 @@ while [ "$#" -gt 0 ]; do
     --first-switch) first_switch=1; shift ;;
     --no-first-switch) first_switch=0; shift ;;
     --hostname|--username|--profile)
-      bootstrap_error "$1 was removed; NiXOA uses the fixed nixoa appliance identity."
+      bootstrap_error "$1 was removed; Maestro uses the fixed maestro appliance identity."
       exit 1
       ;;
     --help|-h)
@@ -153,7 +153,7 @@ if [ -z "$branch" ] && [ -n "$current_checkout" ]; then
   branch="$(git -C "$current_checkout" branch --show-current 2>/dev/null || true)"
 fi
 branch="${branch:-$BOOTSTRAP_DEFAULT_BRANCH}"
-repo_dir="${repo_dir:-/home/$BOOTSTRAP_OPERATOR/nixoa}"
+repo_dir="${repo_dir:-/home/$BOOTSTRAP_OPERATOR/maestro}"
 
 if [ "$persist_flakes" -eq 1 ]; then
   enable_flakes
@@ -181,7 +181,7 @@ else
   fi
 fi
 
-export NIXOA_SYSTEM_ROOT="$repo_dir"
+export MAESTRO_SYSTEM_ROOT="$repo_dir"
 # This path belongs to the validated target checkout.
 # shellcheck disable=SC1091
 . "$repo_dir/scripts/lib/common.sh"
@@ -190,7 +190,7 @@ if [ "${#ssh_keys[@]}" -eq 0 ]; then
   collect_existing_keys
 fi
 if [ "${#ssh_keys[@]}" -eq 0 ] && [ -t 0 ]; then
-  read -r -p "SSH public key for nixoa: " key
+  read -r -p "SSH public key for maestro: " key
   [ -z "$key" ] || ssh_keys+=("$key")
 fi
 if [ "${#ssh_keys[@]}" -eq 0 ]; then
@@ -209,8 +209,8 @@ for key in "${ssh_keys[@]}"; do
 done
 
 bootstrap_info "Writing fixed appliance settings"
-nixoa_write_host_settings \
-  "$NIXOA_SETTINGS_FILE" \
+maestro_write_host_settings \
+  "$MAESTRO_SETTINGS_FILE" \
   "$repo_dir" \
   "$timezone" \
   "$state_version" \
@@ -224,22 +224,22 @@ if [ "$skip_hardware" -eq 0 ]; then
     exit 1
   fi
   bootstrap_info "Copying generated hardware configuration"
-  cp /etc/nixos/hardware-configuration.nix "$NIXOA_HARDWARE_FILE"
+  cp /etc/nixos/hardware-configuration.nix "$MAESTRO_HARDWARE_FILE"
 fi
 
 git -C "$repo_dir" add host/settings.nix host/menu.nix host/hardware-configuration.nix
 
 if [ "$skip_check" -eq 0 ]; then
-  bootstrap_info "Validating .#nixoa"
-  nixoa_run_first_install_flake_check
+  bootstrap_info "Validating .#maestro"
+  maestro_run_first_install_flake_check
 fi
 
 if [ "$first_switch" -eq 1 ]; then
-  "$repo_dir/scripts/nxcli.sh" apply --first-install
+  "$repo_dir/scripts/maestroctl.sh" apply --first-install
 fi
 
 if id -u "$BOOTSTRAP_OPERATOR" >/dev/null 2>&1; then
   bootstrap_sudo chown -R "$BOOTSTRAP_OPERATOR:users" "$repo_dir"
 fi
 
-nixoa_print_success "NiXOA is configured at $repo_dir with target .#nixoa."
+maestro_print_success "Maestro is configured at $repo_dir with target .#maestro."

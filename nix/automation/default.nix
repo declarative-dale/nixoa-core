@@ -10,7 +10,7 @@
   }:
     pkgs.writeShellApplication {
       inherit runtimeInputs;
-      name = "nixoa-ci-${name}";
+      name = "maestro-ci-${name}";
       text = builtins.readFile ./command-preamble.sh + prefix + builtins.readFile source;
     };
 
@@ -34,8 +34,8 @@
   validatePlan = mkCommand {
     name = "validate-plan";
     prefix = ''
-      NIXOA_CI_PLAN_SCHEMA="''${NIXOA_CI_PLAN_SCHEMA:-${./qualification-plan.schema.json}}"
-      export NIXOA_CI_PLAN_SCHEMA
+      MAESTRO_CI_PLAN_SCHEMA="''${MAESTRO_CI_PLAN_SCHEMA:-${./qualification-plan.schema.json}}"
+      export MAESTRO_CI_PLAN_SCHEMA
     '';
     runtimeInputs = commonInputs ++ [pkgs.check-jsonschema];
     source = ./validate-plan.sh;
@@ -56,8 +56,8 @@
     qualification-assets = mkCommand {
       name = "qualification-assets";
       prefix = ''
-        NIXOA_SPDX_SCHEMA="''${NIXOA_SPDX_SCHEMA:-${spdxSchema}}"
-        export NIXOA_SPDX_SCHEMA
+        MAESTRO_SPDX_SCHEMA="''${MAESTRO_SPDX_SCHEMA:-${spdxSchema}}"
+        export MAESTRO_SPDX_SCHEMA
       '';
       runtimeInputs = commonInputs ++ [pkgs.check-jsonschema planRunner];
       source = ./qualification-assets.sh;

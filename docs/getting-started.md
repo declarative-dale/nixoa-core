@@ -1,6 +1,6 @@
 # Getting Started
 
-This guide begins after NiXOA is installed. If you still need to create the
+This guide begins after Maestro is installed. If you still need to create the
 appliance, start with [Installation](installation.md).
 
 ## 1. Connect
@@ -9,10 +9,10 @@ Find the VM address in XCP-ng or Xen Orchestra, then connect with the SSH key
 used during installation:
 
 ```bash
-ssh nixoa@<vm-address>
+ssh maestro@<vm-address>
 ```
 
-The appliance uses SSH-key authentication for the `nixoa` operator.
+The appliance uses SSH-key authentication for the `maestro` operator.
 
 ## 2. Open Xen Orchestra
 
@@ -22,42 +22,42 @@ Visit:
 https://<vm-address>/
 ```
 
-NiXOA creates a self-signed certificate by default, so your browser will show a
+Maestro creates a self-signed certificate by default, so your browser will show a
 warning on the first visit. You can replace the certificate later.
 
 ## 3. Check the appliance
 
 ```bash
-nxcli status
-nxcli xo logs
+maestroctl status
+maestroctl xo logs
 ```
 
 For a guided interface, run:
 
 ```bash
-nixoa-menu
+maestro-menu
 ```
 
 ## 4. Make a safe change
 
-Use `nixoa-menu`, or edit the durable configuration:
+Use `maestro-menu`, or edit the durable configuration:
 
 ```bash
-nxcli host edit
+maestroctl host edit
 ```
 
 Then review and preview the change before activating it:
 
 ```bash
-nxcli diff
-nxcli apply --dry-run
-nxcli apply
+maestroctl diff
+maestroctl apply --dry-run
+maestroctl apply
 ```
 
 If the new generation causes a problem:
 
 ```bash
-nxcli rollback --ask
+maestroctl rollback --ask
 ```
 
 ## Next steps

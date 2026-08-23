@@ -3,22 +3,22 @@
 > This is an advanced reference for contributors. For normal installation and
 > operation, start with [Getting started](getting-started.md).
 
-NiXOA is intentionally a single-appliance Den flake. `flake.nix` evaluates the
+Maestro is intentionally a single-appliance Den flake. `flake.nix` evaluates the
 `modules/` import tree, and Den materializes one host entity:
 
 ```text
-den.hosts.x86_64-linux.nixoa
-└── nixosConfigurations.nixoa
+den.hosts.x86_64-linux.maestro
+└── nixosConfigurations.maestro
 ```
 
-The `nixoa` host aspect composes four focused aspects:
+The `maestro` host aspect composes four focused aspects:
 
 ```text
-nixoa
+maestro
 ├── platform   NixOS base, networking, Nix policy, DBus safeguards
 ├── xcp-ng     Xen guest agent and constrained NoCloud provisioning
 ├── xo         Xen Orchestra service, TLS, and storage
-└── operator   nixoa account, SSH, Home Manager, nxcli, and menu
+└── operator   maestro account, SSH, Home Manager, maestroctl, and menu
 ```
 
 The flake exports one concrete appliance configuration and one operator-side
@@ -28,9 +28,9 @@ The native XCP-ng template builder runs on the operator workstation.
 `packages.x86_64-linux.installer-iso` evaluates a small live installer, while
 `nix run --accept-flake-config .#deploy-template` realizes Packer and its
 XenServer plugin in the caller's Nix store. The installed system is
-`nixosConfigurations.nixoa`.
+`nixosConfigurations.maestro`.
 
-The flake directly declares the Determinate, NiXOA, and Xen Orchestra binary
+The flake directly declares the Determinate, Maestro, and Xen Orchestra binary
 caches. Integrated libvhdi comes from the Xen Orchestra flake. The
 multi-gigabyte installer is instead a GitHub Actions
 artifact: the `deploy-template` app selects the newest successful `main` run,
@@ -41,7 +41,7 @@ independently pinned. An exact checkout-local ISO is available through
 
 Repository delivery is Nix-defined and flake-packaged. Hosted workflow command
 bodies call declared devenv tasks through a thin flake app, and those tasks
-execute explicit `nixoa-ci-*` leaf packages. No umbrella automation app or
+execute explicit `maestro-ci-*` leaf packages. No umbrella automation app or
 dispatcher sits between the task graph and those Nix derivations. Workflows
 retain GitHub security
 boundaries—permissions, OIDC, artifacts, attestations, Cachix, and FlakeHub.
@@ -105,7 +105,7 @@ policy.
 
 The XCP-ng aspect enables cloud-init for Xen Orchestra NoCloud config drives.
 Its scope is deliberately narrow: select `NoCloud` with a `None` fallback,
-target the existing `nixoa` operator, install datasource SSH keys, and create
+target the existing `maestro` operator, install datasource SSH keys, and create
 per-instance SSH identity. Declarative NixOS configuration remains authoritative
 for accounts, sudo, network configuration, filesystem declarations, packages,
 and services. Cloud-init installs NoCloud SSH keys and can grow the existing
@@ -130,10 +130,10 @@ short-lived, root-readable credential file.
 
 ## Operational invariants
 
-- target and host entity: `nixoa`
+- target and host entity: `maestro`
 - architecture: `x86_64-linux`
 - hypervisor: XCP-ng/Xen
-- operator: `nixoa`
+- operator: `maestro`
 - initial state version: `26.05`
 - direct XO package:
   `inputs.xen-orchestra-ce.packages.x86_64-linux.latest`

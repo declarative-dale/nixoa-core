@@ -13,7 +13,7 @@ qemu_bin=${QEMU_BIN:-qemu-system-x86_64}
 qemu_img_bin=${QEMU_IMG_BIN:-qemu-img}
 boot_timeout=${BOOT_TIMEOUT:-5m}
 log=${BOOT_LOG:-$(dirname "$iso")/qemu-boot.log}
-disk=$(mktemp "${TMPDIR:-/tmp}/nixoa-boot.XXXXXX.qcow2")
+disk=$(mktemp "${TMPDIR:-/tmp}/maestro-boot.XXXXXX.qcow2")
 trap 'rm -f -- "$disk"' EXIT
 
 command -v "$qemu_bin" >/dev/null
@@ -25,7 +25,7 @@ if [[ -r /dev/kvm && -w /dev/kvm ]]; then
   acceleration=(-accel kvm)
 fi
 
-boot_pattern='nixoa-installer login:|Reached target .*Multi-User System|Started OpenSSH'
+boot_pattern='maestro-installer login:|Reached target .*Multi-User System|Started OpenSSH'
 : >"$log"
 
 timeout --signal=TERM "$boot_timeout" \
@@ -39,9 +39,9 @@ timeout --signal=TERM "$boot_timeout" \
     -boot d \
     -display none \
     -no-reboot \
-    -chardev stdio,id=nixoa-console,signal=off \
+    -chardev stdio,id=maestro-console,signal=off \
     -device virtio-serial-pci \
-    -device virtconsole,chardev=nixoa-console >"$log" 2>&1 &
+    -device virtconsole,chardev=maestro-console >"$log" 2>&1 &
 qemu_pid=$!
 
 reached_target=false
@@ -73,6 +73,6 @@ esac
 
 [[ "$reached_target" == true ]] || {
   cat "$log" >&2
-  printf 'The ISO did not reach the NiXOA installer login target.\n' >&2
+  printf 'The ISO did not reach the Maestro installer login target.\n' >&2
   exit 1
 }

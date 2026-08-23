@@ -72,14 +72,14 @@ run_helper() {
     PATH="$fake_bin:$PATH" \
     FAKE_MOUNT_LOG="$mount_log" \
     FAKE_CREDENTIALS_SNAPSHOT="$credentials_snapshot" \
-    NIXOA_XO_MOUNTS_DIR=/var/lib/xo/mounts \
-    NIXOA_XO_DATA_DIR=/var/lib/xo/data \
-    NIXOA_XO_TEMP_DIR=/var/lib/xo/tmp \
-    NIXOA_XO_USER=xo \
-    NIXOA_XO_CREDENTIALS_DIR="$temporary/credentials" \
-    NIXOA_XO_ALLOWED_MOUNT_TYPES='cifs nfs nfs4' \
-    NIXOA_XO_ENABLE_CIFS=true \
-    NIXOA_XO_ENABLE_VHD=true \
+    MAESTRO_XO_MOUNTS_DIR=/var/lib/xo/mounts \
+    MAESTRO_XO_DATA_DIR=/var/lib/xo/data \
+    MAESTRO_XO_TEMP_DIR=/var/lib/xo/tmp \
+    MAESTRO_XO_USER=xo \
+    MAESTRO_XO_CREDENTIALS_DIR="$temporary/credentials" \
+    MAESTRO_XO_ALLOWED_MOUNT_TYPES='cifs nfs nfs4' \
+    MAESTRO_XO_ENABLE_CIFS=true \
+    MAESTRO_XO_ENABLE_VHD=true \
     bash "$helper" "$@"
 }
 
@@ -113,13 +113,13 @@ fi
 
 if env \
   PATH="$fake_bin:$PATH" \
-  NIXOA_XO_MOUNTS_DIR=/var/lib/xo/mounts \
-  NIXOA_XO_DATA_DIR=/var/lib/xo/data \
-  NIXOA_XO_TEMP_DIR=/var/lib/xo/tmp \
-  NIXOA_XO_USER=xo \
-  NIXOA_XO_CREDENTIALS_DIR="$temporary/credentials" \
-  NIXOA_XO_ENABLE_CIFS=false \
-  NIXOA_XO_ENABLE_VHD=false \
+  MAESTRO_XO_MOUNTS_DIR=/var/lib/xo/mounts \
+  MAESTRO_XO_DATA_DIR=/var/lib/xo/data \
+  MAESTRO_XO_TEMP_DIR=/var/lib/xo/tmp \
+  MAESTRO_XO_USER=xo \
+  MAESTRO_XO_CREDENTIALS_DIR="$temporary/credentials" \
+  MAESTRO_XO_ENABLE_CIFS=false \
+  MAESTRO_XO_ENABLE_VHD=false \
   bash "$helper" mount-cifs-with-credentials -t cifs //server/share /var/lib/xo/mounts/test \
   >/dev/null 2>&1; then
   printf 'storage helper allowed disabled CIFS support\n' >&2
@@ -128,13 +128,13 @@ fi
 
 if env \
   PATH="$fake_bin:$PATH" \
-  NIXOA_XO_MOUNTS_DIR=/var/lib/xo/mounts \
-  NIXOA_XO_DATA_DIR=/var/lib/xo/data \
-  NIXOA_XO_TEMP_DIR=/var/lib/xo/tmp \
-  NIXOA_XO_USER=xo \
-  NIXOA_XO_CREDENTIALS_DIR="$temporary/credentials" \
-  NIXOA_XO_ENABLE_CIFS=false \
-  NIXOA_XO_ENABLE_VHD=false \
+  MAESTRO_XO_MOUNTS_DIR=/var/lib/xo/mounts \
+  MAESTRO_XO_DATA_DIR=/var/lib/xo/data \
+  MAESTRO_XO_TEMP_DIR=/var/lib/xo/tmp \
+  MAESTRO_XO_USER=xo \
+  MAESTRO_XO_CREDENTIALS_DIR="$temporary/credentials" \
+  MAESTRO_XO_ENABLE_CIFS=false \
+  MAESTRO_XO_ENABLE_VHD=false \
   bash "$helper" vhdiinfo /var/lib/xo/data/disk.vhd \
   >/dev/null 2>&1; then
   printf 'storage helper allowed disabled VHD support\n' >&2
@@ -148,8 +148,8 @@ printf 'operator\nsecret\n' \
     PATH="$fake_bin:$PATH" \
     FAKE_SUDO_LOG="$sudo_log" \
     FAKE_SUDO_STDIN="$sudo_stdin" \
-    NIXOA_XO_STORAGE_HELPER=/nix/store/test/bin/xo-storage-helper \
-    NIXOA_XO_SUDO="$fake_bin/sudo" \
+    MAESTRO_XO_STORAGE_HELPER=/nix/store/test/bin/xo-storage-helper \
+    MAESTRO_XO_SUDO="$fake_bin/sudo" \
     USER=operator \
     PASSWD=secret \
     bash "$wrapper" -n mount -t cifs //server/share /var/lib/xo/mounts/test

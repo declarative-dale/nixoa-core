@@ -5,19 +5,19 @@
   pkgs,
   ...
 }: let
-  cfg = config.nixoa.xo;
+  cfg = config.maestro.xo;
   enabled = cfg.enable && cfg.tls.enable && cfg.tls.autoCert;
   generateCertificate = pkgs.writeShellApplication {
     name = "xo-generate-certificate";
     runtimeInputs = [pkgs.coreutils pkgs.openssl];
     text = ''
-      export NIXOA_XO_TLS_CERT=${lib.escapeShellArg cfg.tls.cert}
-      export NIXOA_XO_TLS_KEY=${lib.escapeShellArg cfg.tls.key}
-      export NIXOA_XO_TLS_DIR=${lib.escapeShellArg cfg.tls.dir}
-      export NIXOA_XO_HOSTNAME=${lib.escapeShellArg config.networking.hostName}
-      export NIXOA_XO_HTTP_HOST=${lib.escapeShellArg cfg.httpHost}
-      export NIXOA_XO_USER=${lib.escapeShellArg cfg.user}
-      export NIXOA_XO_GROUP=${lib.escapeShellArg cfg.group}
+      export MAESTRO_XO_TLS_CERT=${lib.escapeShellArg cfg.tls.cert}
+      export MAESTRO_XO_TLS_KEY=${lib.escapeShellArg cfg.tls.key}
+      export MAESTRO_XO_TLS_DIR=${lib.escapeShellArg cfg.tls.dir}
+      export MAESTRO_XO_HOSTNAME=${lib.escapeShellArg config.networking.hostName}
+      export MAESTRO_XO_HTTP_HOST=${lib.escapeShellArg cfg.httpHost}
+      export MAESTRO_XO_USER=${lib.escapeShellArg cfg.user}
+      export MAESTRO_XO_GROUP=${lib.escapeShellArg cfg.group}
       ${builtins.readFile ./autocert.sh}
     '';
   };

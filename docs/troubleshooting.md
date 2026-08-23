@@ -3,8 +3,8 @@
 Start with the appliance summary and Xen Orchestra logs:
 
 ```bash
-nxcli status
-nxcli xo logs
+maestroctl status
+maestroctl xo logs
 ```
 
 Then use the section that matches the symptom.
@@ -21,13 +21,13 @@ Then use the section that matches the symptom.
 
 ## SSH access fails
 
-Connect as `nixoa` with a public key registered during installation or in the
+Connect as `maestro` with a public key registered during installation or in the
 host configuration.
 
 From the VM console, check the account and effective SSH policy:
 
 ```bash
-getent passwd nixoa
+getent passwd maestro
 sudo sshd -T | grep -E 'allowusers|passwordauthentication|permitrootlogin'
 ```
 
@@ -43,7 +43,7 @@ journalctl -u cloud-init-local.service -u cloud-init.service \
   -u cloud-config.service -b
 ```
 
-`cloud-id` should report `nocloud`. Without a config drive, NiXOA uses the keys
+`cloud-id` should report `nocloud`. Without a config drive, Maestro uses the keys
 declared in its host configuration.
 
 ## Xen Orchestra does not start
@@ -74,24 +74,24 @@ Check that the fixed appliance output exists:
 
 ```bash
 nix flake show
-nix eval .#nixosConfigurations.nixoa.config.networking.hostName
+nix eval .#nixosConfigurations.maestro.config.networking.hostName
 ```
 
 Stage new files before evaluating the flake, or use an explicit `path:` flake
 reference so the evaluator includes the working tree.
 
-If `nxcli apply` reports a dirty checkout, inspect it with:
+If `maestroctl apply` reports a dirty checkout, inspect it with:
 
 ```bash
-nxcli diff
+maestroctl diff
 ```
 
-NiXOA reports a dirty checkout so you can review the exact changes before
+Maestro reports a dirty checkout so you can review the exact changes before
 activation.
 
 ## A menu change disappeared
 
-`nixoa-menu` rewrites `host/menu.nix` as a complete generated override. Move
+`maestro-menu` rewrites `host/menu.nix` as a complete generated override. Move
 durable manual changes to `host/settings.nix`.
 
 ## Remote storage fails
@@ -99,12 +99,12 @@ durable manual changes to `host/settings.nix`.
 Follow the logs while reproducing the problem:
 
 ```bash
-nxcli xo logs
+maestroctl xo logs
 ```
 
-Mount targets must be below the configured `nixoa.xo.storage.mountsDir`. VHD
+Mount targets must be below the configured `maestro.xo.storage.mountsDir`. VHD
 paths must be below the XO mounts, data, or temporary directories. Confirm that
-the required protocol is enabled in `nixoa.xo.storage`.
+the required protocol is enabled in `maestro.xo.storage`.
 
 The privileged helper validates operations, enabled filesystems, safe path
 roots, and credential-file usage.
@@ -144,7 +144,7 @@ For detailed Packer behavior and clone validation, see the
 
 ## Xen warnings
 
-A Valkey warning about the Xen clocksource is usually informational. NiXOA
+A Valkey warning about the Xen clocksource is usually informational. Maestro
 keeps Xen's selected clocksource because it remains safe across VM migration,
 save, and restore.
 

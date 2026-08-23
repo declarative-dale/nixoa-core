@@ -19,7 +19,7 @@ variable "remote_password" {
 
 variable "sr_iso_name" {
   type        = string
-  description = "ISO storage repository used for the NiXOA installer."
+  description = "ISO storage repository used for the Maestro installer."
 }
 
 variable "sr_name" {
@@ -29,7 +29,7 @@ variable "sr_name" {
 
 variable "iso_url" {
   type        = string
-  description = "Absolute path to the generated NiXOA installer ISO."
+  description = "Absolute path to the generated Maestro installer ISO."
 }
 
 variable "iso_checksum" {
@@ -39,18 +39,18 @@ variable "iso_checksum" {
 
 variable "operator_public_key_file" {
   type        = string
-  description = "Local SSH public key installed for the nixoa operator."
+  description = "Local SSH public key installed for the maestro operator."
 }
 
 variable "repo_url" {
   type        = string
-  description = "Core repository cloned by the installer."
-  default     = "https://github.com/closure-labs/nixoa.git"
+  description = "Maestro repository cloned by the installer."
+  default     = "https://github.com/closure-labs/maestro.git"
 }
 
 variable "repo_branch" {
   type        = string
-  description = "Core repository branch installed into the template."
+  description = "Maestro repository branch installed into the template."
   default     = "main"
 }
 
@@ -96,7 +96,7 @@ variable "vm_tags" {
   type        = list(string)
   description = "Tags applied to the native template."
   default = [
-    "nixoa",
+    "maestro",
     "nixos",
     "packer",
     "template",

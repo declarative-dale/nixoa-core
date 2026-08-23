@@ -95,6 +95,6 @@
 in
   assert lib.assertMsg (failures == [])
   ("Repository policy violations:\n- " + lib.concatStringsSep "\n- " failures);
-    pkgs.runCommandLocal "nixoa-repository-policy" {} ''
+    pkgs.runCommandLocal "maestro-repository-policy" {} ''
       touch "$out"
     ''

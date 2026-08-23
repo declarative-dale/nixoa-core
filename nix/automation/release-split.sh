@@ -6,8 +6,8 @@ set -euo pipefail
 source_iso=${1:?usage: stage-release-installer.sh SOURCE_ISO VERSIONED_ISO RELEASE_DIR}
 versioned_iso=${2:?usage: stage-release-installer.sh SOURCE_ISO VERSIONED_ISO RELEASE_DIR}
 release_dir=${3:?usage: stage-release-installer.sh SOURCE_ISO VERSIONED_ISO RELEASE_DIR}
-part_size=${NIXOA_RELEASE_PART_SIZE:-1900M}
-asset_limit=${NIXOA_RELEASE_ASSET_LIMIT:-2147483648}
+part_size=${MAESTRO_RELEASE_PART_SIZE:-1900M}
+asset_limit=${MAESTRO_RELEASE_ASSET_LIMIT:-2147483648}
 
 [[ -f "$source_iso" ]] || {
   printf 'Installer ISO does not exist: %s\n' "$source_iso" >&2

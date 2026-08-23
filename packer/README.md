@@ -1,19 +1,19 @@
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 # Packer deployment
 
-The repository can build and deploy NiXOA without installing Packer into a
+The repository can build and deploy Maestro without installing Packer into a
 profile or into the appliance:
 
 ```bash
-git clone https://github.com/closure-labs/nixoa.git
-cd nixoa
+git clone https://github.com/closure-labs/maestro.git
+cd maestro
 nix run --accept-flake-config .#deploy-template -- \
   --host XCP_POOL_MASTER \
   --iso-sr "ISO library" \
   --sr "Local storage" \
   --network "VM network" \
   --export-network "VM network" \
-  --template-name NiXOA \
+  --template-name Maestro \
   --memory-mb 4096 \
   --disk-size-mb 20480 \
   --operator-key ~/.ssh/id_ed25519.pub
@@ -21,7 +21,7 @@ nix run --accept-flake-config .#deploy-template -- \
 
 Nix supplies Packer from pinned nixpkgs and builds the Vates XenServer plugin
 at pinned version 0.11.4. Both live only in the caller's Nix store. Neither is
-added to `nixosConfigurations.nixoa`.
+added to `nixosConfigurations.maestro`.
 
 The helper saves non-secret pool settings to the ignored
 `packer/local.pkrvars.json`. It never writes the XCP-ng password. Set
@@ -38,11 +38,11 @@ nix run --accept-flake-config .#build-template -- \
 
 Both apps use the same Nix-packaged Packer and XenServer plugin. Run them from
 the checkout whose `packer/` sources and appliance flake should be built, or
-set `NIXOA_SYSTEM_ROOT` explicitly.
+set `MAESTRO_SYSTEM_ROOT` explicitly.
 
 GitHub Actions builds the deployer, appliance packages, complete system, and
 installer ISO. The complete, closure-preseeded ISO is retained for 90 days as
-the `nixoa-installer` workflow artifact; only the smaller reusable NiXOA
+the `maestro-installer` workflow artifact; only the smaller reusable Maestro
 packages are pushed to Cachix. `nix run --accept-flake-config
 .#deploy-template` downloads the artifact from the newest successful `main`
 workflow run into a temporary directory, verifies its SHA-256 checksum, and
@@ -64,15 +64,15 @@ checkout while a newer `main` workflow is still running. Set
    build it locally or `INSTALLER_ISO=/path/to/image.iso` to use an existing
    image. The ISO remains limited to the
    Xen unattended-install path and uses networkd for DHCP, but its Nix store is
-   preseeded with the complete generic NiXOA system closure, `nixoa-menu`, and
+   preseeded with the complete generic Maestro system closure, `maestro-menu`, and
    Xen Orchestra so first installation needs only source metadata and small
    machine-specific derivations from the network.
 2. Packer uploads that ISO to the selected ISO SR and creates one UEFI VM with
    one disk and a DHCP network.
 3. The live installer requires explicit destructive confirmation, partitions
-   only that single Packer disk, clones `core`, writes the operator key, and
+   only that single Packer disk, clones `maestro`, writes the operator key, and
    generates the hardware module.
-4. `nixos-install` installs `.#nixoa`; the VM reboots twice while Packer verifies
+4. `nixos-install` installs `.#maestro`; the VM reboots twice while Packer verifies
    cloud-init, Xen guest integration, Redis, XO, TLS, and SSH. Packer gives XO a
    fixed four-minute startup grace period only on the installed system's first
    boot; the second verification retries its endpoint immediately.
@@ -90,15 +90,15 @@ disk.
 ## Clone validation
 
 Create a VM from the template, attach a Xen Orchestra NoCloud config drive with
-an SSH key for `nixoa`, and boot it. Then run:
+an SSH key for `maestro`, and boot it. Then run:
 
 ```bash
-sudo /home/nixoa/nixoa/packer/scripts/verify-clone.sh
+sudo /home/maestro/maestro/packer/scripts/verify-clone.sh
 ```
 
 The check requires a NoCloud datasource, new machine and SSH identities,
 key-only SSH, healthy Redis/XO services, and a responding HTTPS endpoint.
 
-The known `nixoa`/`nixoa` password exists only in the live installer and the
+The known `maestro`/`maestro` password exists only in the live installer and the
 temporary Packer override. The sealing step locks it before the native template
 is finalized.

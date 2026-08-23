@@ -360,12 +360,12 @@ const MAINTENANCE_ACTIONS: [ActionItem; 6] = [
     ActionItem {
         kind: ActionKind::ApplyConfiguration,
         title: "Apply Configuration",
-        detail: "Run nxcli apply for the current host and refresh console state after completion.",
+        detail: "Run maestroctl apply for the current host and refresh console state after completion.",
     },
     ActionItem {
         kind: ActionKind::RollbackGeneration,
         title: "Rollback Generation",
-        detail: "Run nxcli rollback interactively for the current host.",
+        detail: "Run maestroctl rollback interactively for the current host.",
     },
     ActionItem {
         kind: ActionKind::RunGarbageCollection,
@@ -450,7 +450,7 @@ impl App {
             quit_confirm: false,
             quit_confirm_selection: ConfirmChoice::No,
             logs: vec![
-                "NiXOA console ready.".to_string(),
+                "Maestro console ready.".to_string(),
                 "Use Up/Down to choose, Enter to advance, and Esc to go back.".to_string(),
             ],
             log_filter: String::new(),
@@ -1140,7 +1140,7 @@ fn main() -> Result<()> {
 }
 
 fn discover_repo_root() -> Result<PathBuf> {
-    if let Some(root) = env::var_os("NIXOA_SYSTEM_ROOT") {
+    if let Some(root) = env::var_os("MAESTRO_SYSTEM_ROOT") {
         let candidate = PathBuf::from(root);
         if candidate.join("scripts/tui/state.sh").is_file() {
             return Ok(candidate);
@@ -1160,7 +1160,7 @@ fn discover_repo_root() -> Result<PathBuf> {
     }
 
     if let Some(home) = env::var_os("HOME") {
-        for name in ["nixoa", "system"] {
+        for name in ["maestro", "system"] {
             let candidate = PathBuf::from(&home).join(name);
             if candidate.join("scripts/tui/state.sh").is_file() {
                 return Ok(candidate);
@@ -1168,7 +1168,7 @@ fn discover_repo_root() -> Result<PathBuf> {
         }
     }
 
-    env::current_dir().context("failed to determine current directory for NIXOA_SYSTEM_ROOT")
+    env::current_dir().context("failed to determine current directory for MAESTRO_SYSTEM_ROOT")
 }
 
 fn init_terminal() -> Result<AppTerminal> {
@@ -1203,7 +1203,7 @@ fn resume_terminal(terminal: &mut AppTerminal) -> Result<()> {
 fn load_snapshot(repo_root: &Path) -> Result<Snapshot> {
     let output = Command::new(repo_root.join("scripts/tui/state.sh"))
         .arg("--json")
-        .env("NIXOA_SYSTEM_ROOT", repo_root)
+        .env("MAESTRO_SYSTEM_ROOT", repo_root)
         .output()
         .with_context(|| {
             format!(
@@ -1770,7 +1770,7 @@ fn open_modal(app: &mut App, action: InputAction, title: &str, help: &str, initi
 fn open_apply_commit_modal(app: &mut App, entries: &[GitStatusEntry]) {
     app.modal = Some(InputModal {
         title: "Commit Changes Before Apply".to_string(),
-        help: "Uncommitted NiXOA files must be committed before applying. Enter a commit message, or leave it blank to auto-generate one from today's date and the changed files.".to_string(),
+        help: "Uncommitted Maestro files must be committed before applying. Enter a commit message, or leave it blank to auto-generate one from today's date and the changed files.".to_string(),
         action: InputAction::CommitAndApplyConfiguration,
         value: String::new(),
         changed_files: entries.iter().map(format_status_entry).collect(),
@@ -1789,7 +1789,7 @@ fn run_apply_configuration(terminal: &mut AppTerminal, app: &mut App) -> Result<
 
 fn run_apply_command(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Apply Configuration", {
-        let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
+        let mut command = Command::new(app.repo_root.join("scripts/maestroctl.sh"));
         command.arg("apply");
         command
     })
@@ -1797,7 +1797,7 @@ fn run_apply_command(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
 
 fn run_rollback_generation(terminal: &mut AppTerminal, app: &mut App) -> Result<()> {
     run_command_interactive(terminal, app, "Rollback Generation", {
-        let mut command = Command::new(app.repo_root.join("scripts/nxcli.sh"));
+        let mut command = Command::new(app.repo_root.join("scripts/maestroctl.sh"));
         command.arg("rollback");
         command
     })
@@ -1858,7 +1858,7 @@ fn run_action_capture(app: &mut App, args: &[&str]) -> Result<()> {
 
 fn run_action_interactive(terminal: &mut AppTerminal, app: &mut App, args: &[&str]) -> Result<()> {
     let mut command = Command::new(app.repo_root.join("scripts/tui/action.sh"));
-    command.args(args).env("NIXOA_SYSTEM_ROOT", &app.repo_root);
+    command.args(args).env("MAESTRO_SYSTEM_ROOT", &app.repo_root);
     run_command_interactive(
         terminal,
         app,
@@ -1870,7 +1870,7 @@ fn run_action_interactive(terminal: &mut AppTerminal, app: &mut App, args: &[&st
 fn backend_action(repo_root: &Path, args: &[&str]) -> Result<Output> {
     Command::new(repo_root.join("scripts/tui/action.sh"))
         .args(args)
-        .env("NIXOA_SYSTEM_ROOT", repo_root)
+        .env("MAESTRO_SYSTEM_ROOT", repo_root)
         .output()
         .with_context(|| {
             format!(
@@ -1887,7 +1887,7 @@ fn run_command_interactive(
     mut command: Command,
 ) -> Result<()> {
     let label = label.into();
-    command.env("NIXOA_SYSTEM_ROOT", &app.repo_root);
+    command.env("MAESTRO_SYSTEM_ROOT", &app.repo_root);
 
     suspend_terminal(terminal)?;
     let status_result = command.status();
@@ -1918,7 +1918,7 @@ fn uncommitted_config_files(repo_root: &Path) -> Result<Vec<GitStatusEntry>> {
 
     let output = command
         .output()
-        .context("failed to inspect uncommitted NiXOA files")?;
+        .context("failed to inspect uncommitted Maestro files")?;
 
     if !output.status.success() {
         return Err(anyhow!(
@@ -1954,7 +1954,7 @@ fn format_status_entry(entry: &GitStatusEntry) -> String {
 fn commit_uncommitted_changes(app: &mut App, message: &str) -> Result<bool> {
     let entries = uncommitted_config_files(&app.repo_root)?;
     if entries.is_empty() {
-        app.push_log("No uncommitted NiXOA files were found before apply.");
+        app.push_log("No uncommitted Maestro files were found before apply.");
         return Ok(true);
     }
 
@@ -1964,15 +1964,15 @@ fn commit_uncommitted_changes(app: &mut App, message: &str) -> Result<bool> {
         message.trim().to_string()
     };
 
-    let output = Command::new(app.repo_root.join("scripts/nxcli.sh"))
+    let output = Command::new(app.repo_root.join("scripts/maestroctl.sh"))
         .arg("commit")
         .arg(commit_message)
-        .env("NIXOA_SYSTEM_ROOT", &app.repo_root)
+        .env("MAESTRO_SYSTEM_ROOT", &app.repo_root)
         .output()
         .with_context(|| {
             format!(
                 "failed to run {}",
-                app.repo_root.join("scripts/nxcli.sh").display()
+                app.repo_root.join("scripts/maestroctl.sh").display()
             )
         })?;
 
@@ -2007,7 +2007,7 @@ fn autogenerated_commit_message(entries: &[GitStatusEntry]) -> String {
         .collect::<Vec<_>>()
         .join("\n");
 
-    format!("Save NiXOA changes on {date}\n\nChanged files:\n{files}")
+    format!("Save Maestro changes on {date}\n\nChanged files:\n{files}")
 }
 
 fn current_date_utc() -> String {
@@ -2312,7 +2312,7 @@ fn render(frame: &mut Frame, app: &App) {
 }
 
 fn render_too_small(frame: &mut Frame, area: Rect, app: &App) {
-    let inner = draw_panel(frame, area, "NiXOA Console", true, PanelTone::Info);
+    let inner = draw_panel(frame, area, "Maestro Console", true, PanelTone::Info);
     let text = vec![
         Line::from(vec![
             Span::styled("Host: ", Style::default().fg(COLOR_MUTED_2)),
@@ -2940,7 +2940,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Apply the current repository state to this host.",
             "The active host configuration is rebuilt from the current flake and switched in after the command exits.",
             "Applying configuration changes the running system state immediately. Review the current build status before proceeding.",
-            "Enter runs nxcli apply for this host.",
+            "Enter runs maestroctl apply for this host.",
             app,
         ),
         ActionKind::RollbackGeneration => render_maintenance_detail_page(
@@ -2950,7 +2950,7 @@ fn render_maintenance(frame: &mut Frame, area: Rect, app: &App) {
             "Restore the previous NixOS generation for this host.",
             "Use this when the last switch introduced a regression and the prior generation should be made active again.",
             "Rollback changes the running system state. Confirm that the previous generation is the one you want to restore.",
-            "Enter runs nxcli rollback for .#nixoa.",
+            "Enter runs maestroctl rollback for .#maestro.",
             app,
         ),
         ActionKind::RunGarbageCollection => render_maintenance_detail_page(
@@ -3119,7 +3119,7 @@ fn render_shell_page(frame: &mut Frame, area: Rect) {
         "Shell",
         &[
             "Return to the configured login shell.".to_string(),
-            "The shell is started with NIXOA_TUI_BYPASS=1 so the console does not restart immediately.".to_string(),
+            "The shell is started with MAESTRO_TUI_BYPASS=1 so the console does not restart immediately.".to_string(),
             "Press Enter on Shell or Esc from the main menu to open the Y/N prompt.".to_string(),
         ],
         false,
@@ -3497,7 +3497,7 @@ fn render_help_modal(frame: &mut Frame, area: Rect, app: &App) {
         Line::from("  The right side is contextual and read-only until an option opens a modal or command."),
         Line::from("  SSH keys, update targets, and log controls stay in their section submenus."),
         Line::from("  Apply Configuration asks to commit uncommitted files before switching the host."),
-        Line::from("  From a regular SSH shell, run nixoa-menu manually to open this console."),
+        Line::from("  From a regular SSH shell, run maestro-menu manually to open this console."),
         Line::from(""),
         Line::from("Current page"),
         Line::from(format!("  {}", app.page_title())),
@@ -3587,7 +3587,7 @@ fn check_flake_updates(repo_root: &Path) -> UpdateStatus {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    let temp_lock = env::temp_dir().join(format!("nixoa-menu-{nonce}.lock"));
+    let temp_lock = env::temp_dir().join(format!("maestro-menu-{nonce}.lock"));
     let timeout_seconds = UPDATE_TIMEOUT_SECS.to_string();
     let repo_arg = repo_root.to_string_lossy().to_string();
     let lock_arg = temp_lock.to_string_lossy().to_string();
@@ -3709,7 +3709,7 @@ fn truncate_end(value: &str, max_width: usize) -> String {
 fn open_shell() -> ! {
     let shell = env::var("SHELL").unwrap_or_else(|_| "/run/current-system/sw/bin/bash".to_string());
     let mut command = Command::new(shell);
-    command.arg("-l").env("NIXOA_TUI_BYPASS", "1");
+    command.arg("-l").env("MAESTRO_TUI_BYPASS", "1");
     if let Some(path) = login_shell_path() {
         command.env("PATH", path);
     }
@@ -3742,12 +3742,12 @@ mod tests {
 
     fn sample_snapshot() -> Snapshot {
         Snapshot {
-            hostname: "nixoa-test".to_string(),
-            username: "nixoa".to_string(),
+            hostname: "maestro-test".to_string(),
+            username: "maestro".to_string(),
             timezone: "UTC".to_string(),
             extras: false,
             development_mode: false,
-            ssh_keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey nixoa-test".to_string()],
+            ssh_keys: vec!["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITestKey maestro-test".to_string()],
             system_packages: vec!["vim".to_string(), "curl".to_string()],
             user_packages: vec!["git".to_string()],
             services: vec!["openssh".to_string()],
@@ -3771,7 +3771,7 @@ mod tests {
             last_apply: Some(ApplyState {
                 result: "success".to_string(),
                 action: "switch".to_string(),
-                hostname: "nixoa-test".to_string(),
+                hostname: "maestro-test".to_string(),
                 head: "0123456789abcdef".to_string(),
                 first_install: false,
                 exit_code: 0,
@@ -3795,7 +3795,7 @@ mod tests {
 
     #[test]
     fn header_uses_compact_title_without_ascii_art() {
-        let app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let app = App::new(PathBuf::from("/tmp/maestro-test"), sample_snapshot());
         let text = render_text(&app);
 
         assert!(text.contains("NiXO-CE"));
@@ -3805,7 +3805,7 @@ mod tests {
 
     #[test]
     fn primary_left_menu_labels_render() {
-        let app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let app = App::new(PathBuf::from("/tmp/maestro-test"), sample_snapshot());
         let text = render_text(&app);
 
         for label in [
@@ -3824,7 +3824,7 @@ mod tests {
 
     #[test]
     fn main_menu_hides_submenu_options() {
-        let app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let app = App::new(PathBuf::from("/tmp/maestro-test"), sample_snapshot());
         let text = render_text(&app);
 
         assert!(text.contains("Main Menu"));
@@ -3834,7 +3834,7 @@ mod tests {
 
     #[test]
     fn submenu_hides_main_menu() {
-        let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let mut app = App::new(PathBuf::from("/tmp/maestro-test"), sample_snapshot());
         app.set_focus(Focus::Options);
         let text = render_text(&app);
 
@@ -3845,7 +3845,7 @@ mod tests {
 
     #[test]
     fn updates_section_keeps_targets_left_and_details_right() {
-        let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let mut app = App::new(PathBuf::from("/tmp/maestro-test"), sample_snapshot());
         app.set_page(Page::Updates);
         app.set_focus(Focus::Options);
         let text = render_text(&app);
@@ -3858,7 +3858,7 @@ mod tests {
 
     #[test]
     fn quit_confirmation_renders_selectable_yes_no() {
-        let mut app = App::new(PathBuf::from("/tmp/nixoa-test"), sample_snapshot());
+        let mut app = App::new(PathBuf::from("/tmp/maestro-test"), sample_snapshot());
         app.open_quit_confirm();
         let text = render_text(&app);
 
@@ -3881,7 +3881,7 @@ mod tests {
             },
         ]);
 
-        assert!(message.contains("Save NiXOA changes on "));
+        assert!(message.contains("Save Maestro changes on "));
         assert!(message.contains("flake.lock"));
         assert!(message.contains("host/menu.nix"));
     }

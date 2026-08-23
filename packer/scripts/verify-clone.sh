@@ -22,7 +22,7 @@ assert_sshd_directive() {
 }
 
 [[ "$(id -u)" -eq 0 ]] || {
-  printf 'NiXOA clone verification must run as root.\n' >&2
+  printf 'Maestro clone verification must run as root.\n' >&2
   exit 1
 }
 
@@ -39,14 +39,14 @@ done
 sshd -t
 assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication no
 assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
-test -s /home/nixoa/.ssh/authorized_keys
+test -s /home/maestro/.ssh/authorized_keys
 
-apply_state=/var/lib/nixoa/apply-state.env
+apply_state=/var/lib/maestro/apply-state.env
 test -r "$apply_state"
 grep -Fqx last_apply_result=success "$apply_state"
 grep -Fqx last_apply_action=switch "$apply_state"
 grep -Fqx \
-  "last_apply_head=$(git -C /home/nixoa/nixoa rev-parse HEAD)" \
+  "last_apply_head=$(git -C /home/maestro/maestro rev-parse HEAD)" \
   "$apply_state"
 
 systemctl is-active --quiet \
@@ -57,4 +57,4 @@ systemctl is-active --quiet \
 test "$(redis-cli -s /run/redis-xo/redis.sock --raw PING)" = PONG
 curl --fail --silent --show-error --insecure https://127.0.0.1/ >/dev/null
 
-printf 'NiXOA NoCloud clone verification passed.\n'
+printf 'Maestro NoCloud clone verification passed.\n'

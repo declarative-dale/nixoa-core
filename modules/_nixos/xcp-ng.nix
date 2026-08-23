@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 {pkgs, ...}: {
-  # NiXOA is always an XCP-ng guest. Disk and filesystem declarations are
+  # Maestro is always an XCP-ng guest. Disk and filesystem declarations are
   # intentionally left entirely to host/hardware-configuration.nix.
   systemd.packages = [pkgs.xen-guest-agent];
   systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
@@ -37,9 +37,9 @@
       ssh.emit_keys_to_console = false;
       users = ["default"];
       system_info.default_user = {
-        name = "nixoa";
-        gecos = "NiXOA operator";
-        homedir = "/home/nixoa";
+        name = "maestro";
+        gecos = "Maestro operator";
+        homedir = "/home/maestro";
         groups = [
           "users"
           "wheel"

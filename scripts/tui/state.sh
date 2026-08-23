@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/tui/lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
-nixoa_require_git_repo
-nixoa_cd_root
+maestro_require_git_repo
+maestro_cd_root
 
 json_quote() {
   printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g; s/\t/\\t/g; s/\r/\\r/g')"
@@ -53,9 +53,9 @@ load_apply_state() {
   last_apply_exit_code=""
   last_apply_timestamp=""
 
-  apply_state_file="$(nixoa_apply_state_file)"
+  apply_state_file="$(maestro_apply_state_file)"
   if [ ! -f "$apply_state_file" ]; then
-    apply_state_file="$(nixoa_legacy_apply_state_file)"
+    apply_state_file="$(maestro_legacy_apply_state_file)"
   fi
   if [ -f "$apply_state_file" ]; then
     # shellcheck source=/dev/null
@@ -69,7 +69,7 @@ load_rebuild_queue() {
   rebuild_queued_at=""
   rebuild_queued_hostname=""
 
-  rebuild_queue_file="$(nixoa_rebuild_queue_file)"
+  rebuild_queue_file="$(maestro_rebuild_queue_file)"
   if [ -f "$rebuild_queue_file" ]; then
     rebuild_queued=true
     # shellcheck source=/dev/null
@@ -83,14 +83,14 @@ load_rebuild_queue() {
 }
 
 load_upstream_state() {
-  current_branch="$(git -C "$NIXOA_SYSTEM_ROOT" branch --show-current 2>/dev/null || printf '')"
+  current_branch="$(git -C "$MAESTRO_SYSTEM_ROOT" branch --show-current 2>/dev/null || printf '')"
   upstream_branch=""
   ahead_count=0
   behind_count=0
 
-  if upstream_branch="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
+  if upstream_branch="$(git -C "$MAESTRO_SYSTEM_ROOT" rev-parse --abbrev-ref --symbolic-full-name '@{upstream}' 2>/dev/null)"; then
     read -r ahead_count behind_count <<EOF
-$(git -C "$NIXOA_SYSTEM_ROOT" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null || printf '0 0')
+$(git -C "$MAESTRO_SYSTEM_ROOT" rev-list --left-right --count 'HEAD...@{upstream}' 2>/dev/null || printf '0 0')
 EOF
   fi
 }
@@ -166,7 +166,7 @@ lock_rev_for() {
     in_node && in_locked && $0 ~ /^[[:space:]]*}[,]?[[:space:]]*$/ {
       in_locked = 0
     }
-  ' "$NIXOA_SYSTEM_ROOT/flake.lock"
+  ' "$MAESTRO_SYSTEM_ROOT/flake.lock"
 }
 
 load_xoa_state() {
@@ -193,7 +193,7 @@ load_xoa_state() {
     fi
   fi
 
-  if nixoa_tui_xo_tls_enabled /etc/xo-server/config.nixos-http.toml; then
+  if maestro_tui_xo_tls_enabled /etc/xo-server/config.nixos-http.toml; then
     scheme="https"
   fi
 
@@ -202,10 +202,10 @@ load_xoa_state() {
   fi
 }
 
-mapfile -t ssh_keys < <(nixoa_tui_ssh_keys)
-mapfile -t system_packages < <(nixoa_tui_extra_system_packages)
-mapfile -t user_packages < <(nixoa_tui_extra_user_packages)
-mapfile -t services < <(nixoa_tui_enabled_services)
+mapfile -t ssh_keys < <(maestro_tui_ssh_keys)
+mapfile -t system_packages < <(maestro_tui_extra_system_packages)
+mapfile -t user_packages < <(maestro_tui_extra_user_packages)
+mapfile -t services < <(maestro_tui_enabled_services)
 load_apply_state
 load_upstream_state
 load_rebuild_queue
@@ -214,8 +214,8 @@ load_storage_state
 load_network_state
 load_xoa_state
 
-dirty_count="$(nixoa_tui_dirty_count)"
-current_head="$(git -C "$NIXOA_SYSTEM_ROOT" rev-parse HEAD 2>/dev/null || printf '')"
+dirty_count="$(maestro_tui_dirty_count)"
+current_head="$(git -C "$MAESTRO_SYSTEM_ROOT" rev-parse HEAD 2>/dev/null || printf '')"
 rebuild_needed=true
 
 if [ "$dirty_count" -eq 0 ] \
@@ -229,11 +229,11 @@ fi
 
 if [ "${1:-}" = "--json" ]; then
   printf '{\n'
-  printf '  "hostname": %s,\n' "$(json_quote "$(nixoa_tui_hostname)")"
-  printf '  "username": %s,\n' "$(json_quote "$(nixoa_tui_username)")"
-  printf '  "timezone": %s,\n' "$(json_quote "$(nixoa_tui_timezone)")"
-  printf '  "extras": %s,\n' "$(nixoa_tui_enable_extras)"
-  printf '  "developmentMode": %s,\n' "$(nixoa_tui_development_mode)"
+  printf '  "hostname": %s,\n' "$(json_quote "$(maestro_tui_hostname)")"
+  printf '  "username": %s,\n' "$(json_quote "$(maestro_tui_username)")"
+  printf '  "timezone": %s,\n' "$(json_quote "$(maestro_tui_timezone)")"
+  printf '  "extras": %s,\n' "$(maestro_tui_enable_extras)"
+  printf '  "developmentMode": %s,\n' "$(maestro_tui_development_mode)"
   printf '  "sshKeys": '
   json_array ssh_keys
   printf ',\n'
@@ -296,11 +296,11 @@ if [ "${1:-}" = "--json" ]; then
   exit 0
 fi
 
-printf 'hostname=%s\n' "$(nixoa_tui_hostname)"
-printf 'username=%s\n' "$(nixoa_tui_username)"
-printf 'timezone=%s\n' "$(nixoa_tui_timezone)"
-printf 'extras=%s\n' "$(nixoa_tui_enable_extras)"
-printf 'development_mode=%s\n' "$(nixoa_tui_development_mode)"
+printf 'hostname=%s\n' "$(maestro_tui_hostname)"
+printf 'username=%s\n' "$(maestro_tui_username)"
+printf 'timezone=%s\n' "$(maestro_tui_timezone)"
+printf 'extras=%s\n' "$(maestro_tui_enable_extras)"
+printf 'development_mode=%s\n' "$(maestro_tui_development_mode)"
 printf 'ssh_key_count=%s\n' "${#ssh_keys[@]}"
 printf 'system_package_count=%s\n' "${#system_packages[@]}"
 printf 'user_package_count=%s\n' "${#user_packages[@]}"

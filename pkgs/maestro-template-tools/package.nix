@@ -10,7 +10,7 @@
   writeShellApplication,
 }: let
   buildTemplate = writeShellApplication {
-    name = "nixoa-build-template";
+    name = "maestro-build-template";
     runtimeInputs = [
       coreutils
       gawk
@@ -22,15 +22,15 @@
     ];
     text = builtins.readFile ../../packer/build.sh;
     meta = {
-      description = "Build a native NiXOA XCP-ng template with Packer";
+      description = "Build a native Maestro XCP-ng template with Packer";
       license = lib.licenses.asl20;
-      mainProgram = "nixoa-build-template";
+      mainProgram = "maestro-build-template";
       platforms = ["x86_64-linux"];
     };
   };
 
   deployTemplate = writeShellApplication {
-    name = "nixoa-deploy-template";
+    name = "maestro-deploy-template";
     runtimeInputs = [
       buildTemplate
       coreutils
@@ -39,9 +39,9 @@
     ];
     text = builtins.readFile ../../packer/deploy-template.sh;
     meta = {
-      description = "Configure and deploy a native NiXOA XCP-ng template";
+      description = "Configure and deploy a native Maestro XCP-ng template";
       license = lib.licenses.asl20;
-      mainProgram = "nixoa-deploy-template";
+      mainProgram = "maestro-deploy-template";
       platforms = ["x86_64-linux"];
     };
   };

@@ -1,42 +1,42 @@
 # Operations
 
-NiXOA commands operate directly on the single `.#nixoa` appliance.
+Maestro commands operate directly on the single `.#maestro` appliance.
 
 ## Everyday commands
 
 | Goal | Command |
 |---|---|
-| Check health | `nxcli status` |
-| Review local changes | `nxcli diff` |
-| Preview activation | `nxcli apply --dry-run` |
-| Build without activating | `nxcli apply --build` |
-| Build and activate | `nxcli apply` |
-| Use a new generation after reboot | `nxcli boot` |
-| Roll back | `nxcli rollback --ask` |
-| Follow XO logs | `nxcli xo logs` |
-| Open the console | `nixoa-menu` |
+| Check health | `maestroctl status` |
+| Review local changes | `maestroctl diff` |
+| Preview activation | `maestroctl apply --dry-run` |
+| Build without activating | `maestroctl apply --build` |
+| Build and activate | `maestroctl apply` |
+| Use a new generation after reboot | `maestroctl boot` |
+| Roll back | `maestroctl rollback --ask` |
+| Follow XO logs | `maestroctl xo logs` |
+| Open the console | `maestro-menu` |
 
-For every available command and flag, see the [`nxcli` reference](nxcli.md).
+For every available command and flag, see the [`maestroctl` reference](maestroctl.md).
 
 ## Apply a change
 
 For a normal configuration change:
 
 ```bash
-nxcli diff
-nxcli apply --dry-run
-nxcli apply
+maestroctl diff
+maestroctl apply --dry-run
+maestroctl apply
 ```
 
-Use `nxcli boot` to make the new generation active after the next reboot.
+Use `maestroctl boot` to make the new generation active after the next reboot.
 
 ## Roll back
 
 ```bash
-nxcli rollback --ask
+maestroctl rollback --ask
 ```
 
-The boot menu provides older generations for recovery. NiXOA keeps up to ten
+The boot menu provides older generations for recovery. Maestro keeps up to ten
 boot entries.
 
 ## Update
@@ -44,26 +44,26 @@ boot entries.
 Preview updates before changing the lock file:
 
 ```bash
-nxcli update flake --preview
-nxcli update xoa --preview
+maestroctl update flake --preview
+maestroctl update xoa --preview
 ```
 
 Apply either update with the same command minus `--preview`:
 
 ```bash
-nxcli update flake
-nxcli update xoa
+maestroctl update flake
+maestroctl update xoa
 ```
 
 An update changes `flake.lock`. Review the diff, apply the new generation, and
-record the lock-file update with `nxcli commit`.
+record the lock-file update with `maestroctl commit`.
 
 ## Inspect logs
 
 Follow Xen Orchestra and Valkey together:
 
 ```bash
-nxcli xo logs
+maestroctl xo logs
 ```
 
 Inspect an individual system service with `journalctl`, for example:
@@ -76,9 +76,9 @@ journalctl -u xen-guest-agent.service -b
 ## Save repository changes
 
 ```bash
-nxcli diff
-nxcli commit "Describe the appliance change"
-nxcli history
+maestroctl diff
+maestroctl commit "Describe the appliance change"
+maestroctl history
 ```
 
 ## Storage cleanup
@@ -90,7 +90,7 @@ Manual cleanup can remove generations that would otherwise be available for a
 rollback. Check the generation list first:
 
 ```bash
-nxcli generations list
+maestroctl generations list
 ```
 
 [Back to documentation](index.md)

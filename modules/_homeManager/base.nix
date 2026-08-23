@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # Home Manager base settings
 {osConfig, ...}: let
-  cfg = osConfig.nixoa.operator;
+  cfg = osConfig.maestro.operator;
 in {
   home = {
     stateVersion = osConfig.system.stateVersion;

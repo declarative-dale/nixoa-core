@@ -4,20 +4,20 @@
 set -euo pipefail
 umask 077
 
-: "${NIXOA_XO_TLS_CERT:?NIXOA_XO_TLS_CERT must be set}"
-: "${NIXOA_XO_TLS_KEY:?NIXOA_XO_TLS_KEY must be set}"
-: "${NIXOA_XO_TLS_DIR:?NIXOA_XO_TLS_DIR must be set}"
-: "${NIXOA_XO_HOSTNAME:?NIXOA_XO_HOSTNAME must be set}"
-: "${NIXOA_XO_HTTP_HOST:?NIXOA_XO_HTTP_HOST must be set}"
-: "${NIXOA_XO_USER:?NIXOA_XO_USER must be set}"
-: "${NIXOA_XO_GROUP:?NIXOA_XO_GROUP must be set}"
+: "${MAESTRO_XO_TLS_CERT:?MAESTRO_XO_TLS_CERT must be set}"
+: "${MAESTRO_XO_TLS_KEY:?MAESTRO_XO_TLS_KEY must be set}"
+: "${MAESTRO_XO_TLS_DIR:?MAESTRO_XO_TLS_DIR must be set}"
+: "${MAESTRO_XO_HOSTNAME:?MAESTRO_XO_HOSTNAME must be set}"
+: "${MAESTRO_XO_HTTP_HOST:?MAESTRO_XO_HTTP_HOST must be set}"
+: "${MAESTRO_XO_USER:?MAESTRO_XO_USER must be set}"
+: "${MAESTRO_XO_GROUP:?MAESTRO_XO_GROUP must be set}"
 
-mkdir -p "$NIXOA_XO_TLS_DIR"
-chmod 0755 "$NIXOA_XO_TLS_DIR"
+mkdir -p "$MAESTRO_XO_TLS_DIR"
+chmod 0755 "$MAESTRO_XO_TLS_DIR"
 
-if [ -s "$NIXOA_XO_TLS_KEY" ] \
-  && [ -s "$NIXOA_XO_TLS_CERT" ] \
-  && openssl x509 -checkend 0 -noout -in "$NIXOA_XO_TLS_CERT" 2>/dev/null
+if [ -s "$MAESTRO_XO_TLS_KEY" ] \
+  && [ -s "$MAESTRO_XO_TLS_CERT" ] \
+  && openssl x509 -checkend 0 -noout -in "$MAESTRO_XO_TLS_CERT" 2>/dev/null
 then
   exit 0
 fi
@@ -27,10 +27,10 @@ openssl req \
   -newkey rsa:4096 \
   -nodes \
   -days 3650 \
-  -keyout "$NIXOA_XO_TLS_KEY" \
-  -out "$NIXOA_XO_TLS_CERT" \
-  -subj "/CN=$NIXOA_XO_HOSTNAME" \
-  -addext "subjectAltName=DNS:$NIXOA_XO_HOSTNAME,DNS:localhost,IP:$NIXOA_XO_HTTP_HOST"
+  -keyout "$MAESTRO_XO_TLS_KEY" \
+  -out "$MAESTRO_XO_TLS_CERT" \
+  -subj "/CN=$MAESTRO_XO_HOSTNAME" \
+  -addext "subjectAltName=DNS:$MAESTRO_XO_HOSTNAME,DNS:localhost,IP:$MAESTRO_XO_HTTP_HOST"
 
-chown "$NIXOA_XO_USER:$NIXOA_XO_GROUP" "$NIXOA_XO_TLS_KEY" "$NIXOA_XO_TLS_CERT"
-chmod 0640 "$NIXOA_XO_TLS_KEY" "$NIXOA_XO_TLS_CERT"
+chown "$MAESTRO_XO_USER:$MAESTRO_XO_GROUP" "$MAESTRO_XO_TLS_KEY" "$MAESTRO_XO_TLS_CERT"
+chmod 0640 "$MAESTRO_XO_TLS_KEY" "$MAESTRO_XO_TLS_CERT"

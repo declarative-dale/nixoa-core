@@ -4,22 +4,22 @@
 set -euo pipefail
 
 readonly INSTALL_ROOT=/mnt
-readonly DEFAULT_REPO_URL=https://codeberg.org/NiXOA/core.git
+readonly DEFAULT_REPO_URL=https://github.com/closure-labs/maestro.git
 readonly DEFAULT_BRANCH=main
 # shellcheck disable=SC2016
-readonly PACKER_PASSWORD_HASH='$6$nixoapacker$cWN5T4ysgTquwJsxxFc/iF6rrl8MgYdDV6X4UV8t.MS5ATbQC4aYMsuXkKWsCH9AEBsGEzuEciGpFb6ylMgdU0'
+readonly PACKER_PASSWORD_HASH='$6$maestropacker$cWN5T4ysgTquwJsxxFc/iF6rrl8MgYdDV6X4UV8t.MS5ATbQC4aYMsuXkKWsCH9AEBsGEzuEciGpFb6ylMgdU0'
 
 usage() {
   cat <<'EOF'
-Usage: install-nixoa [options]
+Usage: install-maestro [options]
 
-Destructively install NiXOA on the single writable disk in this VM.
+Destructively install Maestro on the single writable disk in this VM.
 
 Options:
   --disk DEVICE        target disk; auto-detected when exactly one exists
-  --repo-url URL       core repository URL
+  --repo-url URL       Maestro repository URL
   --branch NAME        repository branch to install
-  --operator-key FILE  required SSH public key file for nixoa
+  --operator-key FILE  required SSH public key file for maestro
   --timezone ZONE      appliance timezone
   --git-name NAME      operator Git author name
   --git-email EMAIL    operator Git author email
@@ -29,7 +29,7 @@ EOF
 }
 
 die() {
-  printf 'install-nixoa: %s\n' "$1" >&2
+  printf 'install-maestro: %s\n' "$1" >&2
   exit 1
 }
 
@@ -42,8 +42,8 @@ repo_url=$DEFAULT_REPO_URL
 branch=$DEFAULT_BRANCH
 operator_key_file=
 timezone=America/Chicago
-git_name="NiXOA Admin"
-git_email=nixoa@nixoa
+git_name="Maestro Admin"
+git_email=maestro@maestro
 confirmed=0
 
 while [[ "$#" -gt 0 ]]; do
@@ -135,7 +135,7 @@ case "$target_disk" in
     ;;
 esac
 
-printf 'Installing NiXOA from %s (%s) onto %s\n' \
+printf 'Installing Maestro from %s (%s) onto %s\n' \
   "$repo_url" "$branch" "$target_disk"
 
 wipefs --all --force "$target_disk"
@@ -174,18 +174,18 @@ done
 install -d -m 0755 "$INSTALL_ROOT/boot"
 mount -o fmask=0077,dmask=0077 "$efi_partition" "$INSTALL_ROOT/boot"
 
-repo_dir="$INSTALL_ROOT/home/nixoa/nixoa"
+repo_dir="$INSTALL_ROOT/home/maestro/maestro"
 install -d -m 0755 "$(dirname "$repo_dir")"
 git clone --branch "$branch" --single-branch "$repo_url" "$repo_dir"
 
-export NIXOA_SYSTEM_ROOT="$repo_dir"
+export MAESTRO_SYSTEM_ROOT="$repo_dir"
 # The checkout does not exist on the live ISO when ShellCheck runs.
 # shellcheck disable=SC1091
 . "$repo_dir/scripts/lib/common.sh"
 
-nixoa_write_host_settings \
-  "$NIXOA_SETTINGS_FILE" \
-  "/home/nixoa/nixoa" \
+maestro_write_host_settings \
+  "$MAESTRO_SETTINGS_FILE" \
+  "/home/maestro/maestro" \
   "$timezone" \
   "26.05" \
   "$git_name" \
@@ -195,7 +195,7 @@ nixoa_write_host_settings \
 nixos-generate-config --root "$INSTALL_ROOT"
 install -m 0644 \
   "$INSTALL_ROOT/etc/nixos/hardware-configuration.nix" \
-  "$NIXOA_HARDWARE_FILE"
+  "$MAESTRO_HARDWARE_FILE"
 
 # The installed system keeps Packer's temporary password only long enough for
 # the communicator to reconnect after the first reboot. The sealing
@@ -205,7 +205,7 @@ trap 'rm -f -- "${packer_module_tmp:-}"' EXIT
 cat >"$packer_module_tmp" <<EOF
 # SPDX-License-Identifier: Apache-2.0
 {lib, ...}: {
-  users.users.nixoa.hashedPassword = lib.mkForce "$PACKER_PASSWORD_HASH";
+  users.users.maestro.hashedPassword = lib.mkForce "$PACKER_PASSWORD_HASH";
   services.openssh.settings.PasswordAuthentication = lib.mkForce true;
 }
 EOF
@@ -215,10 +215,10 @@ packer_module_tmp=
 
 nixos-install \
   --root "$INSTALL_ROOT" \
-  --flake "path:$repo_dir#nixoa" \
+  --flake "path:$repo_dir#maestro" \
   --no-root-passwd
 
-chown -R 1000:100 "$INSTALL_ROOT/home/nixoa"
+chown -R 1000:100 "$INSTALL_ROOT/home/maestro"
 sync
-printf 'NiXOA installation complete; rebooting into the installed system.\n'
+printf 'Maestro installation complete; rebooting into the installed system.\n'
 systemctl reboot

@@ -6,54 +6,54 @@
   pkgs,
   ...
 }: let
-  cfg = config.nixoa.operator;
+  cfg = config.maestro.operator;
   inherit (lib) mkIf mkOption types;
   resolvePackage = item:
     lib.attrByPath
     (lib.splitString "." item)
-    (throw "NiXOA package '${item}' was not found in pkgs")
+    (throw "Maestro package '${item}' was not found in pkgs")
     pkgs;
   mkServiceEnable = name:
     lib.setAttrByPath
     (lib.splitString "." name ++ ["enable"])
     true;
-  nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {
+  maestroctl = pkgs.callPackage ../../pkgs/maestroctl/package.nix {
     repoRootDefault = cfg.repoDir;
   };
-  nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {
+  maestroMenu = pkgs.callPackage ../../pkgs/maestro-menu/package.nix {
     repoRootDefault = cfg.repoDir;
   };
 in {
-  options.nixoa.operator = {
+  options.maestro.operator = {
     username = mkOption {
       type = types.str;
-      default = "nixoa";
+      default = "maestro";
       readOnly = true;
-      description = "The fixed NiXOA operator account.";
+      description = "The fixed Maestro operator account.";
     };
     repoDir = mkOption {
       type = types.str;
-      default = "/home/nixoa/nixoa";
-      description = "Path to the NiXOA checkout on the appliance.";
+      default = "/home/maestro/maestro";
+      description = "Path to the Maestro checkout on the appliance.";
     };
     gitName = mkOption {
       type = types.str;
-      default = "NiXOA Admin";
+      default = "Maestro Admin";
       description = "Git author name used by operator tooling.";
     };
     gitEmail = mkOption {
       type = types.str;
-      default = "nixoa@nixoa";
+      default = "maestro@maestro";
       description = "Git author email used by operator tooling.";
     };
     sshKeys = mkOption {
       type = types.listOf types.str;
       default = [];
-      description = "SSH public keys authorized for the nixoa operator.";
+      description = "SSH public keys authorized for the maestro operator.";
     };
     enableExtras = lib.mkEnableOption "the expanded operator shell toolset";
-    developmentMode = lib.mkEnableOption "development packages for working on NiXOA";
-    menuAutoStart = lib.mkEnableOption "automatic nixoa-menu startup for SSH sessions";
+    developmentMode = lib.mkEnableOption "development packages for working on Maestro";
+    menuAutoStart = lib.mkEnableOption "automatic maestro-menu startup for SSH sessions";
     sudoNoPassword = mkOption {
       type = types.bool;
       default = true;
@@ -73,17 +73,17 @@ in {
       extraSystemPackages = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = "System packages managed by nixoa-menu.";
+        description = "System packages managed by maestro-menu.";
       };
       extraUserPackages = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = "User packages managed by nixoa-menu.";
+        description = "User packages managed by maestro-menu.";
       };
       enabledServices = mkOption {
         type = types.listOf types.str;
         default = [];
-        description = "NixOS service option paths enabled by nixoa-menu.";
+        description = "NixOS service option paths enabled by maestro-menu.";
       };
     };
   };
@@ -93,7 +93,7 @@ in {
       users.mutableUsers = true;
       users.users.${cfg.username} = {
         isNormalUser = true;
-        description = "NiXOA operator";
+        description = "Maestro operator";
         home = "/home/${cfg.username}";
         createHome = true;
         group = "users";
@@ -163,38 +163,38 @@ in {
       environment.systemPackages =
         map resolvePackage (cfg.systemPackages ++ cfg.menu.extraSystemPackages)
         ++ [
-          nxcli
-          nixoaMenu
+          maestroctl
+          maestroMenu
           pkgs.nh
         ];
 
       nixpkgs.config.allowUnfree = true;
 
       systemd.tmpfiles.rules = [
-        "d /var/lib/nixoa 0755 root root - -"
+        "d /var/lib/maestro 0755 root root - -"
         "d /home/${cfg.username}/.ssh 0700 ${cfg.username} users - -"
       ];
 
-      systemd.services.nixoa-rebuild = {
-        description = "Apply a queued NiXOA rebuild on boot";
+      systemd.services.maestro-rebuild = {
+        description = "Apply a queued Maestro rebuild on boot";
         wantedBy = ["multi-user.target"];
         wants = ["network-online.target"];
         after = ["network-online.target"];
-        unitConfig.ConditionPathExists = "/var/lib/nixoa/rebuild-on-boot.env";
+        unitConfig.ConditionPathExists = "/var/lib/maestro/rebuild-on-boot.env";
         serviceConfig = {
           Type = "oneshot";
           User = "root";
         };
         script = ''
           set -euo pipefail
-          queue_file=/var/lib/nixoa/rebuild-on-boot.env
-          # shellcheck source=/var/lib/nixoa/rebuild-on-boot.env
+          queue_file=/var/lib/maestro/rebuild-on-boot.env
+          # shellcheck source=/var/lib/maestro/rebuild-on-boot.env
           . "$queue_file"
           [ -n "''${repo_root:-}" ] || {
-            echo "Queued NiXOA rebuild is missing repo_root." >&2
+            echo "Queued Maestro rebuild is missing repo_root." >&2
             exit 1
           }
-          NIXOA_SYSTEM_ROOT="$repo_root" ${nxcli}/bin/nxcli apply
+          MAESTRO_SYSTEM_ROOT="$repo_root" ${maestroctl}/bin/maestroctl apply
           rm -f "$queue_file"
         '';
       };

@@ -5,7 +5,7 @@
   pkgs,
   ...
 }: let
-  cfg = config.nixoa.xo;
+  cfg = config.maestro.xo;
   storage = cfg.storage;
   enabled = cfg.enable && (storage.enableNFS || storage.enableCIFS || storage.enableVHD);
   allowedMountTypes =
@@ -25,14 +25,14 @@
       ++ lib.optionals storage.enableCIFS [pkgs.cifs-utils]
       ++ lib.optionals storage.enableVHD [storage.libvhdiPackage];
     text = ''
-      export NIXOA_XO_MOUNTS_DIR=${lib.escapeShellArg storage.mountsDir}
-      export NIXOA_XO_DATA_DIR=${lib.escapeShellArg cfg.dataDir}
-      export NIXOA_XO_TEMP_DIR=${lib.escapeShellArg cfg.tempDir}
-      export NIXOA_XO_USER=${lib.escapeShellArg cfg.user}
-      export NIXOA_XO_CREDENTIALS_DIR=/run/xo-server/cifs-credentials
-      export NIXOA_XO_ALLOWED_MOUNT_TYPES=${lib.escapeShellArg (lib.concatStringsSep " " allowedMountTypes)}
-      export NIXOA_XO_ENABLE_CIFS=${lib.boolToString storage.enableCIFS}
-      export NIXOA_XO_ENABLE_VHD=${lib.boolToString storage.enableVHD}
+      export MAESTRO_XO_MOUNTS_DIR=${lib.escapeShellArg storage.mountsDir}
+      export MAESTRO_XO_DATA_DIR=${lib.escapeShellArg cfg.dataDir}
+      export MAESTRO_XO_TEMP_DIR=${lib.escapeShellArg cfg.tempDir}
+      export MAESTRO_XO_USER=${lib.escapeShellArg cfg.user}
+      export MAESTRO_XO_CREDENTIALS_DIR=/run/xo-server/cifs-credentials
+      export MAESTRO_XO_ALLOWED_MOUNT_TYPES=${lib.escapeShellArg (lib.concatStringsSep " " allowedMountTypes)}
+      export MAESTRO_XO_ENABLE_CIFS=${lib.boolToString storage.enableCIFS}
+      export MAESTRO_XO_ENABLE_VHD=${lib.boolToString storage.enableVHD}
       ${builtins.readFile ./storage-helper.sh}
     '';
   };
@@ -40,8 +40,8 @@
     name = "sudo";
     runtimeInputs = [storageHelper];
     text = ''
-      export NIXOA_XO_STORAGE_HELPER=${storageHelper}/bin/xo-storage-helper
-      export NIXOA_XO_SUDO=/run/wrappers/bin/sudo
+      export MAESTRO_XO_STORAGE_HELPER=${storageHelper}/bin/xo-storage-helper
+      export MAESTRO_XO_SUDO=/run/wrappers/bin/sudo
       ${builtins.readFile ./sudo-wrapper.sh}
     '';
   };
@@ -58,7 +58,7 @@
   };
 in {
   config = lib.mkIf enabled {
-    nixoa.xo.internal.sudoWrapper = commandWrapper;
+    maestro.xo.internal.sudoWrapper = commandWrapper;
 
     programs.fuse.userAllowOther = true;
     boot.kernelModules =

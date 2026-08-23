@@ -1,10 +1,10 @@
 {
   "validation": {
-    "name": "nixoa-validation",
+    "name": "maestro-validation",
     "targets": [
       { "name": "metadata", "attribute": "checks.x86_64-linux.metadata" },
-      { "name": "nixoa-ci-repository-audit", "attribute": "checks.x86_64-linux.nixoa-ci-repository-audit" },
-      { "name": "nxcli", "attribute": "checks.x86_64-linux.nxcli" },
+      { "name": "maestro-ci-repository-audit", "attribute": "checks.x86_64-linux.maestro-ci-repository-audit" },
+      { "name": "maestroctl", "attribute": "checks.x86_64-linux.maestroctl" },
       { "name": "flake-plan-runner", "attribute": "checks.x86_64-linux.flake-plan-runner" },
       { "name": "eval-smoke", "attribute": "checks.x86_64-linux.eval-smoke" },
       { "name": "workflow-policy", "attribute": "checks.x86_64-linux.workflow-policy" },
@@ -21,28 +21,28 @@
     ]
   },
   "media": {
-    "name": "nixoa-media-qualification",
+    "name": "maestro-media-qualification",
     "targets": [
       { "name": "installer-iso", "attribute": "packages.x86_64-linux.installer-iso", "link": "result-installer" }
     ]
   },
   "evidence": {
-    "name": "nixoa-evidence-qualification",
+    "name": "maestro-evidence-qualification",
     "targets": [
-      { "name": "toplevel", "attribute": "nixosConfigurations.nixoa.config.system.build.toplevel" },
+      { "name": "toplevel", "attribute": "nixosConfigurations.maestro.config.system.build.toplevel" },
       { "name": "sbomnix", "attribute": "packages.x86_64-linux.sbomnix" },
       { "name": "xen-orchestra-ce", "attribute": "packages.x86_64-linux.xen-orchestra-ce" },
       { "name": "xen-orchestra-supply-protector", "attribute": "packages.x86_64-linux.xen-orchestra-supply-protector" }
     ]
   },
   "publish": {
-    "name": "nixoa-publish",
+    "name": "maestro-publish",
     "targets": [
-      { "name": "toplevel", "attribute": "nixosConfigurations.nixoa.config.system.build.toplevel" },
+      { "name": "toplevel", "attribute": "nixosConfigurations.maestro.config.system.build.toplevel" },
       { "name": "deploy-template", "attribute": "packages.x86_64-linux.deploy-template" },
       { "name": "metadata", "attribute": "packages.x86_64-linux.metadata" },
-      { "name": "nixoa-menu", "attribute": "packages.x86_64-linux.nixoa-menu" },
-      { "name": "nxcli", "attribute": "packages.x86_64-linux.nxcli" }
+      { "name": "maestro-menu", "attribute": "packages.x86_64-linux.maestro-menu" },
+      { "name": "maestroctl", "attribute": "packages.x86_64-linux.maestroctl" }
     ]
   }
 }

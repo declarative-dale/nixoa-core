@@ -7,7 +7,7 @@ host/settings.nix
 ```
 
 It contains durable appliance settings such as the time zone, SSH keys,
-packages, TLS, and storage support. Run `nxcli host edit` to open the host
+packages, TLS, and storage support. Run `maestroctl host edit` to open the host
 configuration files.
 
 ## Configuration files
@@ -16,7 +16,7 @@ configuration files.
 |---|---|---|
 | `host/settings.nix` | Durable appliance policy | Operator |
 | `host/hardware-configuration.nix` | Generated disks, filesystems, and detected hardware | Hardware workflow |
-| `host/menu.nix` | Console-generated overrides | `nixoa-menu` |
+| `host/menu.nix` | Console-generated overrides | `maestro-menu` |
 
 The menu rewrites `host/menu.nix` as a complete file. Put lasting manual
 changes in `host/settings.nix`.
@@ -24,39 +24,39 @@ changes in `host/settings.nix`.
 ## Safe editing workflow
 
 ```bash
-nxcli host edit
-nxcli diff
-nxcli apply --dry-run
-nxcli apply
+maestroctl host edit
+maestroctl diff
+maestroctl apply --dry-run
+maestroctl apply
 ```
 
-NiXOA creates a new NixOS generation for every applied change. If needed, use
-`nxcli rollback --ask`.
+Maestro creates a new NixOS generation for every applied change. If needed, use
+`maestroctl rollback --ask`.
 
 ## Common settings
 
-The main NiXOA options are grouped by purpose:
+The main Maestro options are grouped by purpose:
 
 | Option group | Controls |
 |---|---|
-| `nixoa.operator.sshKeys` | SSH public keys for the `nixoa` account |
-| `nixoa.operator.systemPackages` | Packages available system-wide |
-| `nixoa.operator.userPackages` | Packages for the operator |
-| `nixoa.operator.enableExtras` | Extra shell tools and zsh |
-| `nixoa.operator.developmentMode` | Rust, Node.js, and development tools |
-| `nixoa.operator.menuAutoStart` | Whether the console opens at SSH login |
-| `nixoa.xo.channel` | `latest`, `stable`, or `rolling` xo-nixpkg output; defaults to `latest` |
-| `nixoa.xo.tls` | HTTPS certificates |
-| `nixoa.xo.storage` | NFS, CIFS, and VHD support |
-| `nixoa.xo.tempDir` | Node.js temporary directory supplied through `TMPDIR` |
+| `maestro.operator.sshKeys` | SSH public keys for the `maestro` account |
+| `maestro.operator.systemPackages` | Packages available system-wide |
+| `maestro.operator.userPackages` | Packages for the operator |
+| `maestro.operator.enableExtras` | Extra shell tools and zsh |
+| `maestro.operator.developmentMode` | Rust, Node.js, and development tools |
+| `maestro.operator.menuAutoStart` | Whether the console opens at SSH login |
+| `maestro.xo.channel` | `latest`, `stable`, or `rolling` xo-nixpkg output; defaults to `latest` |
+| `maestro.xo.tls` | HTTPS certificates |
+| `maestro.xo.storage` | NFS, CIFS, and VHD support |
+| `maestro.xo.tempDir` | Node.js temporary directory supplied through `TMPDIR` |
 
-NiXOA supplies the operator name, `.#nixoa` flake target, platform, and
+Maestro supplies the operator name, `.#maestro` flake target, platform, and
 appliance role as stable appliance defaults.
 
 The appliance selects xo-nixpkg's `latest` official-release output by default.
-Set `nixoa.xo.channel = "stable"` to retain the preceding official release, or
+Set `maestro.xo.channel = "stable"` to retain the preceding official release, or
 use `"rolling"` temporarily when troubleshooting against an admitted upstream
-commit. An explicit `nixoa.xo.package` still overrides the channel-derived
+commit. An explicit `maestro.xo.package` still overrides the channel-derived
 package.
 
 Xen Orchestra first loads its immutable vendor `config.toml` from the
@@ -69,7 +69,7 @@ four focused system overrides under `/etc/xo-server/`:
 - `config.nixos-remotes.toml` owns remote mount policy.
 
 These generated files do not overlap and are not edited directly. Change their
-typed `nixoa.xo` inputs in `host/settings.nix`. Node.js receives the managed
+typed `maestro.xo` inputs in `host/settings.nix`. Node.js receives the managed
 temporary directory through `TMPDIR`; it is not represented as an unsupported
 XO TOML key.
 

@@ -13,7 +13,7 @@ in {
     ./storage.nix
   ];
 
-  options.nixoa.xo = {
+  options.maestro.xo = {
     enable = lib.mkEnableOption "Xen Orchestra";
     channel = mkOption {
       type = types.enum [
@@ -26,8 +26,8 @@ in {
     };
     package = mkOption {
       type = types.package;
-      default = inputs.xen-orchestra-ce.packages.x86_64-linux.${config.nixoa.xo.channel};
-      defaultText = lib.literalExpression "inputs.xen-orchestra-ce.packages.x86_64-linux.\${config.nixoa.xo.channel}";
+      default = inputs.xen-orchestra-ce.packages.x86_64-linux.${config.maestro.xo.channel};
+      defaultText = lib.literalExpression "inputs.xen-orchestra-ce.packages.x86_64-linux.\${config.maestro.xo.channel}";
       description = "Xen Orchestra package to run.";
     };
     user = mkOption {
@@ -47,17 +47,17 @@ in {
     };
     cacheDir = mkOption {
       type = types.str;
-      default = "${config.nixoa.xo.home}/.cache";
+      default = "${config.maestro.xo.home}/.cache";
       description = "XO cache directory.";
     };
     dataDir = mkOption {
       type = types.str;
-      default = "${config.nixoa.xo.home}/data";
+      default = "${config.maestro.xo.home}/data";
       description = "XO data directory.";
     };
     tempDir = mkOption {
       type = types.str;
-      default = "${config.nixoa.xo.home}/tmp";
+      default = "${config.maestro.xo.home}/tmp";
       description = "XO temporary directory exposed to Node.js through TMPDIR.";
     };
     httpHost = mkOption {
@@ -93,12 +93,12 @@ in {
       };
       cert = mkOption {
         type = types.str;
-        default = "${config.nixoa.xo.tls.dir}/certificate.pem";
+        default = "${config.maestro.xo.tls.dir}/certificate.pem";
         description = "XO TLS certificate path.";
       };
       key = mkOption {
         type = types.str;
-        default = "${config.nixoa.xo.tls.dir}/key.pem";
+        default = "${config.maestro.xo.tls.dir}/key.pem";
         description = "XO TLS key path.";
       };
     };

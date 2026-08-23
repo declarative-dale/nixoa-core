@@ -3,7 +3,7 @@
 ## Scope
 
 This repository is one appliance flake, not a multi-host framework. Its only
-NixOS output is `nixosConfigurations.nixoa`, an x86_64 XCP-ng guest running Xen
+NixOS output is `nixosConfigurations.maestro`, an x86_64 XCP-ng guest running Xen
 Orchestra. Do not add host templates, compatibility aliases, or target
 selection.
 
@@ -11,26 +11,26 @@ selection.
 
 - `modules/aspects/`: Den composition for platform, XCP-ng, XO, and operator
 - `modules/_nixos/`: focused native NixOS modules
-- `modules/_homeManager/`: the `nixoa` operator home
+- `modules/_homeManager/`: the `maestro` operator home
 - `host/settings.nix`: hand-maintained appliance policy
 - `host/hardware-configuration.nix`: bootstrap-generated hardware module
 - `host/menu.nix`: TUI-generated overrides only
 - `installer/`: minimal NixOS ISO and destructive single-disk installer
 - `packer/`: native XCP-ng template build, verification, and sealing
-- `scripts/nxcli.sh`: operator CLI source
+- `scripts/maestroctl.sh`: operator CLI source
 - `scripts/tui/`: console backend
-- `pkgs/nixoa-menu/`: Ratatui frontend
+- `pkgs/maestro-menu/`: Ratatui frontend
 
 ## Development
 
-Use `.#nixoa` in commands and documentation.
+Use `.#maestro` in commands and documentation.
 
 ```bash
 nix flake check --no-write-lock-file
-nix build .#nixosConfigurations.nixoa.config.system.build.toplevel --no-link
-nix build .#xen-orchestra-ce .#nxcli .#nixoa-menu .#installer-iso --no-link
+nix build .#nixosConfigurations.maestro.config.system.build.toplevel --no-link
+nix build .#xen-orchestra-ce .#maestroctl .#maestro-menu .#installer-iso --no-link
 nix run --accept-flake-config .#deploy-template -- --help
-nix run --accept-flake-config .#nixoa-ci-repository-audit -- --no-write-lock-file
+nix run --accept-flake-config .#maestro-ci-repository-audit -- --no-write-lock-file
 ```
 
 `nix run --accept-flake-config .#deploy-template` downloads the latest
@@ -42,7 +42,7 @@ Enter the native toolchain with `devenv shell`; `nix develop
 --accept-flake-config` is the compatible flake-only fallback. Run the complete
 repository contract with `devenv tasks run ci:repository-audit`. GitHub
 workflow command bodies must call declared devenv tasks, which delegate
-repository policy to the flake-packaged `nixoa-ci-*` leaf commands; do not add
+repository policy to the flake-packaged `maestro-ci-*` leaf commands; do not add
 raw CI or release logic to workflow YAML. Do not add a monolithic automation
 dispatcher.
 Declare credential and repository-variable contracts in `secretspec.toml`.
@@ -55,13 +55,13 @@ Do not use a host-installed Cargo or Packer toolchain for repository work.
 
 ## Configuration rules
 
-- Declare operator policy under typed `nixoa.operator` options.
-- Declare XO policy under typed `nixoa.xo` options.
+- Declare operator policy under typed `maestro.operator` options.
+- Declare XO policy under typed `maestro.xo` options.
 - Keep filesystems and disks solely in `host/hardware-configuration.nix`.
 - Preserve XO privilege separation and validated storage helpers.
 - Preserve the DBus activation safeguards, bounded boot generations, Nix GC,
   Determinate Nix, and XO/libvhdi caches.
-- SSH access is only for the declared `nixoa` operator.
+- SSH access is only for the declared `maestro` operator.
 - The TUI may write only `host/menu.nix`.
 
 ## Commits

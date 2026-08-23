@@ -3,8 +3,8 @@
 
 set -euo pipefail
 
-: "${NIXOA_XO_STORAGE_HELPER:?NIXOA_XO_STORAGE_HELPER must be set}"
-: "${NIXOA_XO_SUDO:?NIXOA_XO_SUDO must be set}"
+: "${MAESTRO_XO_STORAGE_HELPER:?MAESTRO_XO_STORAGE_HELPER must be set}"
+: "${MAESTRO_XO_SUDO:?MAESTRO_XO_SUDO must be set}"
 
 sudo_options=()
 while [ "$#" -gt 0 ]; do
@@ -39,16 +39,16 @@ if [ "${1:-}" = mount ]; then
   if [ "$fstype" = cifs ] && [ -n "${USER:-}" ] && [ -n "${PASSWD:-}" ]; then
     if [ -n "$options" ]; then
       printf '%s\n%s\n' "$USER" "$PASSWD" \
-        | "$NIXOA_XO_SUDO" "${sudo_options[@]}" "$NIXOA_XO_STORAGE_HELPER" mount-cifs-with-credentials -o "$options" "${args[@]}"
+        | "$MAESTRO_XO_SUDO" "${sudo_options[@]}" "$MAESTRO_XO_STORAGE_HELPER" mount-cifs-with-credentials -o "$options" "${args[@]}"
     else
       printf '%s\n%s\n' "$USER" "$PASSWD" \
-        | "$NIXOA_XO_SUDO" "${sudo_options[@]}" "$NIXOA_XO_STORAGE_HELPER" mount-cifs-with-credentials "${args[@]}"
+        | "$MAESTRO_XO_SUDO" "${sudo_options[@]}" "$MAESTRO_XO_STORAGE_HELPER" mount-cifs-with-credentials "${args[@]}"
     fi
     exit $?
   fi
   if [ -n "$options" ]; then
-    exec "$NIXOA_XO_SUDO" "${sudo_options[@]}" "$NIXOA_XO_STORAGE_HELPER" mount -o "$options" "${args[@]}"
+    exec "$MAESTRO_XO_SUDO" "${sudo_options[@]}" "$MAESTRO_XO_STORAGE_HELPER" mount -o "$options" "${args[@]}"
   fi
-  exec "$NIXOA_XO_SUDO" "${sudo_options[@]}" "$NIXOA_XO_STORAGE_HELPER" mount "${args[@]}"
+  exec "$MAESTRO_XO_SUDO" "${sudo_options[@]}" "$MAESTRO_XO_STORAGE_HELPER" mount "${args[@]}"
 fi
-exec "$NIXOA_XO_SUDO" "${sudo_options[@]}" "$NIXOA_XO_STORAGE_HELPER" "$@"
+exec "$MAESTRO_XO_SUDO" "${sudo_options[@]}" "$MAESTRO_XO_STORAGE_HELPER" "$@"

@@ -4,20 +4,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT=${NIXOA_SYSTEM_ROOT:-}
+REPO_ROOT=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$REPO_ROOT" ]]; then
   if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
     REPO_ROOT=$git_root
   elif [[ -f "$SCRIPT_DIR/../flake.nix" ]]; then
     REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
   else
-    printf 'Run this command from a NiXOA checkout or set NIXOA_SYSTEM_ROOT.\n' >&2
+    printf 'Run this command from a Maestro checkout or set MAESTRO_SYSTEM_ROOT.\n' >&2
     exit 1
   fi
 fi
-PACKER_ROOT=${NIXOA_PACKER_ROOT:-$REPO_ROOT/packer}
+PACKER_ROOT=${MAESTRO_PACKER_ROOT:-$REPO_ROOT/packer}
 [[ -f "$PACKER_ROOT/builds.pkr.hcl" ]] || {
-  printf 'NiXOA Packer sources were not found at %s.\n' "$PACKER_ROOT" >&2
+  printf 'Maestro Packer sources were not found at %s.\n' "$PACKER_ROOT" >&2
   exit 1
 }
 config_file=${PACKER_CONFIG_FILE:-$PACKER_ROOT/local.pkrvars.json}
@@ -33,14 +33,14 @@ template_name=
 memory_mb=
 disk_size_mb=
 operator_key=${HOME:-}/.ssh/id_ed25519.pub
-repo_url=https://github.com/closure-labs/nixoa.git
+repo_url=https://github.com/closure-labs/maestro.git
 repo_branch=main
 
 usage() {
   cat <<'EOF'
 Usage: deploy-template.sh [options]
 
-Download the prebuilt NiXOA installer and create one native XCP-ng template.
+Download the prebuilt Maestro installer and create one native XCP-ng template.
 
 Options:
   --host HOST             XCP-ng pool master
@@ -52,9 +52,9 @@ Options:
   --template-name NAME    native template name
   --memory-mb MIB         template memory (minimum 4096)
   --disk-size-mb MIB      template disk size (minimum 20480)
-  --operator-key FILE     SSH public key for the nixoa operator
-  --repo-url URL          core repository installed into the template
-  --branch NAME           core repository branch
+  --operator-key FILE     SSH public key for the maestro operator
+  --repo-url URL          Maestro repository installed into the template
+  --branch NAME           Maestro repository branch
   --config FILE           non-secret Packer JSON configuration
   --configure-only        save settings without deploying
   -h, --help              show this help
@@ -169,7 +169,7 @@ prompt_setting sr_name "Template disk storage repository" "Local storage"
 prompt_setting network_name "DHCP-enabled build network" \
   "Network associated with eth0"
 prompt_setting export_network_name "Template network" "$network_name"
-prompt_setting template_name "Template name" NiXOA
+prompt_setting template_name "Template name" Maestro
 
 for value in \
   "$remote_host" \
@@ -207,7 +207,7 @@ config_dir=$(dirname "$config_file")
 }
 config_dir=$(realpath "$config_dir")
 config_file="$config_dir/$(basename "$config_file")"
-config_tmp=$(mktemp "$config_dir/.nixoa-pkrvars.XXXXXX")
+config_tmp=$(mktemp "$config_dir/.maestro-pkrvars.XXXXXX")
 cleanup() {
   rm -f -- "${config_tmp:-}"
 }
@@ -259,16 +259,16 @@ fi
 }
 
 printf 'Deploying native XCP-ng template %s\n' "$template_name"
-build_template=${NIXOA_BUILD_TEMPLATE_BIN:-}
+build_template=${MAESTRO_BUILD_TEMPLATE_BIN:-}
 if [[ -z "$build_template" ]]; then
-  if command -v nixoa-build-template >/dev/null 2>&1; then
-    build_template=nixoa-build-template
+  if command -v maestro-build-template >/dev/null 2>&1; then
+    build_template=maestro-build-template
   else
     build_template=$SCRIPT_DIR/build.sh
   fi
 fi
 PKR_VAR_remote_password="$remote_password" \
 OPERATOR_PUBLIC_KEY_FILE="$operator_key" \
-NIXOA_SYSTEM_ROOT="$REPO_ROOT" \
-NIXOA_PACKER_ROOT="$PACKER_ROOT" \
+MAESTRO_SYSTEM_ROOT="$REPO_ROOT" \
+MAESTRO_PACKER_ROOT="$PACKER_ROOT" \
   "$build_template" -var-file="$config_file"

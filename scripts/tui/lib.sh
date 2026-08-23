@@ -5,17 +5,17 @@ TUI_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/lib/common.sh
 . "$TUI_LIB_DIR/../lib/common.sh"
 
-nixoa_tui_quote() {
+maestro_tui_quote() {
   printf '"%s"' "$(printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g')"
 }
 
-nixoa_tui_has_key() {
+maestro_tui_has_key() {
   local key="$1"
   local file="$2"
   [ -f "$file" ] && grep -Eq "^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=" "$file"
 }
 
-nixoa_tui_read_string_file() {
+maestro_tui_read_string_file() {
   local key="$1"
   local file="$2"
 
@@ -23,7 +23,7 @@ nixoa_tui_read_string_file() {
   sed -nE "s/^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=[[:space:]]*\"([^\"]*)\"[[:space:]]*;.*$/\\2/p" "$file" | tail -n 1
 }
 
-nixoa_tui_read_bool_file() {
+maestro_tui_read_bool_file() {
   local key="$1"
   local file="$2"
 
@@ -31,7 +31,7 @@ nixoa_tui_read_bool_file() {
   sed -nE "s/^[[:space:]]*([A-Za-z0-9_.-]+\\.)?${key}[[:space:]]*=[[:space:]]*(lib\\.mkDefault[[:space:]]+)?(true|false)[[:space:]]*;.*$/\\3/p" "$file" | tail -n 1
 }
 
-nixoa_tui_read_list_file() {
+maestro_tui_read_list_file() {
   local key="$1"
   local file="$2"
 
@@ -65,7 +65,7 @@ nixoa_tui_read_list_file() {
   ' "$file"
 }
 
-nixoa_tui_xo_tls_enabled() {
+maestro_tui_xo_tls_enabled() {
   local config_file="$1"
 
   [ -r "$config_file" ] || return 1
@@ -100,14 +100,14 @@ nixoa_tui_xo_tls_enabled() {
   ' "$config_file"
 }
 
-nixoa_tui_first_string() {
+maestro_tui_first_string() {
   local key="$1"
   shift
   local file
   local value
 
   for file in "$@"; do
-    value="$(nixoa_tui_read_string_file "$key" "$file")"
+    value="$(maestro_tui_read_string_file "$key" "$file")"
     if [ -n "$value" ]; then
       printf '%s\n' "$value"
       return 0
@@ -117,14 +117,14 @@ nixoa_tui_first_string() {
   return 1
 }
 
-nixoa_tui_first_bool() {
+maestro_tui_first_bool() {
   local key="$1"
   shift
   local file
   local value
 
   for file in "$@"; do
-    value="$(nixoa_tui_read_bool_file "$key" "$file")"
+    value="$(maestro_tui_read_bool_file "$key" "$file")"
     if [ "$value" = "true" ] || [ "$value" = "false" ]; then
       printf '%s\n' "$value"
       return 0
@@ -134,56 +134,56 @@ nixoa_tui_first_bool() {
   return 1
 }
 
-nixoa_tui_hostname() {
-  nixoa_tui_first_string hostName "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
-    || printf '%s\n' "$NIXOA_DEFAULT_HOSTNAME"
+maestro_tui_hostname() {
+  maestro_tui_first_string hostName "$(maestro_host_menu_file)" "$(maestro_host_settings_file)" \
+    || printf '%s\n' "$MAESTRO_DEFAULT_HOSTNAME"
 }
 
-nixoa_tui_username() {
-  printf '%s\n' "$NIXOA_DEFAULT_USERNAME"
+maestro_tui_username() {
+  printf '%s\n' "$MAESTRO_DEFAULT_USERNAME"
 }
 
-nixoa_tui_timezone() {
-  nixoa_tui_first_string timeZone "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" \
-    || printf '%s\n' "$NIXOA_DEFAULT_TIMEZONE"
+maestro_tui_timezone() {
+  maestro_tui_first_string timeZone "$(maestro_host_menu_file)" "$(maestro_host_settings_file)" \
+    || printf '%s\n' "$MAESTRO_DEFAULT_TIMEZONE"
 }
 
-nixoa_tui_enable_extras() {
-  nixoa_tui_first_bool enableExtras "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" || printf '%s\n' false
+maestro_tui_enable_extras() {
+  maestro_tui_first_bool enableExtras "$(maestro_host_menu_file)" "$(maestro_host_settings_file)" || printf '%s\n' false
 }
 
-nixoa_tui_development_mode() {
-  nixoa_tui_first_bool developmentMode "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)" || printf '%s\n' false
+maestro_tui_development_mode() {
+  maestro_tui_first_bool developmentMode "$(maestro_host_menu_file)" "$(maestro_host_settings_file)" || printf '%s\n' false
 }
 
-nixoa_tui_ssh_keys() {
+maestro_tui_ssh_keys() {
   local file
 
-  for file in "$(nixoa_host_menu_file)" "$(nixoa_host_settings_file)"; do
-    if nixoa_tui_has_key sshKeys "$file"; then
-      nixoa_tui_read_list_file sshKeys "$file"
+  for file in "$(maestro_host_menu_file)" "$(maestro_host_settings_file)"; do
+    if maestro_tui_has_key sshKeys "$file"; then
+      maestro_tui_read_list_file sshKeys "$file"
       return 0
     fi
   done
 }
 
-nixoa_tui_extra_system_packages() {
-  nixoa_tui_read_list_file extraSystemPackages "$(nixoa_host_menu_file)"
+maestro_tui_extra_system_packages() {
+  maestro_tui_read_list_file extraSystemPackages "$(maestro_host_menu_file)"
 }
 
-nixoa_tui_extra_user_packages() {
-  nixoa_tui_read_list_file extraUserPackages "$(nixoa_host_menu_file)"
+maestro_tui_extra_user_packages() {
+  maestro_tui_read_list_file extraUserPackages "$(maestro_host_menu_file)"
 }
 
-nixoa_tui_enabled_services() {
-  nixoa_tui_read_list_file enabledServices "$(nixoa_host_menu_file)"
+maestro_tui_enabled_services() {
+  maestro_tui_read_list_file enabledServices "$(maestro_host_menu_file)"
 }
 
-nixoa_tui_dirty_count() {
-  git -C "$NIXOA_SYSTEM_ROOT" status --short -- "${NIXOA_TRACKED_PATHS[@]}" | wc -l | tr -d ' '
+maestro_tui_dirty_count() {
+  git -C "$MAESTRO_SYSTEM_ROOT" status --short -- "${MAESTRO_TRACKED_PATHS[@]}" | wc -l | tr -d ' '
 }
 
-nixoa_tui_write_menu() {
+maestro_tui_write_menu() {
   local extras="$1"
   local development_mode="$2"
   local -n ssh_keys_ref="$3"
@@ -192,17 +192,17 @@ nixoa_tui_write_menu() {
   local -n services_ref="$6"
   local menu_file
 
-  menu_file="$(nixoa_host_menu_file)"
+  menu_file="$(maestro_host_menu_file)"
 
   {
     echo "# SPDX-License-Identifier: Apache-2.0"
-    echo "# Managed by nixoa-menu"
+    echo "# Managed by maestro-menu"
     echo "{ ... }:"
     echo "{"
-    echo "  nixoa.operator = {"
+    echo "  maestro.operator = {"
     echo "    sshKeys = ["
     for key in "${ssh_keys_ref[@]}"; do
-      echo "      $(nixoa_tui_quote "$key")"
+      echo "      $(maestro_tui_quote "$key")"
     done
     echo "    ];"
     echo ""
@@ -212,19 +212,19 @@ nixoa_tui_write_menu() {
     echo "    menu = {"
     echo "      extraSystemPackages = ["
     for package_name in "${system_packages_ref[@]}"; do
-      echo "        $(nixoa_tui_quote "$package_name")"
+      echo "        $(maestro_tui_quote "$package_name")"
     done
     echo "      ];"
     echo ""
     echo "      extraUserPackages = ["
     for package_name in "${user_packages_ref[@]}"; do
-      echo "        $(nixoa_tui_quote "$package_name")"
+      echo "        $(maestro_tui_quote "$package_name")"
     done
     echo "      ];"
     echo ""
     echo "      enabledServices = ["
     for service_name in "${services_ref[@]}"; do
-      echo "        $(nixoa_tui_quote "$service_name")"
+      echo "        $(maestro_tui_quote "$service_name")"
     done
     echo "      ];"
     echo "    };"
@@ -233,7 +233,7 @@ nixoa_tui_write_menu() {
   } > "$menu_file"
 }
 
-nixoa_tui_append_unique() {
+maestro_tui_append_unique() {
   local value="$1"
   shift
   local -n items_ref="$1"
@@ -249,7 +249,7 @@ nixoa_tui_append_unique() {
   return 0
 }
 
-nixoa_tui_validate_token() {
+maestro_tui_validate_token() {
   local label="$1"
   local value="$2"
 
@@ -260,7 +260,7 @@ nixoa_tui_validate_token() {
   fi
 }
 
-nixoa_tui_validate_ssh_key() {
+maestro_tui_validate_ssh_key() {
   local value="$1"
 
   if [[ "$value" != ssh-* && "$value" != ecdsa-* && "$value" != sk-* ]]; then
@@ -269,7 +269,7 @@ nixoa_tui_validate_ssh_key() {
   fi
 }
 
-nixoa_tui_remove_value() {
+maestro_tui_remove_value() {
   local value="$1"
   shift
   # The caller passes the name of the array to mutate.
@@ -291,15 +291,15 @@ nixoa_tui_remove_value() {
   return "$found"
 }
 
-nixoa_tui_commit_paths() {
+maestro_tui_commit_paths() {
   local message="$1"
   shift
 
-  if [ -z "$(git -C "$NIXOA_SYSTEM_ROOT" status --short -- "$@")" ]; then
+  if [ -z "$(git -C "$MAESTRO_SYSTEM_ROOT" status --short -- "$@")" ]; then
     echo "No tracked changes to commit."
     return 0
   fi
 
-  git -C "$NIXOA_SYSTEM_ROOT" add -- "$@"
-  git -C "$NIXOA_SYSTEM_ROOT" commit -m "$message"
+  git -C "$MAESTRO_SYSTEM_ROOT" add -- "$@"
+  git -C "$MAESTRO_SYSTEM_ROOT" commit -m "$message"
 }

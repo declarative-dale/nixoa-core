@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-name: Release NiXOA
+name: Release Maestro
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
         default: auto
 
 concurrency:
-  group: nixoa-release
+  group: maestro-release
   cancel-in-progress: false
 
 permissions:
@@ -70,7 +70,7 @@ jobs:
     timeout-minutes: 45
     environment: release
     concurrency:
-      group: nixoa-publication
+      group: maestro-publication
       queue: max
       cancel-in-progress: false
     permissions:
@@ -94,7 +94,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           github-token: ${{ github.token }}
-          name: nixoa-qualification-state
+          name: maestro-qualification-state
           path: candidate-state
           run-id: ${{ needs.prepare.outputs.run_id }}
 
@@ -109,7 +109,7 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           github-token: ${{ github.token }}
-          name: nixoa-installer
+          name: maestro-installer
           path: candidate
           run-id: ${{ steps.inventory.outputs.artifact_run_id }}
 
@@ -145,19 +145,19 @@ jobs:
       - name: Attest final release filename
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: ${{ runner.temp }}/nixoa-${{ needs.prepare.outputs.tag }}.iso
+          subject-path: ${{ runner.temp }}/maestro-${{ needs.prepare.outputs.tag }}.iso
 
       - name: Bind SPDX SBOM to final release filename
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
-          subject-path: ${{ runner.temp }}/nixoa-${{ needs.prepare.outputs.tag }}.iso
-          sbom-path: candidate/nixoa-system.spdx.json
+          subject-path: ${{ runner.temp }}/maestro-${{ needs.prepare.outputs.tag }}.iso
+          sbom-path: candidate/maestro-system.spdx.json
 
       - name: Publish versioned flake
         uses: DeterminateSystems/flakehub-push@f960928265d16ba43227dfd48812a8b1de17a441 # main, Node.js 24 (post-v6)
         with:
           visibility: public
-          name: closure-labs/nixoa
+          name: closure-labs/maestro
           rolling: false
           tag: ${{ needs.prepare.outputs.tag }}
           rev: ${{ needs.prepare.outputs.source_sha }}

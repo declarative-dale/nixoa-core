@@ -1,9 +1,9 @@
 [package]
-name = "nixoa-menu"
+name = "maestro-menu"
 version = "0.7.0"
 edition = "2021"
 license = "Apache-2.0"
-description = "Ratatui-based SSH administration console for the NiXOA appliance"
+description = "Ratatui-based SSH administration console for the Maestro appliance"
 
 [dependencies]
 anyhow = "1.0"

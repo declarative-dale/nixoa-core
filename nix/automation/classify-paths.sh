@@ -3,11 +3,11 @@
 
 set -euo pipefail
 
-repo_root=${NIXOA_SYSTEM_ROOT:-}
+repo_root=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$repo_root" ]]; then
   repo_root=$(git rev-parse --show-toplevel)
 fi
-policy=${NIXOA_INSTALLER_POLICY:-$repo_root/nix/automation/installer-policy.json}
+policy=${MAESTRO_INSTALLER_POLICY:-$repo_root/nix/automation/installer-policy.json}
 
 jq -e '
   (.alwaysRelevantPatterns | type == "array") and
@@ -49,7 +49,7 @@ if [[ ${1:-} == --filter-index ]]; then
   exit 0
 fi
 if (($# > 0)); then
-  printf 'Usage: nixoa-ci-classify-paths [--filter-index]\n' >&2
+  printf 'Usage: maestro-ci-classify-paths [--filter-index]\n' >&2
   exit 2
 fi
 

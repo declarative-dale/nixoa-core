@@ -15,12 +15,12 @@ in {
       xenOrchestraCe = inputs.xen-orchestra-ce.packages.x86_64-linux.latest;
       xenOrchestraSupplyProtector = inputs.xen-orchestra-ce.packages.x86_64-linux.supply-protector-latest;
       planRunner = inputs.xen-orchestra-ce.packages.${system}.flake-plan-runner;
-      nxcli = pkgs.callPackage ../../pkgs/nxcli/package.nix {};
-      nixoaMenu = pkgs.callPackage ../../pkgs/nixoa-menu/package.nix {};
+      maestroctl = pkgs.callPackage ../../pkgs/maestroctl/package.nix {};
+      maestroMenu = pkgs.callPackage ../../pkgs/maestro-menu/package.nix {};
       automationCommands = import ../../nix/automation {inherit pkgs planRunner;};
       automationPackages =
         lib.mapAttrs' (
-          name: package: lib.nameValuePair "nixoa-ci-${name}" package
+          name: package: lib.nameValuePair "maestro-ci-${name}" package
         )
         automationCommands;
       secretspec = pkgs.callPackage ../../nix/pkgs/secretspec.nix {};
@@ -28,20 +28,20 @@ in {
       packerXenserver = pkgs.callPackage ../../pkgs/packer-xenserver/package.nix {
         inherit packerXenserverPlugin;
       };
-      bootstrap = pkgs.callPackage ../../pkgs/nixoa-bootstrap/package.nix {};
-      templateTools = pkgs.callPackage ../../pkgs/nixoa-template-tools/package.nix {
+      bootstrap = pkgs.callPackage ../../pkgs/maestro-bootstrap/package.nix {};
+      templateTools = pkgs.callPackage ../../pkgs/maestro-template-tools/package.nix {
         inherit packerXenserver;
       };
-      applianceToplevel = inputs.self.nixosConfigurations.nixoa.config.system.build.toplevel;
+      applianceToplevel = inputs.self.nixosConfigurations.maestro.config.system.build.toplevel;
       installerSystem = inputs.nixpkgs.lib.nixosSystem {
         inherit system;
         modules = [../../installer];
         specialArgs = {
-          inherit applianceToplevel nixoaMenu xenOrchestraCe;
+          inherit applianceToplevel maestroMenu xenOrchestraCe;
         };
       };
       installerIso = assert builtins.elem applianceToplevel installerSystem.config.isoImage.storeContents;
-      assert builtins.elem nixoaMenu installerSystem.config.isoImage.storeContents;
+      assert builtins.elem maestroMenu installerSystem.config.isoImage.storeContents;
       assert builtins.elem xenOrchestraCe installerSystem.config.isoImage.storeContents;
         installerSystem.config.system.build.isoImage;
     in
@@ -59,27 +59,27 @@ in {
           inherit bootstrap;
           build-template = templateTools.build;
           deploy-template = templateTools.deploy;
-          nxcli = nxcli;
-          nixoa-menu = nixoaMenu;
+          maestroctl = maestroctl;
+          maestro-menu = maestroMenu;
         }
         // automationPackages
       )
       // {
         installer-iso = installerIso;
         metadata = pkgs.stdenv.mkDerivation {
-          pname = "nixoa-metadata";
+          pname = "maestro-metadata";
           version = "3.1.0";
           dontUnpack = true;
           dontBuild = true;
           installPhase = ''
-            mkdir -p $out/share/doc/nixoa
-            echo "NiXOA - Xen Orchestra Community Edition on NixOS" > $out/share/doc/nixoa/README
-            echo "This flake defines the single nixoa XCP-ng appliance." >> $out/share/doc/nixoa/README
-            echo "See https://codeberg.org/NiXOA/core for details." >> $out/share/doc/nixoa/README
+            mkdir -p $out/share/doc/maestro
+            echo "Maestro - Xen Orchestra Community Edition on NixOS" > $out/share/doc/maestro/README
+            echo "This flake defines the single maestro XCP-ng appliance." >> $out/share/doc/maestro/README
+            echo "See https://github.com/closure-labs/maestro for details." >> $out/share/doc/maestro/README
           '';
           meta = with pkgs.lib; {
             description = "Xen Orchestra Community Edition appliance for XCP-ng";
-            homepage = "https://codeberg.org/NiXOA/core";
+            homepage = "https://github.com/closure-labs/maestro";
             license = licenses.asl20;
             maintainers = [
               {

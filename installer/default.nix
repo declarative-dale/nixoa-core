@@ -4,13 +4,13 @@
   config,
   lib,
   modulesPath,
-  nixoaMenu,
+  maestroMenu,
   pkgs,
   xenOrchestraCe,
   ...
 }: let
-  installNixoa = pkgs.writeShellApplication {
-    name = "install-nixoa";
+  installMaestro = pkgs.writeShellApplication {
+    name = "install-maestro";
     runtimeInputs = with pkgs; [
       coreutils
       dosfstools
@@ -25,17 +25,17 @@
       systemd
       util-linux
     ];
-    text = builtins.readFile ./install-nixoa.sh;
+    text = builtins.readFile ./install-maestro.sh;
   };
 in {
   imports = [
     (modulesPath + "/installer/cd-dvd/installation-cd-minimal.nix")
   ];
 
-  image.baseName = lib.mkForce "nixoa-installer";
+  image.baseName = lib.mkForce "maestro-installer";
   isoImage = {
     squashfsCompression = "zstd -Xcompression-level 1";
-    volumeID = "NIXOA_INSTALL";
+    volumeID = "MAESTRO_INSTALL";
 
     # Seed the installer store with the complete generic appliance closure and
     # its two largest first-party outputs. The generated hardware and temporary
@@ -43,7 +43,7 @@ in {
     # nixos-install can copy the expensive runtime closure from the ISO.
     storeContents = [
       applianceToplevel
-      nixoaMenu
+      maestroMenu
       xenOrchestraCe
     ];
   };
@@ -51,11 +51,11 @@ in {
   assertions = [
     {
       assertion = config.isoImage.squashfsCompression == "zstd -Xcompression-level 1";
-      message = "NiXOA installer SquashFS compression must remain zstd level 1";
+      message = "Maestro installer SquashFS compression must remain zstd level 1";
     }
   ];
 
-  networking.hostName = "nixoa-installer";
+  networking.hostName = "maestro-installer";
   networking.firewall.allowedTCPPorts = [22];
 
   boot.kernelParams = [
@@ -66,12 +66,12 @@ in {
 
   users = {
     mutableUsers = true;
-    users.nixoa = {
+    users.maestro = {
       isNormalUser = true;
-      description = "Temporary NiXOA Packer installer";
+      description = "Temporary Maestro Packer installer";
       group = "users";
       extraGroups = ["wheel"];
-      hashedPassword = "$6$nixoapacker$cWN5T4ysgTquwJsxxFc/iF6rrl8MgYdDV6X4UV8t.MS5ATbQC4aYMsuXkKWsCH9AEBsGEzuEciGpFb6ylMgdU0";
+      hashedPassword = "$6$maestropacker$cWN5T4ysgTquwJsxxFc/iF6rrl8MgYdDV6X4UV8t.MS5ATbQC4aYMsuXkKWsCH9AEBsGEzuEciGpFb6ylMgdU0";
     };
   };
 
@@ -84,7 +84,7 @@ in {
     enable = true;
     openFirewall = true;
     settings = {
-      AllowUsers = ["nixoa"];
+      AllowUsers = ["maestro"];
       KbdInteractiveAuthentication = false;
       PasswordAuthentication = true;
       PermitEmptyPasswords = false;
@@ -97,7 +97,7 @@ in {
   systemd.packages = [pkgs.xen-guest-agent];
   systemd.services.xen-guest-agent.wantedBy = ["multi-user.target"];
 
-  environment.systemPackages = [installNixoa];
+  environment.systemPackages = [installMaestro];
 
   nix.settings = {
     experimental-features = [

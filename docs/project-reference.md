@@ -8,11 +8,11 @@
 The flake defines one NixOS system:
 
 ```text
-nixosConfigurations.nixoa
+nixosConfigurations.maestro
 ```
 
-Its architecture is `x86_64-linux`, its operator is `nixoa`, and every
-operator command targets `.#nixoa`.
+Its architecture is `x86_64-linux`, its operator is `maestro`, and every
+operator command targets `.#maestro`.
 
 ## Packages and apps
 
@@ -21,8 +21,8 @@ Public packages include:
 - `xen-orchestra-ce`
 - `xen-orchestra-supply-protector`
 - `libvhdi`
-- `nxcli`
-- `nixoa-menu`
+- `maestroctl`
+- `maestro-menu`
 - `bootstrap`
 - `build-template`
 - `deploy-template`
@@ -31,7 +31,7 @@ Public packages include:
 - `metadata`
 - `sbomnix`
 
-The flake also exposes operator apps for `nxcli`, `apply`, `bootstrap`,
+The flake also exposes operator apps for `maestroctl`, `apply`, `bootstrap`,
 `build-template`, `deploy-template`, `commit`, `diff`, `history`, and `menu`.
 
 Run `nix flake show` for the complete evaluated output tree.
@@ -51,9 +51,9 @@ attestation, and signing remain separate delivery operations.
 ## Installer delivery
 
 GitHub Actions builds the complete system, public packages, and a
-closure-preseeded installer ISO. The ISO is retained as the `nixoa-installer`
+closure-preseeded installer ISO. The ISO is retained as the `maestro-installer`
 artifact from the consolidated `CI` workflow. Every Nix-producing CI job reads
-from the public NiXOA Cachix cache and, on trusted repository events, streams
+from the public Maestro Cachix cache and, on trusted repository events, streams
 new outputs back through Cachix's daemon. Cachix carries Nix store paths
 between jobs and runs; fork pull requests consume the public cache read-only.
 The ISO's SquashFS payload uses explicit `zstd` level 1 compression to minimize
@@ -75,8 +75,8 @@ root, verifies its checksums and retained Nix reference, and adds a checksummed
 SPDX `DESCRIBED_BY` external-document link to the appliance inventory. The
 upstream assertion and its SPDX and CycloneDX documents are preserved with the
 installer evidence. The finished SBOMs remain in the combined 90-day
-`nixoa-installer` artifact and are also retained in a compressed, JSON-only
-`nixoa-evidence` artifact with their checksums and immutable state. A media-only
+`maestro-installer` artifact and are also retained in a compressed, JSON-only
+`maestro-evidence` artifact with their checksums and immutable state. A media-only
 change can therefore reuse evidence for the exact appliance closure without
 executing `sbomnix`. CI applies the same checksum, SPDX, CycloneDX, XO assertion,
 and attestation checks to generated and reused evidence. CI boots a newly
@@ -84,8 +84,8 @@ identified ISO with QEMU, signs its build provenance, and binds the SPDX
 document to the installer. GitHub release assets carry the tested installer in
 numbered parts below GitHub's 2 GiB per-asset limit, plus its whole-file
 checksum, both SBOMs, and a checksummed manifest.
-Reassemble a directly downloaded installer with `cat nixoa-v*.iso.part-* >
-nixoa-v*.iso`, then verify the matching `.iso.sha256` file. The default
+Reassemble a directly downloaded installer with `cat maestro-v*.iso.part-* >
+maestro-v*.iso`, then verify the matching `.iso.sha256` file. The default
 `deploy-template` path performs artifact retrieval and verification itself.
 
 Before allocating the installer runner, the route job classifies the event and
@@ -115,7 +115,7 @@ This means the default installer may briefly lag a newer checkout while CI is
 running. Use `INSTALLER_SOURCE=build` for the current checkout or
 `INSTALLER_ISO=/path/to/image.iso` for an exact image.
 
-The Determinate, NiXOA, and Xen Orchestra binary caches and their public keys
+The Determinate, Maestro, and Xen Orchestra binary caches and their public keys
 are declared in `flake.nix`; libvhdi is supplied by the Xen Orchestra closure.
 Credential-bearing configuration is kept in the runtime Secretspec contract.
 

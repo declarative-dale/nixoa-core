@@ -22,13 +22,13 @@ assert_sshd_directive() {
 }
 
 [[ "$(id -u)" -eq 0 ]] || {
-  printf 'NiXOA template sealing must run as root.\n' >&2
+  printf 'Maestro template sealing must run as root.\n' >&2
   exit 1
 }
 
-repo=/home/nixoa/nixoa
+repo=/home/maestro/maestro
 test -d "$repo/.git"
-export NIXOA_SYSTEM_ROOT=$repo
+export MAESTRO_SYSTEM_ROOT=$repo
 # shellcheck source=scripts/lib/common.sh
 source "$repo/scripts/lib/common.sh"
 
@@ -43,16 +43,16 @@ chmod 0644 "$canonical_module"
 mv -f "$canonical_module" "$repo/host/packer.nix"
 canonical_module=
 
-nixos-rebuild --accept-flake-config switch --flake "path:$repo#nixoa"
+nixos-rebuild --accept-flake-config switch --flake "path:$repo#maestro"
 
 sshd -t
 assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication no
 assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
-passwd --lock nixoa
-case "$(getent shadow nixoa | cut -d: -f2)" in
+passwd --lock maestro
+case "$(getent shadow maestro | cut -d: -f2)" in
   '!'*|'*'*) ;;
   *)
-    printf 'The nixoa password was not locked while sealing.\n' >&2
+    printf 'The maestro password was not locked while sealing.\n' >&2
     exit 1
     ;;
 esac
@@ -62,14 +62,14 @@ git -C "$repo" add \
   host/settings.nix
 if ! git -C "$repo" diff --cached --quiet; then
   git -C "$repo" \
-    -c user.name="NiXOA Packer" \
-    -c user.email="packer@nixoa" \
-    commit -m "Configure generated NiXOA template"
+    -c user.name="Maestro Packer" \
+    -c user.email="packer@maestro" \
+    commit -m "Configure generated Maestro template"
 fi
 test -z "$(git -C "$repo" status --short)"
 current_head="$(git -C "$repo" rev-parse HEAD)"
-nixoa_write_apply_state success switch "$current_head" 1 0
-chown -R nixoa:users "$repo"
+maestro_write_apply_state success switch "$current_head" 1 0
+chown -R maestro:users "$repo"
 
 nh clean all
 
@@ -83,4 +83,4 @@ fi
 test -z "$(find /etc/ssh -maxdepth 1 -type f -name 'ssh_host_*_key*' -print -quit)"
 
 sync
-printf 'NiXOA template sealed for NoCloud cloning.\n'
+printf 'Maestro template sealed for NoCloud cloning.\n'

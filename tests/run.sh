@@ -18,16 +18,40 @@ assert_eq() {
 temporary="$(mktemp -d)"
 trap 'rm -rf "$temporary"' EXIT
 
+# The legacy cache keeps its existing external identity temporarily, and the
+# released changelog remains an immutable historical record. No other active
+# product or CLI identity may survive the clean-break rebrand.
+old_product='nix''oa'
+old_cli='nx''cli'
+while IFS= read -r -d '' source_file; do
+  relative_path=${source_file#"$TEST_ROOT"/}
+  case "$relative_path" in
+    docs/history/legacy-changelog.md | pkgs/maestro-menu/Cargo.lock)
+      continue
+      ;;
+  esac
+  if [[ ${relative_path,,} == *"$old_product"* || ${relative_path,,} == *"$old_cli"* ]]; then
+    fail "legacy identity remains in active path: $relative_path"
+  fi
+  matches=$(grep -InEi "${old_product}|${old_cli}" "$source_file" || true)
+  unexpected=$(grep -viE 'nixoa\.cachix\.org|default = "nixoa"|cachix\.push = "nixoa"' <<<"$matches" || true)
+  [[ -z $unexpected ]] || fail "legacy identity remains in $relative_path: $unexpected"
+done < <(
+  find "$TEST_ROOT" \
+    \( -path "$TEST_ROOT/.git" -o -path "$TEST_ROOT/.jj" -o -path "$TEST_ROOT/.devenv" \) -prune \
+    -o -type f -print0
+)
+
 bash -n \
   "$TEST_ROOT"/nix/automation/*.sh \
   "$TEST_ROOT"/modules/_nixos/xo/*.sh \
   "$TEST_ROOT/scripts/lib/common.sh" \
-  "$TEST_ROOT/scripts/nxcli.sh" \
+  "$TEST_ROOT/scripts/maestroctl.sh" \
   "$TEST_ROOT/scripts/bootstrap.sh" \
   "$TEST_ROOT/scripts/tui/lib.sh" \
   "$TEST_ROOT/scripts/tui/action.sh" \
   "$TEST_ROOT/scripts/tui/state.sh" \
-  "$TEST_ROOT/installer/install-nixoa.sh" \
+  "$TEST_ROOT/installer/install-maestro.sh" \
   "$TEST_ROOT/packer/build.sh" \
   "$TEST_ROOT/packer/deploy-template.sh" \
   "$TEST_ROOT/tests/qualification-inputs.sh" \
@@ -39,25 +63,25 @@ bash "$TEST_ROOT/tests/xo-storage-helper.sh"
 
 # Fixed target resolution.
 actual="$(
-  NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
-    source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
-    nixoa_default_target
-    nixoa_host_output_name
-    nixoa_nixos_rebuild_flake_ref
+  MAESTRO_SYSTEM_ROOT="$TEST_ROOT" bash -c '
+    source "$MAESTRO_SYSTEM_ROOT/scripts/lib/common.sh"
+    maestro_default_target
+    maestro_host_output_name
+    maestro_nixos_rebuild_flake_ref
   '
 )"
 expected="$(
-  printf 'nixoa\nnixoa\npath:%s#nixoa' "$TEST_ROOT"
+  printf 'maestro\nmaestro\npath:%s#maestro' "$TEST_ROOT"
 )"
 assert_eq "$actual" "$expected"
 
 # First-install builds use Determinate Systems' unauthenticated bootstrap cache
 # rather than the authenticated FlakeHub Cache endpoint.
 actual="$(
-  NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
-    source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
+  MAESTRO_SYSTEM_ROOT="$TEST_ROOT" bash -c '
+    source "$MAESTRO_SYSTEM_ROOT/scripts/lib/common.sh"
     command=()
-    nixoa_append_first_install_nix_options command
+    maestro_append_first_install_nix_options command
     printf "%s\n" "${command[@]}"
   '
 )"
@@ -78,27 +102,27 @@ grep -Fq 'squashfsCompression = "zstd -Xcompression-level 1";' \
   || fail "installer ISO does not pin fast SquashFS compression"
 grep -Fq '"https://nixoa.cachix.org"' \
   "$TEST_ROOT/installer/default.nix" \
-  || fail "installer ISO omits the NiXOA Cachix cache"
+  || fail "installer ISO omits the Maestro Cachix cache"
 grep -Fq '"cache.flakehub.com-3:hJuILl5sVK4iKm86JzgdXW12Y2Hwd5G07qKtHTOcDCM="' \
   "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits the Determinate bootstrap cache key"
 grep -Fq '"nixoa.cachix.org-1:N+GsSSd2yKgj2hx01fMG6Oe7tLfbxEi/V0oZFEB721g="' \
   "$TEST_ROOT/installer/default.nix" \
-  || fail "installer ISO omits the NiXOA Cachix key"
+  || fail "installer ISO omits the Maestro Cachix key"
 if grep -Fq '"https://cache.flakehub.com"' "$TEST_ROOT/installer/default.nix"; then
   fail "installer ISO uses the authenticated FlakeHub Cache endpoint"
 fi
 grep -Fq 'applianceToplevel' "$TEST_ROOT/installer/default.nix" \
-  || fail "installer ISO omits the NiXOA appliance closure"
-grep -Fq 'nixoaMenu' "$TEST_ROOT/installer/default.nix" \
-  || fail "installer ISO omits nixoa-menu"
+  || fail "installer ISO omits the Maestro appliance closure"
+grep -Fq 'maestroMenu' "$TEST_ROOT/installer/default.nix" \
+  || fail "installer ISO omits maestro-menu"
 grep -Fq 'xenOrchestraCe' "$TEST_ROOT/installer/default.nix" \
   || fail "installer ISO omits Xen Orchestra"
 grep -Fq 'default = "latest";' "$TEST_ROOT/modules/_nixos/xo/default.nix" \
   || fail "Xen Orchestra does not select the latest package channel by default"
 # The interpolation must remain literal in the Nix module source.
 # shellcheck disable=SC2016
-grep -Fq 'packages.x86_64-linux.${config.nixoa.xo.channel}' "$TEST_ROOT/modules/_nixos/xo/default.nix" \
+grep -Fq 'packages.x86_64-linux.${config.maestro.xo.channel}' "$TEST_ROOT/modules/_nixos/xo/default.nix" \
   || fail "Xen Orchestra package does not follow the configured channel"
 if grep -Fq 'git ls-remote --tags' "$TEST_ROOT/scripts/tui/action.sh"; then
   fail "XOA update still depends on removed moving channel tags"
@@ -119,7 +143,7 @@ grep -Fq 'relationshipType: "DESCRIBED_BY"' \
   || fail "appliance SPDX does not link its XO component to upstream evidence"
 # The variable reference must remain literal in the packaged command source.
 # shellcheck disable=SC2016
-grep -Fq 'check-jsonschema --schemafile "$NIXOA_SPDX_SCHEMA"' \
+grep -Fq 'check-jsonschema --schemafile "$MAESTRO_SPDX_SCHEMA"' \
   "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "enriched appliance SPDX is not schema validated"
 grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
@@ -171,14 +195,14 @@ route_outputs=$(yq -r '.jobs.route.outputs | keys | join(",")' \
   "$TEST_ROOT/.github/workflows/ci.yml")
 assert_eq "$route_outputs" plan
 yq -e \
-  '.jobs.publish.concurrency.group == "nixoa-publication" and
+  '.jobs.publish.concurrency.group == "maestro-publication" and
    .jobs.publish.concurrency.queue == "max" and
    .jobs.publish.concurrency.cancel-in-progress == false' \
   "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
   || fail "the durable rolling publication queue is not configured"
 yq -e \
-  '.concurrency.group == "nixoa-release" and .concurrency.cancel-in-progress == false and
-   .jobs.release.concurrency.group == "nixoa-publication" and
+  '.concurrency.group == "maestro-release" and .concurrency.cancel-in-progress == false and
+   .jobs.release.concurrency.group == "maestro-publication" and
    .jobs.release.concurrency.queue == "max" and
    .jobs.release.concurrency.cancel-in-progress == false' \
   "$TEST_ROOT/.github/workflows/release.yml" >/dev/null \
@@ -200,7 +224,7 @@ fi
 grep -Fq 'nix flake update --accept-flake-config' \
   "$TEST_ROOT/nix/automation/update-locks.sh" \
   || fail "packaged updater does not refresh flake inputs"
-grep -Fq '"name": "nixoa-validation"' \
+grep -Fq '"name": "maestro-validation"' \
   "$TEST_ROOT/nix/ci-plans.json" \
   || fail "flake does not expose pure CI attribute plans"
 grep -Fq 'flake-plan-runner' \
@@ -223,7 +247,7 @@ grep -Fq 'actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a' \
   || fail "installer workflow does not pin the Node.js 24 artifact uploader"
 # The command substitution must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'inputs=$(nixoa-ci-qualification-inputs)' \
+grep -Fq 'inputs=$(maestro-ci-qualification-inputs)' \
   "$TEST_ROOT/nix/automation/qualification-resolve.sh" \
   || fail "installer workflow does not calculate Nix-owned qualification state"
 grep -Fq 'contains(fromJSON' \
@@ -235,19 +259,19 @@ grep -Fq 'if: fromJSON(steps.plan.outputs.plan).qualification.required' \
 grep -Fq 'fromJSON(needs.route.outputs.plan).publish_required' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "publication does not consume the authoritative route plan"
-grep -Fq 'name: nixoa-qualification-state' \
+grep -Fq 'name: maestro-qualification-state' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish its immutable state pointer"
-grep -Fq 'name: nixoa-evidence' \
+grep -Fq 'name: maestro-evidence' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish reusable evidence"
 grep -Fq 'qualify-media-reuse-evidence' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not route media builds through reusable evidence"
-grep -Fq 'NIXOA_INSTALLER_ARTIFACT_BUDGET_BYTES:-3000000000' \
+grep -Fq 'MAESTRO_INSTALLER_ARTIFACT_BUDGET_BYTES:-3000000000' \
   "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "installer qualification does not enforce the 3.0 GB artifact budget"
-if grep -Fq 'nixoa-reusable-cache' "$TEST_ROOT/.github/workflows/ci.yml"; then
+if grep -Fq 'maestro-reusable-cache' "$TEST_ROOT/.github/workflows/ci.yml"; then
   fail "installer workflow still transports a redundant closure cache artifact"
 fi
 # The variable reference must remain literal in the workflow source.
@@ -255,10 +279,10 @@ fi
 grep -Fq '"$sbomnix_out/bin/sbomnix"' \
   "$TEST_ROOT/nix/automation/qualification-assets.sh" \
   || fail "installer workflow does not use the flake-provided sbomnix"
-grep -Fq 'nixoa-system.spdx.json' \
+grep -Fq 'maestro-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish an SPDX SBOM"
-grep -Fq 'nixoa-system.cdx.json' \
+grep -Fq 'maestro-system.cdx.json' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not publish a CycloneDX SBOM"
 grep -Fq 'xen-orchestra-supply.assertion.json' \
@@ -275,7 +299,7 @@ grep -Fq -- '--status completed' \
   || fail "installer state cannot recover verified artifacts from late failures"
 grep -Fq 'name: Required CI verdict' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "consolidated CI does not expose a stable verdict"
-grep -Fq 'sbom-path: nixoa-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
+grep -Fq 'sbom-path: maestro-system.spdx.json' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer SBOM is not bound by an attestation"
 grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' ci:qualification:boot-media" "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer workflow does not boot the ISO through its declared task"
@@ -283,7 +307,7 @@ grep -Fq 'artifact-metadata: write' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "attestation job lacks current artifact metadata permission"
 grep -Fq 'cron: "23 8 1 */2 *"' "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer reproducibility is not validated before artifact expiry"
-[[ ! -e "$TEST_ROOT/.github/workflows/cache-nixoa-menu.yml" ]] \
+[[ ! -e "$TEST_ROOT/.github/workflows/cache-maestro-menu.yml" ]] \
   || fail "superseded installer workflow still exists"
 [[ ! -e "$TEST_ROOT/.github/workflows/validate.yml" ]] \
   || fail "superseded validation workflow still exists"
@@ -325,7 +349,7 @@ grep -Fq -- '--draft' "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not stage assets in a draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'nixoa-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md' \
+grep -Fq 'maestro-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md' \
   "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not use the curated changelog entry"
 # The variable reference must remain literal in the workflow source.
@@ -336,7 +360,7 @@ grep -Fq -- '--notes-file "$notes_file"' \
 if grep -Fq -- '--generate-notes' "$TEST_ROOT/nix/automation/release-manager.sh"; then
   fail "release workflow still substitutes generated notes for the changelog"
 fi
-grep -Fq 'candidate-state/nixoa-qualification-state.json' \
+grep -Fq 'candidate-state/maestro-qualification-state.json' \
   "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not resolve the immutable build state"
 # The variable reference must remain literal in the workflow source.
@@ -349,7 +373,7 @@ grep -Fq 'gh attestation verify "$installer"' \
 grep -Fq -- '--signer-workflow "$signer_workflow"' \
   "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release verification does not constrain the signer workflow"
-grep -Fq 'sbom-path: candidate/nixoa-system.spdx.json' \
+grep -Fq 'sbom-path: candidate/maestro-system.spdx.json' \
   "$TEST_ROOT/.github/workflows/release.yml" \
   || fail "versioned release filename is not bound to the SPDX SBOM"
 grep -Fq ".#devenv -- tasks run --mode single --option 'packages:pkgs!' '' release:prepare" \
@@ -365,7 +389,7 @@ grep -Fq 'gh release edit "$RELEASE_TAG" --draft=false --latest' \
   || fail "release workflow does not publish the verified immutable draft"
 # The variable reference must remain literal in the workflow source.
 # shellcheck disable=SC2016
-grep -Fq 'Start NiXOA ${next_version}' \
+grep -Fq 'Start Maestro ${next_version}' \
   "$TEST_ROOT/nix/automation/release-manager.sh" \
   || fail "release workflow does not advance the development version"
 grep -Fq 'package-ecosystem: github-actions' \
@@ -374,7 +398,7 @@ grep -Fq 'package-ecosystem: github-actions' \
 grep -Fq 'package-ecosystem: cargo' \
   "$TEST_ROOT/.github/dependabot.yml" \
   || fail "Dependabot does not monitor the Rust application"
-grep -Fq 'directory: /pkgs/nixoa-menu' \
+grep -Fq 'directory: /pkgs/maestro-menu' \
   "$TEST_ROOT/.github/dependabot.yml" \
   || fail "Dependabot does not target the Rust manifest directory"
 grep -Fq 'applies-to: security-updates' \
@@ -407,14 +431,14 @@ grep -Fq '"https://install.determinate.systems"' \
   || fail "installed system omits the Determinate bootstrap cache"
 grep -Fq '"https://nixoa.cachix.org"' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
-  || fail "installed system omits the NiXOA Cachix cache"
+  || fail "installed system omits the Maestro Cachix cache"
 grep -Fq 'paths = [upstreamDeterminateNix.out]' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
   || fail "installed system does not isolate the cached Determinate runtime output"
 
-if NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash -c '
-  source "$NIXOA_SYSTEM_ROOT/scripts/lib/common.sh"
-  nixoa_resolve_target_output vm
+if MAESTRO_SYSTEM_ROOT="$TEST_ROOT" bash -c '
+  source "$MAESTRO_SYSTEM_ROOT/scripts/lib/common.sh"
+  maestro_resolve_target_output vm
 ' >/dev/null 2>&1
 then
   fail "legacy vm target still resolves"
@@ -422,16 +446,16 @@ fi
 
 # Removed multi-host CLI commands fail explicitly.
 for command in add list select-vm; do
-  if NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash "$TEST_ROOT/scripts/nxcli.sh" host "$command" \
+  if MAESTRO_SYSTEM_ROOT="$TEST_ROOT" bash "$TEST_ROOT/scripts/maestroctl.sh" host "$command" \
     >"$temporary/$command.out" 2>"$temporary/$command.err"
   then
-    fail "nxcli host $command unexpectedly succeeded"
+    fail "maestroctl host $command unexpectedly succeeded"
   fi
   grep -q 'was removed' "$temporary/$command.err" \
-    || fail "nxcli host $command did not explain its removal"
+    || fail "maestroctl host $command did not explain its removal"
 done
 
-if NIXOA_SYSTEM_ROOT="$TEST_ROOT" bash "$TEST_ROOT/scripts/nxcli.sh" apply --target vm \
+if MAESTRO_SYSTEM_ROOT="$TEST_ROOT" bash "$TEST_ROOT/scripts/maestroctl.sh" apply --target vm \
   >"$temporary/target.out" 2>"$temporary/target.err"
 then
   fail "apply accepted a target selector"
@@ -447,7 +471,7 @@ fi
 grep -q 'was removed' "$temporary/bootstrap.err" \
   || fail "bootstrap did not reject legacy identity options"
 
-# Packer configuration generation is fixed to one native NiXOA template and
+# Packer configuration generation is fixed to one native Maestro template and
 # never persists the XCP-ng password.
 printf '%s\n' 'ssh-ed25519 AAAATEST operator@example' \
   >"$temporary/operator.pub"
@@ -458,7 +482,7 @@ bash "$TEST_ROOT/packer/deploy-template.sh" \
   --sr "Local storage" \
   --network "Build network" \
   --export-network "Template network" \
-  --template-name NiXOA \
+  --template-name Maestro \
   --memory-mb 4096 \
   --disk-size-mb 20480 \
   --operator-key "$temporary/operator.pub" \
@@ -471,7 +495,7 @@ jq -e '
   and .sr_name == "Local storage"
   and .network_names == ["Build network"]
   and .export_network_names == ["Template network"]
-  and .vm_name == "NiXOA"
+  and .vm_name == "Maestro"
   and .memory_mb == 4096
   and .disk_size_mb == 20480
   and (.remote_password? == null)
@@ -486,12 +510,12 @@ mkdir -p "$temporary/bin"
 printf '%s\n' \
   "#!$(command -v bash)" \
   'printf "%s\n" "$@" >"$FAKE_BUILD_ARGS"' \
-  'printf "%s\n%s\n" "$NIXOA_SYSTEM_ROOT" "$NIXOA_PACKER_ROOT" >"$FAKE_BUILD_ROOTS"' \
+  'printf "%s\n%s\n" "$MAESTRO_SYSTEM_ROOT" "$MAESTRO_PACKER_ROOT" >"$FAKE_BUILD_ROOTS"' \
   >"$temporary/bin/build-template"
 chmod +x "$temporary/bin/build-template"
 FAKE_BUILD_ARGS="$temporary/build-template.args" \
 FAKE_BUILD_ROOTS="$temporary/build-template.roots" \
-NIXOA_BUILD_TEMPLATE_BIN="$temporary/bin/build-template" \
+MAESTRO_BUILD_TEMPLATE_BIN="$temporary/bin/build-template" \
 PKR_VAR_remote_password=fixture-password \
   bash "$TEST_ROOT/packer/deploy-template.sh" \
     --operator-key "$temporary/operator.pub" \
@@ -509,21 +533,21 @@ mkdir -p \
   "$temporary/fake-artifact/result-installer/iso" \
   "$temporary/fake-state" \
   "$temporary/bin"
-printf 'fake installer image\n' >"$temporary/fake-result/iso/nixoa-installer.iso"
+printf 'fake installer image\n' >"$temporary/fake-result/iso/maestro-installer.iso"
 cp \
-  "$temporary/fake-result/iso/nixoa-installer.iso" \
-  "$temporary/fake-artifact/result-installer/iso/nixoa-installer.iso"
+  "$temporary/fake-result/iso/maestro-installer.iso" \
+  "$temporary/fake-artifact/result-installer/iso/maestro-installer.iso"
 (
   cd "$temporary/fake-artifact"
   sha256sum \
-    result-installer/iso/nixoa-installer.iso \
-    >nixoa-installer.iso.sha256
+    result-installer/iso/maestro-installer.iso \
+    >maestro-installer.iso.sha256
 )
 printf '%s\n' \
   '{"schema_version":4,"mode":"qualify-media","media_input":"fixture-media","evidence_input":"fixture-evidence","source_commit":"fixture-source","artifact_source_commit":"fixture-source","media_source_commit":"fixture-source","producer_event":"push","artifact_run_id":12345,"media_run_id":12345,"evidence_run_id":12345}' \
-  >"$temporary/fake-state/nixoa-qualification-state.json"
-cp "$temporary/fake-state/nixoa-qualification-state.json" \
-  "$temporary/fake-artifact/nixoa-qualification-state.json"
+  >"$temporary/fake-state/maestro-qualification-state.json"
+cp "$temporary/fake-state/maestro-qualification-state.json" \
+  "$temporary/fake-artifact/maestro-qualification-state.json"
 # The variable references belong in the generated fake, not this test shell.
 # shellcheck disable=SC2016
 printf '%s\n' \
@@ -540,7 +564,7 @@ printf '%s\n' \
   '      *) shift ;;' \
   '    esac' \
   '  done' \
-  '  if [[ "$artifact_name" == "nixoa-qualification-state" ]]; then' \
+  '  if [[ "$artifact_name" == "maestro-qualification-state" ]]; then' \
   '    cp -R "$FAKE_STATE_DIR/." "$artifact_dir/"' \
   '  else' \
   '    cp -R "$FAKE_ARTIFACT_DIR/." "$artifact_dir/"' \
@@ -572,14 +596,14 @@ FAKE_ARTIFACT_DIR="$temporary/fake-artifact" \
   OPERATOR_PUBLIC_KEY_FILE="$temporary/operator.pub" \
   TMPDIR="$temporary" \
   bash "$TEST_ROOT/packer/build.sh"
-grep -Eq '^iso_url=.*/nixoa-installer\.iso$' \
+grep -Eq '^iso_url=.*/maestro-installer\.iso$' \
   "$temporary/packer.args" \
   || fail "Packer build did not use the downloaded GitHub artifact"
 grep -Fq -- '--workflow ci.yml' "$temporary/gh.args" \
   || fail "artifact lookup did not select the installer workflow"
-grep -Fq -- '--name nixoa-installer' "$temporary/gh.args" \
+grep -Fq -- '--name maestro-installer' "$temporary/gh.args" \
   || fail "artifact download did not select the installer artifact"
-[[ ! -e "$temporary/output/nixoa-installer.iso" ]] \
+[[ ! -e "$temporary/output/maestro-installer.iso" ]] \
   || fail "Packer build duplicated the installer ISO into the checkout"
 
 # A local Nix build remains an explicit fallback and also passes its store
@@ -593,7 +617,7 @@ FAKE_INSTALLER_RESULT="$temporary/fake-result" \
   INSTALLER_SOURCE=build \
   bash "$TEST_ROOT/packer/build.sh"
 grep -Fxq \
-  "iso_url=$temporary/fake-result/iso/nixoa-installer.iso" \
+  "iso_url=$temporary/fake-result/iso/maestro-installer.iso" \
   "$temporary/packer.args" \
   || fail "Packer build did not use the installer directly from the Nix store"
 grep -Fxq -- '--accept-flake-config' "$temporary/nix.args" \
@@ -611,13 +635,13 @@ if grep -qE 'PasswordAuthentication|hashedPassword' "$TEST_ROOT/host/packer.nix"
   fail "tracked Packer override contains temporary access policy"
 fi
 grep -q 'refusing to erase a disk without --yes' \
-  "$TEST_ROOT/installer/install-nixoa.sh" \
+  "$TEST_ROOT/installer/install-maestro.sh" \
   || fail "installer does not require explicit destructive confirmation"
 grep -q 'mount -t ext4.*root_partition' \
-  "$TEST_ROOT/installer/install-nixoa.sh" \
+  "$TEST_ROOT/installer/install-maestro.sh" \
   || fail "installer does not explicitly mount its ext4 root"
 grep -q 'mount -o fmask=0077,dmask=0077.*efi_partition' \
-  "$TEST_ROOT/installer/install-nixoa.sh" \
+  "$TEST_ROOT/installer/install-maestro.sh" \
   || fail "installer does not protect files on the EFI system partition"
 grep -q 'cloud-init clean --logs --machine-id --seed' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
@@ -625,25 +649,25 @@ grep -q 'cloud-init clean --logs --machine-id --seed' \
 grep -q 'nixos-rebuild --accept-flake-config switch' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not accept the flake cache configuration"
-grep -q 'nixoa_write_apply_state success switch' \
+grep -q 'maestro_write_apply_state success switch' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not record its successful system switch"
 grep -qx 'nh clean all' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not remove obsolete Nix generations"
-grep -q 'last_apply_head=.*git -C /home/nixoa/nixoa rev-parse HEAD' \
+grep -q 'last_apply_head=.*git -C /home/maestro/maestro rev-parse HEAD' \
   "$TEST_ROOT/packer/scripts/verify-clone.sh" \
   || fail "clone verification does not validate the sealed apply state"
-grep -Fq 'd /var/lib/nixoa 0755 root root' \
+grep -Fq 'd /var/lib/maestro 0755 root root' \
   "$TEST_ROOT/modules/_nixos/operator.nix" \
-  || fail "the shared NiXOA status directory is not operator-readable"
+  || fail "the shared Maestro status directory is not operator-readable"
 grep -Fq 'd /var/lib/nfs/sm.bak 0755 root root' \
   "$TEST_ROOT/modules/_nixos/xo/storage.nix" \
   || fail "NFS notification state is not created before first boot"
 grep -q 'org\.freedesktop\.hostname1\.set-hostname' \
   "$TEST_ROOT/modules/_nixos/platform.nix" \
   || fail "platform does not authorize DHCP hostname adoption"
-grep -q 'passwd --lock nixoa' \
+grep -q 'passwd --lock maestro' \
   "$TEST_ROOT/packer/scripts/seal-template.sh" \
   || fail "Packer sealing does not lock the temporary operator password"
 grep -q 'Timed out waiting for the Xen Orchestra HTTPS endpoint' \
@@ -658,40 +682,40 @@ grep -q 'XO_READINESS_GRACE_SECONDS:-0' \
 
 # Bootstrap settings generation populates the fixed identity and supplied keys.
 mkdir -p "$temporary/generated/host"
-NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+MAESTRO_SYSTEM_ROOT="$temporary/generated" bash -c '
   source "'"$TEST_ROOT"'/scripts/lib/common.sh"
   keys=("ssh-ed25519 AAAATEST operator@example")
-  nixoa_write_host_settings \
-    "$NIXOA_SETTINGS_FILE" \
-    "/home/nixoa/nixoa" \
+  maestro_write_host_settings \
+    "$MAESTRO_SETTINGS_FILE" \
+    "/home/maestro/maestro" \
     "America/Chicago" \
     "26.05" \
     "Test Operator" \
     "operator@example.com" \
     keys
 '
-grep -q 'networking.hostName = "nixoa";' "$temporary/generated/host/settings.nix" \
-  || fail "generated settings do not fix the nixoa hostname"
+grep -q 'networking.hostName = "maestro";' "$temporary/generated/host/settings.nix" \
+  || fail "generated settings do not fix the maestro hostname"
 grep -q 'ssh-ed25519 AAAATEST operator@example' "$temporary/generated/host/settings.nix" \
   || fail "generated settings omitted the SSH key"
-grep -q 'nixoa.xo = {' "$temporary/generated/host/settings.nix" \
+grep -q 'maestro.xo = {' "$temporary/generated/host/settings.nix" \
   || fail "generated settings omitted XO"
 if grep -q 'config.file' "$temporary/generated/host/settings.nix"; then
   fail "generated settings retain the removed handwritten XO configuration option"
 fi
-test ! -e "$TEST_ROOT/host/config.nixoa.toml" \
+test ! -e "$TEST_ROOT/host/config.maestro.toml" \
   || fail "the obsolete handwritten XO configuration still exists"
 
 # TUI writes only the dedicated native-option override module.
 cp "$TEST_ROOT/host/settings.nix" "$temporary/generated/host/settings.nix"
 cp "$TEST_ROOT/host/menu.nix" "$temporary/generated/host/menu.nix"
-NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+MAESTRO_SYSTEM_ROOT="$temporary/generated" bash -c '
   source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
   keys=("ssh-ed25519 AAAATEST operator@example")
   system_packages=("ripgrep")
   user_packages=("jq")
   services=("tailscale")
-  nixoa_tui_write_menu \
+  maestro_tui_write_menu \
     true \
     true \
     keys \
@@ -699,7 +723,7 @@ NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
     user_packages \
     services
 '
-grep -q 'nixoa.operator = {' "$temporary/generated/host/menu.nix" \
+grep -q 'maestro.operator = {' "$temporary/generated/host/menu.nix" \
   || fail "TUI override does not use typed operator options"
 grep -q 'extraSystemPackages = \[' "$temporary/generated/host/menu.nix" \
   || fail "TUI override omitted system packages"
@@ -718,25 +742,25 @@ cert = "/etc/ssl/xo/certificate.pem"
 key = "/etc/ssl/xo/key.pem"
 port = 443
 EOF
-NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+MAESTRO_SYSTEM_ROOT="$temporary/generated" bash -c '
   source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
-  nixoa_tui_xo_tls_enabled "'"$temporary"'/xo-tls.toml"
+  maestro_tui_xo_tls_enabled "'"$temporary"'/xo-tls.toml"
 ' || fail "TUI does not detect TLS from the rendered XO configuration"
 
 cat >"$temporary/xo-http.toml" <<'EOF'
 [[http.listen]]
 port = 80
 EOF
-if NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+if MAESTRO_SYSTEM_ROOT="$temporary/generated" bash -c '
   source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
-  nixoa_tui_xo_tls_enabled "'"$temporary"'/xo-http.toml"
+  maestro_tui_xo_tls_enabled "'"$temporary"'/xo-http.toml"
 '; then
   fail "TUI reports TLS without a certificate and key listener"
 fi
 
 cat >"$temporary/default-options.nix" <<'EOF'
 {lib, ...}: {
-  nixoa.operator = {
+  maestro.operator = {
     sshKeys = lib.mkDefault [
       "ssh-ed25519 AAAATEST operator@example"
     ];
@@ -746,11 +770,11 @@ cat >"$temporary/default-options.nix" <<'EOF'
 }
 EOF
 actual="$(
-  NIXOA_SYSTEM_ROOT="$temporary/generated" bash -c '
+  MAESTRO_SYSTEM_ROOT="$temporary/generated" bash -c '
     source "'"$TEST_ROOT"'/scripts/tui/lib.sh"
-    nixoa_tui_read_bool_file enableExtras "'"$temporary"'/default-options.nix"
-    nixoa_tui_read_list_file sshKeys "'"$temporary"'/default-options.nix"
-    nixoa_tui_read_list_file extraSystemPackages "'"$temporary"'/default-options.nix"
+    maestro_tui_read_bool_file enableExtras "'"$temporary"'/default-options.nix"
+    maestro_tui_read_list_file sshKeys "'"$temporary"'/default-options.nix"
+    maestro_tui_read_list_file extraSystemPackages "'"$temporary"'/default-options.nix"
   '
 )"
 assert_eq "$actual" $'true\nssh-ed25519 AAAATEST operator@example'
@@ -759,12 +783,12 @@ if grep -q '_ctx\\|deploymentProfile\\|enableXenHardware' "$temporary/generated/
 fi
 
 # Verify the exact generated override composes in a complete flake evaluation.
-if [ "${NIXOA_SKIP_EVAL:-0}" != 1 ]; then
+if [ "${MAESTRO_SKIP_EVAL:-0}" != 1 ]; then
   cp -a "$TEST_ROOT" "$temporary/repo"
   cp "$temporary/generated/host/menu.nix" "$temporary/repo/host/menu.nix"
   env XDG_CACHE_HOME="$temporary/cache" nix eval --raw \
-    "path:$temporary/repo#nixosConfigurations.nixoa.config.system.build.toplevel.drvPath" \
+    "path:$temporary/repo#nixosConfigurations.maestro.config.system.build.toplevel.drvPath" \
     >/dev/null
 fi
 
-printf 'All NiXOA shell tests passed.\n'
+printf 'All Maestro shell tests passed.\n'

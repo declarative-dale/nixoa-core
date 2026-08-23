@@ -28,7 +28,7 @@ case "$event_name" in
     head_sha=${MERGE_HEAD_SHA:-}
     if [[ -z "$base_sha" || -z "$head_sha" ]]; then
       printf 'Merge-group SHAs are incomplete; requiring installer validation.\n' >&2
-    elif git -C "$NIXOA_SYSTEM_ROOT" merge-base --is-ancestor "$base_sha" "$head_sha"; then
+    elif git -C "$MAESTRO_SYSTEM_ROOT" merge-base --is-ancestor "$base_sha" "$head_sha"; then
       compare_shas=true
     else
       printf 'Merge-group base is not a known ancestor of its head; requiring installer validation.\n' >&2
@@ -47,10 +47,10 @@ case "$event_name" in
 esac
 
 if [[ "$compare_shas" == true && -n "$base_sha" && -n "$head_sha" ]]; then
-  changed_paths=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/nixoa-changes.XXXXXX")
+  changed_paths=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/maestro-changes.XXXXXX")
   trap 'rm -f -- "$changed_paths"' EXIT
-  if git -C "$NIXOA_SYSTEM_ROOT" diff --name-only "$base_sha" "$head_sha" >"$changed_paths"; then
-    installer=$(nixoa-ci-classify-paths <"$changed_paths")
+  if git -C "$MAESTRO_SYSTEM_ROOT" diff --name-only "$base_sha" "$head_sha" >"$changed_paths"; then
+    installer=$(maestro-ci-classify-paths <"$changed_paths")
   else
     printf 'Could not determine changed paths; requiring installer validation.\n' >&2
     installer=true
