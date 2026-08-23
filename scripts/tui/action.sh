@@ -7,8 +7,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/tui/lib.sh
 . "$SCRIPT_DIR/lib.sh"
 
-nixoa_require_git_repo
-nixoa_cd_root
+maestro_require_git_repo
+maestro_cd_root
 
 usage() {
   cat <<'EOF'
@@ -34,29 +34,29 @@ EOF
 }
 
 load_state() {
-  username_value="$(nixoa_tui_username)"
-  extras_value="$(nixoa_tui_enable_extras)"
-  development_mode_value="$(nixoa_tui_development_mode)"
+  username_value="$(maestro_tui_username)"
+  extras_value="$(maestro_tui_enable_extras)"
+  development_mode_value="$(maestro_tui_development_mode)"
 
-  mapfile -t ssh_keys_value < <(nixoa_tui_ssh_keys)
+  mapfile -t ssh_keys_value < <(maestro_tui_ssh_keys)
   # These arrays are passed to the override writer by name.
   # shellcheck disable=SC2034
-  mapfile -t system_packages_value < <(nixoa_tui_extra_system_packages)
+  mapfile -t system_packages_value < <(maestro_tui_extra_system_packages)
   # shellcheck disable=SC2034
-  mapfile -t user_packages_value < <(nixoa_tui_extra_user_packages)
+  mapfile -t user_packages_value < <(maestro_tui_extra_user_packages)
   # shellcheck disable=SC2034
-  mapfile -t services_value < <(nixoa_tui_enabled_services)
+  mapfile -t services_value < <(maestro_tui_enabled_services)
 }
 
 commit_lock_if_changed() {
   local message="$1"
 
-  if [ -z "$(git -C "$NIXOA_SYSTEM_ROOT" status --short -- flake.lock)" ]; then
+  if [ -z "$(git -C "$MAESTRO_SYSTEM_ROOT" status --short -- flake.lock)" ]; then
     echo "No flake.lock changes were produced."
     return 1
   fi
 
-  nixoa_tui_commit_paths "$message" flake.lock
+  maestro_tui_commit_paths "$message" flake.lock
 }
 
 prompt_yes_no() {
@@ -80,12 +80,12 @@ prompt_yes_no() {
 
 prompt_rebuild_policy() {
   if prompt_yes_no "Rebuild now"; then
-    "$NIXOA_SYSTEM_ROOT/scripts/nxcli.sh" apply
+    "$MAESTRO_SYSTEM_ROOT/scripts/maestroctl.sh" apply
     return 0
   fi
 
   if prompt_yes_no "Queue rebuild for next boot"; then
-    nixoa_schedule_rebuild_on_boot "$NIXOA_SYSTEM_ROOT"
+    maestro_schedule_rebuild_on_boot "$MAESTRO_SYSTEM_ROOT"
     echo "Queued a rebuild for the next boot."
     return 0
   fi
@@ -130,7 +130,7 @@ lock_rev_for() {
     in_node && in_locked && $0 ~ /^[[:space:]]*}[,]?[[:space:]]*$/ {
       in_locked = 0
     }
-  ' "$NIXOA_SYSTEM_ROOT/flake.lock"
+  ' "$MAESTRO_SYSTEM_ROOT/flake.lock"
 }
 
 cleanup_unmanaged_users() {
@@ -219,57 +219,57 @@ command_name="$1"
 shift
 
 load_state
-host_menu_relpath="$(nixoa_host_relpath)/menu.nix"
+host_menu_relpath="$(maestro_host_relpath)/menu.nix"
 
 case "$command_name" in
   set-username)
-    echo "The NiXOA operator is fixed to nixoa." >&2
+    echo "The Maestro operator is fixed to maestro." >&2
     exit 1
     ;;
   set-ssh-key)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_ssh_key "$1"
+    maestro_tui_validate_ssh_key "$1"
     ssh_keys_value=("$1")
-    nixoa_tui_write_menu \
+    maestro_tui_write_menu \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
       services_value
-    nixoa_tui_commit_paths "Set SSH key from nixoa-menu" "$host_menu_relpath"
+    maestro_tui_commit_paths "Set SSH key from maestro-menu" "$host_menu_relpath"
     ;;
   add-ssh-key)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_ssh_key "$1"
-    if nixoa_tui_append_unique "$1" ssh_keys_value; then
-      nixoa_tui_write_menu \
+    maestro_tui_validate_ssh_key "$1"
+    if maestro_tui_append_unique "$1" ssh_keys_value; then
+      maestro_tui_write_menu \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
         services_value
-      nixoa_tui_commit_paths "Add SSH key from nixoa-menu" "$host_menu_relpath"
+      maestro_tui_commit_paths "Add SSH key from maestro-menu" "$host_menu_relpath"
     else
       echo "SSH key already present."
     fi
     ;;
   remove-ssh-key)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
-    if nixoa_tui_remove_value "$1" ssh_keys_value; then
+    if maestro_tui_remove_value "$1" ssh_keys_value; then
       if [ "${#ssh_keys_value[@]}" -eq 0 ]; then
         echo "At least one SSH key is required." >&2
         exit 1
       fi
-      nixoa_tui_write_menu \
+      maestro_tui_write_menu \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
         services_value
-      nixoa_tui_commit_paths "Remove SSH key from nixoa-menu" "$host_menu_relpath"
+      maestro_tui_commit_paths "Remove SSH key from maestro-menu" "$host_menu_relpath"
     else
       echo "SSH key not found."
     fi
@@ -277,19 +277,19 @@ case "$command_name" in
   toggle-extras)
     if [ "$extras_value" = "true" ]; then
       extras_value="false"
-      commit_message="Disable extras from nixoa-menu"
+      commit_message="Disable extras from maestro-menu"
     else
       extras_value="true"
-      commit_message="Enable extras from nixoa-menu"
+      commit_message="Enable extras from maestro-menu"
     fi
-    nixoa_tui_write_menu \
+    maestro_tui_write_menu \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
       services_value
-    nixoa_tui_commit_paths "$commit_message" "$host_menu_relpath"
+    maestro_tui_commit_paths "$commit_message" "$host_menu_relpath"
     ;;
   set-development-mode)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
@@ -302,7 +302,7 @@ case "$command_name" in
         exit 1
         ;;
     esac
-    nixoa_tui_write_menu \
+    maestro_tui_write_menu \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
@@ -310,90 +310,90 @@ case "$command_name" in
       user_packages_value \
       services_value
     if [ "$development_mode_value" = "true" ]; then
-      commit_message="Enable Development Mode from nixoa-menu"
+      commit_message="Enable Development Mode from maestro-menu"
     else
-      commit_message="Disable Development Mode from nixoa-menu"
+      commit_message="Disable Development Mode from maestro-menu"
     fi
-    nixoa_tui_commit_paths "$commit_message" "$host_menu_relpath"
+    maestro_tui_commit_paths "$commit_message" "$host_menu_relpath"
     ;;
   toggle-development-mode)
     if [ "$development_mode_value" = "true" ]; then
       development_mode_value="false"
-      commit_message="Disable Development Mode from nixoa-menu"
+      commit_message="Disable Development Mode from maestro-menu"
     else
       development_mode_value="true"
-      commit_message="Enable Development Mode from nixoa-menu"
+      commit_message="Enable Development Mode from maestro-menu"
     fi
-    nixoa_tui_write_menu \
+    maestro_tui_write_menu \
       "$extras_value" \
       "$development_mode_value" \
       ssh_keys_value \
       system_packages_value \
       user_packages_value \
       services_value
-    nixoa_tui_commit_paths "$commit_message" "$host_menu_relpath"
+    maestro_tui_commit_paths "$commit_message" "$host_menu_relpath"
     ;;
   add-system-package)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_token "package" "$1"
-    if nixoa_tui_append_unique "$1" system_packages_value; then
-      nixoa_tui_write_menu \
+    maestro_tui_validate_token "package" "$1"
+    if maestro_tui_append_unique "$1" system_packages_value; then
+      maestro_tui_write_menu \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
         services_value
-      nixoa_tui_commit_paths "Add system package ${1} from nixoa-menu" "$host_menu_relpath"
+      maestro_tui_commit_paths "Add system package ${1} from maestro-menu" "$host_menu_relpath"
     else
       echo "System package already present."
     fi
     ;;
   add-user-package)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_token "package" "$1"
-    if nixoa_tui_append_unique "$1" user_packages_value; then
-      nixoa_tui_write_menu \
+    maestro_tui_validate_token "package" "$1"
+    if maestro_tui_append_unique "$1" user_packages_value; then
+      maestro_tui_write_menu \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
         services_value
-      nixoa_tui_commit_paths "Add user package ${1} from nixoa-menu" "$host_menu_relpath"
+      maestro_tui_commit_paths "Add user package ${1} from maestro-menu" "$host_menu_relpath"
     else
       echo "User package already present."
     fi
     ;;
   add-service)
     [ $# -eq 1 ] || { usage >&2; exit 1; }
-    nixoa_tui_validate_token "service" "$1"
-    if nixoa_tui_append_unique "$1" services_value; then
-      nixoa_tui_write_menu \
+    maestro_tui_validate_token "service" "$1"
+    if maestro_tui_append_unique "$1" services_value; then
+      maestro_tui_write_menu \
         "$extras_value" \
         "$development_mode_value" \
         ssh_keys_value \
         system_packages_value \
         user_packages_value \
         services_value
-      nixoa_tui_commit_paths "Enable service ${1} from nixoa-menu" "$host_menu_relpath"
+      maestro_tui_commit_paths "Enable service ${1} from maestro-menu" "$host_menu_relpath"
     else
       echo "Service already present."
     fi
     ;;
   update-nixpkgs)
     update_input_and_prompt \
-      "Update nixpkgs input from nixoa-menu" \
+      "Update nixpkgs input from maestro-menu" \
       nix flake update nixpkgs
     ;;
   update-home-manager)
     update_input_and_prompt \
-      "Update home-manager input from nixoa-menu" \
+      "Update home-manager input from maestro-menu" \
       nix flake update home-manager
     ;;
   update-determinate)
     update_input_and_prompt \
-      "Update determinate input from nixoa-menu" \
+      "Update determinate input from maestro-menu" \
       nix flake update determinate
     ;;
   update-xoa)
@@ -401,16 +401,16 @@ case "$command_name" in
     echo "Current locked xen-orchestra-ce revision: ${current_xoa_rev:-unknown}"
     echo "Refreshing the xo-nixpkg main input; the appliance selects its configured package channel."
     update_input_and_prompt \
-      "Update xen-orchestra-ce input from nixoa-menu" \
+      "Update xen-orchestra-ce input from maestro-menu" \
       nix flake update xen-orchestra-ce
     ;;
   update-all)
     update_input_and_prompt \
-      "Update flake inputs from nixoa-menu" \
+      "Update flake inputs from maestro-menu" \
       nix flake update
     ;;
   cleanup-unmanaged-users)
-    nixoa_run_as_root bash -lc "$(declare -f cleanup_unmanaged_users); cleanup_unmanaged_users $(printf '%q' "$username_value")"
+    maestro_run_as_root bash -lc "$(declare -f cleanup_unmanaged_users); cleanup_unmanaged_users $(printf '%q' "$username_value")"
     ;;
   *)
     usage >&2

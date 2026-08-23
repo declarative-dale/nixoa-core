@@ -12,7 +12,7 @@ in {
     pkgs = inputs.nixpkgs.legacyPackages.${system};
   in
     pkgs.writeShellApplication {
-      name = "nixoa-format";
+      name = "maestro-format";
       runtimeInputs = [
         pkgs.alejandra
         pkgs.findutils

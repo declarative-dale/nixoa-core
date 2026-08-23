@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-repo_root=${NIXOA_SYSTEM_ROOT:-$PWD}
+repo_root=${MAESTRO_SYSTEM_ROOT:-$PWD}
 flake_lock=${1:-$repo_root/flake.lock}
 devenv_lock=${2:-$repo_root/devenv.lock}
 

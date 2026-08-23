@@ -6,7 +6,7 @@
   osConfig,
   ...
 }: let
-  cfg = osConfig.nixoa.operator;
+  cfg = osConfig.maestro.operator;
 in {
   programs.bat = lib.mkIf cfg.enableExtras {
     enable = true;

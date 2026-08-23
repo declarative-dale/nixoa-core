@@ -5,7 +5,7 @@
   pkgs,
   ...
 }: let
-  cfg = config.nixoa.xo;
+  cfg = config.maestro.xo;
   inherit (lib) mapAttrs' mkIf nameValuePair optionalAttrs optionals;
   valkeyCompat =
     if pkgs ? valkey-compat-redis
@@ -61,7 +61,7 @@
   '';
 in {
   config = mkIf cfg.enable {
-    nixoa.xo.internal.configFragments = configFragments;
+    maestro.xo.internal.configFragments = configFragments;
 
     users.groups.${cfg.group} = {};
     users.groups.fuse = {};
@@ -155,7 +155,7 @@ in {
       requires = ["redis-xo.service"];
 
       path =
-        optionals (config.nixoa.xo.internal.sudoWrapper != null) [config.nixoa.xo.internal.sudoWrapper]
+        optionals (config.maestro.xo.internal.sudoWrapper != null) [config.maestro.xo.internal.sudoWrapper]
         ++ [
           pkgs.util-linux
           pkgs.git
@@ -229,18 +229,18 @@ in {
     assertions = [
       {
         assertion = cfg.package != null;
-        message = "nixoa.xo.package must be configured.";
+        message = "maestro.xo.package must be configured.";
       }
     ];
   };
 
-  options.nixoa.xo.internal.sudoWrapper = lib.mkOption {
+  options.maestro.xo.internal.sudoWrapper = lib.mkOption {
     type = lib.types.nullOr lib.types.package;
     default = null;
     internal = true;
   };
 
-  options.nixoa.xo.internal.configFragments = lib.mkOption {
+  options.maestro.xo.internal.configFragments = lib.mkOption {
     type = lib.types.attrsOf lib.types.anything;
     readOnly = true;
     internal = true;

@@ -1,6 +1,6 @@
 # Documentation
 
-Start by [launching NiXOA](installation.md) or
+Start by [launching Maestro](installation.md) or
 [connecting to an installed appliance](getting-started.md).
 
 ## Launch and operate
@@ -10,7 +10,7 @@ Start by [launching NiXOA](installation.md) or
 | Create a template or build an installer | [Installation](installation.md) |
 | Connect and activate a first change | [Getting started](getting-started.md) |
 | Apply, update, inspect, and roll back | [Operations](operations.md) |
-| Look up an operator command | [`nxcli` reference](nxcli.md) |
+| Look up an operator command | [`maestroctl` reference](maestroctl.md) |
 
 ## Customize and maintain
 
@@ -31,10 +31,10 @@ Start by [launching NiXOA](installation.md) or
 
 ## The three ideas that matter
 
-1. Every appliance command targets the single `.#nixoa` output.
-2. Durable settings live in `host/settings.nix`; `nixoa-menu` records its
+1. Every appliance command targets the single `.#maestro` output.
+2. Durable settings live in `host/settings.nix`; `maestro-menu` records its
    generated overrides in `host/menu.nix`.
-3. Preview changes with `nxcli apply --dry-run`; use `nxcli rollback --ask` if
+3. Preview changes with `maestroctl apply --dry-run`; use `maestroctl rollback --ask` if
    an activated change causes trouble.
 
 Contributors can continue with the

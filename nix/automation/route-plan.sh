@@ -4,11 +4,11 @@
 set -euo pipefail
 
 runner_temp=${RUNNER_TEMP:-${TMPDIR:-/tmp}}
-state_outputs=$(mktemp "${runner_temp}/nixoa-state-outputs.XXXXXX")
-plan_file=${NIXOA_CI_ROUTE_OUTPUT:-}
+state_outputs=$(mktemp "${runner_temp}/maestro-state-outputs.XXXXXX")
+plan_file=${MAESTRO_CI_ROUTE_OUTPUT:-}
 remove_plan=false
 if [[ -z "$plan_file" ]]; then
-  plan_file=$(mktemp "${runner_temp}/nixoa-route-plan.XXXXXX")
+  plan_file=$(mktemp "${runner_temp}/maestro-route-plan.XXXXXX")
   remove_plan=true
 fi
 cleanup() {
@@ -19,7 +19,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-qualification_required=$(GITHUB_OUTPUT='' nixoa-ci-classify)
+qualification_required=$(GITHUB_OUTPUT='' maestro-ci-classify)
 case "$qualification_required" in
   true | false) ;;
   *)
@@ -35,7 +35,7 @@ evidence_run_id=null
 media_input=null
 evidence_input=null
 if [[ "$qualification_required" == true ]]; then
-  GITHUB_OUTPUT="$state_outputs" nixoa-ci-resolve-qualification
+  GITHUB_OUTPUT="$state_outputs" maestro-ci-resolve-qualification
   mode=$(sed -n 's/^mode=//p' "$state_outputs" | tail -n 1)
   artifact_run_id=$(sed -n 's/^artifact_run_id=//p' "$state_outputs" | tail -n 1)
   media_run_id=$(sed -n 's/^media_run_id=//p' "$state_outputs" | tail -n 1)
@@ -70,7 +70,7 @@ else
 fi
 
 printf '%s\n' "$plan" >"$plan_file"
-nixoa-ci-validate-plan "$plan_file"
+maestro-ci-validate-plan "$plan_file"
 if [[ -n ${GITHUB_OUTPUT:-} ]]; then
   printf 'plan=%s\n' "$plan" >>"$GITHUB_OUTPUT"
 else

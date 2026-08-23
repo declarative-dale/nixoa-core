@@ -12,15 +12,15 @@
 
   runFlakePackage = package: arguments:
     withFlake ''
-      NIXOA_SYSTEM_ROOT="$DEVENV_ROOT" \
+      MAESTRO_SYSTEM_ROOT="$DEVENV_ROOT" \
         nix run --accept-flake-config "$flake_ref#${package}" -- ${arguments}
     '';
 in {
   packages = import ./devenv-packages.nix {inherit pkgs;};
 
   tasks = {
-    "ci:route".exec = runFlakePackage "nixoa-ci-route" "";
-    "ci:classify".exec = runFlakePackage "nixoa-ci-classify" "";
+    "ci:route".exec = runFlakePackage "maestro-ci-route" "";
+    "ci:classify".exec = runFlakePackage "maestro-ci-classify" "";
 
     "ci:repository-audit:format" = {
       exec = withFlake ''
@@ -45,7 +45,7 @@ in {
       ];
     };
     "ci:repository-audit:flake" = {
-      exec = runFlakePackage "nixoa-ci-repository-audit" "--no-write-lock-file";
+      exec = runFlakePackage "maestro-ci-repository-audit" "--no-write-lock-file";
       # Reuse is safe only for an identical checkout; every tracked source or
       # documentation change is allowed to invalidate the complete contract.
       execIfModified = ["."];
@@ -57,27 +57,27 @@ in {
       ];
     };
 
-    "ci:qualification:resolve".exec = runFlakePackage "nixoa-ci-resolve-qualification" "";
-    "ci:qualification:assemble".exec = runFlakePackage "nixoa-ci-qualification-assets" "";
-    "ci:qualification:boot-media".exec = runFlakePackage "nixoa-ci-boot-media" ''
-      "''${INSTALLER_ISO:-result-installer/iso/nixoa-installer.iso}"
+    "ci:qualification:resolve".exec = runFlakePackage "maestro-ci-resolve-qualification" "";
+    "ci:qualification:assemble".exec = runFlakePackage "maestro-ci-qualification-assets" "";
+    "ci:qualification:boot-media".exec = runFlakePackage "maestro-ci-boot-media" ''
+      "''${INSTALLER_ISO:-result-installer/iso/maestro-installer.iso}"
     '';
-    "ci:publish".exec = runFlakePackage "nixoa-ci-publish" "";
-    "ci:verdict".exec = runFlakePackage "nixoa-ci-verdict" "";
+    "ci:publish".exec = runFlakePackage "maestro-ci-publish" "";
+    "ci:verdict".exec = runFlakePackage "maestro-ci-verdict" "";
 
-    "automation:queue".exec = runFlakePackage "nixoa-ci-queue" "";
-    "automation:update-locks".exec = runFlakePackage "nixoa-ci-update-locks" "";
-    "automation:validate-locks".exec = runFlakePackage "nixoa-ci-lock-validate" "";
+    "automation:queue".exec = runFlakePackage "maestro-ci-queue" "";
+    "automation:update-locks".exec = runFlakePackage "maestro-ci-update-locks" "";
+    "automation:validate-locks".exec = runFlakePackage "maestro-ci-lock-validate" "";
     "automation:open-lock-update-pr".exec =
-      runFlakePackage "nixoa-ci-open-update-pr" "flake.lock devenv.lock";
+      runFlakePackage "maestro-ci-open-update-pr" "flake.lock devenv.lock";
 
-    "release:prepare".exec = runFlakePackage "nixoa-ci-release-manager" "prepare";
-    "release:dispatch".exec = runFlakePackage "nixoa-ci-release-manager" "dispatch";
-    "release:inventory".exec = runFlakePackage "nixoa-ci-release-manager" "inventory";
-    "release:verify".exec = runFlakePackage "nixoa-ci-release-manager" "verify";
-    "release:stage".exec = runFlakePackage "nixoa-ci-release-manager" "stage";
-    "release:draft".exec = runFlakePackage "nixoa-ci-release-manager" "draft";
-    "release:publish".exec = runFlakePackage "nixoa-ci-release-manager" "publish";
-    "release:advance".exec = runFlakePackage "nixoa-ci-release-manager" "advance";
+    "release:prepare".exec = runFlakePackage "maestro-ci-release-manager" "prepare";
+    "release:dispatch".exec = runFlakePackage "maestro-ci-release-manager" "dispatch";
+    "release:inventory".exec = runFlakePackage "maestro-ci-release-manager" "inventory";
+    "release:verify".exec = runFlakePackage "maestro-ci-release-manager" "verify";
+    "release:stage".exec = runFlakePackage "maestro-ci-release-manager" "stage";
+    "release:draft".exec = runFlakePackage "maestro-ci-release-manager" "draft";
+    "release:publish".exec = runFlakePackage "maestro-ci-release-manager" "publish";
+    "release:advance".exec = runFlakePackage "maestro-ci-release-manager" "advance";
   };
 }

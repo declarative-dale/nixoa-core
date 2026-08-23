@@ -29,8 +29,8 @@ prepare() {
     meaningful_commits=$(git log "${last_tag}..HEAD" \
       --format='%H' \
       --invert-grep \
-      --grep='^Release NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+$' \
-      --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
+      --grep='^Release Maestro [0-9]\+\.[0-9]\+\.[0-9]\+$' \
+      --grep='^Start Maestro [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
     [[ -n "$meaningful_commits" ]] || {
       printf 'No releasable commits exist after %s.\n' "$last_tag" >&2
       return 1
@@ -38,10 +38,10 @@ prepare() {
     release_log=$(git log "${last_tag}..HEAD" \
       --format='%s%n%b' \
       --invert-grep \
-      --grep='^Release NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+$' \
-      --grep='^Start NiXOA [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
+      --grep='^Release Maestro [0-9]\+\.[0-9]\+\.[0-9]\+$' \
+      --grep='^Start Maestro [0-9]\+\.[0-9]\+\.[0-9]\+-dev\.[0-9]\+$')
     read -r version selected_bump < <(
-      nixoa-ci-release-version "${last_tag#v}" "$REQUESTED_BUMP" <<<"$release_log"
+      maestro-ci-release-version "${last_tag#v}" "$REQUESTED_BUMP" <<<"$release_log"
     )
   fi
 
@@ -66,7 +66,7 @@ prepare() {
     remote_sha=$(gh api "repos/${GITHUB_REPOSITORY}/commits/main" --jq .sha)
     [[ "$remote_sha" == "$initial_sha" ]]
     branch=automation/release-${tag}
-    title="Release NiXOA ${version}"
+    title="Release Maestro ${version}"
     pr_number=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$branch" \
       --json number --jq '.[0].number // empty')
     if [[ -z "$pr_number" ]]; then
@@ -88,7 +88,7 @@ prepare() {
     fi
     export PR_NUMBER=$pr_number EXPECTED_BRANCH=$branch EXPECTED_TITLE=$title
     export EXPECTED_CHANGE_KIND=version EXPECTED_VERSION=$version VALIDATE_ONLY=true WAIT_FOR_MERGE=true
-    nixoa-ci-trusted-update
+    maestro-ci-trusted-update
     source_sha=$(gh pr view "$pr_number" --repo "$GITHUB_REPOSITORY" \
       --json mergeCommit --jq .mergeCommit.oid)
   fi
@@ -129,16 +129,16 @@ dispatch() {
 
 inventory() {
   : "${SOURCE_SHA:?}"
-  expected_inputs=$(nixoa-ci-qualification-inputs)
+  expected_inputs=$(maestro-ci-qualification-inputs)
   expected_media_input=$(jq -er .media_input <<<"$expected_inputs")
   expected_evidence_input=$(jq -er .evidence_input <<<"$expected_inputs")
   jq -e --arg media_input "$expected_media_input" --arg evidence_input "$expected_evidence_input" \
     --arg source_commit "$SOURCE_SHA" \
-    '.schema_version == 4 and .media_input == $media_input and .evidence_input == $evidence_input and .source_commit == $source_commit and (.artifact_run_id | type == "number") and (.evidence_run_id | type == "number")' \
-    candidate-state/nixoa-qualification-state.json >/dev/null
+    '.schema_version == 5 and .media_input == $media_input and .evidence_input == $evidence_input and .source_commit == $source_commit and (.artifact_run_id | type == "number") and (.evidence_run_id | type == "number")' \
+    candidate-state/maestro-qualification-state.json >/dev/null
   {
-    printf 'artifact_run_id=%s\n' "$(jq -r .artifact_run_id candidate-state/nixoa-qualification-state.json)"
-    printf 'artifact_source_commit=%s\n' "$(jq -r .artifact_source_commit candidate-state/nixoa-qualification-state.json)"
+    printf 'artifact_run_id=%s\n' "$(jq -r .artifact_run_id candidate-state/maestro-qualification-state.json)"
+    printf 'artifact_source_commit=%s\n' "$(jq -r .artifact_source_commit candidate-state/maestro-qualification-state.json)"
     printf 'media_input=%s\n' "$expected_media_input"
     printf 'evidence_input=%s\n' "$expected_evidence_input"
   } >>"${GITHUB_OUTPUT:?}"
@@ -146,22 +146,22 @@ inventory() {
 
 verify() {
   : "${ARTIFACT_RUN_ID:?}" "${ARTIFACT_SOURCE_COMMIT:?}" "${MEDIA_INPUT:?}" "${EVIDENCE_INPUT:?}" "${GITHUB_REPOSITORY:?}"
-  (cd candidate && sha256sum --check --strict nixoa-installer.iso.sha256 \
-    && sha256sum --check --strict nixoa-system.spdx.json.sha256 \
-    && sha256sum --check --strict nixoa-system.cdx.json.sha256 \
+  (cd candidate && sha256sum --check --strict maestro-installer.iso.sha256 \
+    && sha256sum --check --strict maestro-system.spdx.json.sha256 \
+    && sha256sum --check --strict maestro-system.cdx.json.sha256 \
     && sha256sum --check --strict xen-orchestra-supply.assertion.json.sha256 \
     && sha256sum --check --strict xen-orchestra-supply.spdx.json.sha256 \
     && sha256sum --check --strict xen-orchestra-supply.cdx.json.sha256)
   jq -e --arg media_input "$MEDIA_INPUT" --arg evidence_input "$EVIDENCE_INPUT" \
     --arg artifact_source_commit "$ARTIFACT_SOURCE_COMMIT" \
     --argjson artifact_run_id "$ARTIFACT_RUN_ID" \
-    '.schema_version == 4 and .media_input == $media_input and .evidence_input == $evidence_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id and (.evidence_run_id | type == "number")' \
-    candidate/nixoa-qualification-state.json >/dev/null
-  installer=candidate/result-installer/iso/nixoa-installer.iso
+    '.schema_version == 5 and .media_input == $media_input and .evidence_input == $evidence_input and .artifact_source_commit == $artifact_source_commit and .artifact_run_id == $artifact_run_id and (.evidence_run_id | type == "number")' \
+    candidate/maestro-qualification-state.json >/dev/null
+  installer=candidate/result-installer/iso/maestro-installer.iso
   signer_workflow="${GITHUB_REPOSITORY}/.github/workflows/ci.yml"
   gh attestation verify "$installer" --repo "$GITHUB_REPOSITORY" --signer-workflow "$signer_workflow" \
     --source-digest "$ARTIFACT_SOURCE_COMMIT" --deny-self-hosted-runners
-  spdx_version=$(jq -er .spdxVersion candidate/nixoa-system.spdx.json)
+  spdx_version=$(jq -er .spdxVersion candidate/maestro-system.spdx.json)
   gh attestation verify "$installer" --repo "$GITHUB_REPOSITORY" --signer-workflow "$signer_workflow" \
     --source-digest "$ARTIFACT_SOURCE_COMMIT" \
     --predicate-type "https://spdx.dev/Document/v${spdx_version#SPDX-}" --deny-self-hosted-runners
@@ -173,13 +173,13 @@ stage() {
   [[ "$SOURCE_SHA" == "$(git rev-parse HEAD)" ]]
   [[ $(<VERSION) == "$RELEASE_VERSION" ]]
   install -d -m 0755 release
-  versioned_installer="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/nixoa-${RELEASE_TAG}.iso"
-  nixoa-ci-release-stage candidate/result-installer/iso/nixoa-installer.iso "$versioned_installer" release
-  gzip -9c candidate/nixoa-system.spdx.json >"release/nixoa-${RELEASE_TAG}.spdx.json.gz"
-  gzip -9c candidate/nixoa-system.cdx.json >"release/nixoa-${RELEASE_TAG}.cdx.json.gz"
-  (cd release && sha256sum "nixoa-${RELEASE_TAG}.spdx.json.gz" >"nixoa-${RELEASE_TAG}.spdx.json.gz.sha256" \
-    && sha256sum "nixoa-${RELEASE_TAG}.cdx.json.gz" >"nixoa-${RELEASE_TAG}.cdx.json.gz.sha256")
-  mapfile -t installer_parts < <(find release -maxdepth 1 -type f -name "nixoa-${RELEASE_TAG}.iso.part-*" -print | sort)
+  versioned_installer="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/maestro-${RELEASE_TAG}.iso"
+  maestro-ci-release-stage candidate/result-installer/iso/maestro-installer.iso "$versioned_installer" release
+  gzip -9c candidate/maestro-system.spdx.json >"release/maestro-${RELEASE_TAG}.spdx.json.gz"
+  gzip -9c candidate/maestro-system.cdx.json >"release/maestro-${RELEASE_TAG}.cdx.json.gz"
+  (cd release && sha256sum "maestro-${RELEASE_TAG}.spdx.json.gz" >"maestro-${RELEASE_TAG}.spdx.json.gz.sha256" \
+    && sha256sum "maestro-${RELEASE_TAG}.cdx.json.gz" >"maestro-${RELEASE_TAG}.cdx.json.gz.sha256")
+  mapfile -t installer_parts < <(find release -maxdepth 1 -type f -name "maestro-${RELEASE_TAG}.iso.part-*" -print | sort)
   installer_parts_json=$(for part in "${installer_parts[@]}"; do
     jq -n --arg name "${part##*/}" --arg sha256 "$(sha256sum "$part" | cut -d' ' -f1)" \
       '{name:$name,sha256:$sha256}'
@@ -191,13 +191,13 @@ stage() {
     --arg created_at "$created_at" --arg repository "$GITHUB_REPOSITORY" \
     --arg release_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
     --arg artifact_run "https://github.com/${GITHUB_REPOSITORY}/actions/runs/${ARTIFACT_RUN_ID}" \
-    --arg installer "nixoa-${RELEASE_TAG}.iso" \
-    --arg installer_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.iso.sha256")" \
-    --argjson installer_parts "$installer_parts_json" --arg spdx "nixoa-${RELEASE_TAG}.spdx.json.gz" \
-    --arg spdx_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.spdx.json.gz.sha256")" \
-    --arg cdx "nixoa-${RELEASE_TAG}.cdx.json.gz" \
-    --arg cdx_sha256 "$(cut -d' ' -f1 "release/nixoa-${RELEASE_TAG}.cdx.json.gz.sha256")" \
-    '{schema_version:3,version:$version,tag:$tag,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,media_input:$media_input,evidence_input:$evidence_input,created_at:$created_at,repository:$repository,release_run:$release_run,artifact_run:$artifact_run,assets:{installer:{name:$installer,sha256:$installer_sha256,parts:$installer_parts},spdx:{name:$spdx,sha256:$spdx_sha256},cyclonedx:{name:$cdx,sha256:$cdx_sha256}}}' \
+    --arg installer "maestro-${RELEASE_TAG}.iso" \
+    --arg installer_sha256 "$(cut -d' ' -f1 "release/maestro-${RELEASE_TAG}.iso.sha256")" \
+    --argjson installer_parts "$installer_parts_json" --arg spdx "maestro-${RELEASE_TAG}.spdx.json.gz" \
+    --arg spdx_sha256 "$(cut -d' ' -f1 "release/maestro-${RELEASE_TAG}.spdx.json.gz.sha256")" \
+    --arg cdx "maestro-${RELEASE_TAG}.cdx.json.gz" \
+    --arg cdx_sha256 "$(cut -d' ' -f1 "release/maestro-${RELEASE_TAG}.cdx.json.gz.sha256")" \
+    '{schema_version:4,version:$version,tag:$tag,source_commit:$source_commit,artifact_source_commit:$artifact_source_commit,media_input:$media_input,evidence_input:$evidence_input,created_at:$created_at,repository:$repository,release_run:$release_run,artifact_run:$artifact_run,assets:{installer:{name:$installer,sha256:$installer_sha256,parts:$installer_parts},spdx:{name:$spdx,sha256:$spdx_sha256},cyclonedx:{name:$cdx,sha256:$cdx_sha256}}}' \
     >release/release-manifest.json
   (cd release && sha256sum release-manifest.json >release-manifest.json.sha256)
 }
@@ -205,9 +205,9 @@ stage() {
 draft() {
   : "${RELEASE_TAG:?}" "${RELEASE_VERSION:?}" "${SOURCE_SHA:?}"
   notes_file="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/release-notes.md"
-  nixoa-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md >"$notes_file"
+  maestro-ci-release-notes "$RELEASE_VERSION" CHANGELOG.md >"$notes_file"
   mapfile -t assets < <(find release -maxdepth 1 -type f -print | sort)
-  mapfile -t installer_parts < <(find release -maxdepth 1 -type f -name "nixoa-${RELEASE_TAG}.iso.part-*" -print | sort)
+  mapfile -t installer_parts < <(find release -maxdepth 1 -type f -name "maestro-${RELEASE_TAG}.iso.part-*" -print | sort)
   [[ ${#assets[@]} -eq $((${#installer_parts[@]} + 7)) ]]
   if release_state=$(gh release view "$RELEASE_TAG" --json isDraft,targetCommitish 2>/dev/null); then
     draft_target=$(jq -r .targetCommitish <<<"$release_state")
@@ -220,7 +220,7 @@ draft() {
     fi
   else
     gh release create "$RELEASE_TAG" "${assets[@]}" --draft --notes-file "$notes_file" \
-      --target "$SOURCE_SHA" --title "NiXOA ${RELEASE_VERSION}"
+      --target "$SOURCE_SHA" --title "Maestro ${RELEASE_VERSION}"
   fi
   mapfile -t expected < <(printf '%s\n' "${assets[@]##*/}" | sort)
   mapfile -t actual < <(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' | sort)
@@ -247,7 +247,7 @@ advance() {
   [[ "$current_version" == "$RELEASE_VERSION" || "$current_version" == "$next_version" ]]
   [[ "$current_version" == "$next_version" ]] && return 0
   branch=automation/start-${next_version}
-  title="Start NiXOA ${next_version}"
+  title="Start Maestro ${next_version}"
   pr_number=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --head "$branch" \
     --json number --jq '.[0].number // empty')
   if [[ -z "$pr_number" ]]; then
@@ -269,7 +269,7 @@ advance() {
   fi
   export PR_NUMBER=$pr_number EXPECTED_BRANCH=$branch EXPECTED_TITLE=$title
   export EXPECTED_CHANGE_KIND=version EXPECTED_VERSION=$next_version VALIDATE_ONLY=true WAIT_FOR_MERGE=true
-  nixoa-ci-trusted-update
+  maestro-ci-trusted-update
 }
 
 case "${1:-}" in
@@ -279,7 +279,7 @@ case "${1:-}" in
     "$operation" "$@"
     ;;
   *)
-    printf 'usage: nixoa-ci-release-manager prepare|dispatch|inventory|verify|stage|draft|publish|advance\n' >&2
+    printf 'usage: maestro-ci-release-manager prepare|dispatch|inventory|verify|stage|draft|publish|advance\n' >&2
     exit 2
     ;;
 esac

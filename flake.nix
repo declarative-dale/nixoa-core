@@ -1,5 +1,5 @@
 {
-  description = "NiXOA - a focused Xen Orchestra appliance for XCP-ng";
+  description = "Maestro - a focused Xen Orchestra appliance for XCP-ng";
 
   # GitHub Actions shares Nix build outputs through these public caches while
   # release artifacts remain immutable GitHub assets.

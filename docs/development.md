@@ -31,26 +31,26 @@ linters.
 Run the complete flake-packaged CI contract before publishing:
 
 ```bash
-nix run --accept-flake-config .#nixoa-ci-repository-audit -- --no-write-lock-file
+nix run --accept-flake-config .#maestro-ci-repository-audit -- --no-write-lock-file
 ```
 
 Use the leaf packages directly for individual automation operations:
 
 ```bash
 EVENT_NAME=workflow_dispatch VALIDATE_ONLY=true \
-  nix run --accept-flake-config .#nixoa-ci-route
-nix run --accept-flake-config .#nixoa-ci-classify-paths < changed-paths.txt
-nix run --accept-flake-config .#nixoa-ci-qualification-inputs
+  nix run --accept-flake-config .#maestro-ci-route
+nix run --accept-flake-config .#maestro-ci-classify-paths < changed-paths.txt
+nix run --accept-flake-config .#maestro-ci-qualification-inputs
 nix eval --json .#lib.ciPlans.x86_64-linux.validation
 nix run --accept-flake-config .#run-ci-plan -- \
   --plan lib.ciPlans.x86_64-linux.validation
 ```
 
 GitHub workflow command bodies invoke declared tasks through the thin pinned
-`devenv` flake app. Each task resolves an explicit `nixoa-ci-*` leaf package;
+`devenv` flake app. Each task resolves an explicit `maestro-ci-*` leaf package;
 there is no umbrella automation dispatcher. Workflow YAML retains only GitHub
 runner, permission, environment, artifact, and attestation boundaries. Product
-operations use `nxcli`; delivery automation uses Nix-packaged leaf programs.
+operations use `maestroctl`; delivery automation uses Nix-packaged leaf programs.
 Automation programs and security-sensitive XO helpers remain native shell
 sources, while Nix provides their runtime dependencies and executable app
 boundaries.
@@ -66,7 +66,7 @@ boundary. The aggregate `ci:repository-audit` task remains dependency-aware
 and has no command of its own after its declared flake and formatting checks
 finish.
 
-The `nixoa-ci-route` command emits one versioned JSON route plan. Focused
+The `maestro-ci-route` command emits one versioned JSON route plan. Focused
 qualification, protected-main publication, and the required verdict all
 consume that exact output, so downstream jobs cannot independently reinterpret
 classification or reuse state. Both the router and verdict validate
@@ -82,7 +82,7 @@ merge-group support accepts a diff only when both event SHAs exist and the base
 is an ancestor of the head, otherwise it requires installer validation.
 
 The `validation`, `media`, `evidence`, and `publish` target sets are versioned
-pure values under `lib.ciPlans.x86_64-linux`. Core builds them with the validator supplied by its
+pure values under `lib.ciPlans.x86_64-linux`. Maestro builds them with the validator supplied by its
 locked Xen Orchestra input. The schema-v2 runner rejects malformed or duplicate
 targets before building, runs each target in a fresh child process against
 the shared Nix store, and collects every failure before it exits.
@@ -91,7 +91,7 @@ For a focused Rust edit:
 
 ```bash
 devenv shell -- bash -lc \
-  'cd pkgs/nixoa-menu && cargo fmt --check && cargo check --locked && cargo test --locked'
+  'cd pkgs/maestro-menu && cargo fmt --check && cargo check --locked && cargo test --locked'
 ```
 
 The flake exposes separate cached checks for automation, qualification-input,
@@ -106,9 +106,9 @@ the full task graph.
 The cache layers have separate responsibilities:
 
 - Cachix stores Nix derivation outputs and shares them between jobs and runs.
-- The immutable `nixoa-installer` artifact stores the tested ISO, SPDX and
+- The immutable `maestro-installer` artifact stores the tested ISO, SPDX and
   CycloneDX SBOMs, checksums, attestable state, and artifact pointer.
-- The immutable, normally compressed `nixoa-evidence` artifact separately
+- The immutable, normally compressed `maestro-evidence` artifact separately
   stores the JSON system SBOMs, XO supply documents, checksums, and
   qualification state. The combined artifact remains uncompressed by GitHub
   because its ISO is already compressed.
@@ -145,7 +145,7 @@ performs a complete media qualification before artifact expiry.
 Release workflows serialize their orchestration separately from publication.
 The Nix-packaged release manager dispatches qualification with a run-scoped CI
 identity, so a later `main` push cannot replace the pending release candidate.
-Only jobs that can publish acquire the shared `nixoa-publication` queue. Its
+Only jobs that can publish acquire the shared `maestro-publication` queue. Its
 `queue: max` policy preserves every pending rolling or versioned publication.
 
 `BOOT_TIMEOUT` remains a failure ceiling, not a normal delay: the QEMU smoke
@@ -158,7 +158,7 @@ always execute and delegate their implementation to flake-packaged programs;
 dependency-free tasks run in isolated single-task mode.
 
 Both `flake.lock` and `devenv.lock` are committed. Refresh them together with
-the scheduled updater; `nix run .#nixoa-ci-lock-validate` verifies
+the scheduled updater; `nix run .#maestro-ci-lock-validate` verifies
 that their shared nixpkgs and devenv pins match. The root Nixpkgs and Home
 Manager inputs use FlakeHub's `/0` stable release trains, and Home Manager
 follows the root Nixpkgs input. FlakeHub reserves `/0.1` for rolling unstable

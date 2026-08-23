@@ -20,7 +20,7 @@
   repoRootDefault ? null,
 }:
 writeShellApplication {
-  name = "nxcli";
+  name = "maestroctl";
   runtimeInputs = [
     bash
     coreutils
@@ -42,19 +42,19 @@ writeShellApplication {
   checkPhase = ":";
   text = ''
     ${lib.optionalString (repoRootDefault != null) ''
-      if [ -z "''${NIXOA_SYSTEM_ROOT:-}" ]; then
-        export NIXOA_SYSTEM_ROOT=${lib.escapeShellArg repoRootDefault}
+      if [ -z "''${MAESTRO_SYSTEM_ROOT:-}" ]; then
+        export MAESTRO_SYSTEM_ROOT=${lib.escapeShellArg repoRootDefault}
       fi
     ''}
 
-    ${builtins.readFile ../../scripts/nxcli.sh}
+    ${builtins.readFile ../../scripts/maestroctl.sh}
   '';
 
   meta = {
-    description = "Canonical NiXOA operator CLI";
-    homepage = "https://codeberg.org/NiXOA/core";
+    description = "Canonical Maestro operator CLI";
+    homepage = "https://github.com/closure-labs/maestro";
     license = lib.licenses.asl20;
-    mainProgram = "nxcli";
+    mainProgram = "maestroctl";
     platforms = lib.platforms.linux;
   };
 }

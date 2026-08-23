@@ -11,13 +11,13 @@ readonly XO_READINESS_GRACE_SECONDS="${XO_READINESS_GRACE_SECONDS:-0}"
 }
 
 [[ "$(id -u)" -eq 0 ]] || {
-  printf 'NiXOA template verification must run as root.\n' >&2
+  printf 'Maestro template verification must run as root.\n' >&2
   exit 1
 }
 
 report_error() {
   status=$?
-  printf 'NiXOA template verification failed at line %s (status %s).\n' \
+  printf 'Maestro template verification failed at line %s (status %s).\n' \
     "${BASH_LINENO[0]}" "$status" >&2
   exit "$status"
 }
@@ -84,17 +84,17 @@ systemctl is-enabled --quiet \
   xen-guest-agent.service \
   xo-server.service
 
-test -d /home/nixoa/nixoa/.git
-test -s /home/nixoa/nixoa/host/hardware-configuration.nix
-grep -Fq 'networking.hostName = "nixoa";' \
-  /home/nixoa/nixoa/host/settings.nix
+test -d /home/maestro/maestro/.git
+test -s /home/maestro/maestro/host/hardware-configuration.nix
+grep -Fq 'networking.hostName = "maestro";' \
+  /home/maestro/maestro/host/settings.nix
 grep -Fq 'PasswordAuthentication = lib.mkForce true;' \
-  /home/nixoa/nixoa/host/packer.nix
+  /home/maestro/maestro/host/packer.nix
 
 sshd -t
 assert_sshd_directive /etc/ssh/sshd_config PermitRootLogin no
 assert_sshd_directive /etc/ssh/sshd_config PasswordAuthentication yes
-assert_sshd_directive /etc/ssh/sshd_config AllowUsers nixoa
+assert_sshd_directive /etc/ssh/sshd_config AllowUsers maestro
 
 test "$(redis-cli -s /run/redis-xo/redis.sock --raw PING)" = PONG
 
@@ -129,4 +129,4 @@ while ! curl \
 done
 ss -lnt | grep -Eq '[:.]443[[:space:]]'
 
-printf 'NiXOA template verification passed.\n'
+printf 'Maestro template verification passed.\n'

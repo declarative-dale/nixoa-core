@@ -14,7 +14,7 @@
       ../../modules/dendritic.nix
       ../../modules/host.nix
       ../../modules/outputs/packages.nix
-      ../../pkgs/nixoa-menu
+      ../../pkgs/maestro-menu
     ];
   };
   validTarget = target:
@@ -50,7 +50,7 @@ in {
       bootPolicy = builtins.hashFile "sha256" ../../nix/automation/boot-media.sh;
     };
     evidence = {
-      toplevel = inputs.self.nixosConfigurations.nixoa.config.system.build.toplevel.outPath;
+      toplevel = inputs.self.nixosConfigurations.maestro.config.system.build.toplevel.outPath;
       sbomnix = inputs.self.packages.${system}.sbomnix.outPath;
       xenOrchestra = inputs.self.packages.${system}.xen-orchestra-ce.outPath;
       xenOrchestraSupply = inputs.self.packages.${system}.xen-orchestra-supply-protector.outPath;

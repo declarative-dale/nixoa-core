@@ -4,15 +4,15 @@ locals {
 
   vm_name = coalesce(
     var.vm_name,
-    "nixoa-${local.timestamp}",
+    "maestro-${local.timestamp}",
   )
   vm_description = coalesce(
     var.vm_description,
-    "[Template] NiXOA NixOS appliance with NoCloud support; built ${local.build_date} by Packer",
+    "[Template] Maestro NixOS appliance with NoCloud support; built ${local.build_date} by Packer",
   )
 }
 
-source "xenserver-iso" "nixoa" {
+source "xenserver-iso" "maestro" {
   iso_url        = var.iso_url
   iso_checksum   = var.iso_checksum
   sr_iso_name    = var.sr_iso_name
@@ -43,8 +43,8 @@ source "xenserver-iso" "nixoa" {
 
   # This credential exists only in the live installer and temporary Packer
   # host override. The final provisioner restores key-only SSH before sealing.
-  ssh_username           = "nixoa"
-  ssh_password           = "nixoa"
+  ssh_username           = "maestro"
+  ssh_password           = "maestro"
   ssh_wait_timeout       = var.ssh_wait_timeout
   ssh_handshake_attempts = var.ssh_handshake_attempts
 

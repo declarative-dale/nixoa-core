@@ -3,19 +3,19 @@
 
 set -euo pipefail
 
-: "${NIXOA_XO_MOUNTS_DIR:?NIXOA_XO_MOUNTS_DIR must be set}"
-: "${NIXOA_XO_DATA_DIR:?NIXOA_XO_DATA_DIR must be set}"
-: "${NIXOA_XO_TEMP_DIR:?NIXOA_XO_TEMP_DIR must be set}"
-: "${NIXOA_XO_USER:?NIXOA_XO_USER must be set}"
-: "${NIXOA_XO_CREDENTIALS_DIR:?NIXOA_XO_CREDENTIALS_DIR must be set}"
-: "${NIXOA_XO_ALLOWED_MOUNT_TYPES:=}"
-: "${NIXOA_XO_ENABLE_CIFS:=false}"
-: "${NIXOA_XO_ENABLE_VHD:=false}"
+: "${MAESTRO_XO_MOUNTS_DIR:?MAESTRO_XO_MOUNTS_DIR must be set}"
+: "${MAESTRO_XO_DATA_DIR:?MAESTRO_XO_DATA_DIR must be set}"
+: "${MAESTRO_XO_TEMP_DIR:?MAESTRO_XO_TEMP_DIR must be set}"
+: "${MAESTRO_XO_USER:?MAESTRO_XO_USER must be set}"
+: "${MAESTRO_XO_CREDENTIALS_DIR:?MAESTRO_XO_CREDENTIALS_DIR must be set}"
+: "${MAESTRO_XO_ALLOWED_MOUNT_TYPES:=}"
+: "${MAESTRO_XO_ENABLE_CIFS:=false}"
+: "${MAESTRO_XO_ENABLE_VHD:=false}"
 
-mounts_dir="$(realpath -m -- "$NIXOA_XO_MOUNTS_DIR")"
-data_dir="$(realpath -m -- "$NIXOA_XO_DATA_DIR")"
-temp_dir="$(realpath -m -- "$NIXOA_XO_TEMP_DIR")"
-credentials_dir="$NIXOA_XO_CREDENTIALS_DIR"
+mounts_dir="$(realpath -m -- "$MAESTRO_XO_MOUNTS_DIR")"
+data_dir="$(realpath -m -- "$MAESTRO_XO_DATA_DIR")"
+temp_dir="$(realpath -m -- "$MAESTRO_XO_TEMP_DIR")"
+credentials_dir="$MAESTRO_XO_CREDENTIALS_DIR"
 credentials_file=""
 
 fail() {
@@ -69,7 +69,7 @@ reject_cifs_secrets() {
 }
 
 require_mount_type() {
-  case " $NIXOA_XO_ALLOWED_MOUNT_TYPES " in
+  case " $MAESTRO_XO_ALLOWED_MOUNT_TYPES " in
     *" $1 "*) ;;
     *) fail "filesystem type is not enabled: ${1:-<unset>}" ;;
   esac
@@ -161,7 +161,7 @@ run_cifs() {
   printf 'username=%s\npassword=%s\n' "$username" "$password" > "$credentials_file"
 
   local credential_options
-  credential_options="credentials=$credentials_file,uid=$(id -u "$NIXOA_XO_USER"),gid=$(id -g "$NIXOA_XO_USER")"
+  credential_options="credentials=$credentials_file,uid=$(id -u "$MAESTRO_XO_USER"),gid=$(id -g "$MAESTRO_XO_USER")"
   if [ -n "$options" ]; then
     options="$options,$credential_options"
   else
@@ -232,12 +232,12 @@ shift
 case "$command" in
   mount) run_mount "$@" ;;
   mount-cifs-with-credentials)
-    [ "$NIXOA_XO_ENABLE_CIFS" = true ] || fail "CIFS support is disabled"
+    [ "$MAESTRO_XO_ENABLE_CIFS" = true ] || fail "CIFS support is disabled"
     run_cifs "$@"
     ;;
   umount|findmnt) run_target_command "$command" "$@" ;;
   vhdimount|vhdiinfo)
-    [ "$NIXOA_XO_ENABLE_VHD" = true ] || fail "VHD support is disabled"
+    [ "$MAESTRO_XO_ENABLE_VHD" = true ] || fail "VHD support is disabled"
     run_vhdi "$command" "$@"
     ;;
   *) fail "command is not allowed: $command" ;;

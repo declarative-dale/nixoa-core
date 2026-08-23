@@ -6,13 +6,13 @@
   osConfig,
   ...
 }: let
-  cfg = osConfig.nixoa.operator;
+  cfg = osConfig.maestro.operator;
   resolvePackage = item:
     if builtins.isString item
     then
       lib.attrByPath
       (lib.splitString "." item)
-      (throw "NiXOA user package '${item}' was not found in pkgs")
+      (throw "Maestro user package '${item}' was not found in pkgs")
       pkgs
     else item;
 in {

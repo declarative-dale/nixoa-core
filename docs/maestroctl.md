@@ -1,38 +1,38 @@
-# `nxcli` Reference
+# `maestroctl` Reference
 
-`nxcli` is the command-line interface for the NiXOA appliance. Every command
-targets `.#nixoa`; there is no host selector.
+`maestroctl` is the command-line interface for the Maestro appliance. Every command
+targets `.#maestro`; there is no host selector.
 
 ## Commands
 
 ```text
-nxcli help
-nxcli version
-nxcli status [--json]
-nxcli apply [--build|--dry-run|--first-install] [--ask] [--cores N] [--verbose] [-- ...]
-nxcli boot [--ask] [--cores N] [--verbose] [-- ...]
-nxcli rollback [--ask]
-nxcli commit [MESSAGE]
-nxcli diff [--json|--staged]
-nxcli history
-nxcli host show [--json]
-nxcli host edit
-nxcli host development-mode [status|on|off|toggle]
-nxcli update flake [--preview] [--ask]
-nxcli update xoa [--preview] [--ask]
-nxcli xo logs
-nxcli generations list
+maestroctl help
+maestroctl version
+maestroctl status [--json]
+maestroctl apply [--build|--dry-run|--first-install] [--ask] [--cores N] [--verbose] [-- ...]
+maestroctl boot [--ask] [--cores N] [--verbose] [-- ...]
+maestroctl rollback [--ask]
+maestroctl commit [MESSAGE]
+maestroctl diff [--json|--staged]
+maestroctl history
+maestroctl host show [--json]
+maestroctl host edit
+maestroctl host development-mode [status|on|off|toggle]
+maestroctl update flake [--preview] [--ask]
+maestroctl update xoa [--preview] [--ask]
+maestroctl xo logs
+maestroctl generations list
 ```
 
 ## Build and activation
 
 | Command | Result |
 |---|---|
-| `nxcli apply --dry-run` | Shows what activation would change |
-| `nxcli apply --build` | Builds without activating |
-| `nxcli apply` | Builds and activates now |
-| `nxcli boot` | Builds and selects the generation for next boot |
-| `nxcli rollback` | Switches to the previous generation |
+| `maestroctl apply --dry-run` | Shows what activation would change |
+| `maestroctl apply --build` | Builds without activating |
+| `maestroctl apply` | Builds and activates now |
+| `maestroctl boot` | Builds and selects the generation for next boot |
+| `maestroctl rollback` | Switches to the previous generation |
 
 `--ask`, `--cores N`, and `--verbose` are passed to `nh`. Arguments after `--`
 are passed to the underlying build.
@@ -42,7 +42,7 @@ before the appliance's declarative Nix configuration is active.
 
 ## Repository commands
 
-- `diff` shows changes to NiXOA-owned files.
+- `diff` shows changes to Maestro-owned files.
 - `commit` stages those files and creates a commit using the configured Git
   identity.
 - `history` shows the repository history.
@@ -61,7 +61,7 @@ Orchestra. Add `--preview` to view the lock-file change without modifying the
 checkout.
 
 After an update, review the lock-file diff, apply the generation, and record it
-with `nxcli commit`.
+with `maestroctl commit`.
 
 ## Machine-readable output
 

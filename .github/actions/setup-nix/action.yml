@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-name: Set up NiXOA Nix
+name: Set up Maestro Nix
 description: Install Determinate Nix with a CI-only public substituter baseline
 
 runs:

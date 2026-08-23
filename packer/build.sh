@@ -4,20 +4,20 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT=${NIXOA_SYSTEM_ROOT:-}
+REPO_ROOT=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$REPO_ROOT" ]]; then
   if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
     REPO_ROOT=$git_root
   elif [[ -f "$SCRIPT_DIR/../flake.nix" ]]; then
     REPO_ROOT=$(cd "$SCRIPT_DIR/.." && pwd)
   else
-    printf 'Run this command from a NiXOA checkout or set NIXOA_SYSTEM_ROOT.\n' >&2
+    printf 'Run this command from a Maestro checkout or set MAESTRO_SYSTEM_ROOT.\n' >&2
     exit 1
   fi
 fi
-PACKER_ROOT=${NIXOA_PACKER_ROOT:-$REPO_ROOT/packer}
+PACKER_ROOT=${MAESTRO_PACKER_ROOT:-$REPO_ROOT/packer}
 [[ -f "$PACKER_ROOT/builds.pkr.hcl" ]] || {
-  printf 'NiXOA Packer sources were not found at %s.\n' "$PACKER_ROOT" >&2
+  printf 'Maestro Packer sources were not found at %s.\n' "$PACKER_ROOT" >&2
   exit 1
 }
 
@@ -28,11 +28,11 @@ JQ_BIN=${JQ_BIN:-jq}
 OPERATOR_PUBLIC_KEY_FILE=${OPERATOR_PUBLIC_KEY_FILE:-${HOME:-}/.ssh/id_ed25519.pub}
 INSTALLER_ISO=${INSTALLER_ISO:-}
 INSTALLER_SOURCE=${INSTALLER_SOURCE:-github}
-GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-closure-labs/nixoa}
+GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-closure-labs/maestro}
 GITHUB_WORKFLOW=${GITHUB_WORKFLOW:-ci.yml}
 GITHUB_BRANCH=${GITHUB_BRANCH:-main}
-GITHUB_ARTIFACT_NAME=${GITHUB_ARTIFACT_NAME:-nixoa-installer}
-GITHUB_STATE_ARTIFACT_NAME=${GITHUB_STATE_ARTIFACT_NAME:-nixoa-qualification-state}
+GITHUB_ARTIFACT_NAME=${GITHUB_ARTIFACT_NAME:-maestro-installer}
+GITHUB_STATE_ARTIFACT_NAME=${GITHUB_STATE_ARTIFACT_NAME:-maestro-qualification-state}
 
 if [[ ${BUILD_INSTALLER+x} ]]; then
   case "$BUILD_INSTALLER" in
@@ -89,14 +89,14 @@ case "$INSTALLER_SOURCE" in
         --jq '.[].databaseId'
     )
     [[ ${#run_ids[@]} -gt 0 ]] || {
-      printf 'No successful NiXOA installer workflow run was found.\n' >&2
+      printf 'No successful Maestro installer workflow run was found.\n' >&2
       exit 1
     }
     for run_id in "${run_ids[@]}"; do
       [[ "$run_id" =~ ^[0-9]+$ ]] || continue
       artifact_run_id=$run_id
       expected_media_input=
-      state_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-state.XXXXXX")
+      state_dir=$(mktemp -d "${TMPDIR:-/tmp}/maestro-state.XXXXXX")
       if "$GH_BIN" run download "$run_id" \
         --repo "$GITHUB_REPOSITORY" \
         --name "$GITHUB_STATE_ARTIFACT_NAME" \
@@ -107,25 +107,25 @@ case "$INSTALLER_SOURCE" in
         }
         if ! "$JQ_BIN" -e \
           '.schema_version == 4 and (.artifact_run_id | type == "number") and (.media_input | type == "string") and (.evidence_run_id | type == "number")' \
-          "$state_dir/nixoa-qualification-state.json" >/dev/null; then
+          "$state_dir/maestro-qualification-state.json" >/dev/null; then
           rm -rf -- "$state_dir"
           continue
         fi
         artifact_run_id=$("$JQ_BIN" -r .artifact_run_id \
-          "$state_dir/nixoa-qualification-state.json")
+          "$state_dir/maestro-qualification-state.json")
         expected_media_input=$("$JQ_BIN" -r .media_input \
-          "$state_dir/nixoa-qualification-state.json")
+          "$state_dir/maestro-qualification-state.json")
       fi
       rm -rf -- "$state_dir"
 
-      candidate_dir=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-installer.XXXXXX")
+      candidate_dir=$(mktemp -d "${TMPDIR:-/tmp}/maestro-installer.XXXXXX")
       if "$GH_BIN" run download "$artifact_run_id" \
         --repo "$GITHUB_REPOSITORY" \
         --name "$GITHUB_ARTIFACT_NAME" \
         --dir "$candidate_dir" >/dev/null 2>&1 &&
         (
           cd "$candidate_dir"
-          sha256sum --check --strict nixoa-installer.iso.sha256
+          sha256sum --check --strict maestro-installer.iso.sha256
         ); then
         # jq variables are intentionally protected from the shell.
         # shellcheck disable=SC2016
@@ -134,18 +134,18 @@ case "$INSTALLER_SOURCE" in
             --arg media_input "$expected_media_input" \
             --argjson artifact_run_id "$artifact_run_id" \
             '.schema_version == 4 and .media_input == $media_input and .artifact_run_id == $artifact_run_id and (.evidence_run_id | type == "number")' \
-            "$candidate_dir/nixoa-qualification-state.json" >/dev/null; then
+            "$candidate_dir/maestro-qualification-state.json" >/dev/null; then
           rm -rf -- "$candidate_dir"
           continue
         fi
         artifact_dir=$candidate_dir
-        installer_iso="$artifact_dir/result-installer/iso/nixoa-installer.iso"
+        installer_iso="$artifact_dir/result-installer/iso/maestro-installer.iso"
         break
       fi
       rm -rf -- "$candidate_dir"
     done
     [[ -n "$artifact_dir" ]] || {
-      printf 'No valid immutable NiXOA installer artifact was found.\n' >&2
+      printf 'No valid immutable Maestro installer artifact was found.\n' >&2
       exit 1
     }
     ;;
@@ -165,10 +165,10 @@ case "$INSTALLER_SOURCE" in
       printf 'Nix returned an invalid installer output path.\n' >&2
       exit 1
     }
-    installer_iso="$installer_result/iso/nixoa-installer.iso"
+    installer_iso="$installer_result/iso/maestro-installer.iso"
     ;;
   local)
-    installer_iso=${INSTALLER_ISO:-$REPO_ROOT/output/nixoa-installer.iso}
+    installer_iso=${INSTALLER_ISO:-$REPO_ROOT/output/maestro-installer.iso}
     ;;
 esac
 

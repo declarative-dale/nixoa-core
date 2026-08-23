@@ -3,11 +3,11 @@
 
 set -euo pipefail
 
-repo_url=${NIXOA_REPO_URL:-https://github.com/closure-labs/nixoa.git}
-repo_branch=${NIXOA_REPO_BRANCH:-main}
+repo_url=${MAESTRO_REPO_URL:-https://github.com/closure-labs/maestro.git}
+repo_branch=${MAESTRO_REPO_BRANCH:-main}
 
-exec sudo -n install-nixoa \
+exec sudo -n install-maestro \
   --yes \
-  --operator-key /tmp/nixoa-operator.pub \
+  --operator-key /tmp/maestro-operator.pub \
   --repo-url "$repo_url" \
   --branch "$repo_branch"

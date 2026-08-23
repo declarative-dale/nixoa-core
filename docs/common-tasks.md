@@ -3,20 +3,20 @@
 Put durable changes in `host/settings.nix`, then use the same safe workflow:
 
 ```bash
-nxcli diff
-nxcli apply --dry-run
-nxcli apply
+maestroctl diff
+maestroctl apply --dry-run
+maestroctl apply
 ```
 
-You can also make supported changes through `nixoa-menu`. The console stores
+You can also make supported changes through `maestro-menu`. The console stores
 its overrides separately in `host/menu.nix`.
 
 ## Add an SSH key
 
-Add the complete public key to `nixoa.operator.sshKeys`:
+Add the complete public key to `maestro.operator.sshKeys`:
 
 ```nix
-nixoa.operator.sshKeys = [
+maestro.operator.sshKeys = [
   "ssh-ed25519 AAAA... operator@example"
 ];
 ```
@@ -29,31 +29,31 @@ SSH session.
 Use nixpkgs attribute paths as strings:
 
 ```nix
-nixoa.operator = {
+maestro.operator = {
   systemPackages = ["ripgrep"];
   userPackages = ["python313Packages.httpx"];
 };
 ```
 
 System packages are available to the whole appliance. User packages belong to
-the `nixoa` operator.
+the `maestro` operator.
 
 ## Enable development tools
 
 ```bash
-nxcli host development-mode on
-nxcli apply
+maestroctl host development-mode on
+maestroctl apply
 ```
 
-Disable them again with `nxcli host development-mode off`.
+Disable them again with `maestroctl host development-mode off`.
 
 ## Use your own TLS certificate
 
-Store the certificate and key outside the Nix store, then point NiXOA to their
+Store the certificate and key outside the Nix store, then point Maestro to their
 runtime paths:
 
 ```nix
-nixoa.xo.tls = {
+maestro.xo.tls = {
   autoCert = false;
   cert = "/run/credentials/xo/certificate.pem";
   key = "/run/credentials/xo/private-key.pem";
@@ -66,7 +66,7 @@ key in a runtime credential path so it stays outside the Nix store.
 ## Change storage support
 
 ```nix
-nixoa.xo.storage = {
+maestro.xo.storage = {
   enableNFS = true;
   enableCIFS = false;
   enableVHD = true;
@@ -78,7 +78,7 @@ their mount paths.
 
 ## Queue a rebuild for next boot
 
-In `nixoa-menu`, choose **Queue rebuild for next boot**. The request is consumed
+In `maestro-menu`, choose **Queue rebuild for next boot**. The request is consumed
 once during the next boot.
 
 [Back to documentation](index.md)

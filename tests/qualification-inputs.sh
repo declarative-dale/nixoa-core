@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-: "${NIXOA_CI_QUALIFICATION_INPUTS:?NIXOA_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
+: "${MAESTRO_CI_QUALIFICATION_INPUTS:?MAESTRO_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
 
-temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-qualification-inputs.XXXXXX")
+temporary=$(mktemp -d "${TMPDIR:-/tmp}/maestro-qualification-inputs.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
 mkdir -p "$temporary/bin" "$temporary/source"
 
@@ -17,10 +17,10 @@ sed -i "1c#!${BASH}" "$temporary/bin/nix"
 chmod +x "$temporary/bin/nix"
 
 resolve() {
-  NIXOA_CI_PATH_PREFIX="$temporary/bin" \
-    NIXOA_SYSTEM_ROOT="$temporary/source" \
+  MAESTRO_CI_PATH_PREFIX="$temporary/bin" \
+    MAESTRO_SYSTEM_ROOT="$temporary/source" \
     FAKE_QUALIFICATION_GRAPH="$1" \
-    "$NIXOA_CI_QUALIFICATION_INPUTS"
+    "$MAESTRO_CI_QUALIFICATION_INPUTS"
 }
 
 baseline=$(resolve '{"media":{"installer":"/nix/store/media-a","bootPolicy":"boot-a"},"evidence":{"toplevel":"/nix/store/system-a","sbomnix":"/nix/store/sbom-a"}}')

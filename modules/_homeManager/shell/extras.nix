@@ -6,7 +6,7 @@
   osConfig,
   ...
 }: let
-  cfg = osConfig.nixoa.operator;
+  cfg = osConfig.maestro.operator;
   fdSearchCmd = "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
 in {
   programs.direnv = lib.mkIf cfg.enableExtras {

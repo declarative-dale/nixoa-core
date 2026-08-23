@@ -27,7 +27,7 @@
   wrapperArgs =
     lib.optionals (repoRootDefault != null) [
       "--set-default"
-      "NIXOA_SYSTEM_ROOT"
+      "MAESTRO_SYSTEM_ROOT"
       repoRootDefault
     ]
     ++ [
@@ -38,7 +38,7 @@
     ];
 in
   rustPlatform.buildRustPackage {
-    pname = "nixoa-menu";
+    pname = "maestro-menu";
     version = "0.7.0";
 
     src = lib.cleanSource ./.;
@@ -50,14 +50,14 @@ in
     nativeBuildInputs = [makeWrapper];
 
     postInstall = ''
-      wrapProgram "$out/bin/nixoa-menu" ${lib.escapeShellArgs wrapperArgs}
+      wrapProgram "$out/bin/maestro-menu" ${lib.escapeShellArgs wrapperArgs}
     '';
 
     meta = {
-      description = "Ratatui-based SSH administration console for the NiXOA appliance";
-      homepage = "https://codeberg.org/NiXOA/core";
+      description = "Ratatui-based SSH administration console for the Maestro appliance";
+      homepage = "https://github.com/closure-labs/maestro";
       license = lib.licenses.asl20;
-      mainProgram = "nixoa-menu";
+      mainProgram = "maestro-menu";
       platforms = lib.platforms.linux;
     };
   }

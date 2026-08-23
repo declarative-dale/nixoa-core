@@ -3,7 +3,7 @@
 
 set -euo pipefail
 
-repo_root=${NIXOA_SYSTEM_ROOT:-}
+repo_root=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$repo_root" ]]; then
   repo_root=$(git rev-parse --show-toplevel)
 fi

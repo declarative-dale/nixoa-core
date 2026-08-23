@@ -1,12 +1,12 @@
 # Personal configuration - DO NOT commit!
-nixoa-presentation.md
-nixoa-vm-bundle.md
+maestro-presentation.md
+maestro-vm-bundle.md
 
 # Build results
 result
 result-*
 output/
-pkgs/nixoa-menu/target/
+pkgs/maestro-menu/target/
 packer/output/
 packer/packer_cache/
 packer/.packer/
@@ -26,12 +26,12 @@ packer/*.pkrvars.json
 /sbom.csv
 /sbom.spdx.json
 /sbom.cdx.json
-/nixoa-qualification-state.json
-/nixoa-installer.iso.sha256
-/nixoa-system.cdx.json
-/nixoa-system.cdx.json.sha256
-/nixoa-system.spdx.json
-/nixoa-system.spdx.json.sha256
+/maestro-qualification-state.json
+/maestro-installer.iso.sha256
+/maestro-system.cdx.json
+/maestro-system.cdx.json.sha256
+/maestro-system.spdx.json
+/maestro-system.spdx.json.sha256
 /xen-orchestra-supply.assertion.json
 /xen-orchestra-supply.assertion.json.sha256
 /xen-orchestra-supply.cdx.json

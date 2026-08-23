@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-# Hand-maintained settings for the single NiXOA appliance.
+# Hand-maintained settings for the single Maestro appliance.
 {lib, ...}: {
-  networking.hostName = "nixoa";
+  networking.hostName = "maestro";
   time.timeZone = "America/Chicago";
   system.stateVersion = "26.05";
 
@@ -13,10 +13,10 @@
     443
   ];
 
-  nixoa.operator = {
-    repoDir = "/home/nixoa/nixoa";
-    gitName = "NiXOA Admin";
-    gitEmail = "nixoa@nixoa";
+  maestro.operator = {
+    repoDir = "/home/maestro/maestro";
+    gitName = "Maestro Admin";
+    gitEmail = "maestro@maestro";
     sshKeys = lib.mkDefault [];
     enableExtras = lib.mkDefault false;
     developmentMode = lib.mkDefault false;
@@ -26,7 +26,7 @@
     userPackages = [];
   };
 
-  nixoa.xo = {
+  maestro.xo = {
     enable = true;
     httpHost = "0.0.0.0";
     tls = {

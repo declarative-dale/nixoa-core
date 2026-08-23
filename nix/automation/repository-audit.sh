@@ -5,7 +5,7 @@ set -euo pipefail
 
 # Audit every repository contract declared by the flake's validation plan.
 
-repo_root="${NIXOA_SYSTEM_ROOT:-}"
+repo_root="${MAESTRO_SYSTEM_ROOT:-}"
 if [[ -z $repo_root ]]; then
   if git_root=$(git rev-parse --show-toplevel 2>/dev/null); then
     repo_root=$git_root
@@ -23,4 +23,4 @@ nix flake check --accept-flake-config --no-build --print-build-logs \
   "$flake_ref" "$@"
 exec flake-plan-runner \
   --flake "$flake_ref" \
-  --plan "${NIXOA_CI_VALIDATION_PLAN:-lib.ciPlans.x86_64-linux.validation}"
+  --plan "${MAESTRO_CI_VALIDATION_PLAN:-lib.ciPlans.x86_64-linux.validation}"

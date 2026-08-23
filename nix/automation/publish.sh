@@ -4,13 +4,13 @@
 set -euo pipefail
 
 : "${CACHIX_CACHE_NAME:?CACHIX_CACHE_NAME must be set}"
-repo_root=${NIXOA_SYSTEM_ROOT:-}
+repo_root=${MAESTRO_SYSTEM_ROOT:-}
 if [[ -z "$repo_root" ]]; then
   repo_root=$(git rev-parse --show-toplevel)
 fi
 cd "$repo_root"
 
-manifest=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/nixoa-publish-plan.XXXXXX")
+manifest=$(mktemp "${RUNNER_TEMP:-${TMPDIR:-/tmp}}/maestro-publish-plan.XXXXXX")
 trap 'rm -f -- "$manifest"' EXIT
 flake-plan-runner \
   --flake . \

@@ -2,29 +2,29 @@
 # SPDX-License-Identifier: Apache-2.0
 
 set -euo pipefail
-: "${NIXOA_CI_CLASSIFY:?NIXOA_CI_CLASSIFY must point to the packaged classifier}"
-: "${NIXOA_CI_CLASSIFY_PATHS:?NIXOA_CI_CLASSIFY_PATHS must point to the packaged path classifier}"
-: "${NIXOA_CI_BOOT_MEDIA:?NIXOA_CI_BOOT_MEDIA must point to the packaged media boot test}"
-: "${NIXOA_CI_VERDICT:?NIXOA_CI_VERDICT must point to the packaged verdict}"
-: "${NIXOA_CI_LOCK_VALIDATE:?NIXOA_CI_LOCK_VALIDATE must point to the packaged lock validator}"
-: "${NIXOA_CI_ROUTE:?NIXOA_CI_ROUTE must point to the packaged work router}"
-: "${NIXOA_CI_RESOLVE_QUALIFICATION:?NIXOA_CI_RESOLVE_QUALIFICATION must point to the packaged qualification resolver}"
-: "${NIXOA_CI_QUALIFICATION_INPUTS:?NIXOA_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
-: "${NIXOA_CI_RELEASE_NOTES:?NIXOA_CI_RELEASE_NOTES must point to the packaged notes extractor}"
-: "${NIXOA_CI_RELEASE_VERSION:?NIXOA_CI_RELEASE_VERSION must point to the packaged version selector}"
-: "${NIXOA_CI_TRUSTED_UPDATE:?NIXOA_CI_TRUSTED_UPDATE must point to the packaged trusted updater}"
+: "${MAESTRO_CI_CLASSIFY:?MAESTRO_CI_CLASSIFY must point to the packaged classifier}"
+: "${MAESTRO_CI_CLASSIFY_PATHS:?MAESTRO_CI_CLASSIFY_PATHS must point to the packaged path classifier}"
+: "${MAESTRO_CI_BOOT_MEDIA:?MAESTRO_CI_BOOT_MEDIA must point to the packaged media boot test}"
+: "${MAESTRO_CI_VERDICT:?MAESTRO_CI_VERDICT must point to the packaged verdict}"
+: "${MAESTRO_CI_LOCK_VALIDATE:?MAESTRO_CI_LOCK_VALIDATE must point to the packaged lock validator}"
+: "${MAESTRO_CI_ROUTE:?MAESTRO_CI_ROUTE must point to the packaged work router}"
+: "${MAESTRO_CI_RESOLVE_QUALIFICATION:?MAESTRO_CI_RESOLVE_QUALIFICATION must point to the packaged qualification resolver}"
+: "${MAESTRO_CI_QUALIFICATION_INPUTS:?MAESTRO_CI_QUALIFICATION_INPUTS must point to the packaged input resolver}"
+: "${MAESTRO_CI_RELEASE_NOTES:?MAESTRO_CI_RELEASE_NOTES must point to the packaged notes extractor}"
+: "${MAESTRO_CI_RELEASE_VERSION:?MAESTRO_CI_RELEASE_VERSION must point to the packaged version selector}"
+: "${MAESTRO_CI_TRUSTED_UPDATE:?MAESTRO_CI_TRUSTED_UPDATE must point to the packaged trusted updater}"
 
 test_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-temporary=$(mktemp -d "${TMPDIR:-/tmp}/nixoa-ci-helpers.XXXXXX")
+temporary=$(mktemp -d "${TMPDIR:-/tmp}/maestro-ci-helpers.XXXXXX")
 trap 'rm -rf -- "$temporary"' EXIT
 
-[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/checks.nix modules/outputs/dev-shells.nix nix/checks/repository-policy.nix | "$NIXOA_CI_CLASSIFY_PATHS") == false ]]
-[[ $(printf '%s\n' modules/_nixos/platform.nix | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
-[[ $(printf '%s\n' nix/ci-plans.json | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
-[[ $(printf '%s\n' nix/automation/qualification-assets.sh | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
-[[ $(printf '%s\n' .github/workflows/ci.yml | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
-[[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$NIXOA_CI_CLASSIFY_PATHS") == false ]]
-[[ $(printf '%s\n' future/unknown-output | "$NIXOA_CI_CLASSIFY_PATHS") == true ]]
+[[ $(printf '%s\n' README.md docs/ci.md VERSION packer/build.sh modules/outputs/checks.nix modules/outputs/dev-shells.nix nix/checks/repository-policy.nix | "$MAESTRO_CI_CLASSIFY_PATHS") == false ]]
+[[ $(printf '%s\n' modules/_nixos/platform.nix | "$MAESTRO_CI_CLASSIFY_PATHS") == true ]]
+[[ $(printf '%s\n' nix/ci-plans.json | "$MAESTRO_CI_CLASSIFY_PATHS") == true ]]
+[[ $(printf '%s\n' nix/automation/qualification-assets.sh | "$MAESTRO_CI_CLASSIFY_PATHS") == true ]]
+[[ $(printf '%s\n' .github/workflows/ci.yml | "$MAESTRO_CI_CLASSIFY_PATHS") == true ]]
+[[ $(printf '%s\n' nix/automation/github/main-ruleset.json | "$MAESTRO_CI_CLASSIFY_PATHS") == false ]]
+[[ $(printf '%s\n' future/unknown-output | "$MAESTRO_CI_CLASSIFY_PATHS") == true ]]
 
 merge_fixture="$temporary/merge-group"
 mkdir -p "$merge_fixture/docs" "$merge_fixture/modules/_nixos"
@@ -52,13 +52,13 @@ divergent_head=$(git -C "$merge_fixture" rev-parse HEAD)
 
 classifier_env=(
   EVENT_NAME=merge_group
-  NIXOA_INSTALLER_POLICY="$test_root/nix/automation/installer-policy.json"
-  NIXOA_SYSTEM_ROOT="$merge_fixture"
+  MAESTRO_INSTALLER_POLICY="$test_root/nix/automation/installer-policy.json"
+  MAESTRO_SYSTEM_ROOT="$merge_fixture"
 )
-[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$merge_base" MERGE_HEAD_SHA="$irrelevant_head" "$NIXOA_CI_CLASSIFY") == false ]]
-[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$merge_base" MERGE_HEAD_SHA="$relevant_head" "$NIXOA_CI_CLASSIFY") == true ]]
-[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA= MERGE_HEAD_SHA= "$NIXOA_CI_CLASSIFY" 2>/dev/null) == true ]]
-[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$irrelevant_head" MERGE_HEAD_SHA="$divergent_head" "$NIXOA_CI_CLASSIFY" 2>/dev/null) == true ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$merge_base" MERGE_HEAD_SHA="$irrelevant_head" "$MAESTRO_CI_CLASSIFY") == false ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$merge_base" MERGE_HEAD_SHA="$relevant_head" "$MAESTRO_CI_CLASSIFY") == true ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA= MERGE_HEAD_SHA= "$MAESTRO_CI_CLASSIFY" 2>/dev/null) == true ]]
+[[ $(env "${classifier_env[@]}" MERGE_BASE_SHA="$irrelevant_head" MERGE_HEAD_SHA="$divergent_head" "$MAESTRO_CI_CLASSIFY" 2>/dev/null) == true ]]
 
 skip_plan='{"schema_version":3,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"evidence_run_id":null,"media_input":null,"evidence_input":null},"publish_required":false}'
 reuse_plan='{"schema_version":3,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"evidence_run_id":40,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":true}'
@@ -66,40 +66,40 @@ evidence_plan='{"schema_version":3,"qualification":{"required":true,"mode":"refr
 media_reuse_plan='{"schema_version":3,"qualification":{"required":true,"mode":"qualify-media-reuse-evidence","artifact_run_id":42,"media_run_id":42,"evidence_run_id":40,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
 media_plan='{"schema_version":3,"qualification":{"required":true,"mode":"qualify-media","artifact_run_id":42,"media_run_id":42,"evidence_run_id":42,"media_input":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
 env ROUTE_RESULT=success CI_PLAN="$skip_plan" \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$reuse_plan" \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$evidence_plan" \
-  QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
+  QUALIFICATION_RESULT=success "$MAESTRO_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$media_reuse_plan" \
-  QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
+  QUALIFICATION_RESULT=success "$MAESTRO_CI_VERDICT"
 env ROUTE_RESULT=success CI_PLAN="$media_plan" \
-  QUALIFICATION_RESULT=success "$NIXOA_CI_VERDICT"
+  QUALIFICATION_RESULT=success "$MAESTRO_CI_VERDICT"
 invalid_publish_plan='{"schema_version":3,"qualification":{"required":false,"mode":"skip","artifact_run_id":null,"media_run_id":null,"evidence_run_id":null,"media_input":null,"evidence_input":null},"publish_required":true}'
 if env ROUTE_RESULT=success CI_PLAN="$invalid_publish_plan" \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted publication without an installer lifecycle.\n' >&2
   exit 1
 fi
 invalid_media_input_plan='{"schema_version":3,"qualification":{"required":true,"mode":"reuse","artifact_run_id":42,"media_run_id":41,"evidence_run_id":40,"media_input":"not-a-digest","evidence_input":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},"publish_required":false}'
 if env ROUTE_RESULT=success CI_PLAN="$invalid_media_input_plan" \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted an invalid media input.\n' >&2
   exit 1
 fi
 if env ROUTE_RESULT=failure CI_PLAN="$skip_plan" \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT"; then
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT"; then
   printf 'CI verdict accepted a failed repository audit.\n' >&2
   exit 1
 fi
 unknown_mode_plan=$(jq -c '.qualification.mode = "future-mode"' <<<"$skip_plan")
 if env ROUTE_RESULT=success CI_PLAN="$unknown_mode_plan" \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted an unknown qualification mode.\n' >&2
   exit 1
 fi
 if env ROUTE_RESULT=success CI_PLAN='{"schema_version":3' \
-  QUALIFICATION_RESULT=skipped "$NIXOA_CI_VERDICT" >/dev/null 2>&1; then
+  QUALIFICATION_RESULT=skipped "$MAESTRO_CI_VERDICT" >/dev/null 2>&1; then
   printf 'CI verdict accepted malformed route JSON.\n' >&2
   exit 1
 fi
@@ -111,7 +111,7 @@ env \
   GITHUB_OUTPUT="$route_output" \
   GITHUB_REF=refs/heads/main \
   VALIDATE_ONLY=true \
-  "$NIXOA_CI_ROUTE"
+  "$MAESTRO_CI_ROUTE"
 routed_plan=$(sed -n 's/^plan=//p' "$route_output")
 jq -e '
   .schema_version == 3 and
@@ -124,7 +124,7 @@ local_plan=$(
   env \
     EVENT_NAME=workflow_dispatch \
     VALIDATE_ONLY=true \
-    "$NIXOA_CI_ROUTE"
+    "$MAESTRO_CI_ROUTE"
 )
 jq -e '
   .schema_version == 3 and
@@ -132,7 +132,7 @@ jq -e '
   .qualification.mode == "skip" and
   (.publish_required | not)
 ' <<<"$local_plan" >/dev/null
-[[ ! -e nixoa-ci-route.json ]]
+[[ ! -e maestro-ci-route.json ]]
 
 # The resolver distinguishes all four qualification routes and rejects
 # incomplete, expired, untrusted, mismatched, or corrupt cached evidence.
@@ -170,10 +170,10 @@ fi
 if [[ "$1" == api && "$2" == */artifacts ]]; then
   run_id=${2%/artifacts}
   run_id=${run_id##*/}
-  if [[ "$*" == *'nixoa-evidence'* ]]; then
-    artifact_name=nixoa-evidence
+  if [[ "$*" == *'maestro-evidence'* ]]; then
+    artifact_name=maestro-evidence
   else
-    artifact_name=nixoa-installer
+    artifact_name=maestro-installer
   fi
   artifact_dir="${FAKE_QUALIFICATION_ARTIFACTS:?}/$run_id/$artifact_name"
   [[ ! -d "$artifact_dir" || -e "$artifact_dir/.expired" ]] || printf '900\n'
@@ -195,24 +195,24 @@ sed -i "1c#!${BASH}" "$qualification_bin/nix" "$qualification_bin/gh"
 chmod +x "$qualification_bin/nix" "$qualification_bin/gh"
 
 baseline_graph='{"media":{"installer":"/nix/store/media-a"},"evidence":{"system":"/nix/store/system-a"}}'
-baseline_inputs=$(NIXOA_CI_PATH_PREFIX="$qualification_bin" \
-  NIXOA_SYSTEM_ROOT="$qualification_work" \
+baseline_inputs=$(MAESTRO_CI_PATH_PREFIX="$qualification_bin" \
+  MAESTRO_SYSTEM_ROOT="$qualification_work" \
   FAKE_QUALIFICATION_GRAPH="$baseline_graph" \
-  "$NIXOA_CI_QUALIFICATION_INPUTS")
+  "$MAESTRO_CI_QUALIFICATION_INPUTS")
 baseline_media=$(jq -er .media_input <<<"$baseline_inputs")
 baseline_evidence=$(jq -er .evidence_input <<<"$baseline_inputs")
 
 reset_qualification_artifacts() {
   rm -rf -- "$qualification_artifacts/77"
   mkdir -p \
-    "$qualification_artifacts/77/nixoa-qualification-state" \
-    "$qualification_artifacts/77/nixoa-installer" \
-    "$qualification_artifacts/77/nixoa-evidence"
-  printf '%s\n' '{"event":"push","head_repository":"example/nixoa"}' \
+    "$qualification_artifacts/77/maestro-qualification-state" \
+    "$qualification_artifacts/77/maestro-installer" \
+    "$qualification_artifacts/77/maestro-evidence"
+  printf '%s\n' '{"event":"push","head_repository":"example/maestro"}' \
     >"$qualification_artifacts/77/metadata.json"
   jq -n --arg media_input "$baseline_media" --arg evidence_input "$baseline_evidence" '
     {
-      schema_version:4,
+      schema_version:5,
       mode:"qualify-media",
       media_input:$media_input,
       evidence_input:$evidence_input,
@@ -224,23 +224,23 @@ reset_qualification_artifacts() {
       media_run_id:77,
       evidence_run_id:77
     }
-  ' >"$qualification_artifacts/77/nixoa-qualification-state/nixoa-qualification-state.json"
-  cp "$qualification_artifacts/77/nixoa-qualification-state/nixoa-qualification-state.json" \
-    "$qualification_artifacts/77/nixoa-evidence/nixoa-qualification-state.json"
+  ' >"$qualification_artifacts/77/maestro-qualification-state/maestro-qualification-state.json"
+  cp "$qualification_artifacts/77/maestro-qualification-state/maestro-qualification-state.json" \
+    "$qualification_artifacts/77/maestro-evidence/maestro-qualification-state.json"
   printf '%s\n' '{"spdxVersion":"SPDX-2.3"}' \
-    >"$qualification_artifacts/77/nixoa-evidence/nixoa-system.spdx.json"
+    >"$qualification_artifacts/77/maestro-evidence/maestro-system.spdx.json"
   printf '%s\n' '{"bomFormat":"CycloneDX"}' \
-    >"$qualification_artifacts/77/nixoa-evidence/nixoa-system.cdx.json"
+    >"$qualification_artifacts/77/maestro-evidence/maestro-system.cdx.json"
   printf '%s\n' '{"schemaVersion":1}' \
-    >"$qualification_artifacts/77/nixoa-evidence/xen-orchestra-supply.assertion.json"
+    >"$qualification_artifacts/77/maestro-evidence/xen-orchestra-supply.assertion.json"
   printf '%s\n' '{"spdxVersion":"SPDX-2.3"}' \
-    >"$qualification_artifacts/77/nixoa-evidence/xen-orchestra-supply.spdx.json"
+    >"$qualification_artifacts/77/maestro-evidence/xen-orchestra-supply.spdx.json"
   printf '%s\n' '{"bomFormat":"CycloneDX"}' \
-    >"$qualification_artifacts/77/nixoa-evidence/xen-orchestra-supply.cdx.json"
+    >"$qualification_artifacts/77/maestro-evidence/xen-orchestra-supply.cdx.json"
   (
-    cd "$qualification_artifacts/77/nixoa-evidence"
-    sha256sum nixoa-system.spdx.json >nixoa-system.spdx.json.sha256
-    sha256sum nixoa-system.cdx.json >nixoa-system.cdx.json.sha256
+    cd "$qualification_artifacts/77/maestro-evidence"
+    sha256sum maestro-system.spdx.json >maestro-system.spdx.json.sha256
+    sha256sum maestro-system.cdx.json >maestro-system.cdx.json.sha256
     sha256sum xen-orchestra-supply.assertion.json >xen-orchestra-supply.assertion.json.sha256
     sha256sum xen-orchestra-supply.spdx.json >xen-orchestra-supply.spdx.json.sha256
     sha256sum xen-orchestra-supply.cdx.json >xen-orchestra-supply.cdx.json.sha256
@@ -250,18 +250,18 @@ reset_qualification_artifacts() {
 resolve_mode() {
   local graph=$1
   local output=$qualification_work/output
-  rm -f "$output" "$qualification_work/nixoa-qualification-state.json"
+  rm -f "$output" "$qualification_work/maestro-qualification-state.json"
   (
     cd "$qualification_work"
-    NIXOA_CI_PATH_PREFIX="$qualification_bin" \
-      NIXOA_SYSTEM_ROOT="$qualification_work" \
+    MAESTRO_CI_PATH_PREFIX="$qualification_bin" \
+      MAESTRO_SYSTEM_ROOT="$qualification_work" \
       FAKE_QUALIFICATION_GRAPH="$graph" \
       FAKE_QUALIFICATION_ARTIFACTS="$qualification_artifacts" \
       GITHUB_OUTPUT="$output" \
-      GITHUB_REPOSITORY=example/nixoa \
+      GITHUB_REPOSITORY=example/maestro \
       GITHUB_RUN_ID=99 \
       GITHUB_SHA=current-source \
-      "$NIXOA_CI_RESOLVE_QUALIFICATION" >/dev/null
+      "$MAESTRO_CI_RESOLVE_QUALIFICATION" >/dev/null
   )
   sed -n 's/^mode=//p' "$output"
 }
@@ -276,11 +276,11 @@ reset_qualification_artifacts
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-b"}}') == qualify-media ]]
 
 reset_qualification_artifacts
-rm -rf -- "$qualification_artifacts/77/nixoa-evidence"
+rm -rf -- "$qualification_artifacts/77/maestro-evidence"
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
 
 reset_qualification_artifacts
-touch "$qualification_artifacts/77/nixoa-evidence/.expired"
+touch "$qualification_artifacts/77/maestro-evidence/.expired"
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
 
 reset_qualification_artifacts
@@ -290,21 +290,21 @@ printf '%s\n' '{"event":"pull_request","head_repository":"attacker/fork"}' \
 
 reset_qualification_artifacts
 jq '.evidence_input = "state-mismatch"' \
-  "$qualification_artifacts/77/nixoa-evidence/nixoa-qualification-state.json" \
+  "$qualification_artifacts/77/maestro-evidence/maestro-qualification-state.json" \
   >"$qualification_work/mismatched-state.json"
 mv "$qualification_work/mismatched-state.json" \
-  "$qualification_artifacts/77/nixoa-evidence/nixoa-qualification-state.json"
+  "$qualification_artifacts/77/maestro-evidence/maestro-qualification-state.json"
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
 
 reset_qualification_artifacts
-printf 'corrupt\n' >>"$qualification_artifacts/77/nixoa-evidence/nixoa-system.spdx.json"
+printf 'corrupt\n' >>"$qualification_artifacts/77/maestro-evidence/maestro-system.spdx.json"
 [[ $(resolve_mode '{"media":{"installer":"/nix/store/media-b"},"evidence":{"system":"/nix/store/system-a"}}') == qualify-media ]]
 
-read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
+read -r version bump < <(printf '%s\n' 'fix: correction' | "$MAESTRO_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '2.0.1 patch' ]]
-read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 1.0 auto)
+read -r version bump < <(printf '%s\n' 'fix: correction' | "$MAESTRO_CI_RELEASE_VERSION" 1.0 auto)
 [[ "$version $bump" == '1.0.1 patch' ]]
-read -r version bump < <(printf '%s\n' 'feat(core): capability' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
+read -r version bump < <(printf '%s\n' 'feat(maestro): capability' | "$MAESTRO_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '2.1.0 minor' ]]
 
 jq -e '
@@ -315,19 +315,22 @@ jq -e '
     .parameters.max_entries_to_merge == 1) and
   any(.rules[]; .type == "required_status_checks" and .parameters.strict_required_status_checks_policy == false and .parameters.required_status_checks == [{context:"Required CI verdict",integration_id:15368}])
 ' "$test_root/nix/automation/github/main-ruleset.json" >/dev/null
-read -r version bump < <(printf '%s\n' 'feat!: incompatible' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 auto)
+read -r version bump < <(printf '%s\n' 'feat!: incompatible' | "$MAESTRO_CI_RELEASE_VERSION" 2.0.0 auto)
 [[ "$version $bump" == '3.0.0 major' ]]
-read -r version bump < <(printf '%s\n' 'fix: correction' | "$NIXOA_CI_RELEASE_VERSION" 2.0.0 minor)
+read -r version bump < <(printf '%s\n' 'fix: correction' | "$MAESTRO_CI_RELEASE_VERSION" 2.0.0 minor)
 [[ "$version $bump" == '2.1.0 minor' ]]
 
-release_notes=$("$NIXOA_CI_RELEASE_NOTES" 1.1.0 "$test_root/CHANGELOG.md")
-grep -Fq 'Security' <<<"$release_notes"
-grep -Fq 'Magic Cache' <<<"$release_notes"
+release_notes=$("$MAESTRO_CI_RELEASE_NOTES" 2.0.0 "$test_root/CHANGELOG.md")
+grep -Fq 'clean 2.0' <<<"$release_notes"
+grep -Fq 'maestroctl' <<<"$release_notes"
 if grep -Fq 'Unreleased' <<<"$release_notes"; then
   printf 'Release notes include the Unreleased section.\n' >&2
   exit 1
 fi
-if "$NIXOA_CI_RELEASE_NOTES" 9.9.9 "$test_root/CHANGELOG.md" >/dev/null 2>&1; then
+historical_notes=$("$MAESTRO_CI_RELEASE_NOTES" 1.1.0 "$test_root/docs/history/legacy-changelog.md")
+grep -Fq 'Security' <<<"$historical_notes"
+grep -Fq 'Magic Cache' <<<"$historical_notes"
+if "$MAESTRO_CI_RELEASE_NOTES" 9.9.9 "$test_root/CHANGELOG.md" >/dev/null 2>&1; then
   printf 'Release notes accepted a missing version.\n' >&2
   exit 1
 fi
@@ -349,7 +352,7 @@ if grep -Fq "git tag --list 'v[0-9]*.[0-9]*.[0-9]*'" \
 fi
 
 mkdir -p "$temporary/bin"
-export NIXOA_CI_PATH_PREFIX="$temporary/bin"
+export MAESTRO_CI_PATH_PREFIX="$temporary/bin"
 printf 'fixture iso\n' >"$temporary/installer.iso"
 cat >"$temporary/bin/qemu-img" <<'EOF'
 #!/usr/bin/env bash
@@ -358,7 +361,7 @@ EOF
 cat >"$temporary/bin/qemu-system-x86_64" <<'EOF'
 #!/usr/bin/env bash
 trap 'exit 0' TERM
-printf 'nixoa-installer login:\n'
+printf 'maestro-installer login:\n'
 sleep 30
 EOF
 sed -i "1c#!${BASH}" \
@@ -368,8 +371,8 @@ chmod +x "$temporary/bin/qemu-img" "$temporary/bin/qemu-system-x86_64"
 PATH="$temporary/bin:$PATH" \
   BOOT_TIMEOUT=20s \
   BOOT_LOG="$temporary/boot.log" \
-  timeout 5s "$NIXOA_CI_BOOT_MEDIA" "$temporary/installer.iso"
-grep -Fq 'nixoa-installer login:' "$temporary/boot.log"
+  timeout 5s "$MAESTRO_CI_BOOT_MEDIA" "$temporary/installer.iso"
+grep -Fq 'maestro-installer login:' "$temporary/boot.log"
 
 cat >"$temporary/bin/gh" <<'EOF'
 #!/usr/bin/env bash
@@ -386,7 +389,7 @@ if [[ "$1 $2" == 'pr view' ]]; then
   jq -n \
     --arg author "${FAKE_AUTHOR:-release-bot}" \
     --arg head "$fake_head" \
-    '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:$head,headRepository:{nameWithOwner:"example/core"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
+    '{author:{login:$author},baseRefName:"main",headRefName:"automation/test",headRefOid:$head,headRepository:{nameWithOwner:"example/maestro"},mergeStateStatus:"CLEAN",state:"OPEN",title:"Trusted update",url:"https://example.invalid/pr/1"}'
 elif [[ "$1 $2" == 'run list' ]]; then
   if [[ -n ${FAKE_DISPATCH_MARKER:-} && ! -e $FAKE_DISPATCH_MARKER ]]; then
     printf '[]\n'
@@ -430,7 +433,7 @@ chmod +x "$temporary/bin/gh"
 trusted_env=(
   CI_POLL_INTERVAL=0
   GH_TOKEN=fixture
-  GITHUB_REPOSITORY=example/core
+  GITHUB_REPOSITORY=example/maestro
   PR_NUMBER=1
   EXPECTED_BRANCH=automation/test
   EXPECTED_TITLE='Trusted update'
@@ -439,14 +442,14 @@ trusted_env=(
   FAKE_MERGE_LOG="$temporary/merge.log"
 )
 env PATH="$temporary/bin:$PATH" "${trusted_env[@]}" \
-  "$NIXOA_CI_TRUSTED_UPDATE"
+  "$MAESTRO_CI_TRUSTED_UPDATE"
 grep -Fq -- '--auto' "$temporary/merge.log"
 grep -Fq -- '--merge' "$temporary/merge.log"
 grep -Fq -- '--match-head-commit abc123' "$temporary/merge.log"
 env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=app/release-bot "${trusted_env[@]}" \
-  "$NIXOA_CI_TRUSTED_UPDATE"
+  "$MAESTRO_CI_TRUSTED_UPDATE"
 if env PATH="$temporary/bin:$PATH" FAKE_RUN_HEAD_SHA=stale \
-  "${trusted_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
+  "${trusted_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
   printf 'Trusted update accepted CI for a stale head.\n' >&2
   exit 1
 fi
@@ -454,12 +457,12 @@ rm -f "$temporary/approved"
 env PATH="$temporary/bin:$PATH" \
   FAKE_RUN_CONCLUSION=action_required \
   FAKE_APPROVAL_MARKER="$temporary/approved" \
-  "${trusted_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE"
+  "${trusted_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE"
 [[ -e $temporary/approved ]]
 rm -f "$temporary/dispatched"
 env PATH="$temporary/bin:$PATH" \
   FAKE_DISPATCH_MARKER="$temporary/dispatched" \
-  "${trusted_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE"
+  "${trusted_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE"
 [[ -e $temporary/dispatched ]]
 rm -f "$temporary/updated"
 rm -f "$temporary/update-delayed"
@@ -469,12 +472,12 @@ env PATH="$temporary/bin:$PATH" \
   FAKE_UPDATED_HEAD_SHA=def456 \
   FAKE_UPDATE_DELAY_MARKER="$temporary/update-delayed" \
   FAKE_UPDATE_MARKER="$temporary/updated" \
-  "${trusted_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE"
+  "${trusted_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE"
 [[ -e $temporary/updated ]]
 [[ -e $temporary/update-delayed ]]
 grep -Fq -- '--match-head-commit def456' "$temporary/merge.log"
 if env PATH="$temporary/bin:$PATH" FAKE_AUTHOR=attacker "${trusted_env[@]}" \
-  "$NIXOA_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
+  "$MAESTRO_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong author.\n' >&2
   exit 1
 fi
@@ -485,14 +488,14 @@ version_env=(
   EXPECTED_VERSION=1.2.3
 )
 env PATH="$temporary/bin:$PATH" "${version_env[@]}" \
-  "$NIXOA_CI_TRUSTED_UPDATE"
+  "$MAESTRO_CI_TRUSTED_UPDATE"
 if env PATH="$temporary/bin:$PATH" FAKE_VERSION=1.2.4 "${version_env[@]}" \
-  "$NIXOA_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
+  "$MAESTRO_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
   printf 'Trusted update accepted the wrong VERSION content.\n' >&2
   exit 1
 fi
 if env PATH="$temporary/bin:$PATH" FAKE_FILES=$'VERSION\nREADME.md' "${version_env[@]}" \
-  "$NIXOA_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
+  "$MAESTRO_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
   printf 'Trusted update accepted an extra version-PR file.\n' >&2
   exit 1
 fi
@@ -502,15 +505,15 @@ lock_env=(
   EXPECTED_CHANGE_KIND=flake-lock
 )
 env PATH="$temporary/bin:$PATH" FAKE_FILES=$'devenv.lock\nflake.lock' \
-  "${lock_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE"
+  "${lock_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE"
 env PATH="$temporary/bin:$PATH" FAKE_FILES=flake.lock \
-  "${lock_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE"
+  "${lock_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE"
 if env PATH="$temporary/bin:$PATH" FAKE_FILES=$'flake.lock\nREADME.md' \
-  "${lock_env[@]}" "$NIXOA_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
+  "${lock_env[@]}" "$MAESTRO_CI_TRUSTED_UPDATE" >/dev/null 2>&1; then
   printf 'Trusted lock update accepted a non-lockfile change.\n' >&2
   exit 1
 fi
 
-"$NIXOA_CI_LOCK_VALIDATE"
+"$MAESTRO_CI_LOCK_VALIDATE"
 
 printf 'CI helper fixture checks passed.\n'

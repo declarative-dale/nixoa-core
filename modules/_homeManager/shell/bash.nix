@@ -6,7 +6,7 @@
   osConfig,
   ...
 }: let
-  cfg = osConfig.nixoa.operator;
+  cfg = osConfig.maestro.operator;
 in {
   programs = {
     bash = {
@@ -47,7 +47,7 @@ in {
         sysfail = "systemctl --failed";
         sysrestart = "sudo systemctl restart";
         sysstatus = "sudo systemctl status";
-        menu = "nixoa-menu";
+        menu = "maestro-menu";
       };
       sessionVariables = {
         HISTTIMEFORMAT = "%F %T ";
@@ -60,10 +60,10 @@ in {
         fi
       '';
       profileExtra = lib.optionalString cfg.menuAutoStart ''
-        if [[ $- == *i* ]] && [[ -n "''${SSH_TTY:-}" ]] && [[ -t 0 ]] && [[ -t 1 ]] && [[ -z "''${NIXOA_TUI_BYPASS:-}" ]] && [[ -z "''${NIXOA_TUI_ACTIVE:-}" ]]; then
-          export NIXOA_TUI_ACTIVE=1
-          export NIXOA_SYSTEM_ROOT="''${NIXOA_SYSTEM_ROOT:-${cfg.repoDir}}"
-          exec nixoa-menu
+        if [[ $- == *i* ]] && [[ -n "''${SSH_TTY:-}" ]] && [[ -t 0 ]] && [[ -t 1 ]] && [[ -z "''${MAESTRO_TUI_BYPASS:-}" ]] && [[ -z "''${MAESTRO_TUI_ACTIVE:-}" ]]; then
+          export MAESTRO_TUI_ACTIVE=1
+          export MAESTRO_SYSTEM_ROOT="''${MAESTRO_SYSTEM_ROOT:-${cfg.repoDir}}"
+          exec maestro-menu
         fi
       '';
     };

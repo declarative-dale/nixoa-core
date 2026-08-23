@@ -4,7 +4,7 @@
   ...
 }: let
   systems = ["x86_64-linux"];
-  mkNxcliApp = pkgs: nxcli: {
+  mkMaestroctlApp = pkgs: maestroctl: {
     appName,
     args,
     description,
@@ -13,7 +13,7 @@
     program = toString (
       pkgs.writeShellScript appName ''
         set -euo pipefail
-        exec ${nxcli}/bin/nxcli ${lib.escapeShellArgs args} "$@"
+        exec ${maestroctl}/bin/maestroctl ${lib.escapeShellArgs args} "$@"
       ''
     );
     meta.description = description;
@@ -26,14 +26,14 @@ in {
         config.allowUnfreePredicate = package:
           lib.getName package == "packer";
       };
-      nxcli = inputs.self.packages.${system}.nxcli;
-      nixoaMenu = inputs.self.packages.${system}.nixoa-menu;
+      maestroctl = inputs.self.packages.${system}.maestroctl;
+      maestroMenu = inputs.self.packages.${system}.maestro-menu;
       planRunner = inputs.self.packages.${system}.flake-plan-runner;
       bootstrap = inputs.self.packages.${system}.bootstrap;
       buildTemplate = inputs.self.packages.${system}.build-template;
       deployTemplate = inputs.self.packages.${system}.deploy-template;
       devenv = inputs.devenv.packages.${system}.devenv;
-      nxcliApp = mkNxcliApp pkgs nxcli;
+      maestroctlApp = mkMaestroctlApp pkgs maestroctl;
     in {
       devenv = {
         type = "app";
@@ -41,58 +41,58 @@ in {
         meta.description = "Run the pinned native devenv task and shell interface";
       };
 
-      nxcli = {
+      maestroctl = {
         type = "app";
-        program = "${nxcli}/bin/nxcli";
-        meta.description = "Canonical NiXOA operator CLI";
+        program = "${maestroctl}/bin/maestroctl";
+        meta.description = "Canonical Maestro operator CLI";
       };
 
-      apply = nxcliApp {
-        appName = "nixoa-apply";
+      apply = maestroctlApp {
+        appName = "maestro-apply";
         args = ["apply"];
-        description = "Apply a NiXOA host configuration through nxcli";
+        description = "Apply a Maestro host configuration through maestroctl";
       };
 
       bootstrap = {
         type = "app";
         program = lib.getExe bootstrap;
-        meta.description = "Bootstrap the fixed nixoa appliance checkout";
+        meta.description = "Bootstrap the fixed maestro appliance checkout";
       };
 
       build-template = {
         type = "app";
         program = lib.getExe buildTemplate;
-        meta.description = "Build a native NiXOA XCP-ng template with Packer";
+        meta.description = "Build a native Maestro XCP-ng template with Packer";
       };
 
       deploy-template = {
         type = "app";
         program = lib.getExe deployTemplate;
-        meta.description = "Build and deploy a native NiXOA XCP-ng template";
+        meta.description = "Build and deploy a native Maestro XCP-ng template";
       };
 
-      commit = nxcliApp {
-        appName = "nixoa-commit";
+      commit = maestroctlApp {
+        appName = "maestro-commit";
         args = ["commit"];
-        description = "Commit NiXOA repository changes through nxcli";
+        description = "Commit Maestro repository changes through maestroctl";
       };
 
-      diff = nxcliApp {
-        appName = "nixoa-diff";
+      diff = maestroctlApp {
+        appName = "maestro-diff";
         args = ["diff"];
-        description = "Show NiXOA repository changes through nxcli";
+        description = "Show Maestro repository changes through maestroctl";
       };
 
-      history = nxcliApp {
-        appName = "nixoa-history";
+      history = maestroctlApp {
+        appName = "maestro-history";
         args = ["history"];
-        description = "Show NiXOA repository history through nxcli";
+        description = "Show Maestro repository history through maestroctl";
       };
 
       menu = {
         type = "app";
-        program = "${nixoaMenu}/bin/nixoa-menu";
-        meta.description = "Launch the NiXOA SSH administration TUI";
+        program = "${maestroMenu}/bin/maestro-menu";
+        meta.description = "Launch the Maestro SSH administration TUI";
       };
 
       run-ci-plan = {

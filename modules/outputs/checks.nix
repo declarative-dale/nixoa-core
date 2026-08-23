@@ -9,10 +9,10 @@ in {
     system: let
       pkgs = inputs.nixpkgs.legacyPackages.${system};
       packages = inputs.self.packages.${system};
-      appliance = inputs.self.nixosConfigurations.nixoa.config;
+      appliance = inputs.self.nixosConfigurations.maestro.config;
       xoPackages = inputs.xen-orchestra-ce.packages.${system};
       xoConfigFeatures = ["http" "redis" "remotes" "web"];
-      xoConfigFragments = appliance.nixoa.xo.internal.configFragments;
+      xoConfigFragments = appliance.maestro.xo.internal.configFragments;
       fixtureInputs = [
         pkgs.bash
         pkgs.coreutils
@@ -27,25 +27,25 @@ in {
         command,
         nativeBuildInputs ? fixtureInputs,
       }:
-        pkgs.runCommandLocal "nixoa-${name}" {inherit nativeBuildInputs;} ''
+        pkgs.runCommandLocal "maestro-${name}" {inherit nativeBuildInputs;} ''
           cp -R ${inputs.self} source
           chmod -R u+w source
           cd source
           export HOME="$TMPDIR/home"
-          export NIXOA_CI_BOOT_MEDIA=${lib.getExe packages.nixoa-ci-boot-media}
-          export NIXOA_CI_QUALIFICATION_INPUTS=${lib.getExe packages.nixoa-ci-qualification-inputs}
-          export NIXOA_CI_CLASSIFY=${lib.getExe packages.nixoa-ci-classify}
-          export NIXOA_CI_CLASSIFY_PATHS=${lib.getExe packages.nixoa-ci-classify-paths}
-          export NIXOA_CI_VERDICT=${lib.getExe packages.nixoa-ci-verdict}
-          export NIXOA_CI_LOCK_VALIDATE=${lib.getExe packages.nixoa-ci-lock-validate}
-          export NIXOA_CI_ROUTE=${lib.getExe packages.nixoa-ci-route}
-          export NIXOA_CI_RESOLVE_QUALIFICATION=${lib.getExe packages.nixoa-ci-resolve-qualification}
-          export NIXOA_CI_RELEASE_MANAGER=${lib.getExe packages.nixoa-ci-release-manager}
-          export NIXOA_CI_RELEASE_NOTES=${lib.getExe packages.nixoa-ci-release-notes}
-          export NIXOA_CI_RELEASE_SPLIT=${lib.getExe packages.nixoa-ci-release-stage}
-          export NIXOA_CI_RELEASE_VERSION=${lib.getExe packages.nixoa-ci-release-version}
-          export NIXOA_CI_TRUSTED_UPDATE=${lib.getExe packages.nixoa-ci-trusted-update}
-          export NIXOA_SYSTEM_ROOT="$PWD"
+          export MAESTRO_CI_BOOT_MEDIA=${lib.getExe packages.maestro-ci-boot-media}
+          export MAESTRO_CI_QUALIFICATION_INPUTS=${lib.getExe packages.maestro-ci-qualification-inputs}
+          export MAESTRO_CI_CLASSIFY=${lib.getExe packages.maestro-ci-classify}
+          export MAESTRO_CI_CLASSIFY_PATHS=${lib.getExe packages.maestro-ci-classify-paths}
+          export MAESTRO_CI_VERDICT=${lib.getExe packages.maestro-ci-verdict}
+          export MAESTRO_CI_LOCK_VALIDATE=${lib.getExe packages.maestro-ci-lock-validate}
+          export MAESTRO_CI_ROUTE=${lib.getExe packages.maestro-ci-route}
+          export MAESTRO_CI_RESOLVE_QUALIFICATION=${lib.getExe packages.maestro-ci-resolve-qualification}
+          export MAESTRO_CI_RELEASE_MANAGER=${lib.getExe packages.maestro-ci-release-manager}
+          export MAESTRO_CI_RELEASE_NOTES=${lib.getExe packages.maestro-ci-release-notes}
+          export MAESTRO_CI_RELEASE_SPLIT=${lib.getExe packages.maestro-ci-release-stage}
+          export MAESTRO_CI_RELEASE_VERSION=${lib.getExe packages.maestro-ci-release-version}
+          export MAESTRO_CI_TRUSTED_UPDATE=${lib.getExe packages.maestro-ci-trusted-update}
+          export MAESTRO_SYSTEM_ROOT="$PWD"
           mkdir -p "$HOME"
           ${command}
           touch "$out"
@@ -58,31 +58,31 @@ in {
         deploy-template
         flake-plan-runner
         metadata
-        nixoa-ci-repository-audit
-        nxcli
+        maestro-ci-repository-audit
+        maestroctl
         ;
 
       ci-plan-contract = let
         plans = inputs.self.lib.ciPlans.${system};
         qualificationInputs = inputs.self.lib.ciQualificationInputs.${system};
       in
-        assert qualificationInputs.evidence.toplevel == inputs.self.nixosConfigurations.nixoa.config.system.build.toplevel.outPath;
-          pkgs.runCommandLocal "nixoa-ci-plan-contract" {
+        assert qualificationInputs.evidence.toplevel == inputs.self.nixosConfigurations.maestro.config.system.build.toplevel.outPath;
+          pkgs.runCommandLocal "maestro-ci-plan-contract" {
             nativeBuildInputs = [pkgs.jq];
           } ''
             printf '%s\n' ${lib.escapeShellArg (builtins.toJSON plans)} > plans.json
             jq -e '
               (.validation.schemaVersion == 2) and
-              (.validation.name == "nixoa-validation") and
+              (.validation.name == "maestro-validation") and
               (.validation.targets | length == 16) and
               (.media.schemaVersion == 2) and
-              (.media.name == "nixoa-media-qualification") and
+              (.media.name == "maestro-media-qualification") and
               (.media.targets | length == 1) and
               (.evidence.schemaVersion == 2) and
-              (.evidence.name == "nixoa-evidence-qualification") and
+              (.evidence.name == "maestro-evidence-qualification") and
               (.evidence.targets | length == 4) and
               (.publish.schemaVersion == 2) and
-              (.publish.name == "nixoa-publish") and
+              (.publish.name == "maestro-publish") and
               (.publish.targets | length == 5)
             ' plans.json >/dev/null
             test -e ${qualificationInputs.media.source}/installer/default.nix
@@ -92,13 +92,13 @@ in {
             touch "$out"
           '';
 
-      eval-smoke = pkgs.runCommandLocal "nixoa-eval-smoke" {} ''
+      eval-smoke = pkgs.runCommandLocal "maestro-eval-smoke" {} ''
         mkdir -p "$out"
-        printf '%s\n' "NiXOA appliance flake evaluation smoke check" > "$out/README"
+        printf '%s\n' "Maestro appliance flake evaluation smoke check" > "$out/README"
       '';
 
       workflow-policy =
-        pkgs.runCommandLocal "nixoa-workflow-policy" {
+        pkgs.runCommandLocal "maestro-workflow-policy" {
           nativeBuildInputs = [
             pkgs.actionlint
             pkgs.bash
@@ -143,7 +143,7 @@ in {
         '';
 
       devenv-contract =
-        pkgs.runCommandLocal "nixoa-devenv-contract" {
+        pkgs.runCommandLocal "maestro-devenv-contract" {
           nativeBuildInputs = [
             pkgs.coreutils
             pkgs.gnugrep
@@ -161,12 +161,12 @@ in {
           done
           grep -Fq 'pkgs.check-jsonschema' nix/automation/default.nix
           ! test -e nix/automation/cli.sh
-          ! grep -Fq 'nixoaCiCommand' nix/devenv.nix
-          grep -Fq 'runFlakePackage "nixoa-ci-route"' nix/devenv.nix
-          grep -Fq 'runFlakePackage "nixoa-ci-repository-audit"' nix/devenv.nix
-          grep -Fq 'runFlakePackage "nixoa-ci-verdict"' nix/devenv.nix
-          grep -Fq 'runFlakePackage "nixoa-ci-release-manager"' nix/devenv.nix
-          ! grep -RqE --exclude=checks.nix 'ci:(prepare|plan|check|gate)|nixoa-ci-(prepare|plan|check|gate|release)([^a-z-]|$)|NIXOA_CI_(PREPARE|PLAN|CHECK|GATE|RELEASE)([^A-Z_]|$)|PREPARE_RESULT|PLAN_RESULT' \
+          ! grep -Fq 'maestroCiCommand' nix/devenv.nix
+          grep -Fq 'runFlakePackage "maestro-ci-route"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "maestro-ci-repository-audit"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "maestro-ci-verdict"' nix/devenv.nix
+          grep -Fq 'runFlakePackage "maestro-ci-release-manager"' nix/devenv.nix
+          ! grep -RqE --exclude=checks.nix 'ci:(prepare|plan|check|gate)|maestro-ci-(prepare|plan|check|gate|release)([^a-z-]|$)|MAESTRO_CI_(PREPARE|PLAN|CHECK|GATE|RELEASE)([^A-Z_]|$)|PREPARE_RESULT|PLAN_RESULT' \
             .github nix docs modules tests
           test "$(grep -c 'execIfModified = ' nix/devenv.nix)" -eq 2
           ! grep -Fq 'exec = "true";' nix/devenv.nix
@@ -174,17 +174,17 @@ in {
           grep -Fq -- "-path './.devenv'" nix/devenv.nix
           grep -Fq 'DeterminateSystems/determinate-nix-action@61cbfe2efc2d4e7a8a6d56967c3c1058e846c858' \
             .github/actions/setup-nix/action.yml
-          if grep -RqE '\.#nixoa-ci([ -]|$)|\.#nixoa-ci-(boot-media|qualification-assets|qualification-inputs|resolve-qualification|update-locks)' .github/workflows; then
+          if grep -RqE '\.#maestro-ci([ -]|$)|\.#maestro-ci-(boot-media|qualification-assets|qualification-inputs|resolve-qualification|update-locks)' .github/workflows; then
             printf 'A hosted workflow bypasses the declared devenv task graph.\n' >&2
             exit 1
           fi
-          ${lib.getExe packages.nixoa-ci-lock-validate} \
+          ${lib.getExe packages.maestro-ci-lock-validate} \
             ${inputs.self}/flake.lock ${inputs.self}/devenv.lock
           touch "$out"
         '';
 
       shell-lint =
-        pkgs.runCommandLocal "nixoa-shell-lint" {
+        pkgs.runCommandLocal "maestro-shell-lint" {
           nativeBuildInputs = [
             pkgs.shellcheck
           ];
@@ -219,7 +219,7 @@ in {
       };
 
       secretspec-contract =
-        pkgs.runCommandLocal "nixoa-secretspec-contract" {
+        pkgs.runCommandLocal "maestro-secretspec-contract" {
           nativeBuildInputs = [
             pkgs.jq
             packages.secretspec
@@ -244,7 +244,7 @@ in {
 
       operator-fixtures = mkSourceCheck {
         name = "operator-fixtures";
-        command = "NIXOA_SKIP_EVAL=1 bash ./tests/run.sh";
+        command = "MAESTRO_SKIP_EVAL=1 bash ./tests/run.sh";
         nativeBuildInputs = fixtureInputs ++ [pkgs.yq-go];
       };
 
@@ -253,33 +253,33 @@ in {
         source = inputs.self;
       };
 
-      configuration = assert appliance.nixoa.xo.enable;
-      assert appliance.nixoa.xo.channel == "latest";
+      configuration = assert appliance.maestro.xo.enable;
+      assert appliance.maestro.xo.channel == "latest";
       assert lib.all (channel: builtins.hasAttr channel xoPackages) ["latest" "stable" "rolling"];
-      assert appliance.nixoa.xo.package == xoPackages.latest;
+      assert appliance.maestro.xo.package == xoPackages.latest;
       assert builtins.attrNames xoConfigFragments == xoConfigFeatures;
       assert lib.all (
         feature: builtins.hasAttr "xo-server/config.nixos-${feature}.toml" appliance.environment.etc
       )
       xoConfigFeatures;
       assert xoConfigFragments.redis.redis.socket == "/run/redis-xo/redis.sock";
-      assert xoConfigFragments.remotes.remoteOptions.mountsDir == appliance.nixoa.xo.storage.mountsDir;
+      assert xoConfigFragments.remotes.remoteOptions.mountsDir == appliance.maestro.xo.storage.mountsDir;
       assert xoConfigFragments.remotes.remoteOptions.useSudo;
-      assert xoConfigFragments.http.http.redirectToHttps == appliance.nixoa.xo.tls.enable;
+      assert xoConfigFragments.http.http.redirectToHttps == appliance.maestro.xo.tls.enable;
       assert builtins.length xoConfigFragments.http.http.listen == 2;
-      assert xoConfigFragments.web.http.mounts."/v6" == "${appliance.nixoa.xo.home}/xen-orchestra/@xen-orchestra/web/dist";
-      assert appliance.systemd.services.xo-server.environment.TMPDIR == appliance.nixoa.xo.tempDir;
-      assert appliance.nixoa.xo.storage.libvhdiPackage == inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
+      assert xoConfigFragments.web.http.mounts."/v6" == "${appliance.maestro.xo.home}/xen-orchestra/@xen-orchestra/web/dist";
+      assert appliance.systemd.services.xo-server.environment.TMPDIR == appliance.maestro.xo.tempDir;
+      assert appliance.maestro.xo.storage.libvhdiPackage == inputs.xen-orchestra-ce.packages.x86_64-linux.libvhdi;
       assert appliance.programs.fuse.userAllowOther;
-      assert builtins.elem "fuse" appliance.users.users.${appliance.nixoa.xo.user}.extraGroups;
+      assert builtins.elem "fuse" appliance.users.users.${appliance.maestro.xo.user}.extraGroups;
       assert appliance.services.redis.servers.xo.enable;
       assert appliance.systemd.services ? xo-autocert;
-      assert appliance.nixoa.xo.internal.sudoWrapper != null;
+      assert appliance.maestro.xo.internal.sudoWrapper != null;
       assert builtins.elem "multi-user.target" appliance.systemd.services.xen-guest-agent.wantedBy;
       assert appliance.services.cloud-init.enable;
       assert !appliance.services.cloud-init.network.enable;
       assert appliance.services.cloud-init.settings.datasource_list == ["NoCloud" "None"];
-      assert appliance.services.cloud-init.settings.system_info.default_user.name == "nixoa";
+      assert appliance.services.cloud-init.settings.system_info.default_user.name == "maestro";
       assert appliance.services.cloud-init.settings.cloud_init_modules
       == [
         "seed_random"
@@ -295,13 +295,13 @@ in {
       assert appliance.security.polkit.enable;
       assert builtins.elem pkgs.cloud-init appliance.environment.systemPackages;
       assert builtins.elem "cloud-config.service" appliance.systemd.services.sshd.after;
-      assert appliance.services.openssh.settings.AllowUsers == ["nixoa"];
+      assert appliance.services.openssh.settings.AllowUsers == ["maestro"];
       assert appliance.networking.firewall.allowedTCPPorts == [22 80 443];
       assert appliance.determinate.enable;
-      assert appliance.home-manager.users.nixoa.programs.git.enable;
+      assert appliance.home-manager.users.maestro.programs.git.enable;
       assert appliance.nix.gc.automatic;
       assert appliance.boot.loader.systemd-boot.configurationLimit == 10;
-        pkgs.runCommandLocal "nixoa-configuration-assertions" {} ''
+        pkgs.runCommandLocal "maestro-configuration-assertions" {} ''
           touch "$out"
         '';
     }
