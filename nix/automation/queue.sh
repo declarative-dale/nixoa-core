@@ -39,10 +39,12 @@ while IFS= read -r pull_request; do
       EXPECTED_CHANGE_KIND=flake-lock
     elif [[ "$EXPECTED_BRANCH" =~ ^automation/release-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
       EXPECTED_VERSION=${BASH_REMATCH[1]}
+      export EXPECTED_VERSION
       [[ "$EXPECTED_TITLE" == "Release Maestro ${EXPECTED_VERSION}" ]] || continue
       EXPECTED_CHANGE_KIND=version
     elif [[ "$EXPECTED_BRANCH" =~ ^automation/start-([0-9]+\.[0-9]+\.[0-9]+-dev\.0)$ ]]; then
       EXPECTED_VERSION=${BASH_REMATCH[1]}
+      export EXPECTED_VERSION
       [[ "$EXPECTED_TITLE" == "Start Maestro ${EXPECTED_VERSION}" ]] || continue
       EXPECTED_CHANGE_KIND=version
     else
