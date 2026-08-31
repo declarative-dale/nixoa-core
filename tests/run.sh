@@ -305,7 +305,7 @@ grep -Fq 'maestro-system.cdx.json' \
 grep -Fq 'xen-orchestra-supply.assertion.json' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "installer artifact omits the verified upstream XO evidence"
-grep -Fq 'DeterminateSystems/flakehub-push@f960928265d16ba43227dfd48812a8b1de17a441' \
+grep -Fq 'DeterminateSystems/flakehub-push@2ca953b09ca13532271987be2887bbd33b99980f' \
   "$TEST_ROOT/.github/workflows/ci.yml" \
   || fail "rolling FlakeHub publication does not use the current Node.js 24 action"
 grep -Fq 'rolling-minor: 2' \
