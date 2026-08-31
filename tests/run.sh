@@ -56,10 +56,12 @@ bash -n \
   "$TEST_ROOT/packer/deploy-template.sh" \
   "$TEST_ROOT/tests/qualification-inputs.sh" \
   "$TEST_ROOT/tests/ci-helpers.sh" \
+  "$TEST_ROOT/tests/fix-nix-hashes.sh" \
   "$TEST_ROOT/tests/xo-storage-helper.sh" \
   "$TEST_ROOT"/packer/scripts/*.sh
 
 bash "$TEST_ROOT/tests/xo-storage-helper.sh"
+bash "$TEST_ROOT/tests/fix-nix-hashes.sh"
 
 # Fixed target resolution.
 actual="$(
@@ -160,7 +162,22 @@ if grep -Fq 'cachix/cachix-action@' \
 fi
 setup_steps=$(grep -Fc 'uses: ./.github/actions/setup-nix' \
   "$TEST_ROOT/.github/workflows/ci.yml")
-assert_eq "$setup_steps" 3
+assert_eq "$setup_steps" 4
+# shellcheck disable=SC2016
+yq -e '
+  .jobs."fix-hashes".permissions.contents == "write" and
+  (.jobs."fix-hashes".if | contains("dependabot[bot]")) and
+  (.jobs."fix-hashes".if | contains("head.repo.full_name == github.repository")) and
+  (.jobs."fix-hashes".steps[0].with.ref == "${{ github.event.pull_request.base.sha }}") and
+  (.jobs."fix-hashes".steps[0].with."persist-credentials" == false)
+' "$TEST_ROOT/.github/workflows/ci.yml" >/dev/null \
+  || fail "Dependabot hash repair is not constrained to trusted base automation"
+grep -Fq 'determinate-nixd fix hashes --auto-apply' \
+  "$TEST_ROOT/nix/automation/fix-hashes.sh" \
+  || fail "packaged hash fixer does not invoke Determinate Nix"
+grep -Fq 'unset GH_TOKEN GITHUB_TOKEN' \
+  "$TEST_ROOT/nix/automation/fix-hashes.sh" \
+  || fail "packaged hash fixer exposes the write token during Nix evaluation"
 grep -Fq 'substituters = https://cache.nixos.org/' \
   "$TEST_ROOT/.github/actions/setup-nix/action.yml" \
   || fail "shared CI setup does not reset the public substituter baseline"
@@ -416,9 +433,13 @@ grep -Fq 'devenv shell -- cargo test' \
 grep -Fq 'automation/weekly-flake-input-refresh' \
   "$TEST_ROOT/nix/automation/queue.sh" \
   || fail "trusted flake updates are not eligible for the automation queue"
-grep -Fq 'actions: write' \
-  "$TEST_ROOT/.github/workflows/queue-automation.yml" \
-  || fail "trusted update validation cannot dispatch fallback CI"
+# shellcheck disable=SC2016
+yq -e '
+  .permissions.actions == "write" and
+  .permissions.contents == "write" and
+  .permissions."pull-requests" == "write"
+' "$TEST_ROOT/.github/workflows/queue-automation.yml" >/dev/null \
+  || fail "trusted update validation lacks required dispatch and merge permissions"
 grep -Fq '"growpart"' "$TEST_ROOT/modules/_nixos/xcp-ng.nix" \
   || fail "installed appliance does not enable cloud-init growpart"
 grep -Fq '"resizefs"' "$TEST_ROOT/modules/_nixos/xcp-ng.nix" \
